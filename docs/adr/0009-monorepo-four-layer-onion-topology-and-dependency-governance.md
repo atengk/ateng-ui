@@ -16,20 +16,22 @@ Accepted (已接受)
 
 1. **确立四层单向拓扑洋葱模型 (The 4-Layer Onion Topology)**：
    所有现有及未来模块严格归入四层，依赖流动方向只能自顶向下单向传递（**L3 ➔ L2 ➔ L1 ➔ L0**），绝对严禁逆向穿透：
-   - **L0 纯原生核心底座 (Core Layer，如 `@atengk/core`)**：纯 TypeScript 与 Web 标准 API 封装，保持纯净平台中立，零 UI、零 Vue 框架依赖；
-   - **L1 无头响应式层 (Headless Layer，如 `@atengk/vue`)**：纯 Vue 响应式状态机、无头 Hooks 与生命周期编排，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库与弹窗组件；
+   - **L0 纯原生核心底座 (Core Layer，如 `@atengk/core`)**：纯 TypeScript 与 Web 标准 API 封装，保持**纯净跨框架与平台中立，零 UI、零 Vue、零 React 依赖**；
+   - **L1 无头响应式层 (Headless Layer，当前为 `@atengk/vue`，架构预留 `@atengk/react`)**：纯响应式状态机、无头 Hooks 与生命周期编排，仅依赖 L0 与对应响应式框架（Vue/React），绝对严禁物理依赖任何具体 UI 库与弹窗组件；
    - **L2 专用能力/领域扩展层 (Extension Layer，如未来的 `@atengk/echarts`、`@atengk/editor`)**：封装特定图表、富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚；
-   - **L3 表现与高阶组件套件层 (UI & Suite Layer，如 `@atengk/element-plus` 及未来的移动端套件)**：组装下层 L0~L2 能力，呈现具体设计系统的 UI 组件、指令集与交互展厅。
-2. **无头表现彻底解耦与纯状态机契约**：
-   `@atengk/vue` 仅通过响应式 `error` 状态或 `onError` 回调向外派发业务异常，UI 消息与交互提示 100% 交由 L3 表现层接管；
-3. **拓扑登记准入硬门禁**：
+   - **L3 表现与高阶组件套件层 (UI & Suite Layer，当前为 `@atengk/element-plus`，架构预留未来的 React UI 套件及移动端套件)**：组装下层 L0~L2 能力，呈现具体设计系统的 UI 组件、指令集与交互展厅。
+2. **双轨多框架演进战略 (Dual-Track Multi-Framework Strategy)**：
+   架构确立“**一套核心底座（L0），双轨响应式驱动（Vue / React），多套 UI 表现套件**”设计。当前聚焦于 Vue 3.5 + Element Plus 深度实现；L0 保持绝对框架中立，严禁渗入 Vue 或 React 专有类型与钩子，确保未来直接扩展 `@atengk/react`（L1）与 React UI 套件（L3）时零适配成本。
+3. **无头表现彻底解耦与纯状态机契约**：
+   L1 无头层仅通过响应式 `error` 状态或 `onError` 回调向外派发业务异常，UI 消息与交互提示 100% 交由 L3 表现层接管；
+4. **拓扑登记准入硬门禁**：
    任何新建模块必须在根目录 `CONTEXT-MAP.md` 显式登记所属层级与合法依赖范围；未登记模块或检测到逆向依赖直接在 CI 与准出审查中红牌阻断。
 
 ## 效果与权衡
 
 - **收益**：
-  - **无限可扩展性**：清晰划分 L0~L3 边界后，新增领域扩展（L2）或全新 UI 体系（L3）无需改动下层代码，保障 Monorepo 平滑演进至百模块规模；
-  - **绝对无头可复用**：`@atengk/core` 与 `@atengk/vue` 可无缝在 Node、SSR、移动端、小程序及第三方设计系统中独立复用；
+  - **无限可扩展性与双轨框架就绪**：清晰划分 L0~L3 边界后，新增领域扩展（L2）或未来扩展 React 响应式层与 UI 套件无需改动下层核心底座，保障 Monorepo 平滑演进至百模块规模；
+  - **绝对无头可复用**：`@atengk/core` 保持 100% 框架中立，可无缝在 Node、SSR、移动端、小程序、Vue 与 React 宿主中零成本直接复用；
   - **确定性构建编排**：Turborepo 的 DAG 任务图保持单向无环，构建缓存命中率与并行流水线达到最优。
 - **代价**：
   - 牺牲了“在底层 Hook 中直接顺手弹出 `ElMessage.error`”的就地便利性，需要调用方在组件层或组合式函数中显式处理错误反馈或通过配置传递处理钩子。

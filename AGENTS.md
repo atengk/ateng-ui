@@ -11,7 +11,8 @@
 - **运行与包管理器**：Node.js `>=20.18.0`（开发环境推荐 22.x LTS），pnpm `>=9.12.3`（由根 `packageManager` 严格锁定，参见 [ADR-0001](./docs/adr/0001-toolchain-and-pnpm-version-baseline.md) 与 [ADR-0006](./docs/adr/0006-dependency-baseline-and-upgrade-governance-strategy.md)）；
 - **构建与编排**：Turborepo 2.x（增量编排与任务流），tsup 8.x（底层库双模构建，输出 ESM + CJS + DTS），Vite 6（应用与自验展厅构建）；
 - **核心依赖基线**：TypeScript `^5.6.0`，Vue `^3.5.0`（自验工程对齐 `^3.5.44`，参见 [ADR-0002](./docs/adr/0002-vue-3-5-baseline-and-reactive-props-contract.md)），Element Plus `>=2.8.0`（自验展厅锁定 `^2.14.7`，参见 [ADR-0005](./docs/adr/0005-element-plus-version-baseline-and-peer-strategy.md)），Axios `^1.7.7`；
-- **命名坐标与发版**：Scope 统一为 `@atengk/*`，采用 Changesets 独立版本流转模式（Independent Mode）。
+- **命名坐标与发版**：Scope 统一为 `@atengk/*`，采用 Changesets 独立版本流转模式（Independent Mode）；
+- **双轨多框架演进战略**：架构遵循“**一套 L0 纯 TS 原生核心底座，双轨响应式状态机驱动（Vue / React），多套 UI 表现套件**”设计。当前阶段聚焦深耕 Vue 3.5 + Element Plus 工业级落地；顶层架构完全就绪 React 镜像演进（未来通过 L1 `@atengk/react` 与 L3 React UI 套件无缝扩展），当前严禁提前堆砌未经实测的 React 代码细则。
 
 ---
 
@@ -19,10 +20,10 @@
 
 - **多模块四层洋葱拓扑与单向无环依赖律 (Multi-Package Layering & Acyclic Invariant)**：
   面向未来百模块级扩展，仓库内所有模块（`packages/*`）严格归入四层单向拓扑结构，**依赖方向只能自顶向下单向流动（L3 ➔ L2 ➔ L1 ➔ L0）**，严禁逆向依赖与跨包循环依赖：
-  - **L0 纯原生核心底座 (Core Layer，如 `@atengk/core`)**：纯 TypeScript 与 Web 标准 API 封装，保持**纯净平台中立，零 UI、零 Vue 依赖**；
-  - **L1 无头响应式层 (Headless Layer，如 `@atengk/vue`)**：纯 Vue 响应式状态机、无头 Hooks 与生命周期编排，**仅依赖 L0 与 Vue，绝对严禁依赖任何具体 UI 库**；
+  - **L0 纯原生核心底座 (Core Layer，如 `@atengk/core`)**：纯 TypeScript 与 Web 标准 API 封装，保持**纯净跨框架中立，零 UI、零 Vue、零 React 依赖**；
+  - **L1 无头响应式层 (Headless Layer，当前为 `@atengk/vue`，架构预留 `@atengk/react`)**：纯响应式状态机、无头 Hooks 与生命周期编排，**仅依赖 L0 与对应响应式框架（Vue/React），绝对严禁依赖任何具体 UI 库**；
   - **L2 专用能力/领域扩展层 (Extension Layer，如未来扩展的 `@atengk/echarts`、`@atengk/editor`)**：封装特定图表、富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚；
-  - **L3 表现与高阶组件层 (UI & Suite Layer，如 `@atengk/element-plus` 及未来的移动端/Admin 模板)**：组装下层 L0~L2 能力，呈现具体设计系统的 UI 组件与交互展厅。
+  - **L3 表现与高阶组件层 (UI & Suite Layer，当前为 `@atengk/element-plus`，架构预留未来的 React UI 套件及移动端/Admin 模板)**：组装下层 L0~L2 能力，呈现具体设计系统的 UI 组件与交互展厅。
   - **拓扑登记铁律**：任何新建模块必须在根目录 [CONTEXT-MAP.md](./CONTEXT-MAP.md) 显式登记所属层级与合法依赖范围，未登记模块直接阻断准出。
 - **显式强类型响应契约 (Explicit Contract)**：
   前端网络请求管道严格对齐企业级统一响应规范：
@@ -83,9 +84,9 @@
 5. **分层防卫与快速失败 (Defense-in-Depth & Fail-Fast Invariant)**：
    - 核心方法与公共 Hooks 在执行具体业务或请求前，必须通过前置卫语句对关键入参（如 URL、必填参数、分页负数）实施严格校验；
    - 发现非法状态立即快速失败（抛出语义化异常或返回预设错误态），严禁放任脏数据穿透至网络层。
-6. **环境宿主中立与弹性防御 (Platform-Agnostic & SSR/Node Resilience Invariant)**：
-   - 底层核心包（`@atengk/core`）必须保持纯净平台中立，严禁直接硬编码依赖浏览器特有的全局变量（如裸写 `window`、`document`、`localStorage`）；
-   - 在必须访问宿主环境处，提供弹性探测与降级守卫，确保在 SSR、Node 命令行及微前端沙箱下平稳加载。
+6. **环境宿主与跨框架中立防御 (Platform-Agnostic & Framework-Neutral Resilience Invariant)**：
+   - 底层核心包（`@atengk/core`）必须保持纯净平台中立与框架中立，严禁直接硬编码依赖浏览器特有的全局变量（如裸写 `window`、`document`、`localStorage`），**绝对严禁渗入任何前端框架（Vue 或 React）专有的响应式类型（如 `Ref`、`State`）或特定框架钩子**；
+   - 在必须访问宿主环境处，提供弹性探测与降级守卫，确保在 SSR、Node 命令行及未来 React 宿主环境平稳加载与零成本接入。
 7. **因果异常体系与底层驱动解耦 (Causal Exceptions & Clean Mapping Invariant)**：
    - 严禁吞咽异常（禁止空的 `catch` 块或仅使用 `console.error` 敷衍）；
    - 网络底层 Axios 错误必须在拦截器统一转译为类型安全的 `BusinessException`，并将后端的 `code`、`msg` 与 `traceId` 完整封装；
@@ -118,7 +119,8 @@
     4. 产生跨层逆向依赖（如底层依赖上层包）或跨包循环依赖；
     5. 公共 API 未在入口 `index.ts` 完整具名导出类型定义；
     6. 集合查询未保底返回 `[]`，或监听资源未在销毁钩子中确定性清理；
-    7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断。
+    7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断；
+    8. 底层核心包（`@atengk/core`）渗入 Vue 或 React 专有响应式类型、框架钩子或运行时依赖。
   - ⚠️ **黄牌限期整改项 (Yellow Warning)**：
     1. 新建源码顶部遗漏 `@author Ateng` 或 `@since`；
     2. 流程注释步骤编号不连续或存在孤立步骤号；
@@ -242,6 +244,7 @@
        - [ ] **十二道成熟度防线自检**：是否通过空安全保底返回 `[]`、确定性生命周期清理、严格单向流、对称门面、边界 Fail-Fast、因果异常转译、零裸 `any`、无头与 UI 解耦等全部 12 项检查？
        - [ ] **单测环境隔离**：是否在 `afterEach` 中执行 DOM 节点销毁（`wrapper.unmount()`）、清空 Storage 状态、100% 离线 Mock 自洽？
        - [ ] **雪花 ID 大数防线**：网络请求反序列化是否通过正则加引号固化为 String，严禁数字截断？
+       - [ ] **L0 跨框架纯净防御**：底层核心包（`@atengk/core`）是否保持 100% 平台中立与框架中立，严禁引入 Vue 或 React 专有响应式类型（`Ref`/`State`）与运行时钩子？
        - [ ] **样式隔离与无侵入**：组件样式是否强制 `scoped` 且遵循 `at-` 独立命名空间？是否复用 `--el-*` Design Tokens？
        - [ ] **副作用声明**：`package.json` 是否显式声明 `"sideEffects": false`（或仅限定样式）？顶级入口是否纯净导出？
      - **审查红牌阻断 (Red Card Gate)**：调用 `/code-review` 开展双轴审查；若审查发现模块公开功能在 Sample 中缺位、文档示例未经 Sample 真实跑通、文档漏写公开功能，或触碰成熟度红线，一律出具红牌阻断，强制返修直至双绿；

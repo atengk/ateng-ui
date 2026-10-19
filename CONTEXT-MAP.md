@@ -11,12 +11,14 @@
 ### L0 纯原生核心底座 (Core Layer)
 
 - **[Core 核心契约与网络底座](./packages/core/CONTEXT.md)**（`@atengk/core`）：
-  纯 TypeScript 无框架核心基础设施，保持平台中立，零 UI、零 Vue 依赖。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Sa-Token 凭据门面（`AuthManager`）、全链路 `traceId` 透传与提取、雪花 Long ID 大数防精度截断转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
+  纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Sa-Token 凭据门面（`AuthManager`）、全链路 `traceId` 透传与提取、雪花 Long ID 大数防精度截断转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
 
 ### L1 无头响应式层 (Headless Layer)
 
-- **[Vue 响应式通用 Hooks](./packages/vue/CONTEXT.md)**（`@atengk/vue`）：
+- **[Vue 响应式通用 Hooks](./packages/vue/CONTEXT.md)**（`@atengk/vue`，当前活跃）：
   面向现代 Web 应用的 Vue 3 通用 Composables/Hooks 基础设施。无头（Headless）状态管理，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库。提供 `useRequest`（防抖/节流/轮询）、`usePagination`（零样板分页）、`useLatest`（异步抗竞态状态机）、`useAuth`（权限/角色响应式门面）、`useTenant`（多租户状态切换）、`useStorage`（多源上传/直传/下载抽象）、`useExcel`（流式导出与错误批注驱动）以及 `useIdempotent`（前端防重幂等触发器）。
+- **React 响应式通用 Hooks**（`@atengk/react`，架构预留规划）：
+  未来面向 React 生态的无头 Hooks 与状态机基础设施，对标 `@atengk/vue` 镜像能力，纯 Hooks 驱动，零具体 UI 依赖。
 
 ### L2 专用能力/领域扩展层 (Extension Layer)
 
@@ -25,8 +27,10 @@
 
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
 
-- **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`）：
+- **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`，当前活跃）：
   基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengTable`（高度整合契约的分页表格容器）、`AtengExcelFeedback`（Excel 导入标红批注错误在线预览与回写弹窗）、`AtengUpload`（存储直传与断点上传下载组件）、`v-permission`（细粒度按钮权限指令）、`v-role`（角色指令）以及 `v-idempotent`（按键防刷防重指令）。
+- **React 企业级组件套件**（如 `@atengk/antd` 等，架构预留规划）：
+  未来面向 React 生态的高阶组件套件，组装下层 L0 及 `@atengk/react` 能力。
 
 ### 1:1 镜像验证工程 (Apps)
 
@@ -50,6 +54,7 @@ flowchart TD
 
     subgraph L3["L3 表现与高阶组件层 (UI & Suite Layer)"]
         EP["@atengk/element-plus<br/>(Element Plus 增强组件与指令)"]
+        REACT_UI["规划: @atengk/antd 等<br/>(React 企业级 UI 套件)"]
         FUTURE_UI["未来的移动端 / Admin 套件..."]
     end
 
@@ -58,11 +63,12 @@ flowchart TD
     end
 
     subgraph L1["L1 无头响应式层 (Headless Layer)"]
-        VUE["@atengk/vue<br/>(Vue 3 无头 Composables / 纯状态机 / 零 UI 依赖)"]
+        VUE["@atengk/vue<br/>(Vue 3 无头 Composables / 零 UI 依赖)"]
+        REACT_HOOKS["规划: @atengk/react<br/>(React 无头 Hooks / 零 UI 依赖)"]
     end
 
     subgraph L0["L0 纯原生核心底座 (Core Layer)"]
-        CORE["@atengk/core<br/>(无框架纯 TS 契约与网络层 / 平台中立)"]
+        CORE["@atengk/core<br/>(无框架纯 TS 契约与网络层 / 跨框架中立)"]
     end
 
     subgraph Samples["1:1 镜像验证工程 (Apps)"]
@@ -87,9 +93,10 @@ flowchart TD
 ### 拓扑流动与防线铁律
 
 1. **单向无环流动律 (L3 ➔ L2 ➔ L1 ➔ L0)**：任何下层模块（如 L0、L1）严禁物理反向引用上层模块代码与组件；严禁跨包循环依赖；
-2. **纯状态机无头契约**：`@atengk/vue`（L1）严禁依赖或直接调用任何具体 UI 弹窗（如 `ElMessage`），异常反馈统一由表现层接管；
+2. **纯状态机无头契约**：L1 无头层（`@atengk/vue` 及未来的 `@atengk/react`）严禁依赖或直接调用任何具体 UI 弹窗（如 `ElMessage` / `Antd message`），异常反馈统一由表现层接管；
 3. **百模块准入登记硬门禁**：任何新建子包必须在此上下文映射表中显式声明归属层级与合法依赖范围，未登记直接阻断准出；
-4. **1:1 镜像自验铁律**：核心包必须具备对应的 `apps/sample-*` 沙箱，特性 100% 具备端到端测试覆盖与真机体验。
+4. **1:1 镜像自验铁律**：核心包必须具备对应的 `apps/sample-*` 沙箱，特性 100% 具备端到端测试覆盖与真机体验；
+5. **双轨多框架解耦架构**：坚守“一套 L0 纯 TS 原生核心底座，双轨响应式驱动（Vue / React），多套 UI 表现套件”格局。底层 L0 绝对严禁渗入 Vue 或 React 专有类型与钩子，确保未来 React 零成本镜像扩展。
 
 ---
 
