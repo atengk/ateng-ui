@@ -1,0 +1,8 @@
+/**
+ * 面向现代企业级架构的无框架纯 TypeScript 契约与工业级网络请求底座。
+ *
+ * @author Ateng
+ * @since 2026-10-19
+ */
+
+export const VERSION: string = '0.1.0';

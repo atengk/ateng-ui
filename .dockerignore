@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.githooks
+
+# Dependencies & Build
+node_modules
+dist
+dist-ssr
+.turbo
+.cache
+.tsup
+
+# Tests & Coverage
+coverage
+.vitest
+
+# Docs & Configs
+docs
+*.md
+LICENSE
+
+# CI/CD & IDE
+.github
+.idea
+.vscode
+
+# Environment & Logs
+.env*
+logs
+*.log

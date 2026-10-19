@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Git 预提交代码质量与排版增量机检钩子 (Pre-commit Hook)
+#
+# 在提交执行前，自动调用 lint-staged 针对本次暂存区代码执行秒级增量格式化与质量拦截，
+# 确保入库代码 100% 符合 Prettier 排版规范与 ESLint 质量防线。
+# ==============================================================================
+
+set -eo pipefail
+
+if ! command -v pnpm &> /dev/null; then
+  echo "⚠️ [pre-commit] 未检测到 pnpm，跳过本地预提交检查。"
+  exit 0
+fi
+
+# 仅对本次暂存区改动执行增量 Prettier 与 ESLint 检查
+pnpm exec lint-staged

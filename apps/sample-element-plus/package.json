@@ -1,0 +1,25 @@
+{
+  "name": "sample-element-plus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/element-plus 基础设施全特性交互体验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@atengk/element-plus": "workspace:*",
+    "element-plus": "^2.14.7",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

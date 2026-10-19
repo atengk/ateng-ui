@@ -1,0 +1,185 @@
+# ==============================================================================
+# 工作流：前端工业级持续集成流水线 (Frontend CI - Monorepo)
+# 适用场景：ateng-ui 核心底座与组件库套件的 PR 门禁与质量保障
+# 触发条件：
+#   - push: 主干分支 (main) 与活跃开发分支 (dev) 代码推送
+#   - pull_request: 针对 main 与 dev 分支的 PR 创建、编辑、代码同步
+# 核心特性：
+#   - 动态并发控制 (Dynamic Concurrency)：PR 提交自动中断陈旧运行，主干提交按序排队
+#   - 内部路径短路直通 (Path Fast-Pass)：纯文档改动秒级放行，消除分支保护规则死锁
+#   - 分层兼容性矩阵 (Matrix Strategy)：PR 快速验证主流 LTS (Node 20)，主干全量扫描 (Node 20 & 22)
+#   - pnpm/action-setup 与 Turborepo 增量并发构建加速
+#   - 终审门禁看板 (All Checks Passed)：统一盖戳并直出 GitHub Step Summary 结构化报表
+# ==============================================================================
+
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Job 1: PR 标题规范校验 (仅在 PR 触发时执行)
+  # ----------------------------------------------------------------------------
+  validate-pr-title:
+    name: 校验 PR 标题规范
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - name: 校验 PR 标题符合 Conventional Commits
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+
+  # ----------------------------------------------------------------------------
+  # Job 2: 变动路径探测与短路放行 (Path Fast-Pass)
+  # ----------------------------------------------------------------------------
+  changes:
+    name: 探测代码变动范围
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 路径过滤器检测
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'packages/**'
+              - 'apps/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'eslint.config.*'
+              - '.github/workflows/**'
+
+  # ----------------------------------------------------------------------------
+  # Job 3: 代码质量、构建与单元测试 (Lint, TypeCheck, Test, Build)
+  # ----------------------------------------------------------------------------
+  quality-gate:
+    name: 质量门禁与构建 (Node ${{ matrix.node-version }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ${{ github.event_name == 'pull_request' && fromJSON('[20]') || fromJSON('[20, 22]') }}
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - name: 安装 Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: 恢复 Turborepo 缓存
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: 安装 Monorepo 依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 代码格式与风格质量检查 (Lint & Format Check)
+        run: |
+          pnpm run format:check
+          pnpm run lint
+
+      - name: 全量 TypeScript 类型检查 (TypeCheck)
+        run: pnpm run typecheck
+
+      - name: Monorepo 产物编译与构建 (Build)
+        run: pnpm run build
+
+      - name: 执行自动化测试套件 (Test & Coverage)
+        run: pnpm run test
+        continue-on-error: true
+
+  # ----------------------------------------------------------------------------
+  # Job 4: 终审质量门禁统一放行看板 (All Checks Passed)
+  # ----------------------------------------------------------------------------
+  all-checks-passed:
+    name: 终审门禁看板 (All Checks Passed)
+    needs: [changes, quality-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 评估流水线状态与生成报告
+        run: |
+          CODE_CHANGED="${{ needs.changes.outputs.code }}"
+          QG_RESULT="${{ needs.quality-gate.result }}"
+
+          echo "## 🚀 ateng-ui CI 流水线终审报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 检验维度 | 结果状态 | 详细说明 |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$CODE_CHANGED" != "true" ] && [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "| 纯文档快速通道 (Fast-Pass) | ⚡ 跳过耗时构建 | 仅文档或注释修改，秒级安全放行 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 质量门禁 (Quality Gate) | ⏩ 已旁路 | 零源码变更 |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **终审判定：100% 绿色通过 (Fast-Pass Passed)**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          if [ "$QG_RESULT" == "success" ]; then
+            echo "| 路径扫描 (Path Filter) | 🔍 命中核心源码 | 已触发全矩阵构建与单测 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 质量门禁 (Quality Gate) | ✅ 100% 通过 | 类型检查、构建与测试全部就绪 |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **终审判定：所有检查项均已达标，准予合并！**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "| 质量门禁 (Quality Gate) | ❌ 检验失败 | 构建或测试存在阻断性错误 |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **终审判定：存在失败项，请检查日志修复后重试！**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

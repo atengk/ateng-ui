@@ -1,0 +1,23 @@
+{
+  "name": "sample-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/vue 响应式通用 Hooks 自验工程",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

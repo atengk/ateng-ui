@@ -1,0 +1,59 @@
+# ==============================================================================
+# 工作流：Changesets 自动化多包独立发版流水线 (Release Pipeline)
+# 适用场景：ateng-ui 核心包与组件库独立版本发布 (npm + GitHub Releases)
+# 触发条件：
+#   - push: 主干分支 (main) 代码推送
+# ==============================================================================
+
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    name: Changesets 版本管理与发布
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - name: 安装 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 安装 Monorepo 依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 产物编译与类型构建
+        run: pnpm run build
+
+      - name: 运行 Changesets Action (版本聚合 PR 或发布 npm)
+        uses: changesets/action@v1
+        with:
+          publish: pnpm changeset publish --access public
+          version: pnpm changeset version
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

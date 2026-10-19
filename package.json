@@ -1,0 +1,64 @@
+{
+  "name": "ateng-ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "面向现代企业级中后台与微服务架构的工业级前端基础设施与中间件套件 | Production-ready enterprise frontend infrastructure suite.",
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:coverage": "vitest run --coverage",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.9",
+    "@eslint/js": "^9.14.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^9.14.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.30.0",
+    "globals": "^15.11.0",
+    "happy-dom": "^15.11.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.13.0",
+    "vitest": "^2.1.8",
+    "vue-eslint-parser": "^9.4.3"
+  },
+  "lint-staged": {
+    "*.{js,ts,vue,mjs,cjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml,html,css,scss}": [
+      "prettier --write"
+    ]
+  },
+  "keywords": [
+    "vue",
+    "element-plus",
+    "infrastructure",
+    "monorepo",
+    "typescript",
+    "frontend-suite"
+  ],
+  "author": "atengk",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/atengk/ateng-ui#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atengk/ateng-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/atengk/ateng-ui/issues"
+  }
+}

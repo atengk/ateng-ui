@@ -1,0 +1,15 @@
+# ==============================================================================
+# GitHub 代码属主与审阅者自动指派配置 (Code Owners)
+# 详见: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# ==============================================================================
+
+# 全局默认所有者
+* @atengk
+
+# 核心基础设施、自动化流水线与配置重点守护
+/.github/ @atengk
+/docs/ @atengk
+/packages/ @atengk
+/apps/ @atengk
+/package.json @atengk
+/pnpm-workspace.yaml @atengk
