@@ -11,3 +11,4 @@ export * from './contracts';
 export * from './transform';
 export * from './routing';
 export * from './mask';
+export * from './auth';

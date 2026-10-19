@@ -21,4 +21,14 @@ describe('@atengk/core baseline', () => {
     expect(core.formatMaskEmail).toBeDefined();
     expect(core.formatMaskName).toBeDefined();
   });
+
+  it('should export auth manager and storage from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.AuthManager).toBeDefined();
+    expect(core.createAuthManager).toBeDefined();
+    expect(core.authManager).toBeDefined();
+    expect(core.MemoryAuthStorage).toBeDefined();
+    expect(core.LocalStorageAuthStorage).toBeDefined();
+    expect(core.createDefaultAuthStorage).toBeDefined();
+  });
 });
