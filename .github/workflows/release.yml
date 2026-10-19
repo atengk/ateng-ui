@@ -50,7 +50,7 @@ jobs:
       - name: 运行 Changesets Action (版本聚合 PR 或发布 npm)
         uses: changesets/action@v1
         with:
-          publish: pnpm changeset publish --access public
+          publish: pnpm changeset publish
           version: pnpm changeset version
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'

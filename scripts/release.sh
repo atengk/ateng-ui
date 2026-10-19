@@ -43,7 +43,7 @@ log_info "当前分支: ${CURRENT_BRANCH}"
 printf "\n%b请选择发版操作步骤:%b\n" "${COLOR_BOLD}" "${COLOR_RESET}"
 printf "  %b1)%b  创建变更记录 (pnpm changeset) - 记录修改与 semver 影响\n" "${COLOR_GREEN}" "${COLOR_RESET}"
 printf "  %b2)%b  消耗变更集并升级版本 (pnpm changeset version) - 更新 package.json 与 CHANGELOG\n" "${COLOR_GREEN}" "${COLOR_RESET}"
-printf "  %b3)%b  本地打包并发布至 npm (pnpm changeset publish --access public)\n" "${COLOR_GREEN}" "${COLOR_RESET}"
+printf "  %b3)%b  本地打包并发布至 npm (pnpm changeset publish)\n" "${COLOR_GREEN}" "${COLOR_RESET}"
 printf "  %b4)%b  一键完整发布 (构建 -> 校验 -> 发布)\n" "${COLOR_GREEN}" "${COLOR_RESET}"
 printf "  %b0)%b  退出\n\n" "${COLOR_YELLOW}" "${COLOR_RESET}"
 
@@ -73,14 +73,14 @@ case "$CHOICE" in
       fi
     fi
     log_info "正在执行多包独立发版 (发布至官方 npm，Access: public)..."
-    pnpm changeset publish --access public
+    pnpm changeset publish
     log_success "发布流程执行完毕！"
     ;;
   4)
     log_info "执行全套发布前构建与验证..."
     pnpm run build
     pnpm run test
-    pnpm changeset publish --access public
+    pnpm changeset publish
     log_success "全流程构建与发布完毕！"
     ;;
   0|[qQ])
