@@ -31,4 +31,12 @@ describe('@atengk/core baseline', () => {
     expect(core.LocalStorageAuthStorage).toBeDefined();
     expect(core.createDefaultAuthStorage).toBeDefined();
   });
+
+  it('should export abort coordinator items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.AbortCoordinator).toBeDefined();
+    expect(core.createAbortCoordinator).toBeDefined();
+    expect(core.generateRequestKey).toBeDefined();
+    expect(core.isAbortError).toBeDefined();
+  });
 });
