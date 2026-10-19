@@ -103,4 +103,15 @@ const order = await orderClient.get('/order/detail/1001');
 
 ## 维度四：物理排版与代码全真验证
 
-所有示例均经过内部单元测试与 `apps/sample-core` 1:1 真实运行验证。
+所有示例代码 100% 逆向提取自单元测试与 `apps/sample-core` 1:1 真实运行展厅：
+
+1. **白盒单测与边界守护**：
+   ```bash
+   pnpm --filter @atengk/core test
+   ```
+2. **1:1 镜像自验展厅交互看板**：
+   ```bash
+   # 启动协议与网络请求看板 (访问 http://localhost:3001)
+   pnpm --filter sample-core dev
+   ```
+   自验工程 `apps/sample-core/src/main.ts` 构建了可视化协议交互看板，100% 覆盖上述全景矩阵中的所有核心 API、请求解包、雪花防截断对比、网关路由重写、防竞态中断与 Blob 双态下载。

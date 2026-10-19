@@ -1,0 +1,235 @@
+:root {
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --code-bg: #0f172a;
+  --code-text: #38bdf8;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+  padding: 24px;
+}
+
+.dashboard-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.version-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background-color: #dbeafe;
+  color: var(--primary);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.dashboard-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+button.btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.btn-primary {
+  background-color: var(--primary);
+  color: white;
+}
+button.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+button.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+button.btn-secondary:hover {
+  background-color: #e2e8f0;
+}
+
+button.btn-danger {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+button.btn-danger:hover {
+  background-color: #fecaca;
+}
+
+button.btn-success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+button.btn-success:hover {
+  background-color: #a7f3d0;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #cbd5e1;
+}
+
+.status-dot.active {
+  background-color: var(--success);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.inactive {
+  background-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.log-box {
+  background-color: var(--code-bg);
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diff-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.diff-pane {
+  padding: 10px;
+  border-radius: 6px;
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+}
+
+.diff-pane.danger {
+  border-color: #fca5a5;
+  background-color: #fff5f5;
+  color: #991b1b;
+}
+
+.diff-pane.success {
+  border-color: #86efac;
+  background-color: #f0fdf4;
+  color: #166534;
+}
+
+.table-preview {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-preview th,
+.table-preview td {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.table-preview th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
