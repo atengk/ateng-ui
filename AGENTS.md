@@ -17,6 +17,13 @@
 
 ## 2. 核心架构与编码契约 (Architecture & Invariants)
 
+- **多模块四层洋葱拓扑与单向无环依赖律 (Multi-Package Layering & Acyclic Invariant)**：
+  面向未来百模块级扩展，仓库内所有模块（`packages/*`）严格归入四层单向拓扑结构，**依赖方向只能自顶向下单向流动（L3 ➔ L2 ➔ L1 ➔ L0）**，严禁逆向依赖与跨包循环依赖：
+  - **L0 纯原生核心底座 (Core Layer，如 `@atengk/core`)**：纯 TypeScript 与 Web 标准 API 封装，保持**纯净平台中立，零 UI、零 Vue 依赖**；
+  - **L1 无头响应式层 (Headless Layer，如 `@atengk/vue`)**：纯 Vue 响应式状态机、无头 Hooks 与生命周期编排，**仅依赖 L0 与 Vue，绝对严禁依赖任何具体 UI 库**；
+  - **L2 专用能力/领域扩展层 (Extension Layer，如未来扩展的 `@atengk/echarts`、`@atengk/editor`)**：封装特定图表、富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚；
+  - **L3 表现与高阶组件层 (UI & Suite Layer，如 `@atengk/element-plus` 及未来的移动端/Admin 模板)**：组装下层 L0~L2 能力，呈现具体设计系统的 UI 组件与交互展厅。
+  - **拓扑登记铁律**：任何新建模块必须在根目录 [CONTEXT-MAP.md](./CONTEXT-MAP.md) 显式登记所属层级与合法依赖范围，未登记模块直接阻断准出。
 - **显式强类型响应契约 (Explicit Contract)**：
   前端网络请求管道严格对齐企业级统一响应规范：
   - 标准响应结构：`Result<T>`（包含 `code: number`、`data: T`、`msg: string`、`traceId: string`）；
@@ -26,6 +33,16 @@
   - 针对后端返回的 64 位整型（Snowflake ID、分布式全局主键），由于超过 JavaScript `Number.MAX_SAFE_INTEGER`（$2^{53}-1$）会发生致命精度截断；
   - 核心网络层（`@atengk/core`）在 Axios 原始数据转换管道（`transformResponse`）中，在反序列化前必须通过纳秒级正则匹配将 16 位以上无引号数字加双引号转换为字符串，随后交付 V8 原生 `JSON.parse`（参见 [ADR-0003](./docs/adr/0003-snowflake-long-id-raw-json-transform.md)）；
   - 严禁全链路使用原生裸 `JSON.parse` 直接解析后端实体，严禁引入低效且破坏序列化的 `json-bigint`。
+- **UI 组件封装与样式隔离契约 (Component & CSS Scoping Invariant)**：
+  面向 UI 组件库（如 `@atengk/element-plus` 及衍生 UI 扩展），严格执行样式隔离与组件暴露规范：
+  - **统一命名空间与 BEM**：组件根样式必须以 `at-` 作为独立命名空间前缀（如 `.at-table`），强制在 SFC 中开启 `<style scoped>`，严禁在未受命名空间保护的情况下全局污染或裸标签样式重写；
+  - **设计令牌复用 (Design Tokens)**：颜色、字体、边框、层级等样式统一复用 Element Plus 原生 CSS 变量（`--el-*`）或在 `at-` 命名空间下派生 `--at-*`，严禁在组件内部硬编码 Hex 颜色、固定像素大尺寸等魔法值；
+  - **泛型强类型接口**：组件 `defineProps<Props>()`、`defineEmits<Emits>()`、`defineSlots<Slots>()` 必须 100% 采用 TypeScript 泛型接口声明；
+  - **显式收敛暴露**：组件对外提供的方法与状态必须显式收敛在 `defineExpose` 中，并由该组件源码文件同步导出专属 Ref 实例类型（如 `export type AtengTableInstance = InstanceType<typeof AtengTable>`）。
+- **异步竞态与并发控制不变量 (Async Concurrency & Race Condition Invariant)**：
+  - **核心取消管道**：底层网络层（`@atengk/core`）原生支持传递 `AbortSignal`，并提供请求取消协调器，保障底层 HTTP 连接可随生命周期即时中断；
+  - **高频操作抗竞态**：无头逻辑层（`@atengk/vue`）针对搜索框联动、快速翻页、Tab 切换等高频异步场景，必须内置提供竞态控制状态机（如 `useLatest` 或请求状态机配置 `cancelPrevious: true`），确保后发请求先回时能够确定性丢弃或中断前序未决请求，彻底杜绝数据时序倒挂；
+  - **提交互斥防重锁**：涉及保存、删除、状态流转等写操作请求，必须显式配备 Loading 互斥锁与幂等保护，杜绝重复点击造成脏写。
 - **数据安全与“内存真明文”不变量 (In-Memory Plaintext Invariant)**：
   - 业务逻辑层、Composables 状态以及数据模型在内存中始终保持 100% 原始真实明文；
   - 严禁在获取到数据后直接就地打星号篡改响应式属性（防止提交或回传时将掩码脏数据回写数据库）；
@@ -46,9 +63,9 @@
 
 ---
 
-## 3. 工业级代码成熟度九道防线与审查红线 (The 9 Robustness Invariants)
+## 3. 工业级代码成熟度十二道防线与审查红线 (The 12 Robustness Invariants)
 
-立足于前端长期可维护性与面向未来无限扩展组件库的工业级基准，确立以下九道不可逾越的通用代码成熟度防线。任何一条违规直接触发代码审查红牌阻断（One-Vote Red Card Block）：
+立足于前端长期可维护性与面向未来无限扩展组件库的工业级基准，确立以下十二道不可逾越的通用代码成熟度防线：
 
 1. **空安全保底与防御性返回 (Null Safety & Defensive Return Invariant)**：
    - 任何获取列表、集合、分页数据的 Hook 或 API 门面，在无数据或查询结果为空时，**统一保底返回空数组 `[]`，绝对严禁返回 `undefined` 或 `null`**；
@@ -80,9 +97,32 @@
    - 单元测试严禁仅覆盖 Happy Path 玩具场景；
    - 核心契约与算法必须针对极限边缘场景编写对抗性测试用例（覆盖超大雪花数溢出、空结果集响应、401/403 权限降级、多重路由匹配冲突等）；
    - 所有特性在提交准出前必须在 1:1 镜像自验工程（`apps/sample-*`）中跑通真实端到端交互。
+10. **零 `any` 与强类型闭环防线 (Type-Safety & Zero-Any Invariant)**：
+    - **生产代码零裸 `any`**：生产源码（非测试桩代码）中严禁出现裸 `any`。遇到未知动态数据，必须使用 `unknown` 并配合类型守卫（Type Guard / Narrowing）或泛型推导；
+    - **禁止未经守卫的强转**：严禁直接通过 `as unknown as T` 绕过类型系统，生产源码中严禁使用非空断言 `!`，必须通过前置卫语句判空；
+    - **公共 API 类型导出完整性**：所有公共门面、组件 Props/Emits/Slots、Hooks 配置 Options 与返回实体类型，必须由所在子包入口 `index.ts` 100% 显式具名导出，严禁强迫下游通过深层路径引用隐蔽类型。
+11. **无头表现彻底解耦防线 (Headless & UI-Agnostic Invariant)**：
+    - `@atengk/vue` 属于纯无头响应式中间件层，**绝对严禁直接引用或物理调用 `ElMessage`、`ElNotification` 等具体 UI 弹窗组件**；
+    - 业务异常与失败反馈，在 Hook 内部统一封装为响应式状态（如 `error: ShallowRef<BusinessException | null>`）或通过 `onError` 回调向外派发，具体交互提示完全交由表现层（`@atengk/element-plus` 或业务视图）接管。
+12. **受管整洁代码与复杂度红线 (Managed Clean Code & Single Responsibility)**：
+    - **单文件复杂度上限**：单 Vue SFC 组件建议不超过 400 行，生产源码 TS 模块不超过 500 行；一旦超标，复杂交互逻辑必须外抽至 Composables，内部复杂子视图必须拆分为局部子组件；
+    - **SFC 排版结构标准**：Vue 组件统一遵循 `<script setup lang="ts">` 顶置、中置 `<template>`、底置 `<style scoped>` 的排版顺序；
+    - **文件级与契约注释**：新建源码文件顶部必须规范标注 JSDoc（包含清晰职责陈述、`@author Ateng` 与系统真实日期 `@since YYYY-MM-DD`）；对外开放的方法与 Props 必须附带 JSDoc 阐明业务含义与边界约束。
 
-- **审查红线阻断机制 (Review Redlines Gate)**：
-  在代码审查（`/code-review`）中，以上九道防线被列为一票否决红线项。凡发现触碰任一红线，审查 Agent 直接出具 Red Card 阻断本次提交准出。
+- **审查红牌与分级治理机制 (Review Redlines & Tiered Governance Gate)**：
+  在代码审查（`/code-review`）中，实施分级治理：
+  - 🛑 **红牌一票否决项 (Red Card Block)**：触碰任一红线直接阻断准出：
+    1. 源码中出现未受豁免的裸 `any` 或未经前置校验的非空断言 `!`；
+    2. 无头层（`@atengk/vue`）跨层依赖或直接调用 UI 弹窗；
+    3. 组件样式裸写未加 `scoped` 或未使用 `at-` 前缀污染全局命名空间；
+    4. 产生跨层逆向依赖（如底层依赖上层包）或跨包循环依赖；
+    5. 公共 API 未在入口 `index.ts` 完整具名导出类型定义；
+    6. 集合查询未保底返回 `[]`，或监听资源未在销毁钩子中确定性清理；
+    7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断。
+  - ⚠️ **黄牌限期整改项 (Yellow Warning)**：
+    1. 新建源码顶部遗漏 `@author Ateng` 或 `@since`；
+    2. 流程注释步骤编号不连续或存在孤立步骤号；
+    3. 组件代码行数轻微超出 400 行但未严重恶化可读性。
 
 ---
 
@@ -94,8 +134,10 @@
      ```bash
      pnpm --filter @atengk/core test
      ```
-  2. **阶梯二：本地提交准出验收（精准端到端集成）**：准备提交前，执行变更模块与对应自验工程（`apps/sample-*`）定向联动验证，杜绝无脑全量回归：
+  2. **阶梯二：本地提交准出验收（全维三道校验）**：准备提交前，执行变更模块与对应自验工程（`apps/sample-*`）的三维准出验收（编译类型无报错、静态规范全通过、端到端单测全绿）：
      ```bash
+     pnpm --filter @atengk/vue --filter sample-vue typecheck && \
+     pnpm --filter @atengk/vue --filter sample-vue lint && \
      pnpm --filter @atengk/vue --filter sample-vue test
      ```
   3. **阶梯三：全反应堆矩阵终极守护 (Post-Push CI Gate)**：全项目所有模块在 Node.js 20 & 22 矩阵下的全量回归，100% 交由 GitHub Actions CI 云端并行工作流异步守护；本地推送后通过 `gh run watch <run-id>` 闭环跟踪至全绿。
@@ -106,6 +148,21 @@
   1. **DOM 现场严格还原**：挂载测试组件（`mount`/`shallowMount`）后，必须在 `afterEach` 中执行 `wrapper.unmount()` 并安全清理 `document.body` 中挂载的全局节点（如弹窗/通知），严禁幽灵 DOM 残留污染后续用例；
   2. **响应式与存储零污染**：任何涉及修改全局状态（Pinia/Vuex）、Storage 适配器或 Token 凭据的测试，必须在 `beforeEach`/`afterEach` 中无条件执行重置与清空，杜绝跨测试用例的脏状态继承；
   3. **100% 离线自洽**：单测必须具备完全离线独立运行能力（基于 MSW 或 Vitest Mock 拦截网络），绝对严禁向外部真实物理网络发起 HTTP 请求。
+
+- **面向未来扩展的“新模块自举六件套”契约 (New Module Onboarding & Scaffolding Invariant)**：
+  面向未来持续扩展的大量全新子包，任何新增的 `packages/<name>` 必须原子化齐备以下 6 项标准要素，缺一不可准出：
+  1. **元数据与双模构建契约**：`package.json` 命名严格对齐 `@atengk/<name>`，构建采用 `tsup` 标准配置，显式声明 `exports` 导出 ESM (`dist/index.js`) + CJS (`dist/index.cjs`) + DTS (`dist/index.d.ts`)；
+  2. **独立领域词汇表**：必须在 `packages/<name>/CONTEXT.md` 建立独立的领域术语定义与 Avoid 负面词清单；
+  3. **1:1 镜像自验工程**：必须在 `apps/sample-<name>` 搭建开箱沙箱与端到端实测场景，接入根 Turbo 任务流水线；
+  4. **五维 README 交付模型**：子包必须配备包含特性全景速查矩阵的权威 `README.md`，示例代码 100% 逆向提取自 Sample；
+  5. **标准化质量脚本**：必须标配独立的 `test`、`typecheck`、`lint` 脚本，且单测遵循 DOM 清理与离线自洽 3 铁律；
+  6. **系统拓扑同步登记**：必须同步更新根目录 [CONTEXT-MAP.md](./CONTEXT-MAP.md) 的系统依赖拓扑图。
+
+- **极致 Tree-Shaking 与副作用零残留契约 (Tree-Shaking & Side-Effects Invariant)**：
+  随着模块数量增加，必须确保下游应用按需引入时未使用的代码 0 字节打入产物：
+  1. **显式声明副作用边界**：每个子包的 `package.json` 必须显式配置 `"sideEffects": false`（若包含组件样式文件，仅收敛为 `"sideEffects": ["*.css", "*.scss"]`）；
+  2. **包入口零隐式副作用**：所有包的顶级入口 `index.ts` 必须是**纯声明式导出 (Pure Declarative Exports)**，严禁在入口或文件顶层执行隐式副作用（如自动向全局 `window` 注入属性、自动执行 Polyfill、未经调用的组件自注册等）；
+  3. **插件安装显式受控**：若提供 Vue 插件安装器（`install(app)`），必须作为独立导出的函数供使用者主动调用，严禁在 `import` 时自动执行全局注册。
 
 - **五维生产就绪交付模型 (The 5D Production-Ready Invariant)**：
   子模块 `README.md` 面向真实生产接入者，严禁仅停留在简单 Demo 的自嗨罗列；任何新增或修改的功能特性，必须正交覆盖以下五个维度，缺一即阻断准出：
@@ -171,19 +228,22 @@
   GitHub Issues、PR 审阅与 CI 交互一律通过官方 `gh` 命令行闭环。工单生命周期严格遵循五阶段状态机：
   1. **认领**：查阅工单并指派当前开发者（`gh issue edit <n> --add-assignee "@me"`）；
   2. **TDD 与 Sample-First 逆向闭环实现**：
-     - **2.1 核心驱动与白盒单测**：测试驱动编码，全面遵循第 3 节“工业级代码成熟度九道防线”，在模块内部编写完善的白盒与对抗性单元测试；
+     - **2.1 核心驱动与白盒单测**：测试驱动编码，全面遵循第 3 节“工业级代码成熟度十二道防线”，在模块内部编写完善的白盒与对抗性单元测试；
      - **2.2 Sample 端到端实测补全（Hard Gate）**：在归属的 `apps/sample-*` 中编写真实端到端场景用例，100% 覆盖新增/修改的公开 API、组件、配置项与扩展 SPI，执行定向测试确保端到端全绿；
      - **2.3 全真逆向提取生成 `README.md`**：从已跑通的 Sample 源码、配置与实测输出中 1:1 逆向提取示例与结果，在所属子模块 `README.md` 中按“五维生产就绪交付模型”补齐全景矩阵、开箱代码、扩展定制接入、核心生产边界与实测输出契约；
   3. **准出、自检与双轴审查**：
      - 执行第 4 节阶梯二准出测试（纯文档改动免测）；
      - **《交付前成熟度与文档双向对齐清单 (Audit Checklist)》强制自检卡点**：
+       - [ ] **多模块拓扑单向流**：新增或修改模块依赖是否符合 L0~L3 洋葱拓扑？是否已登记在 `CONTEXT-MAP.md`？
        - [ ] **Sample 100% 场景对齐**：模块新增/修改的所有公共 API 方法、组件 Props/Emits、Hooks 是否已 100% 在归属的 `apps/sample-*` 工程中提供端到端真实可运行用例？
        - [ ] **Sample-First 逆向闭环**：`README.md` 中的所有 Vue/TS 示例代码与输出结果，是否 100% 提取自上述已验证跑通的 Sample 工程？
        - [ ] **全景速查矩阵**：模块新增/修改的所有公共组件、API、类型与指令是否 100% 入表？
        - [ ] **代码-文档真理一致性**：文档中展示的代码是否直接截取自已跑通的单测/Sample？组件 Props 与函数签名是否完全对齐？
-       - [ ] **九道成熟度防线自检**：是否通过空安全保底返回 `[]`、确定性生命周期清理、严格单向流、对称门面、边界 Fail-Fast、因果异常转译等全部 9 项检查？
+       - [ ] **十二道成熟度防线自检**：是否通过空安全保底返回 `[]`、确定性生命周期清理、严格单向流、对称门面、边界 Fail-Fast、因果异常转译、零裸 `any`、无头与 UI 解耦等全部 12 项检查？
        - [ ] **单测环境隔离**：是否在 `afterEach` 中执行 DOM 节点销毁（`wrapper.unmount()`）、清空 Storage 状态、100% 离线 Mock 自洽？
        - [ ] **雪花 ID 大数防线**：网络请求反序列化是否通过正则加引号固化为 String，严禁数字截断？
+       - [ ] **样式隔离与无侵入**：组件样式是否强制 `scoped` 且遵循 `at-` 独立命名空间？是否复用 `--el-*` Design Tokens？
+       - [ ] **副作用声明**：`package.json` 是否显式声明 `"sideEffects": false`（或仅限定样式）？顶级入口是否纯净导出？
      - **审查红牌阻断 (Red Card Gate)**：调用 `/code-review` 开展双轴审查；若审查发现模块公开功能在 Sample 中缺位、文档示例未经 Sample 真实跑通、文档漏写公开功能，或触碰成熟度红线，一律出具红牌阻断，强制返修直至双绿；
   4. **受控提交**：按第 5 节执行受控提交并推送（代码与文档同工单同提交原子交付）；
   5. **闭环**：守护 CI 监控至全绿，通过文件回写验收清单与提交哈希（`gh issue comment <n> -F <file>`），关闭工单（`gh issue close <n>`）。

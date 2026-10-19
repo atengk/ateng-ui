@@ -16,6 +16,10 @@
   "files": [
     "dist"
   ],
+  "sideEffects": [
+    "*.css",
+    "*.scss"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

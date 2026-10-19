@@ -12,6 +12,10 @@ _Avoid_: useFetch, useHttp, useApi, useQuery
 双向绑定 PageQuery 入参与 PageResult 响应的分页状态调度 Hook。
 _Avoid_: usePage, useTablePagination, usePager
 
+**useLatest**:
+解决高频异步操作时序倒挂的竞态控制 Hook，确保快速切换或连续触发时仅最新一次请求生效并自动作废未决前序请求。
+_Avoid_: useRace, useLatestAsync, useCancelPrevious, useAsyncLock
+
 ## 状态治理与扩展能力
 
 **useAuth**:
