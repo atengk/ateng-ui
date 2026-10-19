@@ -13,3 +13,4 @@ export * from './routing';
 export * from './mask';
 export * from './auth';
 export * from './abort';
+export * from './file';

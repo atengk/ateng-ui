@@ -39,4 +39,11 @@ describe('@atengk/core baseline', () => {
     expect(core.generateRequestKey).toBeDefined();
     expect(core.isAbortError).toBeDefined();
   });
+
+  it('should export file handling utilities from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.parseContentDispositionFilename).toBeDefined();
+    expect(core.checkBlobForJsonError).toBeDefined();
+    expect(core.saveBlobAsFile).toBeDefined();
+  });
 });
