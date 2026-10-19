@@ -12,4 +12,13 @@ describe('@atengk/core baseline', () => {
     expect(core.createGatewayRouter).toBeDefined();
     expect(core.resolveGatewayRoute).toBeDefined();
   });
+
+  it('should export data masking suite from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.formatMask).toBeDefined();
+    expect(core.formatMaskPhone).toBeDefined();
+    expect(core.formatMaskIdCard).toBeDefined();
+    expect(core.formatMaskEmail).toBeDefined();
+    expect(core.formatMaskName).toBeDefined();
+  });
 });
