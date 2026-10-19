@@ -27,6 +27,9 @@
 | **文件与Blob处理**   | 文件名解析         | `parseContentDispositionFilename`                                                                                    | `disposition: string => string`                  | 优先解析 RFC 5987/6266 filename* 与常规 filename，支持容错清理   | [file.test.ts](./test/file.test.ts)           |
 | **文件与Blob处理**   | Blob双态异常识别   | `checkBlobForJsonError`                                                                                              | `(data, contentType?, status?) => Promise<void>` | 探测 Blob 载荷是否为 JSON 业务错误并反序列化转译为业务异常       | [file.test.ts](./test/file.test.ts)           |
 | **文件与Blob处理**   | 安全文件下载       | `saveBlobAsFile`, `SaveBlobOptions`                                                                                  | `(blob, filename, options?) => boolean`          | 平台环境守卫（Node/SSR降级）、内存确定性回收与安全触发浏览器下载 | [file.test.ts](./test/file.test.ts)           |
+| **HTTP 客户端**      | 全局默认客户端     | `http`                                                                                                               | `HttpClient`                                     | 开箱即用的工业级单例，默认自动解包 `Promise<T>` 与统一拦截管道   | [http.test.ts](./test/http.test.ts)           |
+| **HTTP 客户端**      | 客户端工厂与门面   | `createHttpClient`, `DefaultHttpClient`, `HttpClient`, `HttpClientOptions`, `HttpRequestConfig`                      | `options => HttpClient`                          | 创建具备独立路由表、鉴权域与取消协调器的客户端实例               | [http.test.ts](./test/http.test.ts)           |
+| **HTTP 客户端**      | 拦截器管道挂载     | `setupInterceptors`, `InterceptorContext`                                                                            | `(instance, context) => void`                    | 为自定义 Axios 实例挂载全套工业级请求与响应拦截器                | [http.test.ts](./test/http.test.ts)           |
 
 ---
 
@@ -38,19 +41,55 @@
 pnpm add @atengk/core axios
 ```
 
-### 快速接入
+### 开箱即用请求与自动解包
 
 ```ts
-import { VERSION } from '@atengk/core';
+import { http, authManager } from '@atengk/core';
 
-console.log(`@atengk/core 当前版本: ${VERSION}`);
+// 1. 设置鉴权凭据（自动注入 satoken 与 Authorization 双轨请求头）
+authManager.setToken('YOUR_TOKEN_STRING');
+
+// 2. 发起 GET 请求（自动校验 code === 200 并解包返回实体 User）
+interface User {
+  id: string; // 64位雪花 ID 自动保留为字符串防截断
+  name: string;
+}
+
+const user = await http.get<User>('/api/user/info');
+console.log(`当前用户: ${user.name}`);
+
+// 3. 逃生门：通过 { unwrap: false } 获取完整的 Result<T> 信封
+const envelope = await http.get<User>('/api/user/info', { unwrap: false });
+console.log(`业务状态码: ${envelope.code}, TraceId: ${envelope.traceId}`);
 ```
 
 ---
 
 ## 维度二：生产扩展接管 (Customization & Extensibility)
 
-待具体业务特性（如 Axios 实例工厂、双轨 AuthStorage 适配器等）落地后，1:1 逆向提取自对应 Sample 工程。
+在微前端、多服务网关与独立鉴权域场景下，可通过工厂函数创建独立客户端实例：
+
+```ts
+import { createHttpClient, createAuthManager, MemoryAuthStorage } from '@atengk/core';
+
+// 创建拥有独立网关与独立鉴权域的微服务客户端
+const orderClient = createHttpClient({
+  baseURL: 'https://gateway.example.com',
+  timeout: 15000,
+  cancelDuplicate: true, // 开启防竞态/重复请求自动中断
+  routes: [
+    { prefix: '/order', target: 'https://order-service.internal', rewritePrefix: '/api/v1' },
+    { prefix: '/pay', target: 'https://pay-service.internal' },
+  ],
+  authManager: createAuthManager({ storage: new MemoryAuthStorage() }),
+  onUnauthorized: () => {
+    console.warn('登录已过期，重定向至登录页');
+  },
+});
+
+// 发起请求，自动将 /order 路径重写分发至 order-service
+const order = await orderClient.get('/order/detail/1001');
+```
 
 ---
 

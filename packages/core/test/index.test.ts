@@ -46,4 +46,13 @@ describe('@atengk/core baseline', () => {
     expect(core.checkBlobForJsonError).toBeDefined();
     expect(core.saveBlobAsFile).toBeDefined();
   });
+
+  it('should export http client items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.DefaultHttpClient).toBeDefined();
+    expect(core.createHttpClient).toBeDefined();
+    expect(core.http).toBeDefined();
+    expect(core.setupInterceptors).toBeDefined();
+    expect(core.getBlobDisposition).toBeDefined();
+  });
 });
