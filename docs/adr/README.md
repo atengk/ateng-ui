@@ -13,3 +13,4 @@
 | [ADR-0007](./0007-code-specification-and-static-analysis-governance.md)            | 代码规范与静态代码分析治理策略                       | Accepted | ESLint 9 Flat Config + Prettier 3 职责解耦，固化工业防线硬规则，CI 零缺陷硬门禁   |
 | [ADR-0008](./0008-unit-testing-engine-and-lightweight-dom-environment.md)          | 单元测试引擎与轻量 DOM 运行环境选型                  | Accepted | Vitest 2.x 工作区调度，happy-dom 轻量提速 70%，node/DOM 分层隔离与全自洽单测铁律  |
 | [ADR-0009](./0009-monorepo-four-layer-onion-topology-and-dependency-governance.md) | Monorepo 多模块四层洋葱拓扑与单向依赖治理架构        | Accepted | L0~L3 四层单向无环流动，无头与 UI 彻底解耦，为百模块扩展确立准入与拓扑硬防线      |
+| [ADR-0010](./0010-http-client-architecture-and-response-unwrapping.md)             | HTTP 客户端分层架构、响应解包与因果异常转译契约      | Accepted | 工厂与单例双轨，默认解包 Promise<T> 与配置逃生门，统一 BusinessException 因果转译 |
