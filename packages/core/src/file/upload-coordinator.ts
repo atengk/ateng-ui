@@ -104,7 +104,7 @@ export class UploadCoordinator<T = unknown> implements IUploadCoordinator<T> {
     this.onProgress?.(0, 0, totalBytes);
 
     const queue = [...chunks];
-    const results: UploadChunkResult<T>[] = new Array(chunks.length);
+    const results: UploadChunkResult<T>[] = [];
     let fatalError: Error | null = null;
     let isAborted = false;
 
@@ -131,7 +131,7 @@ export class UploadCoordinator<T = unknown> implements IUploadCoordinator<T> {
 
           try {
             const result = await this.uploadChunkFn(chunk, signal);
-            results[chunk.index] = { index: chunk.index, result };
+            results.push({ index: chunk.index, result });
             this.onChunkSuccess?.(chunk, result);
 
             loadedBytes += chunk.size;
@@ -184,7 +184,7 @@ export class UploadCoordinator<T = unknown> implements IUploadCoordinator<T> {
     // 最终保底进度 100%
     this.onProgress?.(100, totalBytes, totalBytes);
 
-    return results;
+    return results.sort((a, b) => a.index - b.index);
   }
 
   /**

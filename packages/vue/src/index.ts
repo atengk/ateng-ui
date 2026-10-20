@@ -16,3 +16,4 @@ export * from './auth';
 export * from './tenant';
 export * from './idempotent';
 export * from './excel';
+export * from './upload';

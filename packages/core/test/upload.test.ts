@@ -135,6 +135,25 @@ describe('UploadCoordinator & createFileChunks (大文件切片与并发上传�
       expect(results).toHaveLength(3);
       expect(results.map(r => r.result)).toEqual(['uploaded-0', 'uploaded-1', 'uploaded-2']);
     });
+
+    it('对非零起始切片子集（如断点续传）应正确排序且返回紧凑数组无稀疏孔洞', async () => {
+      const fullChunks = createFileChunks(createDummyBlob(5 * 1024 * 1024), 1024 * 1024);
+      // 选取索引为 2 和 4 的子集切片模拟断点重传
+      const subsetChunks = [fullChunks[4], fullChunks[2]];
+
+      const coordinator = createUploadCoordinator({
+        concurrency: 2,
+        uploadChunk: async chunk => ({ chunkId: chunk.index }),
+      });
+
+      const results = await coordinator.upload(subsetChunks);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].index).toBe(2);
+      expect(results[0].result).toEqual({ chunkId: 2 });
+      expect(results[1].index).toBe(4);
+      expect(results[1].result).toEqual({ chunkId: 4 });
+    });
   });
 
   describe('3. 进度单调递增统计 (onProgress)', () => {

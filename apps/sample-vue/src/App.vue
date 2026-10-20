@@ -21,6 +21,7 @@ import LatestDemo from './components/LatestDemo.vue';
 import AuthTenantDemo from './components/AuthTenantDemo.vue';
 import IdempotentDemo from './components/IdempotentDemo.vue';
 import ExcelDemo from './components/ExcelDemo.vue';
+import UploadDemo from './components/UploadDemo.vue';
 
 // 1. 读取全局注入配置
 const config = useAtengConfig();
@@ -219,6 +220,9 @@ const onOptimisticMutate = () => {
 
     <!-- 8. Fesod 流式 Excel 导出与批注回写自验组件 -->
     <ExcelDemo />
+
+    <!-- 9. 大文件分片切片与受控并发上传自验组件 -->
+    <UploadDemo />
   </main>
 </template>
 
