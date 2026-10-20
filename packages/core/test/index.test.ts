@@ -90,4 +90,23 @@ describe('@atengk/core baseline', () => {
     expect(core.LocalStorageCacheDriver).toBeDefined();
     expect(core.createDefaultCacheDriver).toBeDefined();
   });
+
+  it('should export retry and dedupe items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.RequestDeduplicator).toBeDefined();
+    expect(core.createRequestDeduplicator).toBeDefined();
+    expect(core.generateDedupeKey).toBeDefined();
+    expect(core.isIdempotentMethod).toBeDefined();
+    expect(core.isRetriableError).toBeDefined();
+    expect(core.calculateBackoffDelay).toBeDefined();
+  });
+
+  it('should export security signer items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.DefaultRequestSigner).toBeDefined();
+    expect(core.createRequestSigner).toBeDefined();
+    expect(core.sha256Hex).toBeDefined();
+    expect(core.generateNonce).toBeDefined();
+    expect(core.defaultBuildCanonicalString).toBeDefined();
+  });
 });

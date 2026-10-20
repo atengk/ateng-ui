@@ -13,6 +13,7 @@ import type { TenantManager } from '../tenant';
 import type { AbortCoordinator } from '../abort';
 import type { RequestDeduplicator } from '../dedupe';
 import type { RetryPolicy } from '../retry';
+import type { RequestSigner } from '../security';
 
 /**
  * 扩展 Axios 请求配置，赋予微服务路由、重复请求中断与结果自动解包控制能力。
@@ -39,6 +40,14 @@ export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D>, R
    * 自定义去重指纹键（覆盖基于 Method + URL + Params 的自动指纹生成）。
    */
   dedupeKey?: string;
+
+  /**
+   * 是否对当前请求进行防重放与防篡改签名。
+   * - true: 强制进行签名计算并注入请求头；
+   * - false: 强制跳过签名计算；
+   * - undefined: 遵循客户端关联的 RequestSigner.shouldSign 判定（默认写操作签名）。
+   */
+  sign?: boolean;
 
   /**
    * 是否自动解包 Result<T> 响应载荷。
@@ -91,6 +100,11 @@ export interface HttpClientOptions extends RetryPolicy {
    * 飞行中并发请求去重调度器。若未提供，将为当前客户端分配专属实例。
    */
   deduplicator?: RequestDeduplicator;
+
+  /**
+   * API 请求防重放与防篡改签名器实例。若提供，请求拦截器将在发送前自动计算并注入签名 Header。
+   */
+  signer?: RequestSigner;
 
   /**
    * 客户端全局默认防重复提交与竞态中断开关。默认为 false。
@@ -151,6 +165,11 @@ export interface HttpClient {
    * 当前客户端绑定的微服务网关路由器。
    */
   readonly router: GatewayRouter;
+
+  /**
+   * 当前客户端绑定的防重放与防篡改签名器（若已配置）。
+   */
+  readonly signer?: RequestSigner;
 
   /**
    * 发起通用网络请求。

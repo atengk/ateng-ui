@@ -15,6 +15,7 @@ import { authManager as defaultAuthManager, type AuthManager } from '../auth';
 import { tenantManager as defaultTenantManager, type TenantManager } from '../tenant';
 import { createAbortCoordinator, type AbortCoordinator } from '../abort';
 import { createRequestDeduplicator, type RequestDeduplicator } from '../dedupe';
+import type { RequestSigner } from '../security';
 import { parseContentDispositionFilename, saveBlobAsFile } from '../file';
 import { setupInterceptors, getBlobDisposition } from './interceptors';
 import type { HttpClient, HttpClientOptions, HttpRequestConfig } from './types';
@@ -54,6 +55,11 @@ export class DefaultHttpClient implements HttpClient {
   readonly router: GatewayRouter;
 
   /**
+   * 当前客户端绑定的 API 请求防重放与防篡改签名器。
+   */
+  readonly signer?: RequestSigner;
+
+  /**
    * 客户端全局默认是否对并发同指纹只读请求去重合并。
    */
   private readonly defaultDedupeInFlight: boolean;
@@ -71,6 +77,7 @@ export class DefaultHttpClient implements HttpClient {
       defaultTarget,
       authManager = defaultAuthManager,
       tenantManager = defaultTenantManager,
+      signer,
       abortCoordinator = createAbortCoordinator(),
       deduplicator = createRequestDeduplicator(),
       cancelDuplicate = false,
@@ -85,6 +92,7 @@ export class DefaultHttpClient implements HttpClient {
 
     this.authManager = authManager;
     this.tenantManager = tenantManager;
+    this.signer = signer;
     this.abortCoordinator = abortCoordinator;
     this.deduplicator = deduplicator;
     this.defaultDedupeInFlight = dedupeInFlight;
@@ -102,6 +110,7 @@ export class DefaultHttpClient implements HttpClient {
       router: this.router,
       authManager: this.authManager,
       tenantManager: this.tenantManager,
+      signer: this.signer,
       abortCoordinator: this.abortCoordinator,
       defaultCancelDuplicate: cancelDuplicate,
       defaultUnwrap: unwrap,

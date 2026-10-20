@@ -23,6 +23,7 @@ import type { TenantManager } from '../tenant';
 import { generateRequestKey, isAbortError, type AbortCoordinator } from '../abort';
 import { checkBlobForJsonError } from '../file';
 import { isIdempotentMethod, isRetriableError, calculateBackoffDelay } from '../retry';
+import type { RequestSigner } from '../security';
 import type { HttpRequestConfig } from './types';
 
 /**
@@ -79,6 +80,7 @@ export interface InterceptorContext {
   router: GatewayRouter;
   authManager: AuthManager;
   tenantManager?: TenantManager;
+  signer?: RequestSigner;
   abortCoordinator: AbortCoordinator;
   defaultCancelDuplicate: boolean;
   defaultUnwrap: boolean;
@@ -152,6 +154,33 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       for (const [key, value] of Object.entries(tenantHeaders)) {
         if (!customConfig.headers[key] && value) {
           customConfig.headers[key] = value;
+        }
+      }
+    }
+
+    // 1.3.2 API 请求防重放与防篡改签名自动注入
+    if (context.signer) {
+      const shouldSign =
+        customConfig.sign !== undefined
+          ? customConfig.sign
+          : context.signer.shouldSign(customConfig);
+
+      if (shouldSign) {
+        const timestamp = context.signer.generateTimestamp();
+        const nonce = context.signer.generateNonce();
+        const signResult = await context.signer.sign({
+          method: customConfig.method,
+          url: customConfig.url,
+          params: customConfig.params,
+          data: customConfig.data,
+          timestamp,
+          nonce,
+        });
+
+        for (const [key, value] of Object.entries(signResult.headers)) {
+          if (value) {
+            customConfig.headers[key] = value;
+          }
         }
       }
     }
