@@ -119,5 +119,12 @@ describe('Assertions (业务条件断言与防御性判空)', () => {
       expect(isNotEmpty(0)).toBe(true);
       expect(isNotEmpty(false)).toBe(true);
     });
+
+    it('Date、RegExp 与 Error 等非纯对象不应误判为空', () => {
+      expect(isEmpty(new Date())).toBe(false);
+      expect(isEmpty(/abc/)).toBe(false);
+      expect(isEmpty(new Error('test'))).toBe(false);
+      expect(isNotEmpty(new Date())).toBe(true);
+    });
   });
 });

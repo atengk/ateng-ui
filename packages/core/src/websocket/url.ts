@@ -18,6 +18,14 @@ export function appendQueryParams(
   rawUrl: string,
   params: Record<string, string | number | boolean | undefined | null>,
 ): string {
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return '';
+  }
+
+  if (!params || typeof params !== 'object') {
+    return rawUrl;
+  }
+
   const validEntries = Object.entries(params).filter(
     ([_, val]) => val !== undefined && val !== null && val !== '',
   );

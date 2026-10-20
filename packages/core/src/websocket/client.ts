@@ -98,7 +98,9 @@ export class WebSocketClient {
       return this.connectPromise ?? Promise.resolve();
     }
 
+    // 1. 重置主动关闭标记并立即停止待执行的重连定时器，消除并发重连竞态
     this.isManualClose = false;
+    this.stopReconnect();
     this.status = 'CONNECTING';
 
     const urlResult = resolveWebSocketUrl(this.options);
@@ -317,6 +319,25 @@ export class WebSocketClient {
     } catch {
       this.status = 'CLOSED';
     }
+  }
+
+  /**
+   * 清空所有已注册的生命周期监听器与主题订阅者。
+   */
+  clearListeners(): void {
+    for (const key of Object.keys(this.listeners) as (keyof WebSocketEventMap)[]) {
+      this.listeners[key].clear();
+    }
+    this.topicSubscribers.clear();
+  }
+
+  /**
+   * 确定性销毁当前 WebSocket 客户端。
+   * 自动断开物理连接并清空所有事件监听与主题订阅，保障组件销毁时零内存泄漏。
+   */
+  destroy(): void {
+    this.close();
+    this.clearListeners();
   }
 
   /**

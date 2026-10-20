@@ -36,7 +36,7 @@ export interface Result<T = unknown> {
  * @param value 待检查的值
  * @returns 是否为有效的 Result 实体
  */
-export function isResult(value: unknown): value is Result<unknown> {
+export function isResult<T = unknown>(value: unknown): value is Result<T> {
   if (typeof value !== 'object' || value === null) {
     return false;
   }

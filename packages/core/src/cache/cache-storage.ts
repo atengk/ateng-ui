@@ -225,12 +225,6 @@ export class CacheStorage {
           this.driver.removeItem(k);
         }
       }
-      return;
-    }
-
-    // 若驱动未实现 getAllKeys 但支持 clear，作为安全后备
-    if (this.driver.clear) {
-      this.driver.clear();
     }
   }
 

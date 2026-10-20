@@ -121,7 +121,7 @@
     6. 集合查询未保底返回 `[]`，或监听资源未在销毁钩子中确定性清理；
     7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断；
     8. 底层核心包（`@atengk/core`）渗入 Vue 或 React 专有响应式类型、框架钩子或运行时依赖；
-    9. 新增/修改的公开功能未在 Sample 页面渲染呈现、未启动服务提供页面体验、或未经人工页面审核确认擅自交付。
+    9. 新增/修改的公开功能未在 Sample 页面渲染呈现、未启动服务提供页面体验、或未经人工页面审核确认擅自交付（必须严格遵循“两段式人机阻断验收协议”）。
   - ⚠️ **黄牌限期整改项 (Yellow Warning)**：
     1. 新建源码顶部遗漏 `@author Ateng` 或 `@since`；
     2. 流程注释步骤编号不连续或存在孤立步骤号；
@@ -194,6 +194,11 @@
       - `apps/sample-core` ➔ `http://localhost:3001`（`pnpm --filter sample-core dev`）
       - `apps/sample-vue` ➔ `http://localhost:3002`（`pnpm --filter sample-vue dev`）
       - `apps/sample-element-plus` ➔ `http://localhost:3003`（`pnpm --filter sample-element-plus dev`）。
+  - **两段式人机阻断验收协议 (Two-Phase Human Verification Handshake - Blocking Invariant)**：
+    为杜绝“仅有代码构建全绿但脱离真实页面交互”的形式主义自嗨，任何特性开发或阶段性审查交付必须恪守两段式人机闭环：
+    1. **第一阶段：Agent 服务托管与核验清单输出**：Agent 必须在后台以守护任务（Daemon Task）启动对应的 Sample Vite 服务，在会话中输出带端口的本地直达链接（如 `http://localhost:3001`）与结构化的《页面交互核验清单 (Checklist)》；
+    2. **第二阶段：强制人机挂起阻断与用户显式授权**：Agent 必须显式挂起当前任务，等待用户在浏览器中实机体验并在会话中明确回复“页面审核通过/认可”；
+    3. **零抢跑铁律**：在未经用户在会话中明确确认前，**严禁 Agent 单方面在 Artifact 中标记“✅ 已签署准出”，严禁擅自宣称任务交付，严禁触发 Git Commit**。违者直接判定为触犯红牌一票否决项第 9 条！
   - **Sample-First 流程不变量（绝对前置工序）**：在编写或更新子模块 `README.md` 前，**必须先完成对应 Sample 场景用例的编写与实测验证并确保全绿**。严禁在尚未写出可运行 Sample 时凭空手敲文档！
   - **代码源头全真逆向提取**：`README.md` 中展示的 Vue/TS 示例代码及执行结果，**必须 100% 直接从已跑通的 Sample 源码、配置及实测日志中 1:1 逆向提取**。若某特性未在 Sample 中跑通，一律严禁写入文档！
   - **文档排版防裂守卫 (Markdown Integrity Guard)**：

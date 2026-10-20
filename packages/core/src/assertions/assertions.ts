@@ -74,7 +74,8 @@ export function isEmpty(value: unknown): boolean {
     return value.size === 0;
   }
 
-  if (typeof value === 'object') {
+  // 严格区分普通纯对象与 Date、RegExp、Error 等内置特殊对象
+  if (Object.prototype.toString.call(value) === '[object Object]') {
     return Object.keys(value as Record<string, unknown>).length === 0;
   }
 

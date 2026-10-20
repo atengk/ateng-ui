@@ -124,11 +124,12 @@ export function formatCurrency(
     return formatZero(symbol, precision, decimalSeparator);
   }
 
-  const isNegative = num < 0;
   const absNum = Math.abs(num);
 
   // 四舍五入到指定精度
   const fixedStr = absNum.toFixed(precision);
+  const isZero = Number(fixedStr) === 0;
+  const isNegative = num < 0 && !isZero;
   const [rawInt = '0', rawDec = ''] = fixedStr.split('.');
 
   // 整数部分添加千分位

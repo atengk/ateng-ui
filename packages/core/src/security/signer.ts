@@ -106,7 +106,8 @@ function serializeParams(params: unknown): string {
   for (const key of sortedKeys) {
     const val = record[key];
     if (val !== undefined && val !== null) {
-      pairs.push(`${key}=${String(val)}`);
+      const valStr = typeof val === 'object' ? stableStringify(val) : String(val);
+      pairs.push(`${key}=${valStr}`);
     }
   }
   return pairs.join('&');

@@ -52,6 +52,18 @@ describe('Blob Dual-State & File Download (Blob 双态异常与安全下载)', (
       const malformedHeader = "attachment; filename*=UTF-8''%E0%A4%A";
       expect(() => parseContentDispositionFilename(malformedHeader)).not.toThrow();
     });
+
+    it('应清洗目录穿越符号并去除冗余首尾引号', () => {
+      expect(parseContentDispositionFilename('attachment; filename="../../evil.sh"')).toBe(
+        'evil.sh',
+      );
+      expect(parseContentDispositionFilename('attachment; filename="..\\..\\passwords.txt"')).toBe(
+        'passwords.txt',
+      );
+      expect(
+        parseContentDispositionFilename('attachment; filename*=UTF-8\'\'"%e6%8a%a5%e8%a1%a8.xlsx"'),
+      ).toBe('报表.xlsx');
+    });
   });
 
   describe('2. checkBlobForJsonError (Blob 双态异常拦截识别)', () => {

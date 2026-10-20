@@ -27,12 +27,16 @@ function extractAndDecode(content: string, regex: RegExp): string | null {
   if (!match) {
     return null;
   }
-  const raw = (match[2] ?? match[1])?.trim();
+  let raw = (match[2] ?? match[1])?.trim();
   if (!raw) {
     return null;
   }
+  // 清洗可能存在的冗余引号包裹
+  raw = raw.replace(/^["']|["']$/g, '').trim();
   const decoded = safeDecodeUriComponent(raw);
-  return decoded || null;
+  // 剥离路径前缀以防御目录穿越
+  const sanitized = decoded.replace(/^.*[/\\]/, '').trim();
+  return sanitized || null;
 }
 
 /**

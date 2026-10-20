@@ -995,5 +995,29 @@ describe('WebSocketClient (核心长连接状态机、编解码与凭据透传)'
       expect(normalSpy).toHaveBeenCalledTimes(1);
       expect(normalSpy).toHaveBeenCalledWith('all');
     });
+
+    it('destroy 与 clearListeners 应确定性清理所有监听器、订阅与连接', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      const openSpy = vi.fn();
+      const topicSpy = vi.fn();
+
+      client.on('open', openSpy);
+      client.subscribe('test', topicSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      client.destroy();
+
+      expect(client.getStatus()).toBe('CLOSING');
+      mockWs.simulateClose();
+      expect(client.getStatus()).toBe('CLOSED');
+
+      // 再次分发消息时，监听器与订阅者均已被注销
+      mockWs.simulateMessage(JSON.stringify({ type: 'test', data: 'hello' }));
+      expect(topicSpy).not.toHaveBeenCalled();
+    });
   });
 });

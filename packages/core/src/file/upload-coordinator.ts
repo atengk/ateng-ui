@@ -154,7 +154,7 @@ export class UploadCoordinator<T = unknown> implements IUploadCoordinator<T> {
               await sleep(delay, signal);
             } else {
               fatalError = error;
-              throw error;
+              return;
             }
           }
         }

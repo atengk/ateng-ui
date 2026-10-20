@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { BusinessException } from '../src/contracts';
 import { SseParser, DefaultStreamClient, createStreamClient, type SseEvent } from '../src/stream';
 import { createAuthManager, MemoryAuthStorage } from '../src/auth';
 import { createTenantManager, MemoryTenantStorage } from '../src/tenant';
@@ -172,6 +173,23 @@ describe('StreamClient & SseParser (Web 原生流式响应与 SSE 客户端)', (
 
       expect(tokens).toEqual(['你', '好', '，世', '界！']);
       expect(done).toBe(true);
+    });
+
+    it('服务端返回非 200 状态码时应抛出 BusinessException 并携带 HTTP 状态码', async () => {
+      const mockFetch = vi.fn(
+        async () => new Response('Forbidden', { status: 403, statusText: 'Forbidden' }),
+      );
+      const client = new DefaultStreamClient({
+        fetch: mockFetch as unknown as typeof fetch,
+      });
+
+      await expect(client.subscribe('/api/stream')).rejects.toThrow(BusinessException);
+      try {
+        await client.subscribe('/api/stream');
+      } catch (err) {
+        expect(err).toBeInstanceOf(BusinessException);
+        expect((err as BusinessException).code).toBe(403);
+      }
     });
   });
 

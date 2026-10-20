@@ -20,7 +20,15 @@ interface PendingEntry {
  * @returns 若为中止取消异常返回 true，否则返回 false
  */
 export function isAbortError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
+  if (!error) {
+    return false;
+  }
+
+  if (typeof error === 'string') {
+    return error === 'canceled' || error === 'AbortError' || error === 'ERR_CANCELED';
+  }
+
+  if (typeof error !== 'object') {
     return false;
   }
 

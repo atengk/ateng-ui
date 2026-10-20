@@ -276,5 +276,21 @@ describe('AbortCoordinator & Concurrency Control (请求取消协调器与防竞
       expect(res2).toBe('Result for: vue3');
       expect(coordinator.getPendingCount()).toBe(0);
     });
+
+    it('isAbortError 应准确识别对象与字符串异常中的中止标记', () => {
+      expect(isAbortError(new DOMException('Aborted', 'AbortError'))).toBe(true);
+      expect(isAbortError({ name: 'CanceledError' })).toBe(true);
+      expect(isAbortError({ code: 'ERR_CANCELED' })).toBe(true);
+      expect(isAbortError({ message: 'canceled' })).toBe(true);
+      expect(isAbortError('canceled')).toBe(true);
+      expect(isAbortError('AbortError')).toBe(true);
+      expect(isAbortError('ERR_CANCELED')).toBe(true);
+
+      // 非取消错误应返回 false
+      expect(isAbortError(new Error('Network error'))).toBe(false);
+      expect(isAbortError(null)).toBe(false);
+      expect(isAbortError(undefined)).toBe(false);
+      expect(isAbortError('other string')).toBe(false);
+    });
   });
 });

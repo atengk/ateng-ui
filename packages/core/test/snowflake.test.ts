@@ -36,6 +36,14 @@ describe('Snowflake Long ID Invariant (Issue #3)', () => {
       expect(result.ids).toEqual(['9007199254740993', '9007199254740994', '9007199254740995']);
     });
 
+    it('should parse a raw naked snowflake ID string at the root level', () => {
+      const rawJson = '9007199254740993';
+      const result = parseSnowflakeJson<string>(rawJson);
+
+      expect(typeof result).toBe('string');
+      expect(result).toBe('9007199254740993');
+    });
+
     it('should NOT alter numbers smaller than 16 digits or float numbers', () => {
       const rawJson = '{"code": 200, "total": 150, "price": 99.85, "smallId": 123456789012345}';
       const result = parseSnowflakeJson<{

@@ -75,6 +75,9 @@ describe('Contracts & BusinessException (Issue #2)', () => {
       };
 
       expect(isResult(validResult)).toBe(true);
+      if (isResult<{ name: string }>(validResult)) {
+        expect(validResult.data.name).toBe('ateng');
+      }
     });
 
     it('should reject non-Result objects or null/undefined', () => {

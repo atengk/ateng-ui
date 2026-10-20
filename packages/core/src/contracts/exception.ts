@@ -41,7 +41,7 @@ export class BusinessException extends Error {
    * @param cause 原始抛出异常因果对象（可选）
    */
   constructor(code: number, msg: string, traceId?: string, cause?: unknown) {
-    super(msg);
+    super(msg, cause !== undefined ? { cause } : undefined);
     this.name = 'BusinessException';
     this.code = code;
     this.msg = msg;

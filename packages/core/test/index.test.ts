@@ -6,6 +6,20 @@ describe('@atengk/core baseline', () => {
     expect(VERSION).toBe('0.1.0');
   });
 
+  it('should export contracts and exception items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.BusinessException).toBeDefined();
+    expect(core.createPageResult).toBeDefined();
+    expect(core.isResult).toBeDefined();
+  });
+
+  it('should export snowflake transform items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.parseSnowflakeJson).toBeDefined();
+    expect(core.stringifySnowflakeInJsonText).toBeDefined();
+    expect(core.transformSnowflakeResponse).toBeDefined();
+  });
+
   it('should export routing engine items from root index', async () => {
     const core = await import('../src/index');
     expect(core.GatewayRouter).toBeDefined();

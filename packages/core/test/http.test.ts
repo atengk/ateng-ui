@@ -309,6 +309,31 @@ describe('HttpClient Integration Suite (Issue #9)', () => {
       expect(auth.getToken()).toBeNull();
       expect(onUnauthorized).toHaveBeenCalledTimes(1);
     });
+
+    it('当 Blob 下载响应返回 401 业务 JSON 错误时也应自动清理 Token 并触发 onUnauthorized', async () => {
+      const storage = new MemoryAuthStorage();
+      const auth = createAuthManager({ storage });
+      auth.setToken('valid-token-before-blob');
+
+      const onUnauthorized = vi.fn();
+      const client = createHttpClient({ authManager: auth, onUnauthorized });
+
+      const errorBlob = new Blob([JSON.stringify({ code: 401, msg: '下载凭据失效' })], {
+        type: 'application/json',
+      });
+
+      mockAdapter(client, async cfg => ({
+        data: errorBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        config: cfg,
+      }));
+
+      await expect(client.download('/export/users')).rejects.toThrow(BusinessException);
+      expect(auth.getToken()).toBeNull();
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('5. 微服务网关路由前缀分发与显式覆盖', () => {

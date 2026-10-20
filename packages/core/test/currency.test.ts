@@ -96,6 +96,14 @@ describe('Currency (金融级金额精度与格式化)', () => {
       expect(formatCurrency(1234.56, { symbol: '$ ' })).toBe('$ 1,234.56');
     });
 
+    it('舍入后为零的负小额金额不应展示负号 (-¥0.00)', () => {
+      expect(formatCurrency(-0.0001, { precision: 2, symbol: '¥' })).toBe('¥0.00');
+      expect(formatCurrency(-0.004, { precision: 2, symbol: '¥' })).toBe('¥0.00');
+      expect(
+        formatCurrency(-0.0001, { precision: 2, symbol: '¥', negativePattern: 'parentheses' }),
+      ).toBe('¥0.00');
+    });
+
     it('支持从分 (cents) 直接格式化', () => {
       expect(formatCurrency(123456, { fromCents: true, symbol: '¥' })).toBe('¥1,234.56');
       expect(formatCurrency('5', { fromCents: true, symbol: '¥' })).toBe('¥0.05');

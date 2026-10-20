@@ -25,6 +25,11 @@ export function stringifySnowflakeInJsonText(jsonText: string): string {
     return jsonText;
   }
 
+  // 针对根节点裸返回 16 位以上大整数的场景，快速防截断包装
+  if (/^\s*-?[0-9]{16,}\s*$/.test(jsonText)) {
+    return `"${jsonText.trim()}"`;
+  }
+
   return jsonText.replace(
     SNOWFLAKE_REGEX,
     (_match: string, stringLiteral?: string, _sub?: string, bigNum?: string) => {

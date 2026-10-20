@@ -75,6 +75,12 @@ describe('UploadCoordinator & createFileChunks (大文件切片与并发上传�
       expect(chunks).toEqual([]);
     });
 
+    it('传入 null 或非法输入时应防御性保底返回空数组', () => {
+      expect(createFileChunks(null as unknown as File)).toEqual([]);
+      expect(createFileChunks(undefined as unknown as File)).toEqual([]);
+      expect(createFileChunks({} as unknown as File)).toEqual([]);
+    });
+
     it('chunkSize 非法（0 或负数）时应自动回退到默认 5MB', () => {
       const blob = createDummyBlob(10 * 1024 * 1024);
       const chunks = createFileChunks(blob, 0);

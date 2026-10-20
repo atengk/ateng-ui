@@ -26,8 +26,12 @@ export function createFileChunks(
   file: File | Blob,
   chunkSize: number = DEFAULT_CHUNK_SIZE,
 ): FileChunk[] {
+  if (!file || typeof file !== 'object' || typeof file.size !== 'number') {
+    return [];
+  }
+
   const totalSize = file.size;
-  if (totalSize === 0) {
+  if (totalSize <= 0) {
     return [];
   }
 

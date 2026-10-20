@@ -9,6 +9,7 @@
  * @since 2026-10-20
  */
 
+import { BusinessException } from '../contracts';
 import { authManager as defaultAuthManager, type AuthManager } from '../auth';
 import { tenantManager as defaultTenantManager, type TenantManager } from '../tenant';
 import { SseParser } from './parser';
@@ -201,7 +202,12 @@ export class DefaultStreamClient implements StreamClient {
           if (response.status === 401) {
             this.authManager.handleUnauthorized();
           }
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new BusinessException(
+            response.status,
+            `HTTP ${response.status}: ${response.statusText}`,
+            undefined,
+            response,
+          );
         }
 
         // 4. 获取流读取器
@@ -268,7 +274,7 @@ export class DefaultStreamClient implements StreamClient {
         // 检查重连条件
         if (reconnect && retryCount < maxRetries) {
           retryCount++;
-          const delay = retryDelay * Math.pow(2, retryCount - 1);
+          const delay = Math.min(30000, retryDelay * Math.pow(2, retryCount - 1));
           await sleep(delay, signal);
           continue;
         }

@@ -114,6 +114,20 @@ describe('RequestSigner (API 请求防重放与原生 WebCrypto 签名插件)', 
       expect(canonical).toContain('params=');
       expect(canonical).toContain('data=');
     });
+
+    it('params 中若包含嵌套对象值应稳定序列化而非输出 [object Object]', () => {
+      const target: SignTarget = {
+        method: 'GET',
+        url: '/api/query',
+        params: { filter: { status: 'active', role: 'admin' } },
+        timestamp: 1729411200000,
+        nonce: 'nonce-obj',
+      };
+
+      const canonical = defaultBuildCanonicalString(target);
+      expect(canonical).not.toContain('[object Object]');
+      expect(canonical).toContain('filter={"role":admin,"status":active}');
+    });
   });
 
   describe('4. DefaultRequestSigner 门面实现', () => {

@@ -139,12 +139,31 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       customConfig.url = resolvedRoute.url;
     }
 
-    // 1.3 双轨 Token 请求头自动注入
+    // 1.3 双轨 Token 请求头自动注入（大小写无关匹配，兼容 AxiosHeaders 与普通对象）
     const authHeaders = authManager.getHeaders();
     customConfig.headers = customConfig.headers || {};
+    const hasHeader = (name: string): boolean => {
+      const h = customConfig.headers;
+      if (!h) return false;
+      if (typeof (h as unknown as { has?: (k: string) => boolean }).has === 'function') {
+        return Boolean((h as unknown as { has: (k: string) => boolean }).has(name));
+      }
+      const lower = name.toLowerCase();
+      return Object.keys(h as Record<string, unknown>).some(k => k.toLowerCase() === lower);
+    };
+    const setHeader = (name: string, val: string): void => {
+      const h = customConfig.headers;
+      if (!h) return;
+      if (typeof (h as unknown as { set?: (k: string, v: string) => void }).set === 'function') {
+        (h as unknown as { set: (k: string, v: string) => void }).set(name, val);
+      } else {
+        (h as Record<string, string>)[name] = val;
+      }
+    };
+
     for (const [key, value] of Object.entries(authHeaders)) {
-      if (!customConfig.headers[key] && value) {
-        customConfig.headers[key] = value;
+      if (!hasHeader(key) && value) {
+        setHeader(key, value);
       }
     }
 
@@ -152,8 +171,8 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     if (context.tenantManager) {
       const tenantHeaders = context.tenantManager.getHeaders();
       for (const [key, value] of Object.entries(tenantHeaders)) {
-        if (!customConfig.headers[key] && value) {
-          customConfig.headers[key] = value;
+        if (!hasHeader(key) && value) {
+          setHeader(key, value);
         }
       }
     }
@@ -254,7 +273,15 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
         (typeof Blob !== 'undefined' && response.data instanceof Blob)
       ) {
         const contentType = (response.headers?.['content-type'] as string | undefined) ?? null;
-        await checkBlobForJsonError(response.data, contentType, response.status);
+        try {
+          await checkBlobForJsonError(response.data, contentType, response.status);
+        } catch (error) {
+          if (error instanceof BusinessException && error.code === 401) {
+            authManager.handleUnauthorized();
+            onUnauthorized?.();
+          }
+          throw error;
+        }
 
         if (typeof Blob !== 'undefined' && response.data instanceof Blob) {
           const disposition = response.headers?.['content-disposition'] as string | undefined;

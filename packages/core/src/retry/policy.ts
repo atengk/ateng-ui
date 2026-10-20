@@ -57,8 +57,8 @@ export function isRetriableError(error: unknown, rawError?: unknown): boolean {
       return false;
     }
 
-    // 5xx 服务端故障（500、502、503、504）允许重试
-    if (code >= 500 && code < 600) {
+    // 5xx 服务端故障（除 501 Not Implemented 外）允许重试
+    if (code >= 500 && code < 600 && code !== 501) {
       return true;
     }
   }
@@ -73,7 +73,7 @@ export function isRetriableError(error: unknown, rawError?: unknown): boolean {
   if (candidate && typeof candidate === 'object') {
     const status = candidate.response?.status;
     if (status !== undefined) {
-      if (status >= 500 && status < 600) {
+      if (status >= 500 && status < 600 && status !== 501) {
         return true;
       }
       if (status >= 400 && status < 500 && status !== 408) {
@@ -103,14 +103,17 @@ export function isRetriableError(error: unknown, rawError?: unknown): boolean {
 /**
  * 根据重试轮次计算指数退避等待延迟（毫秒）。
  *
- * 算法：delay = baseDelay * (2 ^ attempt)
+ * 算法：delay = min(baseDelay * (2 ^ attempt), maxDelay)
  *
  * @param attempt 当前重试轮次（从 0 开始）
  * @param baseDelay 基础延迟（毫秒），默认为 1000ms
+ * @param maxDelay 最大延迟封顶（毫秒），默认为 30000ms，杜绝高频溢出与定时器 32 位整型溢出
  * @returns 等待延迟毫秒数
  */
-export function calculateBackoffDelay(attempt: number, baseDelay = 1000): number {
+export function calculateBackoffDelay(attempt: number, baseDelay = 1000, maxDelay = 30000): number {
   const safeAttempt = Math.max(0, attempt);
   const safeBase = Math.max(0, baseDelay);
-  return safeBase * Math.pow(2, safeAttempt);
+  const safeMax = Math.max(0, maxDelay);
+  const exponential = safeBase * Math.pow(2, safeAttempt);
+  return Math.min(exponential, safeMax);
 }

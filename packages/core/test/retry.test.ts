@@ -71,6 +71,13 @@ describe('RetryPolicy Suite (Issue #14)', () => {
       expect(isRetriableError(err503)).toBe(true);
       expect(isRetriableError(err504)).toBe(true);
 
+      // 501 Not Implemented 属于确定性不支持，严禁重试
+      const err501 = new BusinessException(501, 'Not Implemented');
+      expect(isRetriableError(err501)).toBe(false);
+
+      // 底层 Axios 响应 status 501 也不予重试
+      expect(isRetriableError(new Error('err'), { response: { status: 501 } })).toBe(false);
+
       // 网络与超时异常
       const networkErr = new BusinessException(500, 'Network Error');
       const timeoutErr = new BusinessException(408, 'timeout of 5000ms exceeded');
@@ -94,6 +101,10 @@ describe('RetryPolicy Suite (Issue #14)', () => {
       expect(calculateBackoffDelay(1, baseDelay)).toBe(200); // 100 * 2^1
       expect(calculateBackoffDelay(2, baseDelay)).toBe(400); // 100 * 2^2
       expect(calculateBackoffDelay(3, baseDelay)).toBe(800); // 100 * 2^3
+
+      // 支持 maxDelay 封顶，杜绝指数爆炸与整型溢出
+      expect(calculateBackoffDelay(10, baseDelay, 1000)).toBe(1000);
+      expect(calculateBackoffDelay(40, 1000, 30000)).toBe(30000);
     });
   });
 
