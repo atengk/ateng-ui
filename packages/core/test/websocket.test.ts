@@ -98,6 +98,7 @@ describe('WebSocketClient (核心长连接状态机、编解码与凭据透传)'
   afterEach(() => {
     globalThis.WebSocket = originalWebSocket;
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   describe('1. 实例初始化与状态机流转', () => {
@@ -306,6 +307,274 @@ describe('WebSocketClient (核心长连接状态机、编解码与凭据透传)'
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(client.getStatus()).toBe('CLOSED');
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('5. 双向心跳保活探针与假死检测 (#21)', () => {
+    it('开启默认心跳时，连接就绪后应按默认周期 (30s) 自动发送 "ping" 心跳帧', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: true,
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      expect(mockWs.sentData).toHaveLength(0);
+
+      // 时间推移 29s，尚未到达 30s 周期，不应发送
+      vi.advanceTimersByTime(29000);
+      expect(mockWs.sentData).toHaveLength(0);
+
+      // 时间推移至 30s，触发第一轮心跳 ping
+      vi.advanceTimersByTime(1000);
+      expect(mockWs.sentData).toEqual(['ping']);
+    });
+
+    it('收到合法 pong 响应应成功续命，重置超时定时器并在下一个周期继续发送 ping', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 10000,
+          timeout: 2000,
+          pingMessage: 'ping',
+          pongMessage: 'pong',
+        },
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 1. 到达 10s，发送第 1 次 ping
+      vi.advanceTimersByTime(10000);
+      expect(mockWs.sentData).toEqual(['ping']);
+
+      // 2. 经过 1s（此时还在 2s 超时窗口内），服务端应答 'pong'
+      vi.advanceTimersByTime(1000);
+      mockWs.simulateMessage('pong');
+
+      // 3. 超时窗口过去（再过 2s，累计 13s），连接不应被切断，状态仍为 OPEN
+      vi.advanceTimersByTime(2000);
+      expect(client.getStatus()).toBe('OPEN');
+
+      // 4. 再过 8s（距收到 pong 满 10s 周期，累计 21s），发送第 2 次 ping
+      vi.advanceTimersByTime(8000);
+      expect(mockWs.sentData).toEqual(['ping', 'ping']);
+    });
+
+    it('心跳响应超时未收到 pong 时，应判定连接假死并主动切断底层连接 (code=4000)', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 10000,
+          timeout: 3000,
+        },
+      });
+
+      const closeSpy = vi.fn();
+      client.on('close', closeSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 到达 10s 发送 ping
+      vi.advanceTimersByTime(10000);
+      expect(mockWs.sentData).toEqual(['ping']);
+
+      // 超时窗口 3s 内对端无任何响应，假死触发底层关闭
+      vi.advanceTimersByTime(3000);
+
+      // MockWebSocket 的 close 会异步触发 onclose
+      vi.runOnlyPendingTimers();
+
+      expect(client.getStatus()).toBe('CLOSED');
+      expect(closeSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 4000,
+        }),
+      );
+    });
+
+    it('支持自定义对象 pingMessage 与函数式谓词 pongMessage 判定', async () => {
+      vi.useFakeTimers();
+      interface HeartbeatPayload {
+        type: string;
+        timestamp?: number;
+      }
+
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 5000,
+          timeout: 1000,
+          pingMessage: { type: 'heartbeat_ping' },
+          pongMessage: (data: unknown) => {
+            return (
+              typeof data === 'object' &&
+              data !== null &&
+              (data as HeartbeatPayload).type === 'heartbeat_pong'
+            );
+          },
+        },
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 5s 到达，发送 JSON ping
+      vi.advanceTimersByTime(5000);
+      expect(mockWs.sentData).toEqual([JSON.stringify({ type: 'heartbeat_ping' })]);
+
+      // 收到非 pong 的普通业务消息，不能解除 pong 超时
+      mockWs.simulateMessage(JSON.stringify({ type: 'chat', text: 'hello' }));
+
+      // 收到合法 pong 响应，成功解除
+      mockWs.simulateMessage(JSON.stringify({ type: 'heartbeat_pong', timestamp: 123456 }));
+
+      // 超时后连接依然健康
+      vi.advanceTimersByTime(1000);
+      expect(client.getStatus()).toBe('OPEN');
+    });
+
+    it('主动 close() 时应确定性回收所有心跳定时器，连接关闭后不再触发超时与 ping', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 5000,
+          timeout: 2000,
+        },
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 在 3s 时主动关闭连接
+      vi.advanceTimersByTime(3000);
+      client.close(1000, 'Normal shutdown');
+      vi.runOnlyPendingTimers();
+
+      // 时间继续大幅推进，确保不会发送 ping 也不会触发任何超时异常
+      vi.advanceTimersByTime(20000);
+      expect(mockWs.sentData).toHaveLength(0);
+      expect(client.getStatus()).toBe('CLOSED');
+    });
+
+    it('未开启心跳 (heartbeat: false 或未配置) 时不应发送任何 ping', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: false,
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 时间大幅推进 100s
+      vi.advanceTimersByTime(100000);
+      expect(mockWs.sentData).toHaveLength(0);
+    });
+
+    it('心跳配置 interval / timeout 为负数或 0 时应防御性校准为安全值 (>=1ms)', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: -100,
+          timeout: 0,
+        },
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 推进 1ms 立即触发 ping
+      vi.advanceTimersByTime(1);
+      expect(mockWs.sentData).toEqual(['ping']);
+
+      // 再推进 1ms 触发 timeout 判定假死
+      vi.advanceTimersByTime(1);
+      vi.runOnlyPendingTimers();
+      expect(client.getStatus()).toBe('CLOSED');
+    });
+
+    it('pongMessage 谓词函数抛出异常时应防御性捕获并视为非 pong 消息', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 5000,
+          timeout: 2000,
+          pongMessage: () => {
+            throw new Error('Unexpected predicate failure');
+          },
+        },
+      });
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      vi.advanceTimersByTime(5000);
+      expect(mockWs.sentData).toEqual(['ping']);
+
+      // 收到消息但谓词异常，不判定为 pong
+      mockWs.simulateMessage('something');
+
+      // 超时判定假死
+      vi.advanceTimersByTime(2000);
+      vi.runOnlyPendingTimers();
+      expect(client.getStatus()).toBe('CLOSED');
+    });
+
+    it('等待 pong 期间若底层连接被服务端异常关闭，应立即清理心跳定时器', async () => {
+      vi.useFakeTimers();
+      const client = createWebSocketClient({
+        url: 'ws://localhost:8080/ws',
+        heartbeat: {
+          interval: 5000,
+          timeout: 5000,
+        },
+      });
+
+      const closeSpy = vi.fn();
+      client.on('close', closeSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 5s 发送 ping
+      vi.advanceTimersByTime(5000);
+      expect(mockWs.sentData).toEqual(['ping']);
+
+      // 服务端在 2s 后主动切断
+      mockWs.simulateClose(1006, 'Abnormal Closure');
+      expect(client.getStatus()).toBe('CLOSED');
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+
+      // 后续时间继续推进，不应再触发任何假死 close 逻辑
+      vi.advanceTimersByTime(10000);
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
   });

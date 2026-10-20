@@ -45,6 +45,39 @@ export interface WebSocketEventMap {
 }
 
 /**
+ * WebSocket 应用层双向心跳保活与假死检测配置。
+ */
+export interface WebSocketHeartbeatOptions {
+  /**
+   * 是否开启应用层双向心跳检测机制。默认为 true（传入配置对象时）。
+   */
+  enabled?: boolean;
+
+  /**
+   * 心跳发送周期（毫秒）。默认为 30000 (30秒)。
+   */
+  interval?: number;
+
+  /**
+   * 等待 Pong 回复的超时时间（毫秒）。默认为 5000 (5秒)。
+   * 若超出此时间仍未收到合法 Pong 响应，判定长连接假死并主动切断底层连接。
+   */
+  timeout?: number;
+
+  /**
+   * 发送的心跳载荷（支持字符串或普通对象）。默认为 'ping'。
+   */
+  pingMessage?: string | object;
+
+  /**
+   * 合法的心跳响应判定规则：
+   * - 若为字符串：比对收到的文本或反序列化字符串是否全等；默认为 'pong'。
+   * - 若为函数：接收解码后的消息数据，返回布尔值（true 表示当前消息为合法 pong 心跳应答）。
+   */
+  pongMessage?: string | ((data: unknown) => boolean);
+}
+
+/**
  * WebSocket 客户端初始化配置选项。
  */
 export interface WebSocketClientOptions {
@@ -93,6 +126,12 @@ export interface WebSocketClientOptions {
    * 是否在实例化后立即自动尝试建立连接。默认为 false。
    */
   autoConnect?: boolean;
+
+  /**
+   * 可选的应用层双向心跳保活与假死检测配置。
+   * 支持传入 true（启用默认 30s 心跳与 5s 假死判定）或详细配置对象。
+   */
+  heartbeat?: boolean | WebSocketHeartbeatOptions;
 
   /**
    * 自定义底层 WebSocket 构造工厂（用于 Node.js / SSR 环境或单测 Mock 注入）。

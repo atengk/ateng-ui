@@ -6,7 +6,12 @@
  */
 
 import { parseSnowflakeJson } from '../transform/snowflake';
-import type { WebSocketClientOptions, WebSocketEventMap, WebSocketStatus } from './types';
+import type {
+  WebSocketClientOptions,
+  WebSocketEventMap,
+  WebSocketHeartbeatOptions,
+  WebSocketStatus,
+} from './types';
 import { resolveWebSocketUrl } from './url';
 
 /**
@@ -26,6 +31,8 @@ export class WebSocketClient {
   };
 
   private connectPromise: Promise<void> | null = null;
+  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+  private pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * 构造全新的 WebSocket 客户端实例。
@@ -106,6 +113,7 @@ export class WebSocketClient {
           isHandshakeSettled = true;
           resolve();
         }
+        this.startHeartbeat();
         this.emit('open', event);
       };
 
@@ -115,6 +123,7 @@ export class WebSocketClient {
 
       ws.onclose = (event: CloseEvent) => {
         this.status = 'CLOSED';
+        this.stopHeartbeat();
         if (!isHandshakeSettled) {
           isHandshakeSettled = true;
           reject(
@@ -128,6 +137,7 @@ export class WebSocketClient {
 
       ws.onmessage = (event: MessageEvent) => {
         const parsedData = this.decodeMessage(event.data);
+        this.handleHeartbeatMessage(parsedData, event.data);
         this.emit('message', parsedData, event);
       };
     };
@@ -138,6 +148,7 @@ export class WebSocketClient {
           initSocket(urlResult, resolve, reject);
         } catch (err) {
           this.status = 'CLOSED';
+          this.stopHeartbeat();
           reject(err);
         }
       });
@@ -149,6 +160,7 @@ export class WebSocketClient {
           })
           .catch(err => {
             this.status = 'CLOSED';
+            this.stopHeartbeat();
             reject(err);
           });
       });
@@ -215,6 +227,10 @@ export class WebSocketClient {
    * @param reason 关闭原因说明
    */
   close(code = 1000, reason = ''): void {
+    // 1. 注销心跳探针与超时定时器
+    this.stopHeartbeat();
+
+    // 2. 断开底层原生 WebSocket 连接
     if (!this.socket) {
       this.status = 'CLOSED';
       return;
@@ -243,6 +259,166 @@ export class WebSocketClient {
       } catch (err) {
         // 防止单个监听器抛出异常中断其他监听器的执行
         console.error(`[WebSocketClient] 事件 ${event} 监听器执行异常:`, err);
+      }
+    }
+  }
+
+  /**
+   * 解析并规范化当前心跳保活配置。若未配置或显式禁用，返回 null。
+   */
+  private resolveHeartbeatOptions(): Required<WebSocketHeartbeatOptions> | null {
+    const { heartbeat } = this.options;
+    if (!heartbeat) {
+      return null;
+    }
+
+    if (heartbeat === true) {
+      return {
+        enabled: true,
+        interval: 30000,
+        timeout: 5000,
+        pingMessage: 'ping',
+        pongMessage: 'pong',
+      };
+    }
+
+    if (heartbeat.enabled === false) {
+      return null;
+    }
+
+    return {
+      enabled: true,
+      interval: Math.max(1, heartbeat.interval ?? 30000),
+      timeout: Math.max(1, heartbeat.timeout ?? 5000),
+      pingMessage: heartbeat.pingMessage ?? 'ping',
+      pongMessage: heartbeat.pongMessage ?? 'pong',
+    };
+  }
+
+  /**
+   * 启动应用层双向心跳检测循环。
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.scheduleHeartbeatPing();
+  }
+
+  /**
+   * 停止并注销所有运行中的心跳定时器（包括 Ping 调度与 Pong 超时定时器）。
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.pongTimeoutTimer !== null) {
+      clearTimeout(this.pongTimeoutTimer);
+      this.pongTimeoutTimer = null;
+    }
+  }
+
+  /**
+   * 调度下一轮心跳 Ping 探针发送。
+   */
+  private scheduleHeartbeatPing(): void {
+    if (this.heartbeatTimer !== null) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    const hb = this.resolveHeartbeatOptions();
+    if (!hb || this.getStatus() !== 'OPEN') {
+      return;
+    }
+
+    this.heartbeatTimer = setTimeout(() => {
+      this.sendHeartbeatPing();
+    }, hb.interval);
+  }
+
+  /**
+   * 发送心跳 Ping 载荷并开启 Pong 超时假死探测定时器。
+   */
+  private sendHeartbeatPing(): void {
+    if (this.getStatus() !== 'OPEN' || !this.socket) {
+      return;
+    }
+
+    const hb = this.resolveHeartbeatOptions();
+    if (!hb) {
+      return;
+    }
+
+    // 1. 发送心跳载荷帧
+    this.send(hb.pingMessage);
+
+    // 2. 清理旧超时定时器并启动等待 Pong 响应的超时检测
+    if (this.pongTimeoutTimer !== null) {
+      clearTimeout(this.pongTimeoutTimer);
+      this.pongTimeoutTimer = null;
+    }
+
+    this.pongTimeoutTimer = setTimeout(() => {
+      this.handlePongTimeout();
+    }, hb.timeout);
+  }
+
+  /**
+   * 处理入站消息的心跳识别与 Pong 响应续命。
+   *
+   * @param decodedData 已解码后的载荷对象
+   * @param rawData 原始数据载荷
+   * @returns 是否命中合法 Pong 心跳应答
+   */
+  private handleHeartbeatMessage(decodedData: unknown, rawData: unknown): boolean {
+    const hb = this.resolveHeartbeatOptions();
+    if (!hb) {
+      return false;
+    }
+
+    const { pongMessage } = hb;
+    let isPong = false;
+
+    if (typeof pongMessage === 'function') {
+      try {
+        isPong = Boolean(pongMessage(decodedData));
+      } catch {
+        isPong = false;
+      }
+    } else if (typeof pongMessage === 'string') {
+      if (decodedData === pongMessage) {
+        isPong = true;
+      } else if (typeof rawData === 'string' && rawData.trim() === pongMessage) {
+        isPong = true;
+      }
+    }
+
+    if (isPong) {
+      // 1. 清理未决的 Pong 超时假死判定定时器
+      if (this.pongTimeoutTimer !== null) {
+        clearTimeout(this.pongTimeoutTimer);
+        this.pongTimeoutTimer = null;
+      }
+
+      // 2. 规划下一轮心跳 Ping 发送
+      this.scheduleHeartbeatPing();
+    }
+
+    return isPong;
+  }
+
+  /**
+   * 处理 Pong 响应超时：判定连接假死并主动切断底层连接。
+   */
+  private handlePongTimeout(): void {
+    this.stopHeartbeat();
+
+    if (this.socket && (this.socket.readyState === 0 || this.socket.readyState === 1)) {
+      this.status = 'CLOSING';
+      try {
+        this.socket.close(4000, '[WebSocketClient] 心跳响应超时，判定假死切断连接');
+      } catch {
+        this.status = 'CLOSED';
       }
     }
   }
