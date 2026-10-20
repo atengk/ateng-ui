@@ -9,6 +9,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import type { Result } from '../contracts';
 import type { GatewayRoute, GatewayRouter } from '../routing';
 import type { AuthManager } from '../auth';
+import type { TenantManager } from '../tenant';
 import type { AbortCoordinator } from '../abort';
 
 /**
@@ -64,6 +65,11 @@ export interface HttpClientOptions {
   authManager?: AuthManager;
 
   /**
+   * 多租户上下文管理器实例。若未提供，默认使用全局 tenantManager 单例。
+   */
+  tenantManager?: TenantManager;
+
+  /**
    * 异步请求取消协调器。若未提供，将为当前客户端分配专属实例。
    */
   abortCoordinator?: AbortCoordinator;
@@ -102,6 +108,11 @@ export interface HttpClient {
    * 当前客户端绑定的通用鉴权凭据门面。
    */
   readonly authManager: AuthManager;
+
+  /**
+   * 当前客户端绑定的多租户上下文门面。
+   */
+  readonly tenantManager: TenantManager;
 
   /**
    * 当前客户端绑定的请求取消协调器。

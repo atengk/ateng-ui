@@ -17,3 +17,5 @@ export * from './file';
 export * from './http';
 export * from './currency';
 export * from './assertions';
+export * from './tenant';
+export * from './cache';

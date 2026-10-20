@@ -70,4 +70,24 @@ describe('@atengk/core baseline', () => {
     expect(core.isEmpty).toBeDefined();
     expect(core.isNotEmpty).toBeDefined();
   });
+
+  it('should export tenant manager and storage from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.TenantManager).toBeDefined();
+    expect(core.createTenantManager).toBeDefined();
+    expect(core.tenantManager).toBeDefined();
+    expect(core.MemoryTenantStorage).toBeDefined();
+    expect(core.LocalStorageTenantStorage).toBeDefined();
+    expect(core.createDefaultTenantStorage).toBeDefined();
+  });
+
+  it('should export cache storage and driver from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.CacheStorage).toBeDefined();
+    expect(core.createCacheStorage).toBeDefined();
+    expect(core.cacheStorage).toBeDefined();
+    expect(core.MemoryCacheDriver).toBeDefined();
+    expect(core.LocalStorageCacheDriver).toBeDefined();
+    expect(core.createDefaultCacheDriver).toBeDefined();
+  });
 });

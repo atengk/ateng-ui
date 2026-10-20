@@ -12,6 +12,7 @@ import axios, { type AxiosInstance } from 'axios';
 import type { Result } from '../contracts';
 import { createGatewayRouter, type GatewayRouter } from '../routing';
 import { authManager as defaultAuthManager, type AuthManager } from '../auth';
+import { tenantManager as defaultTenantManager, type TenantManager } from '../tenant';
 import { createAbortCoordinator, type AbortCoordinator } from '../abort';
 import { parseContentDispositionFilename, saveBlobAsFile } from '../file';
 import { setupInterceptors, getBlobDisposition } from './interceptors';
@@ -30,6 +31,11 @@ export class DefaultHttpClient implements HttpClient {
    * 当前客户端绑定的通用鉴权凭据管理器。
    */
   readonly authManager: AuthManager;
+
+  /**
+   * 当前客户端绑定的多租户上下文管理器。
+   */
+  readonly tenantManager: TenantManager;
 
   /**
    * 当前客户端绑定的请求取消协调器。
@@ -53,6 +59,7 @@ export class DefaultHttpClient implements HttpClient {
       routes = [],
       defaultTarget,
       authManager = defaultAuthManager,
+      tenantManager = defaultTenantManager,
       abortCoordinator = createAbortCoordinator(),
       cancelDuplicate = false,
       unwrap = true,
@@ -61,6 +68,7 @@ export class DefaultHttpClient implements HttpClient {
     } = options;
 
     this.authManager = authManager;
+    this.tenantManager = tenantManager;
     this.abortCoordinator = abortCoordinator;
     this.router = createGatewayRouter({ routes, defaultTarget });
 
@@ -75,6 +83,7 @@ export class DefaultHttpClient implements HttpClient {
     setupInterceptors(this.instance, {
       router: this.router,
       authManager: this.authManager,
+      tenantManager: this.tenantManager,
       abortCoordinator: this.abortCoordinator,
       defaultCancelDuplicate: cancelDuplicate,
       defaultUnwrap: unwrap,

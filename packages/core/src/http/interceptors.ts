@@ -19,6 +19,7 @@ import { BusinessException, isResult } from '../contracts';
 import { transformSnowflakeResponse } from '../transform';
 import type { GatewayRouter } from '../routing';
 import type { AuthManager } from '../auth';
+import type { TenantManager } from '../tenant';
 import { generateRequestKey, isAbortError, type AbortCoordinator } from '../abort';
 import { checkBlobForJsonError } from '../file';
 import type { HttpRequestConfig } from './types';
@@ -45,6 +46,7 @@ export function getBlobDisposition(blob: Blob): string | undefined {
 export interface InterceptorContext {
   router: GatewayRouter;
   authManager: AuthManager;
+  tenantManager?: TenantManager;
   abortCoordinator: AbortCoordinator;
   defaultCancelDuplicate: boolean;
   defaultUnwrap: boolean;
@@ -94,6 +96,16 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     for (const [key, value] of Object.entries(authHeaders)) {
       if (!customConfig.headers[key] && value) {
         customConfig.headers[key] = value;
+      }
+    }
+
+    // 1.3.1 多租户上下文请求头自动注入
+    if (context.tenantManager) {
+      const tenantHeaders = context.tenantManager.getHeaders();
+      for (const [key, value] of Object.entries(tenantHeaders)) {
+        if (!customConfig.headers[key] && value) {
+          customConfig.headers[key] = value;
+        }
       }
     }
 

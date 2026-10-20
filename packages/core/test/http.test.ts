@@ -22,6 +22,8 @@ import {
   BusinessException,
   createAuthManager,
   MemoryAuthStorage,
+  createTenantManager,
+  MemoryTenantStorage,
   type Result,
 } from '../src/index';
 
@@ -260,6 +262,30 @@ describe('HttpClient Integration Suite (Issue #9)', () => {
 
       expect(capturedConfig?.headers?.['token']).toBe('sample-jwt-token-999');
       expect(capturedConfig?.headers?.['Authorization']).toBe('Bearer sample-jwt-token-999');
+    });
+
+    it('请求拦截器应自动注入 X-Tenant-Id 租户请求头', async () => {
+      const storage = new MemoryTenantStorage();
+      const tenant = createTenantManager({ storage });
+      tenant.setTenantId('tenant-corp-999');
+
+      const client = createHttpClient({ tenantManager: tenant });
+
+      let capturedConfig: InternalAxiosRequestConfig | undefined;
+      mockAdapter(client, async cfg => {
+        capturedConfig = cfg;
+        return {
+          data: { code: 200, data: 'success', msg: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: cfg,
+        };
+      });
+
+      await client.get('/tenant/profile');
+
+      expect(capturedConfig?.headers?.['X-Tenant-Id']).toBe('tenant-corp-999');
     });
 
     it('当响应返回 HTTP 401 或业务 code 401 时应自动清空 Token 并触发 onUnauthorized', async () => {
