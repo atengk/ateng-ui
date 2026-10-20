@@ -17,6 +17,7 @@ import {
 } from '@atengk/vue';
 import { VERSION as CORE_PKG_VERSION } from '@atengk/core';
 import PaginationDemo from './components/PaginationDemo.vue';
+import LatestDemo from './components/LatestDemo.vue';
 
 // 1. 读取全局注入配置
 const config = useAtengConfig();
@@ -203,6 +204,9 @@ const onOptimisticMutate = () => {
 
     <!-- 4. 契约分页状态机自验组件 -->
     <PaginationDemo />
+
+    <!-- 5. 异步时序竞态双重防御自验组件 -->
+    <LatestDemo />
   </main>
 </template>
 
