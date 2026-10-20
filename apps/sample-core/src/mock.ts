@@ -249,6 +249,29 @@ export function installMockAdapter(targetAxios: AxiosInstance): void {
       };
     }
 
+    // 8.1 模拟防重放签名校验
+    if (url.includes('/api/security/sign-verify')) {
+      const headers = (config.headers ?? {}) as Record<string, string>;
+      return {
+        data: {
+          code: 200,
+          data: {
+            verified: true,
+            receivedTimestamp: headers['X-Timestamp'],
+            receivedNonce: headers['X-Nonce'],
+            receivedSignature: headers['X-Signature'],
+            receivedTenant: headers['X-Tenant-Id'],
+          },
+          msg: '服务端签名与时间戳防重放校验通过',
+          traceId: 'tr-sign-verified-001',
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    }
+
     // 9. 默认透传兜底
     return {
       data: { code: 200, data: `Echo: ${method} ${url}`, msg: 'ok' },
@@ -257,5 +280,60 @@ export function installMockAdapter(targetAxios: AxiosInstance): void {
       headers: {},
       config,
     };
+  };
+}
+
+/**
+ * 创建用于 AI 打字机展示的模拟流式 fetch 实现。
+ */
+export function createMockStreamFetch(): typeof fetch {
+  return async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const textPieces = [
+      '你好！我是 ',
+      '@atengk/core ',
+      '流式推理 ',
+      '打字机助手。',
+      '\n\n基于 Web 原生 ',
+      'ReadableStream 与 fetch ',
+      '无头编排构建，',
+      '零 Axios 依赖，',
+      '支持任意大模型 ',
+      'SSE 协议分发！',
+      '\n当前连接已完成。',
+    ];
+
+    let index = 0;
+    const encoder = new TextEncoder();
+    const signal = init?.signal;
+
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (signal?.aborted) {
+          controller.close();
+          return;
+        }
+
+        if (index < textPieces.length) {
+          // 模拟网络打字延迟 (120ms)
+          await new Promise(r => setTimeout(r, 120));
+          if (signal?.aborted) {
+            controller.close();
+            return;
+          }
+          const sseEventStr = `id: evt-${index + 1}\nevent: delta\ndata: ${textPieces[index]}\n\n`;
+          controller.enqueue(encoder.encode(sseEventStr));
+          index++;
+        } else {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+      },
+    });
   };
 }

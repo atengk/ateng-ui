@@ -20,15 +20,28 @@ import {
   http,
   createHttpClient,
   authManager,
+  tenantManager,
+  cacheStorage,
   formatMaskPhone,
   formatMaskIdCard,
   formatMaskEmail,
   formatMaskName,
   BusinessException,
   isAbortError,
+  toCents,
+  toYuan,
+  formatCurrency,
+  assert,
+  assertNonNull,
+  isEmpty,
+  isNotEmpty,
+  createRequestSigner,
+  createStreamClient,
+  createFileChunks,
+  createUploadCoordinator,
   type Result,
 } from '@atengk/core';
-import { installMockAdapter } from './mock';
+import { installMockAdapter, createMockStreamFetch } from './mock';
 
 // 1. 安装离线自洽模拟适配器
 installMockAdapter(http.instance);
@@ -46,6 +59,17 @@ const microserviceClient = createHttpClient({
   },
 });
 installMockAdapter(microserviceClient.instance);
+
+// 创建带签名的独立客户端实例
+const signedClient = createHttpClient({
+  signer: createRequestSigner({ secret: 'ateng-sample-secret-2026' }),
+});
+installMockAdapter(signedClient.instance);
+
+// 创建流式客户端实例
+const sampleStreamClient = createStreamClient({
+  fetch: createMockStreamFetch(),
+});
 
 // 2. 内存真实明文数据模型
 const rawUserData = {
@@ -226,6 +250,82 @@ if (app) {
             <button class="btn btn-success" id="btn-dedupe-flight">并发 5 个相同 GET (去重合并为 1 次网络)</button>
           </div>
           <div class="log-box" id="log-resilience">// 韧性重试与去重合并执行日志...</div>
+        </div>
+
+        <!-- 卡片 9: AI 流式响应与打字机输出 -->
+        <div class="dashboard-card">
+          <div class="card-title">
+            <span>9. AI 流式响应门面 (StreamClient)</span>
+            <span style="font-size: 12px; color: #0284c7;">原生 fetch & SSE</span>
+          </div>
+          <p class="card-desc">纯 Web 原生 ReadableStream 与打字机流式消费，零 Axios 依赖，支持即时 AbortSignal 级联中断与断线重连。</p>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="btn-stream-start">启动打字机输出</button>
+            <button class="btn btn-danger" id="btn-stream-abort">中途即刻中断</button>
+          </div>
+          <div class="log-box" id="log-stream" style="min-height: 100px;">// 点击上方按钮查看 AI 打字机增量输出...</div>
+        </div>
+
+        <!-- 卡片 10: 多租户隔离与带 TTL 本地缓存 -->
+        <div class="dashboard-card">
+          <div class="card-title">
+            <span>10. 多租户与时效缓存 (Tenant & Cache)</span>
+            <span style="font-size: 12px; color: #0d9488;">TTL 命名空间隔离</span>
+          </div>
+          <p class="card-desc">自动透传 X-Tenant-Id 租户请求头；本地缓存支持指定毫秒存活时长 (TTL) 与惰性过期清理。</p>
+          <div class="actions-row">
+            <button class="btn btn-secondary" id="btn-tenant-switch">切换为 tenant-888</button>
+            <button class="btn btn-primary" id="btn-cache-set">写入 5秒 TTL 缓存</button>
+            <button class="btn btn-success" id="btn-cache-get">读取缓存 (观察倒计时)</button>
+          </div>
+          <div class="log-box" id="log-tenant">// 租户与时效缓存状态日志...</div>
+        </div>
+
+        <!-- 卡片 11: 金融级金额高精度换算与强类型业务断言 -->
+        <div class="dashboard-card">
+          <div class="card-title">
+            <span>11. 金融级金额换算与强类型断言</span>
+            <span style="font-size: 12px; color: #ea580c;">纯原生零失真</span>
+          </div>
+          <p class="card-desc">纯原生位移补齐实现元分互转与千分位格式化；业务断言 assert/assertNonNull 编译期类型收窄。</p>
+          <div class="actions-row">
+            <button class="btn btn-secondary" id="btn-currency-calc">12.34元 ➔ 分 ➔ 千分位</button>
+            <button class="btn btn-danger" id="btn-assert-fail">测试 assertNonNull 异常拦截</button>
+          </div>
+          <div class="log-box" id="log-currency">// 金额计算与断言测试结果...</div>
+        </div>
+
+        <!-- 卡片 12: API 请求防重放与原生 WebCrypto 签名 -->
+        <div class="dashboard-card">
+          <div class="card-title">
+            <span>12. 请求防重放与原生签名 (RequestSigner)</span>
+            <span style="font-size: 12px; color: #7c3aed;">WebCrypto SHA-256</span>
+          </div>
+          <p class="card-desc">自动在写操作请求头注入 X-Timestamp、X-Nonce 唯一排重随机数与稳定排序的十六进制签名摘要。</p>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="btn-sign-post">发起 POST 带签名安全请求</button>
+          </div>
+          <div class="log-box" id="log-sign">// 签名计算与服务端验签结果...</div>
+        </div>
+
+        <!-- 卡片 13: 大文件分片切片与受控并发上传协调器 -->
+        <div class="dashboard-card full-width">
+          <div class="card-title">
+            <span>13. 大文件分片切片与受控并发上传 (UploadCoordinator)</span>
+            <span style="font-size: 12px; color: #16a34a;">并发数受控限制 (concurrency: 2)</span>
+          </div>
+          <p class="card-desc">将大文件按安全字节区间切分，受控限制最大并发上传连接数，提供单调递增加权进度统计、单片局部重试与外部中断。</p>
+          <div class="progress-container">
+            <div class="progress-bar" id="upload-progress-bar"></div>
+          </div>
+          <div style="font-size: 12px; color: #64748b; margin-top: -6px;">
+            当前上传进度: <strong id="upload-percent-text">0%</strong> | 已上传: <span id="upload-loaded-text">0 B / 0 B</span>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-success" id="btn-upload-start">切片 15MB 虚拟文件并并发上传</button>
+            <button class="btn btn-danger" id="btn-upload-cancel">中途取消上传</button>
+          </div>
+          <div class="log-box" id="log-upload">// 分片切片与并发上传调度日志...</div>
         </div>
       </div>
     </div>
@@ -535,6 +635,267 @@ function bindResilienceEvents(): void {
 }
 
 /**
+ * 绑定 AI 流式响应与打字机事件。
+ */
+function bindStreamEvents(): void {
+  const logStream = document.getElementById('log-stream');
+  let streamAbortController: AbortController | null = null;
+
+  document.getElementById('btn-stream-start')?.addEventListener('click', async () => {
+    if (streamAbortController) {
+      streamAbortController.abort();
+    }
+    streamAbortController = new AbortController();
+
+    if (logStream) {
+      logStream.textContent = '[连接建立] 正在接收大模型增量 SSE 数据流...\n\n';
+    }
+
+    try {
+      await sampleStreamClient.subscribe('/api/llm/stream', {
+        signal: streamAbortController.signal,
+        onMessage: (data, event) => {
+          if (logStream) {
+            logStream.textContent += data;
+            logStream.scrollTop = logStream.scrollHeight;
+            if (event?.id) {
+              logStream.title = `最新事件ID: ${event.id}`;
+            }
+          }
+        },
+        onDone: () => {
+          if (logStream) {
+            logStream.textContent += '\n\n[流已正常结束] 打字机接收完成！';
+          }
+        },
+      });
+    } catch (err) {
+      if (logStream) {
+        logStream.textContent += `\n[流式错误] ${String(err)}`;
+      }
+    }
+  });
+
+  document.getElementById('btn-stream-abort')?.addEventListener('click', () => {
+    if (streamAbortController) {
+      streamAbortController.abort();
+      streamAbortController = null;
+      if (logStream) {
+        logStream.textContent += '\n\n[用户操作] 已通过 AbortSignal 即刻中断流读取与网络连接！';
+      }
+    }
+  });
+}
+
+/**
+ * 绑定多租户与时效缓存事件。
+ */
+function bindTenantCacheEvents(): void {
+  const logTenant = document.getElementById('log-tenant');
+
+  document.getElementById('btn-tenant-switch')?.addEventListener('click', () => {
+    const current = tenantManager.getTenantId();
+    const nextTenant = current === 'tenant-888' ? 'tenant-001' : 'tenant-888';
+    tenantManager.setTenantId(nextTenant);
+    const headers = tenantManager.getHeaders();
+    if (logTenant) {
+      logTenant.textContent = `[租户切换成功]\n- 当前租户 ID: ${nextTenant}\n- 自动注入请求头: ${JSON.stringify(headers, null, 2)}`;
+    }
+  });
+
+  document.getElementById('btn-cache-set')?.addEventListener('click', () => {
+    cacheStorage.set('order_draft_key', { orderId: 'ORD-2026-999', title: '云服务器旗舰版' }, 5000);
+    if (logTenant) {
+      logTenant.textContent = `[写入缓存成功]\n- 键名: order_draft_key\n- 存活时长 (TTL): 5000ms (5秒)\n- 写入时间: ${new Date().toLocaleTimeString()}\n请在 5 秒内点击“读取缓存”查看倒计时，超时将自动判定过期清理！`;
+    }
+  });
+
+  document.getElementById('btn-cache-get')?.addEventListener('click', () => {
+    const data = cacheStorage.get<{ orderId: string; title: string }>('order_draft_key');
+    if (logTenant) {
+      if (data) {
+        logTenant.textContent = `[读取缓存成功 (未过期)]\n- 数据载荷: ${JSON.stringify(data, null, 2)}\n- 状态: 处于有效存活期内`;
+      } else {
+        logTenant.textContent = `[缓存已过期或未命中]\n- 返回值: null\n- 状态: 5000ms TTL 已耗尽，已惰性自动清理！`;
+      }
+    }
+  });
+}
+
+/**
+ * 绑定金融金额计算与强类型业务断言事件。
+ */
+function bindCurrencyAssertionEvents(): void {
+  const logCurrency = document.getElementById('log-currency');
+
+  document.getElementById('btn-currency-calc')?.addEventListener('click', () => {
+    const yuan = 12.34;
+    const cents = toCents(yuan);
+    const backYuan = toYuan(cents);
+    const bigMoney = 987654321.05;
+    const formatted = formatCurrency(bigMoney);
+
+    // 校验 isEmpty 与 isNotEmpty 谓词及 assert 断言
+    const sampleList = [1, 2, 3];
+    assert(isNotEmpty(sampleList), '数据集不应为空');
+    assert(isEmpty([]), '空集合校验');
+
+    if (logCurrency) {
+      logCurrency.textContent = [
+        '[金融级高精度金额运算]',
+        `1. 元转分: toCents(${yuan}) = ${cents} 分 (纯原生整数位移运算)`,
+        `2. 分转元: toYuan(${cents}) = ${backYuan} 元 (零浮点失真)`,
+        `3. 格式化千分位: formatCurrency(${bigMoney}) = "${formatted}"`,
+        `4. 断言守卫: assert(isNotEmpty([1,2,3])) 与 assert(isEmpty([])) 校验通过`,
+      ].join('\n');
+    }
+  });
+
+  document.getElementById('btn-assert-fail')?.addEventListener('click', () => {
+    try {
+      const mockInput: string | null = null;
+      // 强类型断言校验
+      assertNonNull(mockInput, '用户关键身份标识 (userId) 缺失');
+    } catch (err) {
+      if (err instanceof BusinessException) {
+        if (logCurrency) {
+          logCurrency.textContent = `[业务断言拦截成功]\n成功抛出强类型 BusinessException:\n- 错误码: ${err.code}\n- 提示信息: ${err.msg}\n- 校验作用: 快速失败 (Fail-Fast)，并在编译期实现 TypeScript 类型安全收窄！`;
+        }
+      } else if (logCurrency) {
+        logCurrency.textContent = `[错误] ${String(err)}`;
+      }
+    }
+  });
+}
+
+/**
+ * 绑定防重放与原生签名事件。
+ */
+function bindSecuritySignEvents(): void {
+  const logSign = document.getElementById('log-sign');
+
+  document.getElementById('btn-sign-post')?.addEventListener('click', async () => {
+    if (logSign) {
+      logSign.textContent = '正在计算 SHA-256 签名并发送 POST 请求...';
+    }
+
+    try {
+      const res = await signedClient.post<{
+        verified: boolean;
+        receivedTimestamp: string;
+        receivedNonce: string;
+        receivedSignature: string;
+      }>('/api/security/sign-verify', {
+        goodsId: 'PROD-8888',
+        price: 9900,
+      });
+
+      if (logSign) {
+        logSign.textContent = [
+          '[API 请求签名与防重放验证成功]',
+          `- 服务端验签结果: ${res.verified ? '100% 匹配通过 (Verified)' : '失败'}`,
+          `- 自动注入时间戳 (X-Timestamp): ${res.receivedTimestamp}`,
+          `- 唯一排重随机数 (X-Nonce): ${res.receivedNonce}`,
+          `- 原生 SHA-256 签名 (X-Signature): ${res.receivedSignature}`,
+          '杜绝了网络重放反向攻击与载荷中间人篡改！',
+        ].join('\n');
+      }
+    } catch (err) {
+      if (logSign) {
+        logSign.textContent = `[签名请求失败] ${String(err)}`;
+      }
+    }
+  });
+}
+
+/**
+ * 绑定大文件切片并发上传事件。
+ */
+function bindUploadEvents(): void {
+  const logUpload = document.getElementById('log-upload');
+  const progressBar = document.getElementById('upload-progress-bar');
+  const percentText = document.getElementById('upload-percent-text');
+  const loadedText = document.getElementById('upload-loaded-text');
+  let uploadController: AbortController | null = null;
+
+  document.getElementById('btn-upload-start')?.addEventListener('click', async () => {
+    if (uploadController) {
+      uploadController.abort();
+    }
+    uploadController = new AbortController();
+
+    // 创建 15MB 虚拟大文件
+    const totalBytes = 15 * 1024 * 1024;
+    const chunkSize = 3 * 1024 * 1024; // 3MB / 片，共 5 片
+    const dummyBlob = new Blob([new Uint8Array(totalBytes)]);
+
+    if (logUpload) {
+      logUpload.textContent = `[开始切片] 文件总大小: 15 MB，按 3 MB/片切分...\n`;
+    }
+
+    const chunks = createFileChunks(dummyBlob, chunkSize);
+    if (logUpload) {
+      logUpload.textContent += `成功切分为 ${chunks.length} 个分片，受控并发数: 2\n`;
+    }
+
+    const coordinator = createUploadCoordinator({
+      concurrency: 2,
+      maxRetries: 2,
+      retryDelay: 300,
+      onProgress: (percent, loaded, total) => {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (loadedText) {
+          loadedText.textContent = `${(loaded / (1024 * 1024)).toFixed(1)} MB / ${(total / (1024 * 1024)).toFixed(1)} MB`;
+        }
+      },
+      onChunkSuccess: chunk => {
+        if (logUpload) {
+          logUpload.textContent += `[切片 #${chunk.index} 完成] 起始偏移: ${chunk.start} B, 大小: ${(chunk.size / 1024 / 1024).toFixed(1)} MB\n`;
+          logUpload.scrollTop = logUpload.scrollHeight;
+        }
+      },
+      uploadChunk: async (chunk, signal) => {
+        // 模拟网络上传延迟 (250ms)
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 250);
+          signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer);
+              reject(new Error('Chunk upload aborted'));
+            },
+            { once: true },
+          );
+        });
+        return { chunkIndex: chunk.index, status: 'uploaded' };
+      },
+    });
+
+    try {
+      const results = await coordinator.upload(chunks, uploadController.signal);
+      if (logUpload) {
+        logUpload.textContent += `\n[全部上传完成] 共计 ${results.length} 个分片 100% 成功交付！`;
+      }
+    } catch (err) {
+      if (logUpload) {
+        logUpload.textContent += `\n[上传中止/异常] ${String(err)}`;
+      }
+    }
+  });
+
+  document.getElementById('btn-upload-cancel')?.addEventListener('click', () => {
+    if (uploadController) {
+      uploadController.abort();
+      uploadController = null;
+      if (logUpload) {
+        logUpload.textContent += `\n[用户操作] 已通过 AbortSignal 级联取消所有在途与等待中的分片上传！`;
+      }
+    }
+  });
+}
+
+/**
  * 初始化所有交互看板事件。
  */
 function initDashboardEvents(): void {
@@ -545,4 +906,9 @@ function initDashboardEvents(): void {
   bindRaceEvents();
   bindDownloadEvents();
   bindResilienceEvents();
+  bindStreamEvents();
+  bindTenantCacheEvents();
+  bindCurrencyAssertionEvents();
+  bindSecuritySignEvents();
+  bindUploadEvents();
 }

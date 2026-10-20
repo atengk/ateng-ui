@@ -168,8 +168,8 @@ export class DefaultHttpClient implements HttpClient {
    */
   post<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   post<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
   async post<T = unknown, D = unknown>(
@@ -185,8 +185,8 @@ export class DefaultHttpClient implements HttpClient {
    */
   put<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   put<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
   async put<T = unknown, D = unknown>(
@@ -217,8 +217,8 @@ export class DefaultHttpClient implements HttpClient {
    */
   patch<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   patch<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
   async patch<T = unknown, D = unknown>(

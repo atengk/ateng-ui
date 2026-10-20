@@ -1,6 +1,6 @@
 # @atengk/core
 
-面向现代企业级中后台与微服务架构的纯 TypeScript 强类型网络契约与工业级客户端基础设施。
+面向现代企业级中后台、AI 协同系统与微服务架构的纯 TypeScript 强类型网络契约与工业级客户端基础设施。
 
 ---
 
@@ -36,6 +36,12 @@
 | **强类型条件断言**   | 业务断言与类型收窄 | `assert`, `assertNonNull`, `isEmpty`, `isNotEmpty`, `Assertions`                                                     | `(condition, msg) => asserts condition`          | 卫语句校验失败抛出 BusinessException，并在编译期实现类型安全收窄 | [assertions.test.ts](./test/assertions.test.ts) |
 | **多租户隔离门面**   | 多租户上下文操作   | `TenantManager`, `createTenantManager`, `tenantManager`, `TenantStorage`                                             | `getTenantId, setTenantId, clearTenantId`        | 自动化 `X-Tenant-Id` 请求头注入与多租户跨宿主隔离存储            | [tenant.test.ts](./test/tenant.test.ts)         |
 | **时效命名空间缓存** | 带TTL本地键值缓存  | `CacheStorage`, `createCacheStorage`, `cacheStorage`, `CacheStorageOptions`                                          | `get, set(key, val, ttl?), remove, clear`        | 命名空间前缀隔离、毫秒级存活时间（TTL）与自动惰性垃圾清理        | [cache.test.ts](./test/cache.test.ts)           |
+| **请求防重放与签名** | WebCrypto 签名门面 | `RequestSigner`, `DefaultRequestSigner`, `createRequestSigner`, `RequestSignerOptions`, `SignTarget`, `SignResult`   | `(target) => Promise<SignResult>`                | 基于原生 WebCrypto 计算 SHA-256 签名，注入时间戳与 Nonce 防重放  | [security.test.ts](./test/security.test.ts)     |
+| **请求防重放与签名** | 签名原语与字符串化 | `sha256Hex`, `generateNonce`, `defaultBuildCanonicalString`                                                          | `(msg) => Promise<string>, () => string`         | 原生哈希摘要、唯一排重随机数与键字典序规范化序列化               | [security.test.ts](./test/security.test.ts)     |
+| **Web 原生流式响应** | 流式通信门面       | `StreamClient`, `DefaultStreamClient`, `createStreamClient`, `streamClient`, `StreamClientOptions`                   | `subscribe(url, opt), stream(url, opt)`          | 原生 fetch 与 ReadableStream 封装，支持打字机与指数退避重连      | [stream.test.ts](./test/stream.test.ts)         |
+| **Web 原生流式响应** | SSE 协议增量解析器 | `SseParser`, `SseEvent`, `StreamRequestOptions`                                                                      | `feed(chunk), flush(), reset() => SseEvent[]`    | W3C 标准 SSE 事件解析、换行合并、心跳过滤与抗网络撕裂分包        | [stream.test.ts](./test/stream.test.ts)         |
+| **大文件切片上传**   | 纯原生文件切片     | `createFileChunks`, `DEFAULT_CHUNK_SIZE`, `FileChunk`                                                                | `(file, chunkSize?) => FileChunk[]`              | 原生 Blob.slice 安全字节区间切分与起始偏移计算                   | [upload.test.ts](./test/upload.test.ts)         |
+| **大文件切片上传**   | 受控并发上传协调器 | `UploadCoordinator`, `createUploadCoordinator`, `IUploadCoordinator`, `UploadCoordinatorOptions`                     | `upload(chunks, signal?), uploadFile(...)`       | 最大并发连接数限制、单调加权进度、分片局部重试与级联中断         | [upload.test.ts](./test/upload.test.ts)         |
 
 ---
 
@@ -47,7 +53,7 @@
 pnpm add @atengk/core axios
 ```
 
-### 开箱即用请求与自动解包
+### 1. 开箱即用请求与自动解包
 
 ```ts
 import { http, authManager } from '@atengk/core';
@@ -69,32 +75,99 @@ const envelope = await http.get<User>('/api/user/info', { unwrap: false });
 console.log(`业务状态码: ${envelope.code}, TraceId: ${envelope.traceId}`);
 ```
 
+### 2. AI 大模型流式输出与打字机消费
+
+```ts
+import { streamClient } from '@atengk/core';
+
+// 方式一：面向回调打字机输出
+await streamClient.subscribe('/api/llm/chat', {
+  method: 'POST',
+  body: { prompt: '讲一个关于前端架构的故事' },
+  onMessage: (chunkText, event) => {
+    process.stdout.write(chunkText);
+  },
+  onDone: () => {
+    console.log('\n[流式完成]');
+  },
+});
+
+// 方式二：面向异步迭代器 (AsyncIterable)
+for await (const event of streamClient.stream('/api/llm/chat')) {
+  console.log(`接收到事件 [${event.event}]: ${event.data}`);
+}
+```
+
 ---
 
 ## 维度二：生产扩展接管 (Customization & Extensibility)
 
-在微前端、多服务网关与独立鉴权域场景下，可通过工厂函数创建独立客户端实例：
+### 1. 微服务网关路由、请求防重放签名与租户注入
 
 ```ts
-import { createHttpClient, createAuthManager, MemoryAuthStorage } from '@atengk/core';
+import {
+  createHttpClient,
+  createAuthManager,
+  createRequestSigner,
+  tenantManager,
+  MemoryAuthStorage,
+} from '@atengk/core';
 
-// 创建拥有独立网关与独立鉴权域的微服务客户端
-const orderClient = createHttpClient({
+// 设置当前多租户标识
+tenantManager.setTenantId('tenant-finance-001');
+
+// 创建拥有独立网关、请求防重放签名与鉴权域的微服务客户端
+const signedClient = createHttpClient({
   baseURL: 'https://gateway.example.com',
   timeout: 15000,
-  cancelDuplicate: true, // 开启防竞态/重复请求自动中断
+  cancelDuplicate: true, // 开启防竞态自动中断
   routes: [
     { prefix: '/order', target: 'https://order-service.internal', rewritePrefix: '/api/v1' },
     { prefix: '/pay', target: 'https://pay-service.internal' },
   ],
+  // 注入请求签名器：自动在写操作计算并注入 X-Timestamp, X-Nonce, X-Signature
+  signer: createRequestSigner({
+    secret: 'YOUR_APP_SECRET',
+  }),
   authManager: createAuthManager({ storage: new MemoryAuthStorage() }),
   onUnauthorized: () => {
-    console.warn('登录已过期，重定向至登录页');
+    console.warn('登录凭据已失效，通知系统重定向');
   },
 });
 
-// 发起请求，自动将 /order 路径重写分发至 order-service
-const order = await orderClient.get('/order/detail/1001');
+// 发起 POST 写操作，拦截器自动完成租户透传与防重放签名
+const result = await signedClient.post('/pay/order', { orderId: '1001', amount: 8800 });
+```
+
+### 2. 大文件切片与受控并发上传
+
+```ts
+import { createUploadCoordinator } from '@atengk/core';
+
+const coordinator = createUploadCoordinator({
+  concurrency: 3, // 严格限制同时最多 3 个切片网络连接
+  maxRetries: 2, // 单片失败自动局部重试 2 次
+  onProgress: (percent, loaded, total) => {
+    console.log(`上传总进度: ${percent}% (${loaded}/${total} 字节)`);
+  },
+  uploadChunk: async (chunk, signal) => {
+    const formData = new FormData();
+    formData.append('file', chunk.chunk);
+    formData.append('index', String(chunk.index));
+    formData.append('totalChunks', String(chunk.totalChunks));
+
+    const res = await fetch('/api/upload/chunk', {
+      method: 'POST',
+      body: formData,
+      signal,
+    });
+    return res.json();
+  },
+});
+
+// 一站式切片并执行受控并发上传
+const file = new File(['...'], 'video.mp4');
+const results = await coordinator.uploadFile(file, 5 * 1024 * 1024); // 5MB / 片
 ```
 
 ---
@@ -103,9 +176,11 @@ const order = await orderClient.get('/order/detail/1001');
 
 - **雪花 ID 防精度截断**：网络响应反序列化前必须在 `transformResponse` 阶段通过纳秒级正则匹配将 16 位以上无引号大数转换为字符串，严禁数字截断；
 - **平台中立防御**：底层纯 TS 架构保持宿主环境弹性中立，严禁硬编码裸浏览器全局对象；
-- **双态异常阻断**：二进制文件下载遇到业务异常 JSON 时，自动逆向转译为 `BusinessException`；
-- **幂等安全重试不变量**：默认且仅针对 GET、HEAD 等幂等只读方法与 5xx、超时或网络中断实施指数退避（$baseDelay \times 2^{attempt}$）重试，写操作（POST/PUT/DELETE）默认严禁自动重试，杜绝资金重复扣款与脏写；
-- **飞行中请求合并与内存零泄漏**：基于 Method+URL+Params 指纹合并未决 Promise，无论成功或失败均通过 `.finally` 确定性清理在途记录，防止内存堆积。
+- **双态异常阻断**：二进制文件下载遇到业务异常 JSON 时，自动逆向转译为 `BusinessException`，彻底杜绝损坏伪文件落地；
+- **幂等安全重试不变量**：默认且仅针对 GET、HEAD 等幂等只读方法与 5xx、超时或网络中断实施指数退避（$baseDelay \times 2^{attempt}$）重试；写操作（POST/PUT/DELETE）默认严禁自动重试，杜绝资金重复扣款与脏写；
+- **飞行中请求合并与内存零泄漏**：基于 Method+URL+Params 指纹合并未决 Promise，无论成功或失败均通过 `.finally` 确定性清理在途记录，防止内存堆积；
+- **流式确定性资源释放**：`StreamClient` 原生绑定 `AbortSignal`，外部调用取消时确定性释放 `ReadableStreamDefaultReader` 锁与连接资源；支持断线携带 `Last-Event-ID` 自动指数退避重连；
+- **切片局部重试与级联中断**：`UploadCoordinator` 发生网络抖动时仅对出错的切片实施局部指数退避重试，不影响其他正常并发传输的分片；外部 `AbortSignal` 触发时能立即中断所有飞行的网络连接并清空调度队列。
 
 ---
 
@@ -122,4 +197,4 @@ const order = await orderClient.get('/order/detail/1001');
    # 启动协议与网络请求看板 (访问 http://localhost:3001)
    pnpm --filter sample-core dev
    ```
-   自验工程 `apps/sample-core/src/main.ts` 构建了可视化协议交互看板，100% 覆盖上述全景矩阵中的所有核心 API、请求解包、雪花防截断对比、网关路由重写、防竞态中断与 Blob 双态下载。
+   自验工程 `apps/sample-core/src/main.ts` 构建了可视化协议交互看板，100% 覆盖上述全景矩阵中的所有核心 API、请求解包、雪花防截断对比、网关路由重写、防竞态中断、Blob 双态下载、AI 流式打字机、时效缓存、金额计算与分片上传。

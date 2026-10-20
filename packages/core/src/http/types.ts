@@ -193,8 +193,8 @@ export interface HttpClient {
    */
   post<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   post<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
 
@@ -203,8 +203,8 @@ export interface HttpClient {
    */
   put<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   put<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
 
@@ -222,8 +222,8 @@ export interface HttpClient {
    */
   patch<T = unknown, D = unknown>(
     url: string,
-    data?: D,
-    config?: HttpRequestConfig<D> & { unwrap: false },
+    data: D | undefined,
+    config: HttpRequestConfig<D> & { unwrap: false },
   ): Promise<Result<T>>;
   patch<T = unknown, D = unknown>(url: string, data?: D, config?: HttpRequestConfig<D>): Promise<T>;
 

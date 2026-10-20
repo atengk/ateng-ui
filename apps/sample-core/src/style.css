@@ -233,3 +233,40 @@ button.btn-success:hover {
   background-color: #f8fafc;
   font-weight: 600;
 }
+
+/* 进度条组件 */
+.progress-container {
+  width: 100%;
+  height: 12px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+/* 输入表单行 */
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-control {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  width: 160px;
+}
+
+.input-control:focus {
+  border-color: var(--primary);
+}
