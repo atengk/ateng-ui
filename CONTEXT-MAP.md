@@ -16,7 +16,7 @@
 ### L1 无头响应式层 (Headless Layer)
 
 - **[Vue 响应式通用 Hooks](./packages/vue/CONTEXT.md)**（`@atengk/vue`，当前活跃）：
-  面向现代 Web 应用的 Vue 3 通用 Composables/Hooks 基础设施。无头（Headless）状态管理，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库。提供 `useRequest`（防抖/节流/轮询）、`usePagination`（零样板分页）、`useLatest`（异步抗竞态状态机）、`useAuth`（权限/角色响应式门面）、`useTenant`（多租户状态切换）、`useStorage`（多源上传/直传/下载抽象）、`useExcel`（流式导出与错误批注驱动）以及 `useIdempotent`（前端防重幂等触发器）。
+  面向现代 Web 应用的 Vue 3 通用 Composables/Hooks 基础设施。无头（Headless）状态管理，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库。提供 `useRequest`（防抖/节流/轮询/乐观更新）、`usePagination`（零样板分页与空安全保底）、`useLatest`（异步抗竞态双重防御）、`useAuth`（权限/角色响应式门面）、`useTenant`（多租户状态切片）、`useIdempotent`（前端防刷幂等互斥锁）、`useExcel`（Fesod 流式导出与批注回写）、`useUpload`（大文件分片受控并发与断点续传）、`useStream`（SSE 大模型打字机流式响应）以及 `useWebSocket`（全双工长连接心跳保活与自动重连状态机）。
 - **React 响应式通用 Hooks**（`@atengk/react`，架构预留规划）：
   未来面向 React 生态的无头 Hooks 与状态机基础设施，对标 `@atengk/vue` 镜像能力，纯 Hooks 驱动，零具体 UI 依赖。
 
