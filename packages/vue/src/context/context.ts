@@ -5,7 +5,7 @@
  * @since 2026-10-20
  */
 
-import { inject, provide, type App, type InjectionKey, type Plugin } from 'vue';
+import { getCurrentInstance, inject, provide, type App, type InjectionKey, type Plugin } from 'vue';
 import { http } from '@atengk/core';
 import type { AtengVueContext, AtengVueOptions } from './types';
 
@@ -30,7 +30,7 @@ const DEFAULT_OPTIONS: AtengVueContext = {
  * @param options 局部配置选项
  */
 export function provideAtengConfig(options: AtengVueOptions): void {
-  const parentOptions = inject(ATENG_VUE_CONFIG_KEY, null);
+  const parentOptions = getCurrentInstance() ? inject(ATENG_VUE_CONFIG_KEY, null) : null;
   const mergedOptions: AtengVueOptions = {
     ...(parentOptions || {}),
     ...options,
@@ -46,6 +46,10 @@ export function provideAtengConfig(options: AtengVueOptions): void {
  * @returns 完整的配置上下文
  */
 export function useAtengConfig(): AtengVueContext {
+  if (!getCurrentInstance()) {
+    return DEFAULT_OPTIONS;
+  }
+
   const injected = inject(ATENG_VUE_CONFIG_KEY, null);
 
   if (!injected) {

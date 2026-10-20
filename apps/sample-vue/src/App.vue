@@ -13,6 +13,7 @@ import {
   useDebounceFn,
   useThrottleFn,
   useEventListener,
+  useRequest,
 } from '@atengk/vue';
 import { VERSION as CORE_PKG_VERSION } from '@atengk/core';
 
@@ -42,6 +43,40 @@ const windowClickCount = ref(0);
 useEventListener(window, 'click', () => {
   windowClickCount.value += 1;
 });
+
+// 4. useRequest 状态机自验
+interface UserProfile {
+  id: number;
+  name: string;
+  role: string;
+}
+
+const fetchUser = async (id: number): Promise<UserProfile> => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return {
+    id,
+    name: id === 1 ? '张三 (超级管理员)' : '李四 (运营人员)',
+    role: id === 1 ? 'ADMIN' : 'OPERATOR',
+  };
+};
+
+const currentUserId = ref(1);
+const userRequest = useRequest(fetchUser, {
+  defaultParams: [1],
+});
+
+const onSwitchUser = (id: number) => {
+  currentUserId.value = id;
+  userRequest.run(id);
+};
+
+const onOptimisticMutate = () => {
+  userRequest.mutate(prev =>
+    prev
+      ? { ...prev, name: `${prev.name} [本地乐观修改 ${new Date().toLocaleTimeString()}]` }
+      : undefined,
+  );
+};
 </script>
 
 <template>
@@ -115,6 +150,52 @@ useEventListener(window, 'click', () => {
           <p class="result">
             全局 Window 点击累计: <strong class="highlight">{{ windowClickCount }} 次</strong>
           </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. 异步请求状态机自验 (useRequest)</h2>
+      <p class="desc">
+        体验只读状态机（loading, data, error）、默认自动执行、手动切换参数、刷新以及本地乐观变更
+        mutate。
+      </p>
+      <div class="request-demo">
+        <div class="button-group">
+          <button class="btn" :disabled="userRequest.loading.value" @click="userRequest.refresh()">
+            {{ userRequest.loading.value ? '请求处理中...' : '刷新当前用户 (refresh)' }}
+          </button>
+          <button
+            class="btn btn-secondary"
+            :disabled="userRequest.loading.value"
+            @click="onSwitchUser(currentUserId === 1 ? 2 : 1)"
+          >
+            切换加载用户 (ID: {{ currentUserId === 1 ? 2 : 1 }})
+          </button>
+          <button
+            class="btn btn-secondary"
+            :disabled="!userRequest.data.value"
+            @click="onOptimisticMutate"
+          >
+            乐观更新数据 (mutate)
+          </button>
+        </div>
+
+        <div class="state-display">
+          <div class="state-row">
+            <span class="label">Loading 状态机:</span>
+            <span
+              :class="['status-tag', userRequest.loading.value ? 'status-active' : 'status-idle']"
+            >
+              {{ userRequest.loading.value ? 'Loading (加载中)' : 'Idle (就绪)' }}
+            </span>
+          </div>
+          <div class="state-row">
+            <span class="label">当前数据实体 (只读 Ref):</span>
+            <pre class="json-code">{{
+              JSON.stringify(userRequest.data.value, null, 2) || '(暂无数据)'
+            }}</pre>
+          </div>
         </div>
       </div>
     </section>
@@ -251,8 +332,30 @@ h3 {
   transition: background-color 0.2s;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   background-color: #2563eb;
+}
+
+.btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .result {
@@ -263,5 +366,51 @@ h3 {
 
 .highlight {
   color: #2563eb;
+}
+
+.state-display {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.state-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.status-active {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-idle {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.json-code {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: Consolas, Monaco, monospace;
+  margin: 0;
+  overflow-x: auto;
 }
 </style>

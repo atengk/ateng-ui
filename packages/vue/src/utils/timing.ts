@@ -10,7 +10,7 @@ import { tryOnScopeDispose } from './lifecycle';
 /**
  * 带有取消能力的受控函数接口。
  */
-export type ControlledFn<T extends (...args: unknown[]) => unknown> = ((
+export type ControlledFn<T extends (...args: never[]) => unknown> = ((
   ...args: Parameters<T>
 ) => void) & {
   cancel: () => void;
@@ -23,10 +23,10 @@ export type ControlledFn<T extends (...args: unknown[]) => unknown> = ((
  * @param delay 防抖延迟毫秒数
  * @returns 防抖包装后的受控函数
  */
-export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
-  fn: T,
+export function useDebounceFn<TArgs extends unknown[], TReturn = void>(
+  fn: (...args: TArgs) => TReturn,
   delay: number = 200,
-): ControlledFn<T> {
+): ((...args: TArgs) => void) & { cancel: () => void } {
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const cancel = () => {
@@ -36,7 +36,7 @@ export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
     }
   };
 
-  const debounced = (...args: Parameters<T>) => {
+  const debounced = (...args: TArgs) => {
     cancel();
     timer = setTimeout(() => {
       timer = null;
@@ -57,10 +57,10 @@ export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
  * @param interval 节流间隔毫秒数
  * @returns 节流包装后的受控函数
  */
-export function useThrottleFn<T extends (...args: unknown[]) => unknown>(
-  fn: T,
+export function useThrottleFn<TArgs extends unknown[], TReturn = void>(
+  fn: (...args: TArgs) => TReturn,
   interval: number = 200,
-): ControlledFn<T> {
+): ((...args: TArgs) => void) & { cancel: () => void } {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let lastTime = 0;
 
@@ -71,7 +71,7 @@ export function useThrottleFn<T extends (...args: unknown[]) => unknown>(
     }
   };
 
-  const throttled = (...args: Parameters<T>) => {
+  const throttled = (...args: TArgs) => {
     const now = Date.now();
     const remaining = interval - (now - lastTime);
 
