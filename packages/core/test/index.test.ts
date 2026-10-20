@@ -45,6 +45,9 @@ describe('@atengk/core baseline', () => {
     expect(core.parseContentDispositionFilename).toBeDefined();
     expect(core.checkBlobForJsonError).toBeDefined();
     expect(core.saveBlobAsFile).toBeDefined();
+    expect(core.createFileChunks).toBeDefined();
+    expect(core.UploadCoordinator).toBeDefined();
+    expect(core.createUploadCoordinator).toBeDefined();
   });
 
   it('should export http client items from root index', async () => {

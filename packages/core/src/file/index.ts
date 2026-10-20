@@ -11,3 +11,5 @@ export * from './types';
 export * from './disposition';
 export * from './blob-error';
 export * from './save-file';
+export * from './chunks';
+export * from './upload-coordinator';
