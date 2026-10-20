@@ -19,6 +19,7 @@ import { VERSION as CORE_PKG_VERSION } from '@atengk/core';
 import PaginationDemo from './components/PaginationDemo.vue';
 import LatestDemo from './components/LatestDemo.vue';
 import AuthTenantDemo from './components/AuthTenantDemo.vue';
+import IdempotentDemo from './components/IdempotentDemo.vue';
 
 // 1. 读取全局注入配置
 const config = useAtengConfig();
@@ -211,6 +212,9 @@ const onOptimisticMutate = () => {
 
     <!-- 6. 响应式鉴权与多租户切片自验组件 -->
     <AuthTenantDemo />
+
+    <!-- 7. 前端提交防刷与幂等互斥锁自验组件 -->
+    <IdempotentDemo />
   </main>
 </template>
 

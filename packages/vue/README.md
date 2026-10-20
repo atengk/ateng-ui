@@ -21,6 +21,7 @@
 | **时序竞态**   | 异步竞态双重防御 | `useLatest(asyncFn, options?)`              | `(AsyncFn, Options) -> UseLatestResult`     | 物理中断在途连接与逻辑序列号丢弃过期回调，根绝时序倒挂脏写     | [useLatest.test.ts](./test/useLatest.test.ts)               |
 | **鉴权状态**   | 响应式鉴权门面   | `useAuth(options?)`                         | `(Options) -> UseAuthResult`                | 登录态双轨 Token 存取、401 自动清理与细粒度权限角色通配匹配    | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) |
 | **多租户隔离** | 响应式租户切片   | `useTenant(options?)`                       | `(Options) -> UseTenantResult`              | 动态租户切片读取与切换，全应用响应式联动与请求头注入           | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) |
+| **防刷防重**   | 提交幂等互斥锁   | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`  | 按钮连打拦截、执行中互斥加锁与超时自动防死锁解除               | [useIdempotent.test.ts](./test/useIdempotent.test.ts)       |
 
 ---
 
@@ -187,6 +188,34 @@ const handleLogin = () => {
 </template>
 ```
 
+### 5. 提交防刷与幂等互斥锁 (useIdempotent)
+
+```vue
+<script setup lang="ts">
+import { useIdempotent } from '@atengk/vue';
+import { http } from '@atengk/core';
+
+// 包装写操作（保存/提交/扣款），支持超时防死锁
+const { executing, run } = useIdempotent(
+  async (orderId: string) => {
+    return await http.post(`/api/orders/${orderId}/pay`);
+  },
+  {
+    timeout: 5000,
+    onBlocked: () => {
+      alert('正在处理中，请勿重复点击！');
+    },
+  },
+);
+</script>
+
+<template>
+  <button :disabled="executing" @click="run('ORDER_001')">
+    {{ executing ? '正在安全扣款...' : '确认支付' }}
+  </button>
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary)
@@ -197,8 +226,10 @@ const handleLogin = () => {
   在 `useLatest` 与 `useRequest({ cancelPrevious: true })` 中，实施“物理切断 + 逻辑过期”双重防线：后发新请求触发时，一方面调用 `AbortController.abort()` 物理切断底层 HTTP 物理连接节省网络带宽；另一方面递增生成单调自增序列号，即使先发慢请求底层不支持中断而在稍后 resolve/reject，其结果与异常也将在逻辑层被 100% 丢弃，彻底根绝数据时序倒挂；
 - **响应式鉴权与多租户切片不变量 (Auth & Tenant Reactivity Invariant)**：
   `useAuth` 与 `useTenant` 基于单例维度映射响应式状态，全应用跨组件即时同步；当底层 HTTP 拦截器捕获 401 触发 `authManager.handleUnauthorized()` 时，响应式登录态自动清理为未登录；`tenantManager` 租户切换时全应用无缝响应重绘；
+- **提交防刷与防死锁互斥锁不变量 (Idempotent Mutex & Deadlock Prevention Invariant)**：
+  `useIdempotent` 针对写操作严格维持 `executing` 执行中独占互斥锁，连击请求直接阻断；同时配备可配置的安全 `timeout` 熔断机制，超时后确定性自动释放互斥锁，杜绝前端死锁卡死；
 - **状态单向流与只读保护 (Readonly Reactivity Invariant)**：
-  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
+  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
 - **确定性生命周期回收**：
   所有异步状态机在组件或活跃作用域销毁时，均通过 `tryOnScopeDispose` 自动物理切断未决请求（`AbortController`）并销毁定时器。
 
@@ -206,4 +237,4 @@ const handleLogin = () => {
 
 ## 维度四：物理排版与代码全真验证
 
-所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。
+所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。
