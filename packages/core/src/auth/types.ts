@@ -1,5 +1,5 @@
 /**
- * Sa-Token 鉴权凭据门面配置项与契约定义。
+ * 通用鉴权凭据门面配置项与契约定义。
  *
  * @author Ateng
  * @since 2026-10-19
@@ -12,12 +12,12 @@ import type { AuthStorage } from './storage';
  */
 export interface AuthManagerOptions {
   /**
-   * 存储在 Storage 中的 Token 键名，默认为 'satoken'。
+   * 存储在 Storage 中的 Token 键名，默认为 'token'。
    */
   tokenKey?: string;
 
   /**
-   * 双轨 Header 中的 Sa-Token 请求头名称，默认为 'satoken'。
+   * 双轨 Header 中的自定义 Token 请求头名称，默认为 'token'。
    */
   headerName?: string;
 

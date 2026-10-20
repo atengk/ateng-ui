@@ -20,8 +20,8 @@
 | **内存真明文脱敏**   | 身份证号脱敏       | `formatMaskIdCard`                                                                                                   | `(idCard, start?, end?, char?) => string`        | 18位/15位二代与一代身份证出生日期脱敏                            | [mask.test.ts](./test/mask.test.ts)           |
 | **内存真明文脱敏**   | 邮箱地址脱敏       | `formatMaskEmail`                                                                                                    | `(email, char?) => string`                       | 用户名动态掩码并完整保留域名后缀                                 | [mask.test.ts](./test/mask.test.ts)           |
 | **内存真明文脱敏**   | 中文姓名脱敏       | `formatMaskName`                                                                                                     | `(name, char?) => string`                        | 2字末尾/3字居中/多字中间自适应脱敏                               | [mask.test.ts](./test/mask.test.ts)           |
-| **Sa-Token凭据门面** | 鉴权凭据操作门面   | `AuthManager`, `createAuthManager`, `authManager`, `AuthManagerOptions`                                              | `getToken, setToken, clearToken, getHeaders`     | 双轨请求头注入 (`satoken` + `Bearer`) 与 401 自动清理广播        | [auth.test.ts](./test/auth.test.ts)           |
-| **Sa-Token凭据门面** | 跨宿主存储适配器   | `AuthStorage`, `MemoryAuthStorage`, `LocalStorageAuthStorage`, `createDefaultAuthStorage`, `isLocalStorageAvailable` | `getItem, setItem, removeItem, clear?`           | 浏览器 LocalStorage 与 Node/SSR 内存环境自适应探测存储契约       | [auth.test.ts](./test/auth.test.ts)           |
+| **鉴权凭据门面**     | 鉴权凭据操作门面   | `AuthManager`, `createAuthManager`, `authManager`, `AuthManagerOptions`                                              | `getToken, setToken, clearToken, getHeaders`     | 双轨请求头注入 (`token` + `Bearer`) 与 401 自动清理广播          | [auth.test.ts](./test/auth.test.ts)           |
+| **鉴权凭据门面**     | 跨宿主存储适配器   | `AuthStorage`, `MemoryAuthStorage`, `LocalStorageAuthStorage`, `createDefaultAuthStorage`, `isLocalStorageAvailable` | `getItem, setItem, removeItem, clear?`           | 浏览器 LocalStorage 与 Node/SSR 内存环境自适应探测存储契约       | [auth.test.ts](./test/auth.test.ts)           |
 | **请求取消与防竞态** | 请求取消协调器     | `AbortCoordinator`, `createAbortCoordinator`, `RegisterAbortOptions`, `AbortRegistration`                            | `register, cancel, cancelAll, remove, isPending` | 未决请求生命周期托管、`cancelDuplicate` 防竞态中断与外部信号级联 | [abort.test.ts](./test/abort.test.ts)         |
 | **请求取消与防竞态** | 指纹生成与错误判定 | `generateRequestKey`, `isAbortError`, `RequestKeyTarget`                                                             | `target => string`, `error => boolean`           | 基于 Method+URL+Params+Data 的确定性请求键生成与受控中断判定     | [abort.test.ts](./test/abort.test.ts)         |
 | **文件与Blob处理**   | 文件名解析         | `parseContentDispositionFilename`                                                                                    | `disposition: string => string`                  | 优先解析 RFC 5987/6266 filename* 与常规 filename，支持容错清理   | [file.test.ts](./test/file.test.ts)           |
@@ -46,7 +46,7 @@ pnpm add @atengk/core axios
 ```ts
 import { http, authManager } from '@atengk/core';
 
-// 1. 设置鉴权凭据（自动注入 satoken 与 Authorization 双轨请求头）
+// 1. 设置鉴权凭据（自动注入 token 与 Authorization 双轨请求头）
 authManager.setToken('YOUR_TOKEN_STRING');
 
 // 2. 发起 GET 请求（自动校验 code === 200 并解包返回实体 User）

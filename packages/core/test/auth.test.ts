@@ -1,5 +1,5 @@
 /**
- * Sa-Token 鉴权凭据门面与自适应存储单元测试。
+ * 通用鉴权凭据门面与自适应存储单元测试。
  *
  * @author Ateng
  * @since 2026-10-19
@@ -16,7 +16,7 @@ import {
   MemoryAuthStorage,
 } from '../src/auth';
 
-describe('AuthManager & AuthStorage (Sa-Token 鉴权凭据门面与自适应存储)', () => {
+describe('AuthManager & AuthStorage (通用鉴权凭据门面与自适应存储)', () => {
   describe('1. AuthStorage 存储适配器', () => {
     let originalWindow: unknown;
 
@@ -59,12 +59,12 @@ describe('AuthManager & AuthStorage (Sa-Token 鉴权凭据门面与自适应存�
       };
 
       const storage = new LocalStorageAuthStorage();
-      storage.setItem('satoken', 'browser-token-abc');
+      storage.setItem('token', 'browser-token-abc');
 
-      expect(storage.getItem('satoken')).toBe('browser-token-abc');
+      expect(storage.getItem('token')).toBe('browser-token-abc');
 
-      storage.removeItem('satoken');
-      expect(storage.getItem('satoken')).toBeNull();
+      storage.removeItem('token');
+      expect(storage.getItem('token')).toBeNull();
     });
 
     it('LocalStorageAuthStorage 在宿主异常或权限受限时应静默降级不崩溃', () => {
@@ -132,11 +132,11 @@ describe('AuthManager & AuthStorage (Sa-Token 鉴权凭据门面与自适应存�
     it('setToken 应保存凭据，getToken 能准确获取，clearToken 能彻底销毁', () => {
       authManager.setToken('auth-token-xyz');
       expect(authManager.getToken()).toBe('auth-token-xyz');
-      expect(memoryStorage.getItem('satoken')).toBe('auth-token-xyz');
+      expect(memoryStorage.getItem('token')).toBe('auth-token-xyz');
 
       authManager.clearToken();
       expect(authManager.getToken()).toBeNull();
-      expect(memoryStorage.getItem('satoken')).toBeNull();
+      expect(memoryStorage.getItem('token')).toBeNull();
     });
 
     it('setToken 传入空值或纯空格时应自动视为销毁凭据', () => {
@@ -177,7 +177,7 @@ describe('AuthManager & AuthStorage (Sa-Token 鉴权凭据门面与自适应存�
   });
 
   describe('3. 双轨请求头注入 (Header Propagation)', () => {
-    it('存在有效 Token 时应生成标准双轨请求头 (satoken 与 Authorization: Bearer)', () => {
+    it('存在有效 Token 时应生成标准双轨请求头 (token 与 Authorization: Bearer)', () => {
       const auth = createAuthManager({
         storage: new MemoryAuthStorage(),
       });
@@ -185,7 +185,7 @@ describe('AuthManager & AuthStorage (Sa-Token 鉴权凭据门面与自适应存�
 
       const headers = auth.getHeaders();
       expect(headers).toEqual({
-        satoken: 'test-jwt-token-999',
+        token: 'test-jwt-token-999',
         Authorization: 'Bearer test-jwt-token-999',
       });
     });

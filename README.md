@@ -19,7 +19,7 @@
   - **显式强类型契约**：严格对齐企业级响应协议，标准化支持 `Result<T>` 解包、`PageQuery` 与 `PageResult<T>` 分页流转；
   - **雪花 Long ID 防截断**：基于 Axios `transformResponse` 纳秒级正则预处理（[ADR-0003](./docs/adr/0003-snowflake-long-id-raw-json-transform.md)），将 16 位以上超大整型加引号转为字符串，消除 V8 原生解析精度截断；
   - **双态 Blob 异常识别**：下载文件遇业务异常 JSON 时自动识别并转译为 `BusinessException`（[ADR-0004](./docs/adr/0004-blob-error-dual-state-and-fesod-excel-protocol.md)），杜绝伪损坏文件；
-  - **双轨凭据注入**：内置 Sa-Token 鉴权凭据门面（`AuthManager`），自动注入请求头与全链路 `traceId` 追踪。
+  - **双轨凭据注入**：内置通用鉴权凭据门面（`AuthManager`），自动注入双轨请求头（`token` / `Bearer`）与全链路 `traceId` 追踪。
 - ⚡ **响应式通用状态机 (`@atengk/vue`)**：
   - **Vue 3.5 原生解构契约**：遵循 Vue 3.5 响应式解构入参规范（[ADR-0002](./docs/adr/0002-vue-3-5-baseline-and-reactive-props-contract.md)），公共 Hooks 统一采用 `MaybeRefOrGetter<T>` 与 `toValue()` 解包，杜绝响应性丢失；
   - **确定性生命周期回收**：物理监听、定时器与网络请求句柄在 `onScopeDispose` 或 `onUnmounted` 中确定性 100% 释放，彻底消灭内存泄漏。
@@ -62,14 +62,14 @@ flowchart TB
 
 ## 3. 模块全景速查矩阵 (Packages & Apps)
 
-| 模块目录                                                 | npm 包名                        | 定位说明                        | 核心对外产出                                                           | 文档真理源                                                  |
-| :------------------------------------------------------- | :------------------------------ | :------------------------------ | :--------------------------------------------------------------------- | :---------------------------------------------------------- |
-| [`packages/core`](./packages/core)                       | `@atengk/core`                  | 纯 TypeScript 网络与数据底座    | Result 响应契约、Axios 强类型请求管道、雪花大数安全转换、Sa-Token 门面 | [core/README.md](./packages/core/README.md)                 |
-| [`packages/vue`](./packages/vue)                         | `@atengk/vue`                   | Vue 3 响应式通用 Hooks 设施     | `useRequest`、`usePagination`、响应式状态机、生命周期回收              | [vue/README.md](./packages/vue/README.md)                   |
-| [`packages/element-plus`](./packages/element-plus)       | `@atengk/element-plus`          | Element Plus 基础设施级组件增强 | 分页表格容器、Excel 批注反馈组件、存储上传器、防重指令                 | [element-plus/README.md](./packages/element-plus/README.md) |
-| [`apps/sample-core`](./apps/sample-core)                 | `sample-core` (private)         | 原生 TS 网络与数据契约自验沙箱  | 原生网络请求联调与大数精度端到端自验                                   | -                                                           |
-| [`apps/sample-vue`](./apps/sample-vue)                   | `sample-vue` (private)          | Vue 3 响应式 Hooks 视图驱动沙箱 | 极简 Vue 视图驱动验证与生命周期销毁实测                                | -                                                           |
-| [`apps/sample-element-plus`](./apps/sample-element-plus) | `sample-element-plus` (private) | 基础设施组件库全特性交互展厅    | 高保真组件与指令全交互体验展厅                                         | -                                                           |
+| 模块目录                                                 | npm 包名                        | 定位说明                        | 核心对外产出                                                             | 文档真理源                                                  |
+| :------------------------------------------------------- | :------------------------------ | :------------------------------ | :----------------------------------------------------------------------- | :---------------------------------------------------------- |
+| [`packages/core`](./packages/core)                       | `@atengk/core`                  | 纯 TypeScript 网络与数据底座    | Result 响应契约、Axios 强类型请求管道、雪花大数安全转换、通用 Token 门面 | [core/README.md](./packages/core/README.md)                 |
+| [`packages/vue`](./packages/vue)                         | `@atengk/vue`                   | Vue 3 响应式通用 Hooks 设施     | `useRequest`、`usePagination`、响应式状态机、生命周期回收                | [vue/README.md](./packages/vue/README.md)                   |
+| [`packages/element-plus`](./packages/element-plus)       | `@atengk/element-plus`          | Element Plus 基础设施级组件增强 | 分页表格容器、Excel 批注反馈组件、存储上传器、防重指令                   | [element-plus/README.md](./packages/element-plus/README.md) |
+| [`apps/sample-core`](./apps/sample-core)                 | `sample-core` (private)         | 原生 TS 网络与数据契约自验沙箱  | 原生网络请求联调与大数精度端到端自验                                     | -                                                           |
+| [`apps/sample-vue`](./apps/sample-vue)                   | `sample-vue` (private)          | Vue 3 响应式 Hooks 视图驱动沙箱 | 极简 Vue 视图驱动验证与生命周期销毁实测                                  | -                                                           |
+| [`apps/sample-element-plus`](./apps/sample-element-plus) | `sample-element-plus` (private) | 基础设施组件库全特性交互展厅    | 高保真组件与指令全交互体验展厅                                           | -                                                           |
 
 ---
 

@@ -99,7 +99,7 @@ export interface HttpClient {
   readonly instance: AxiosInstance;
 
   /**
-   * 当前客户端绑定的 Sa-Token 凭据门面。
+   * 当前客户端绑定的通用鉴权凭据门面。
    */
   readonly authManager: AuthManager;
 

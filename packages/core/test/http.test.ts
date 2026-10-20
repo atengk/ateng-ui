@@ -5,7 +5,7 @@
  * 1. 工厂函数 createHttpClient 与全局单例 http
  * 2. 默认响应解包 Promise<T> 与 { unwrap: false } 逃生门返回 Promise<Result<T>>
  * 3. 业务状态码非 200 与 HTTP 4xx/5xx 错误统一转译为 BusinessException 并保留 cause
- * 4. Sa-Token 双轨请求头注入与 401 自动清理凭据闭环
+ * 4. 双轨 Token 请求头注入与 401 自动清理凭据闭环
  * 5. 微服务网关路由前缀匹配与 service 显式覆盖
  * 6. cancelDuplicate: true 防竞态自动中断前序请求
  * 7. http.download 文件下载、Content-Disposition 提取与 saveBlobAsFile 闭环
@@ -236,8 +236,8 @@ describe('HttpClient Integration Suite (Issue #9)', () => {
     });
   });
 
-  describe('4. Sa-Token 双轨请求头注入与 401 闭环', () => {
-    it('请求拦截器应自动注入 satoken 与 Authorization: Bearer 双轨请求头', async () => {
+  describe('4. 双轨 Token 请求头注入与 401 闭环', () => {
+    it('请求拦截器应自动注入 token 与 Authorization: Bearer 双轨请求头', async () => {
       const storage = new MemoryAuthStorage();
       const auth = createAuthManager({ storage });
       auth.setToken('sample-jwt-token-999');
@@ -258,7 +258,7 @@ describe('HttpClient Integration Suite (Issue #9)', () => {
 
       await client.get('/user/info');
 
-      expect(capturedConfig?.headers?.['satoken']).toBe('sample-jwt-token-999');
+      expect(capturedConfig?.headers?.['token']).toBe('sample-jwt-token-999');
       expect(capturedConfig?.headers?.['Authorization']).toBe('Bearer sample-jwt-token-999');
     });
 

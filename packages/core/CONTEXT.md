@@ -1,6 +1,6 @@
 # Core (核心契约与网络底座)
 
-无框架纯 TypeScript 底座，定义全局统一强类型响应契约、Axios 请求管道、Sa-Token 凭据注入与雪花大数防截断。
+无框架纯 TypeScript 底座，定义全局统一强类型响应契约、Axios 请求管道、通用 Token 凭据注入与雪花大数防截断。
 
 ## 统一响应契约
 
@@ -31,11 +31,11 @@ _Avoid_: LongId, BigIntId, NumericId
 _Avoid_: RequestId, SpanId, CorrelationId, LogId
 
 **AuthManager**:
-Sa-Token 鉴权凭据操作门面，负责 Token 提取、持久化、请求头双轨注入与会话注销。
+通用鉴权凭据操作门面，负责 Token 提取、持久化、请求头双轨注入与会话注销。
 _Avoid_: TokenUtil, AuthService, SessionManager, UserHelper
 
 **AuthStorage**:
-Sa-Token 凭据持久化存储抽象接口，提供浏览器 LocalStorage 与服务端内存跨宿主适配契约。
+通用凭据持久化存储抽象接口，提供浏览器 LocalStorage 与服务端内存跨宿主适配契约。
 _Avoid_: TokenCache, SessionStore, StorageDriver
 
 **GatewayRoute**:

@@ -19,7 +19,7 @@ _Avoid_: FileUploader, OssUpload, UploadBox, StorageUpload
 ## 权限与防重指令
 
 **v-permission**:
-基于 Sa-Token 权限码的细粒度操作按钮可见性控制指令。
+基于权限码的细粒度操作按钮可见性控制指令。
 _Avoid_: v-auth, v-hasPermi, v-access, v-privilege
 
 **v-role**:

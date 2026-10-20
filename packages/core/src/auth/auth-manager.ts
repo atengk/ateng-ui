@@ -1,7 +1,7 @@
 /**
- * Sa-Token 鉴权凭据门面实现。
+ * 通用鉴权凭据门面实现。
  *
- * 负责 Token 存取、销毁、双轨请求头组装（satoken 与 Authorization: Bearer <token>），
+ * 负责 Token 存取、销毁、双轨请求头组装（token 与 Authorization: Bearer <token>），
  * 以及 401 未授权自动清理与上层事件回调通知。
  *
  * @author Ateng
@@ -12,7 +12,7 @@ import { AuthStorage, createDefaultAuthStorage } from './storage';
 import type { AuthManagerOptions } from './types';
 
 /**
- * Sa-Token 鉴权凭据操作门面。
+ * 通用鉴权凭据操作门面。
  */
 export class AuthManager {
   private readonly tokenKey: string;
@@ -28,8 +28,8 @@ export class AuthManager {
   private readonly unauthorizedListeners: Set<() => void> = new Set();
 
   public constructor(options?: AuthManagerOptions) {
-    this.tokenKey = options?.tokenKey ?? 'satoken';
-    this.headerName = options?.headerName ?? 'satoken';
+    this.tokenKey = options?.tokenKey ?? 'token';
+    this.headerName = options?.headerName ?? 'token';
     this.bearerHeaderName = options?.bearerHeaderName ?? 'Authorization';
     this.tokenPrefix = options?.tokenPrefix ?? 'Bearer ';
     this.storage = options?.storage ?? createDefaultAuthStorage();

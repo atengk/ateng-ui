@@ -4,7 +4,7 @@
  * 具象化呈现：
  * 1. 统一响应自动解包与 { unwrap: false } 逃生门；
  * 2. 64位雪花 ID 大数防截断原始 JSON 对比与字符串类型保护；
- * 3. Sa-Token 双轨请求头注入指示与 401 自动清理广播；
+ * 3. 双轨 Token 请求头注入指示与 401 自动清理广播；
  * 4. 微服务网关前缀路由与路径重写分发；
  * 5. cancelDuplicate 防竞态自动中断与未决协调器计数；
  * 6. Blob 双态异常阻断与 RFC 5987 安全下载落地；
@@ -109,16 +109,16 @@ if (app) {
           </div>
         </div>
 
-        <!-- 卡片 3: Sa-Token 双轨鉴权与 401 闭环 -->
+        <!-- 卡片 3: 双轨 Token 鉴权与 401 闭环 -->
         <div class="dashboard-card">
           <div class="card-title">
-            <span>3. Sa-Token 双轨凭据门面</span>
+            <span>3. 通用 Token 双轨凭据门面</span>
             <div class="status-indicator">
               <span class="status-dot" id="token-dot"></span>
               <span id="token-status-text">未登录</span>
             </div>
           </div>
-          <p class="card-desc">自动注入 satoken 与 Authorization: Bearer 双轨请求头，401 自动清理通知。</p>
+          <p class="card-desc">自动注入 token 与 Authorization: Bearer 双轨请求头，401 自动清理通知。</p>
           <div class="actions-row">
             <button class="btn btn-primary" id="btn-token-login">登录注入凭据</button>
             <button class="btn btn-secondary" id="btn-token-clear">主动清空</button>
@@ -244,7 +244,7 @@ function updateAuthStatusUI(extraMsg?: string): void {
     logBox.textContent = [
       extraMsg ? `[通知] ${extraMsg}` : null,
       `当前 Token: ${token || '(null)'}`,
-      `注入请求头 (satoken): ${headers['satoken'] || '(无)'}`,
+      `注入请求头 (token): ${headers['token'] || '(无)'}`,
       `注入请求头 (Authorization): ${headers['Authorization'] || '(无)'}`,
     ]
       .filter(Boolean)
@@ -308,12 +308,12 @@ function bindSnowflakeEvents(): void {
 }
 
 /**
- * 绑定 Sa-Token 鉴权与 401 模拟事件。
+ * 绑定通用 Token 鉴权与 401 模拟事件。
  */
 function bindAuthEvents(): void {
   document.getElementById('btn-token-login')?.addEventListener('click', () => {
     authManager.setToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ateng-token-sample');
-    updateAuthStatusUI('成功登录并注入 Sa-Token 凭据');
+    updateAuthStatusUI('成功登录并注入 Token 凭据');
   });
 
   document.getElementById('btn-token-clear')?.addEventListener('click', () => {

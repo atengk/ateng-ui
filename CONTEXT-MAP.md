@@ -11,7 +11,7 @@
 ### L0 纯原生核心底座 (Core Layer)
 
 - **[Core 核心契约与网络底座](./packages/core/CONTEXT.md)**（`@atengk/core`）：
-  纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Sa-Token 凭据门面（`AuthManager`）、全链路 `traceId` 透传与提取、雪花 Long ID 大数防精度截断转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
+  纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、通用 Token 凭据门面（`AuthManager`）、全链路 `traceId` 透传与提取、雪花 Long ID 大数防精度截断转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
 
 ### L1 无头响应式层 (Headless Layer)
 
@@ -46,7 +46,7 @@
 flowchart TD
     subgraph Protocol["统一强类型契约层 (Cross-Cutting Invariants)"]
         RESULT["Result&lt;T&gt; / PageResult&lt;T&gt; 响应契约"]
-        SATOKEN["Sa-Token Header 规范 (satoken / Bearer)"]
+        TOKEN["通用双轨 Token Header 规范 (token / Bearer)"]
         TRACE["MDC TraceId 透传协议"]
         SNOW["Snowflake Long 大数安全防截断"]
         FESOD["Apache Fesod 错误批注回写协议"]

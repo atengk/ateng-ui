@@ -51,9 +51,9 @@
 - **传输层与表现层解耦 (Transport Decoupling & Clean View Models)**：
   - API 请求入参（DTO/Query）与前端展示状态（ViewModel/FormState）应保持清晰隔离；
   - 避免将带有无用元数据或未授权属性的对象全量作为 Payload 提交；解耦转换统一在 Service 或 Hook 边界完成。
-- **全链路追踪与凭据注入 (Tracing & Sa-Token Propagation)**：
+- **全链路追踪与凭据注入 (Tracing & Token Propagation)**：
   - 核心客户端标配全局拦截器，自动从响应头或载荷中提取 `traceId`，并在异常报错时挂载至诊断错误对象中；
-  - Sa-Token 鉴权凭据门面（`AuthManager`）支持灵活持久化（Storage 抽象），并在每次请求时标准化注入双轨请求头（`satoken` / `Authorization: Bearer`）；
+  - 通用鉴权凭据门面（`AuthManager`）支持灵活持久化（Storage 抽象），并在每次请求时标准化注入双轨请求头（`token` / `Authorization: Bearer`）；
   - 微服务多路由机制（Multi-Service Gateway Routing）：支持单体应用直连与微服务网关前缀（`service-id`）映射两套模式。
 - **Blob-JSON 双态异常识别与 Excel 回写协议 (Blob Error & Fesod Protocol)**：
   - 拦截器针对 `responseType: 'blob'` 实施双态识别：若响应头或数据为 `application/json`，必须异步提取文本解析为 `Result<never>` 并转译为 `BusinessException` 抛出，彻底杜绝下载损坏伪文件；

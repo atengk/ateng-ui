@@ -1,7 +1,7 @@
 /**
  * 工业级 HTTP 客户端门面实现与全局默认单例。
  *
- * 整合强类型响应契约、网关多路由前缀映射、Sa-Token 双轨请求头注入、
+ * 整合强类型响应契约、网关多路由前缀映射、双轨 Token 请求头注入、
  * 雪花 Long ID 大数防截断、请求取消防竞态协调器与 Blob 双态异常安全下载。
  *
  * @author Ateng
@@ -27,7 +27,7 @@ export class DefaultHttpClient implements HttpClient {
   readonly instance: AxiosInstance;
 
   /**
-   * 当前客户端绑定的 Sa-Token 鉴权管理器。
+   * 当前客户端绑定的通用鉴权凭据管理器。
    */
   readonly authManager: AuthManager;
 

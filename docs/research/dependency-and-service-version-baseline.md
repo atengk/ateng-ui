@@ -2,7 +2,7 @@
 
 **调研执行方**：Research Subagent  
 **调研日期**：2026-10-19  
-**权威信源**：Vue.js Official Blog / GitHub Releases、pnpm Docs & Releases、Turborepo 2 Docs、TypeScript Announce Blogs、Axios Docs、Sa-Token 官方文档、Apache Fesod (Incubating) / Alibaba EasyExcel 社区演进白皮书。
+**权威信源**：Vue.js Official Blog / GitHub Releases、pnpm Docs & Releases、Turborepo 2 Docs、TypeScript Announce Blogs、Axios Docs、JWT / OAuth2 鉴权规范、Apache Fesod (Incubating) / Alibaba EasyExcel 社区演进白皮书。
 
 ---
 
@@ -23,7 +23,7 @@
 | **单元测试 (Vitest)** | 新增引入           | **`vitest ^2.1.0` + `happy-dom`**                     | 秒级单测反馈，内存开销仅为 jsdom 的 1/3；搭配 `@vue/test-utils` 与 `@vitest/coverage-v8` 构筑对抗性测试守护。                                                   |
 | **代码规范**          | 新增引入           | **ESLint 9 Flat Config + Prettier 3.x**               | 采用 `eslint.config.mjs` 原生扁平配置，结合 `@vue/eslint-config-typescript`，彻底淘汰 `.eslintrc.*`。                                                           |
 | **HTTP 客户端**       | `Axios ^1.7.0`     | **`axios ^1.7.7`**                                    | 拦截器严格使用 `InternalAxiosRequestConfig` 强类型；统一解包至 `Result<T>` 并保留 `cause` 异常因果链。                                                          |
-| **鉴权传输**          | Sa-Token           | **Sa-Token 1.39.x+ 双轨制**                           | 默认请求头 `satoken: <token>`，同时兼容 `Authorization: Bearer <token>`，通过 `AuthManager` 门面解耦。                                                          |
+| **鉴权传输**          | 通用 Token         | **通用 Token 双轨制**                                 | 默认请求头 `token: <token>`，同时兼容 `Authorization: Bearer <token>`，通过 `AuthManager` 门面解耦。                                                            |
 | **雪花 ID 防失真**    | 新增拦截           | **Axios `transformResponse` + 高精度正则预处理**      | 在 `JSON.parse` 前精准把 16 位以上无引号整型加引号，保留 V8 C++ 极速解析性能，零额外重型库依赖。                                                                |
 | **Excel 协议对接**    | Fesod / EasyExcel  | **Apache Fesod 2.x 批注回写协议**                     | 解决 `responseType: 'blob'` 遇到 JSON 错误的吞噬陷阱，提取 `Content-Disposition` 文件名，支持红标批注回写与弹窗预览。                                           |
 
@@ -253,9 +253,9 @@ Vue 3.5 于 2024 年 9 月正式发布，并经过了多个次级补丁迭代，
 - 响应拦截器统一校验并解包为强类型 `Result<T>`；
 - 异常因果链传递：抛出 `BusinessException` 时通过 `cause` 参数完整携带原始 AxiosError。
 
-### 6.2 Sa-Token 1.39.x+ 鉴权凭据传递规范
+### 6.2 通用 Token 鉴权凭据传递规范
 
-- 支持双轨制：缺省 `satoken: <token>`，兼容 `Authorization: Bearer <token>`；
+- 支持双轨制：缺省 `token: <token>`，兼容 `Authorization: Bearer <token>`；
 - 提供 `AuthManager` 门面解耦，支持 Storage 注入与 401 自动下线。
 
 ### 6.3 64 位 Snowflake Long ID 防精度截断技术方案

@@ -2,7 +2,7 @@
  * HTTP 客户端请求与响应拦截器管道编排。
  *
  * 负责组装：
- * 1. 请求拦截器：网关前缀与 service 路由分发、Sa-Token 双轨请求头注入、雪花大数防截断、请求取消协调器防竞态；
+ * 1. 请求拦截器：网关前缀与 service 路由分发、双轨 Token 请求头注入、雪花大数防截断、请求取消协调器防竞态；
  * 2. 响应拦截器：Blob 双态异常识别、统一因果异常转译、401 自动清理与事件广播、Result<T> 默认自动解包与逃生门。
  *
  * @author Ateng
@@ -88,7 +88,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       customConfig.url = resolvedRoute.url;
     }
 
-    // 1.3 Sa-Token 双轨请求头自动注入
+    // 1.3 双轨 Token 请求头自动注入
     const authHeaders = authManager.getHeaders();
     customConfig.headers = customConfig.headers || {};
     for (const [key, value] of Object.entries(authHeaders)) {

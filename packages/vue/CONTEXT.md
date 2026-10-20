@@ -19,7 +19,7 @@ _Avoid_: useRace, useLatestAsync, useCancelPrevious, useAsyncLock
 ## 状态治理与扩展能力
 
 **useAuth**:
-响应式 Sa-Token 鉴权状态、用户凭据与细粒度权限/角色校验门面 Hook。
+响应式鉴权状态、用户凭据与细粒度权限/角色校验门面 Hook。
 _Avoid_: usePermission, useToken, useSession
 
 **useTenant**:
