@@ -8,4 +8,5 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   external: ['vue', '@atengk/core'],
+  tsconfig: './tsconfig.build.json',
 });
