@@ -39,9 +39,11 @@ import {
   createStreamClient,
   createFileChunks,
   createUploadCoordinator,
+  createWebSocketClient,
+  type WebSocketStatus,
   type Result,
 } from '@atengk/core';
-import { installMockAdapter, createMockStreamFetch } from './mock';
+import { installMockAdapter, createMockStreamFetch, createMockWebSocketServer } from './mock';
 
 // 1. 安装离线自洽模拟适配器
 installMockAdapter(http.instance);
@@ -326,6 +328,40 @@ if (app) {
             <button class="btn btn-danger" id="btn-upload-cancel">中途取消上传</button>
           </div>
           <div class="log-box" id="log-upload">// 分片切片与并发上传调度日志...</div>
+        </div>
+
+        <!-- 卡片 14: WebSocketClient 全双工长连接矩阵 -->
+        <div class="dashboard-card full-width">
+          <div class="card-title">
+            <span>14. WebSocket 全双工长连接客户端 (WebSocketClient)</span>
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <span id="ws-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
+              <strong id="ws-status-text">CLOSED</strong>
+            </span>
+          </div>
+          <p class="card-desc">纯原生全双工通信底座，集成双向心跳保活、Pong 超时假死切断、指数退避自动重连、受控容量离线缓冲队列与强类型主题订阅分发。</p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; font-size: 13px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div><strong>心跳保活:</strong> <span id="ws-heartbeat-status">未启动</span> | 已收到Pong: <span id="ws-pong-count">0</span> 次</div>
+            <div><strong>指数退避重连:</strong> 第 <span id="ws-reconnect-attempt">0</span> 次重试 | 延迟: <span id="ws-reconnect-delay">0ms</span></div>
+            <div><strong>离线发送缓冲:</strong> <span id="ws-buffer-count">0</span> / 5 条 (FIFO受控)</div>
+          </div>
+
+          <div class="actions-row" style="flex-wrap: wrap; gap: 8px;">
+            <button class="btn btn-primary" id="btn-ws-connect">建立连接</button>
+            <button class="btn btn-danger" id="btn-ws-disconnect">主动断开 (close)</button>
+            <button class="btn" style="background: #f59e0b; color: white;" id="btn-ws-simulate-disconnect">模拟异常断线 (1006)</button>
+            <button class="btn" style="background: #8b5cf6; color: white;" id="btn-ws-toggle-drop-pong">模拟服务端假死 (停回Pong)</button>
+            <button class="btn" style="background: #64748b; color: white;" id="btn-ws-clear-log">清空日志</button>
+          </div>
+
+          <div class="input-row" style="flex-wrap: wrap; gap: 8px;">
+            <input class="input-control" id="input-ws-chat" placeholder="输入聊天内容..." value="你好，WebSocket！" style="flex: 1; min-width: 200px;" />
+            <button class="btn btn-success" id="btn-ws-send-chat">发送主题消息 (chat)</button>
+            <button class="btn" style="background: #0ea5e9; color: white;" id="btn-ws-send-quote">订阅实时行情 (quote)</button>
+          </div>
+
+          <div class="log-box" id="log-ws" style="height: 180px; overflow-y: auto;">// WebSocket 全双工通信与主题订阅日志流...</div>
         </div>
       </div>
     </div>
@@ -896,6 +932,183 @@ function bindUploadEvents(): void {
 }
 
 /**
+ * 绑定 WebSocket 全双工长连接客户端交互看板。
+ */
+function bindWebSocketEvents(): void {
+  const logWs = document.getElementById('log-ws');
+  const dotEl = document.getElementById('ws-status-dot');
+  const statusTextEl = document.getElementById('ws-status-text');
+  const heartbeatStatusEl = document.getElementById('ws-heartbeat-status');
+  const pongCountEl = document.getElementById('ws-pong-count');
+  const reconnectAttemptEl = document.getElementById('ws-reconnect-attempt');
+  const reconnectDelayEl = document.getElementById('ws-reconnect-delay');
+  const bufferCountEl = document.getElementById('ws-buffer-count');
+  const btnDropPong = document.getElementById('btn-ws-toggle-drop-pong');
+  const inputChat = document.getElementById('input-ws-chat') as HTMLInputElement | null;
+
+  let pongCount = 0;
+
+  const appendLog = (msg: string) => {
+    if (logWs) {
+      const time = new Date().toLocaleTimeString();
+      logWs.textContent += `\n[${time}] ${msg}`;
+      logWs.scrollTop = logWs.scrollHeight;
+    }
+  };
+
+  const updateStatusUI = (status: WebSocketStatus, code?: number) => {
+    if (!dotEl || !statusTextEl) return;
+    switch (status) {
+      case 'OPEN':
+        dotEl.style.backgroundColor = '#10b981';
+        statusTextEl.textContent = 'OPEN (已连接)';
+        statusTextEl.style.color = '#10b981';
+        break;
+      case 'CONNECTING':
+        dotEl.style.backgroundColor = '#3b82f6';
+        statusTextEl.textContent = 'CONNECTING (连接/握手中)';
+        statusTextEl.style.color = '#3b82f6';
+        break;
+      case 'CLOSING':
+        dotEl.style.backgroundColor = '#f59e0b';
+        statusTextEl.textContent = 'CLOSING (关闭中)';
+        statusTextEl.style.color = '#f59e0b';
+        break;
+      case 'CLOSED':
+      default:
+        dotEl.style.backgroundColor = '#94a3b8';
+        statusTextEl.textContent = code ? `CLOSED (code=${code})` : 'CLOSED (已断开)';
+        statusTextEl.style.color = '#64748b';
+        break;
+    }
+  };
+
+  const mockServer = createMockWebSocketServer();
+
+  const wsClient = createWebSocketClient({
+    url: 'ws://mock.ateng.local/ws',
+    webSocketFactory: mockServer.factory,
+    heartbeat: {
+      enabled: true,
+      interval: 4000,
+      timeout: 2000,
+    },
+    reconnect: {
+      enabled: true,
+      baseDelay: 1000,
+      factor: 1.5,
+      maxDelay: 5000,
+      maxRetries: 5,
+    },
+    bufferWhileConnecting: true,
+    maxBufferSize: 5,
+  });
+
+  // 1. 监听底层生命周期事件
+  wsClient.on('open', () => {
+    updateStatusUI('OPEN');
+    if (heartbeatStatusEl) heartbeatStatusEl.textContent = '正常保活中 (4s周期)';
+    if (reconnectAttemptEl) reconnectAttemptEl.textContent = '0';
+    if (reconnectDelayEl) reconnectDelayEl.textContent = '0ms';
+    if (bufferCountEl) bufferCountEl.textContent = String(wsClient.getBufferSize());
+    appendLog('【连接成功】WebSocket 握手就绪！自动启动心跳保活探针并冲刷离线队列');
+  });
+
+  wsClient.on('close', event => {
+    updateStatusUI('CLOSED', event.code);
+    if (heartbeatStatusEl) heartbeatStatusEl.textContent = '已停止';
+    appendLog(`【连接关闭】code=${event.code}, reason=${event.reason || 'none'}`);
+  });
+
+  wsClient.on('reconnect', (attempt, delay) => {
+    updateStatusUI('CONNECTING');
+    if (reconnectAttemptEl) reconnectAttemptEl.textContent = String(attempt);
+    if (reconnectDelayEl) reconnectDelayEl.textContent = `${delay}ms`;
+    appendLog(`【自动重连】触发第 ${attempt} 次指数退避重连，等待延迟 ${delay}ms...`);
+  });
+
+  wsClient.on('message', data => {
+    if (data === 'pong') {
+      pongCount += 1;
+      if (pongCountEl) pongCountEl.textContent = String(pongCount);
+      appendLog('【心跳响应】收到对端 Pong 探针应答，连接健康续命');
+    }
+  });
+
+  // 2. 注册高阶强类型主题订阅
+  wsClient.subscribe<{ user: string; text: string; time?: string }>('chat', payload => {
+    appendLog(`【主题:chat】[${payload.user}]: ${payload.text} (${payload.time || ''})`);
+  });
+
+  wsClient.subscribe<{ symbol: string; price: number; time?: string }>('quote', payload => {
+    appendLog(
+      `【主题:quote】${payload.symbol} 最新行情: $${payload.price} (${payload.time || ''})`,
+    );
+  });
+
+  // 3. 按钮交互绑定
+  document.getElementById('btn-ws-connect')?.addEventListener('click', () => {
+    appendLog('【用户操作】发起建立连接...');
+    void wsClient.connect();
+  });
+
+  document.getElementById('btn-ws-disconnect')?.addEventListener('click', () => {
+    appendLog('【用户操作】主动断开长连接 (close)，永久阻断自动重连...');
+    wsClient.close(1000, '用户主动关闭连接');
+    if (bufferCountEl) bufferCountEl.textContent = String(wsClient.getBufferSize());
+  });
+
+  document.getElementById('btn-ws-simulate-disconnect')?.addEventListener('click', () => {
+    appendLog('【测试操作】模拟服务端网络异常闪断 (code=1006)...');
+    mockServer.triggerServerClose(1006, '模拟网关异常重启');
+  });
+
+  document.getElementById('btn-ws-toggle-drop-pong')?.addEventListener('click', () => {
+    const nextDrop = !mockServer.isDropPong();
+    mockServer.setDropPong(nextDrop);
+    if (btnDropPong) {
+      btnDropPong.textContent = nextDrop ? '恢复正常 Pong 响应' : '模拟服务端假死 (停回Pong)';
+      btnDropPong.style.background = nextDrop ? '#ef4444' : '#8b5cf6';
+    }
+    if (heartbeatStatusEl) {
+      heartbeatStatusEl.textContent = nextDrop ? '模拟假死中 (Pong已阻断)' : '正常保活中 (4s周期)';
+    }
+    appendLog(
+      nextDrop
+        ? '【测试操作】已阻断服务端 Pong 响应，等待客户端心跳超时判定假死切断...'
+        : '【测试操作】已恢复正常 Pong 响应',
+    );
+  });
+
+  document.getElementById('btn-ws-send-chat')?.addEventListener('click', () => {
+    const text = inputChat?.value || '测试消息';
+    const msg = { type: 'chat', data: { text, time: new Date().toLocaleTimeString() } };
+    const ok = wsClient.send(msg);
+    if (bufferCountEl) bufferCountEl.textContent = String(wsClient.getBufferSize());
+    appendLog(
+      ok
+        ? `【消息发送】已交付发送或入缓冲: "${text}" (状态: ${wsClient.getStatus()}, 缓冲: ${wsClient.getBufferSize()}/5)`
+        : '【发送失败】未就绪且未开启缓冲或队列已满',
+    );
+  });
+
+  document.getElementById('btn-ws-send-quote')?.addEventListener('click', () => {
+    const msg = { type: 'quote', data: { symbol: 'ATENG' } };
+    const ok = wsClient.send(msg);
+    if (bufferCountEl) bufferCountEl.textContent = String(wsClient.getBufferSize());
+    appendLog(
+      ok
+        ? `【订阅行情】发送 quote 行情订阅请求 (状态: ${wsClient.getStatus()})`
+        : '【发送失败】未就绪且未开启缓冲',
+    );
+  });
+
+  document.getElementById('btn-ws-clear-log')?.addEventListener('click', () => {
+    if (logWs) logWs.textContent = '// WebSocket 全双工通信与主题订阅日志流...';
+  });
+}
+
+/**
  * 初始化所有交互看板事件。
  */
 function initDashboardEvents(): void {
@@ -911,4 +1124,5 @@ function initDashboardEvents(): void {
   bindCurrencyAssertionEvents();
   bindSecuritySignEvents();
   bindUploadEvents();
+  bindWebSocketEvents();
 }

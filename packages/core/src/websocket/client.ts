@@ -39,6 +39,7 @@ export class WebSocketClient {
   private reconnectAttempt = 0;
   private isManualClose = false;
   private sendBuffer: (string | ArrayBufferLike | Blob | ArrayBufferView | object)[] = [];
+  private topicSubscribers = new Map<string, Set<(payload: unknown) => void>>();
 
   /**
    * 构造全新的 WebSocket 客户端实例。
@@ -151,6 +152,7 @@ export class WebSocketClient {
       ws.onmessage = (event: MessageEvent) => {
         const parsedData = this.decodeMessage(event.data);
         this.handleHeartbeatMessage(parsedData, event.data);
+        this.dispatchTopicMessage(parsedData);
         this.emit('message', parsedData, event);
       };
     };
@@ -195,6 +197,31 @@ export class WebSocketClient {
 
     return () => {
       targetSet.delete(handler);
+    };
+  }
+
+  /**
+   * 订阅指定业务主题（Topic）的消息推送。
+   * 自动按照服务端推送载荷中的 `{ type, data: T }` 模式精准分发。
+   *
+   * @param type 目标业务主题标识（如 'chat', 'notice', 'quote'）
+   * @param handler 接收业务载荷（payload: T）的回调函数
+   * @returns 用于注销当前主题订阅的闭包函数
+   */
+  subscribe<T = unknown>(type: string, handler: (payload: T) => void): () => void {
+    if (!this.topicSubscribers.has(type)) {
+      this.topicSubscribers.set(type, new Set());
+    }
+
+    const set = this.topicSubscribers.get(type)!;
+    const genericHandler = handler as (payload: unknown) => void;
+    set.add(genericHandler);
+
+    return () => {
+      set.delete(genericHandler);
+      if (set.size === 0) {
+        this.topicSubscribers.delete(type);
+      }
     };
   }
 
@@ -565,6 +592,35 @@ export class WebSocketClient {
         // 重连阶段底层握手失败由 ws.onclose 捕获并流转下一轮，在此吸收未决 Promise 异常
       });
     }, delay);
+  }
+
+  /**
+   * 派发业务主题订阅消息。
+   */
+  private dispatchTopicMessage(decodedData: unknown): void {
+    if (typeof decodedData !== 'object' || decodedData === null) {
+      return;
+    }
+
+    const record = decodedData as Record<string, unknown>;
+    const type = record['type'];
+    if (typeof type !== 'string') {
+      return;
+    }
+
+    const subscribers = this.topicSubscribers.get(type);
+    if (!subscribers || subscribers.size === 0) {
+      return;
+    }
+
+    const payload = 'data' in record ? record['data'] : record;
+    for (const subscriber of subscribers) {
+      try {
+        subscriber(payload);
+      } catch (err) {
+        console.error(`[WebSocketClient] 主题 ${type} 订阅处理函数执行异常:`, err);
+      }
+    }
   }
 
   /**

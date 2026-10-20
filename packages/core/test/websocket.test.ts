@@ -851,4 +851,149 @@ describe('WebSocketClient (核心长连接状态机、编解码与凭据透传)'
       });
     });
   });
+
+  describe('7. 高阶强类型主题订阅分发与注销 (#23)', () => {
+    it('subscribe() 应按照 { type, data } 模式精准派发至指定主题并正确提取 payload', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      interface ChatPayload {
+        user: string;
+        text: string;
+      }
+
+      const chatSpy = vi.fn();
+      const quoteSpy = vi.fn();
+
+      // 订阅不同主题
+      client.subscribe<ChatPayload>('chat', chatSpy);
+      client.subscribe<{ symbol: string; price: number }>('quote', quoteSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 1. 发送 chat 消息
+      mockWs.simulateMessage(
+        JSON.stringify({
+          type: 'chat',
+          data: { user: 'Alice', text: 'Hello WebSocket' },
+        }),
+      );
+
+      expect(chatSpy).toHaveBeenCalledTimes(1);
+      expect(chatSpy).toHaveBeenCalledWith({ user: 'Alice', text: 'Hello WebSocket' });
+      expect(quoteSpy).not.toHaveBeenCalled();
+
+      // 2. 发送 quote 消息
+      mockWs.simulateMessage(
+        JSON.stringify({
+          type: 'quote',
+          data: { symbol: 'ATENG', price: 99.88 },
+        }),
+      );
+
+      expect(quoteSpy).toHaveBeenCalledTimes(1);
+      expect(quoteSpy).toHaveBeenCalledWith({ symbol: 'ATENG', price: 99.88 });
+      expect(chatSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('载荷未显式包含 data 字段时，应直接派发完整主题消息对象', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      const noticeSpy = vi.fn();
+      client.subscribe('notice', noticeSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      mockWs.simulateMessage(
+        JSON.stringify({
+          type: 'notice',
+          title: 'System maintenance',
+          level: 'warning',
+        }),
+      );
+
+      expect(noticeSpy).toHaveBeenCalledWith({
+        type: 'notice',
+        title: 'System maintenance',
+        level: 'warning',
+      });
+    });
+
+    it('多个订阅者订阅同一主题时均应被触发，调用注销函数应精准解绑对应监听', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      const spy1 = vi.fn();
+      const spy2 = vi.fn();
+
+      const unbind1 = client.subscribe('topic-a', spy1);
+      const unbind2 = client.subscribe('topic-a', spy2);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 发送一次
+      mockWs.simulateMessage(JSON.stringify({ type: 'topic-a', data: 1 }));
+      expect(spy1).toHaveBeenCalledTimes(1);
+      expect(spy2).toHaveBeenCalledTimes(1);
+
+      // 解绑 spy1
+      unbind1();
+
+      // 再发一次，仅 spy2 收到
+      mockWs.simulateMessage(JSON.stringify({ type: 'topic-a', data: 2 }));
+      expect(spy1).toHaveBeenCalledTimes(1);
+      expect(spy2).toHaveBeenCalledTimes(2);
+
+      // 解绑 spy2
+      unbind2();
+      mockWs.simulateMessage(JSON.stringify({ type: 'topic-a', data: 3 }));
+      expect(spy1).toHaveBeenCalledTimes(1);
+      expect(spy2).toHaveBeenCalledTimes(2);
+    });
+
+    it('收到非 JSON、纯字符串或未订阅主题时应防御性兜底丢弃，不报错', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      const chatSpy = vi.fn();
+      client.subscribe('chat', chatSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      // 纯字符串、非对象、null、其他主题
+      mockWs.simulateMessage('hello raw text');
+      mockWs.simulateMessage(JSON.stringify(12345));
+      mockWs.simulateMessage(JSON.stringify({ other: 'field' }));
+      mockWs.simulateMessage(JSON.stringify({ type: 'unknown', data: 'none' }));
+
+      expect(chatSpy).not.toHaveBeenCalled();
+    });
+
+    it('单个订阅者回调抛出异常时不应影响其他订阅者正常执行', async () => {
+      const client = createWebSocketClient('ws://localhost:8080/ws');
+      const normalSpy = vi.fn();
+      const brokenSpy = vi.fn().mockImplementation(() => {
+        throw new Error('Subscriber internal fault');
+      });
+
+      client.subscribe('broadcast', brokenSpy);
+      client.subscribe('broadcast', normalSpy);
+
+      const connectPromise = client.connect();
+      const mockWs = MockWebSocket.latest!;
+      mockWs.simulateOpen();
+      await connectPromise;
+
+      mockWs.simulateMessage(JSON.stringify({ type: 'broadcast', data: 'all' }));
+
+      expect(brokenSpy).toHaveBeenCalledTimes(1);
+      expect(normalSpy).toHaveBeenCalledTimes(1);
+      expect(normalSpy).toHaveBeenCalledWith('all');
+    });
+  });
 });

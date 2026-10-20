@@ -337,3 +337,164 @@ export function createMockStreamFetch(): typeof fetch {
     });
   };
 }
+
+/**
+ * WebSocket 自验离线模拟控制器。
+ */
+export interface MockWebSocketServerController {
+  factory: (url: string, protocols?: string | string[]) => WebSocket;
+  triggerServerClose: (code?: number, reason?: string) => void;
+  setDropPong: (drop: boolean) => void;
+  broadcastTopic: (type: string, data: unknown) => void;
+  isDropPong: () => boolean;
+}
+
+/**
+ * 创建适用于 sample-core 自验看板的离线自洽 Mock WebSocket 服务端。
+ */
+export function createMockWebSocketServer(): MockWebSocketServerController {
+  let activeSocket: MockBrowserSocket | null = null;
+  let dropPong = false;
+
+  class MockBrowserSocket implements WebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+
+    readonly CONNECTING = 0;
+    readonly OPEN = 1;
+    readonly CLOSING = 2;
+    readonly CLOSED = 3;
+
+    url: string;
+    protocols?: string | string[];
+    readyState: number = MockBrowserSocket.CONNECTING;
+    binaryType: BinaryType = 'blob';
+    bufferedAmount: number = 0;
+    extensions: string = '';
+    protocol: string = '';
+
+    onopen: ((event: Event) => void) | null = null;
+    onclose: ((event: CloseEvent) => void) | null = null;
+    onerror: ((event: Event) => void) | null = null;
+    onmessage: ((event: MessageEvent) => void) | null = null;
+
+    constructor(url: string, protocols?: string | string[]) {
+      this.url = url;
+      this.protocols = protocols;
+
+      // 模拟 100ms 网络握手时延
+      setTimeout(() => {
+        if (this.readyState === MockBrowserSocket.CONNECTING) {
+          this.readyState = MockBrowserSocket.OPEN;
+          this.onopen?.(new Event('open'));
+        }
+      }, 100);
+    }
+
+    send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+      if (this.readyState !== MockBrowserSocket.OPEN) {
+        throw new Error('WebSocket is not open');
+      }
+
+      // 1. 识别心跳 Ping
+      if (data === 'ping') {
+        if (!dropPong) {
+          setTimeout(() => {
+            if (this.readyState === MockBrowserSocket.OPEN) {
+              this.onmessage?.(new MessageEvent('message', { data: 'pong' }));
+            }
+          }, 40);
+        }
+        return;
+      }
+
+      // 2. 识别业务 JSON 消息并模拟服务端应答
+      if (typeof data === 'string' && data.startsWith('{') && data.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          if (parsed['type'] === 'chat') {
+            const chatData = (parsed['data'] as Record<string, unknown>) || {};
+            setTimeout(() => {
+              if (this.readyState === MockBrowserSocket.OPEN) {
+                this.onmessage?.(
+                  new MessageEvent('message', {
+                    data: JSON.stringify({
+                      type: 'chat',
+                      data: {
+                        user: '服务端 AI 助手',
+                        text: `收到你的消息: "${chatData['text'] || ''}"`,
+                        time: new Date().toLocaleTimeString(),
+                      },
+                    }),
+                  }),
+                );
+              }
+            }, 100);
+          } else if (parsed['type'] === 'quote') {
+            setTimeout(() => {
+              if (this.readyState === MockBrowserSocket.OPEN) {
+                this.onmessage?.(
+                  new MessageEvent('message', {
+                    data: JSON.stringify({
+                      type: 'quote',
+                      data: {
+                        symbol: 'ATENG',
+                        price: +(120 + (Math.random() * 6 - 3)).toFixed(2),
+                        time: new Date().toLocaleTimeString(),
+                      },
+                    }),
+                  }),
+                );
+              }
+            }, 100);
+          }
+        } catch {
+          // 忽略非标准 JSON
+        }
+      }
+    }
+
+    close(code = 1000, reason = ''): void {
+      this.readyState = MockBrowserSocket.CLOSING;
+      setTimeout(() => {
+        this.readyState = MockBrowserSocket.CLOSED;
+        this.onclose?.(new CloseEvent('close', { code, reason, wasClean: true }));
+      }, 30);
+    }
+
+    addEventListener(): void {}
+    removeEventListener(): void {}
+    dispatchEvent(): boolean {
+      return true;
+    }
+  }
+
+  return {
+    factory: (url: string, protocols?: string | string[]): WebSocket => {
+      const socket = new MockBrowserSocket(url, protocols);
+      activeSocket = socket;
+      return socket as unknown as WebSocket;
+    },
+    triggerServerClose: (code = 1006, reason = '模拟服务端异常断网') => {
+      if (activeSocket && activeSocket.readyState === MockBrowserSocket.OPEN) {
+        activeSocket.readyState = MockBrowserSocket.CLOSED;
+        activeSocket.onclose?.(new CloseEvent('close', { code, reason, wasClean: false }));
+      }
+    },
+    setDropPong: (drop: boolean) => {
+      dropPong = drop;
+    },
+    isDropPong: () => dropPong,
+    broadcastTopic: (type: string, data: unknown) => {
+      if (activeSocket && activeSocket.readyState === MockBrowserSocket.OPEN) {
+        activeSocket.onmessage?.(
+          new MessageEvent('message', {
+            data: JSON.stringify({ type, data }),
+          }),
+        );
+      }
+    },
+  };
+}
