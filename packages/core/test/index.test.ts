@@ -55,4 +55,19 @@ describe('@atengk/core baseline', () => {
     expect(core.setupInterceptors).toBeDefined();
     expect(core.getBlobDisposition).toBeDefined();
   });
+
+  it('should export currency utilities from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.toCents).toBeDefined();
+    expect(core.toYuan).toBeDefined();
+    expect(core.formatCurrency).toBeDefined();
+  });
+
+  it('should export assertion utilities from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.assert).toBeDefined();
+    expect(core.assertNonNull).toBeDefined();
+    expect(core.isEmpty).toBeDefined();
+    expect(core.isNotEmpty).toBeDefined();
+  });
 });

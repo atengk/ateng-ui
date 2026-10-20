@@ -15,3 +15,5 @@ export * from './auth';
 export * from './abort';
 export * from './file';
 export * from './http';
+export * from './currency';
+export * from './assertions';
