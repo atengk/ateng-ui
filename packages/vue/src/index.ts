@@ -12,3 +12,5 @@ export * from './utils';
 export * from './request';
 export * from './pagination';
 export * from './latest';
+export * from './auth';
+export * from './tenant';

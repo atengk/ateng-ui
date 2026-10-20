@@ -6,7 +6,7 @@
  */
 
 import { getCurrentInstance, inject, provide, type App, type InjectionKey, type Plugin } from 'vue';
-import { http } from '@atengk/core';
+import { http, authManager, tenantManager } from '@atengk/core';
 import type { AtengVueContext, AtengVueOptions } from './types';
 
 /**
@@ -19,6 +19,8 @@ export const ATENG_VUE_CONFIG_KEY: InjectionKey<AtengVueOptions> = Symbol('ATENG
  */
 const DEFAULT_OPTIONS: AtengVueContext = {
   httpClient: http,
+  authManager,
+  tenantManager,
   defaultPageSize: 10,
   autoConnectStream: true,
   autoConnectWebSocket: true,
@@ -58,6 +60,8 @@ export function useAtengConfig(): AtengVueContext {
 
   return {
     httpClient: injected.httpClient ?? DEFAULT_OPTIONS.httpClient,
+    authManager: injected.authManager ?? DEFAULT_OPTIONS.authManager,
+    tenantManager: injected.tenantManager ?? DEFAULT_OPTIONS.tenantManager,
     defaultPageSize: injected.defaultPageSize ?? DEFAULT_OPTIONS.defaultPageSize,
     onError: injected.onError,
     autoConnectStream: injected.autoConnectStream ?? DEFAULT_OPTIONS.autoConnectStream,
