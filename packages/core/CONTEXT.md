@@ -50,6 +50,10 @@ _Avoid_: RequestCanceler, CancelManager, AbortHelper
 Web 原生流式响应与 SSE 事件流客户端门面，支持逐块解析、自动重连与链路中断。
 _Avoid_: SseHelper, StreamRequest, AiClient, EventSourceWrapper
 
+**WebSocketClient**:
+纯原生全双工长连接客户端门面，支持心跳保活、指数退避重连、鉴权凭据透传与安全消息编解码。
+_Avoid_: WsHelper, SocketClient, WsManager, WebSocketWrapper
+
 **RetryPolicy**:
 网络请求瞬态故障自动重试契约，严格限定幂等方法与指数退避延迟。
 _Avoid_: RetryConfig, HttpRetryStrategy, ReattemptOptions

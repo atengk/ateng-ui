@@ -120,4 +120,12 @@ describe('@atengk/core baseline', () => {
     expect(core.streamClient).toBeDefined();
     expect(core.SseParser).toBeDefined();
   });
+
+  it('should export websocket client items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.WebSocketClient).toBeDefined();
+    expect(core.createWebSocketClient).toBeDefined();
+    expect(core.resolveWebSocketUrl).toBeDefined();
+    expect(core.appendQueryParams).toBeDefined();
+  });
 });

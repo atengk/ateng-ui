@@ -15,3 +15,4 @@
 | [ADR-0009](./0009-monorepo-four-layer-onion-topology-and-dependency-governance.md) | Monorepo 多模块四层洋葱拓扑与单向依赖治理架构        | Accepted | L0~L3 四层单向无环流动，无头与 UI 彻底解耦，为百模块扩展确立准入与拓扑硬防线          |
 | [ADR-0010](./0010-http-client-architecture-and-response-unwrapping.md)             | HTTP 客户端分层架构、响应解包与因果异常转译契约      | Accepted | 工厂与单例双轨，默认解包 Promise<T> 与配置逃生门，统一 BusinessException 因果转译     |
 | [ADR-0011](./0011-l0-core-resilience-and-capability-enhancement-architecture.md)   | L0 核心底座高可用韧性、流式通信与数据安全增强架构    | Accepted | 原生 StreamClient、幂等重试、飞行中请求去重合并、原生高精度金额、切片上传与防重放签名 |
+| [ADR-0012](./0012-websocket-client-architecture-and-l0-convergence.md)             | WebSocket 全双工长连接客户端架构与 L0 最终收敛决策   | Accepted | 原生双向心跳探针、断线指数退避重连、受控容量离线缓冲、双轨凭据注入，封顶 L0 核心底座  |

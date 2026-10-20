@@ -11,7 +11,7 @@
 ### L0 纯原生核心底座 (Core Layer)
 
 - **[Core 核心契约与网络底座](./packages/core/CONTEXT.md)**（`@atengk/core`）：
-  纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Web 原生流式客户端（`StreamClient`）、幂等安全重试与飞行中请求合并、通用 Token 与多租户凭据门面（`AuthManager` / `TenantManager`）、带时效缓存（`CacheStorage`）、大文件分片切片与受控并发上传协调器（`UploadCoordinator`）、全链路 `traceId` 透传与提取、雪花 Long ID 与高精度金额保真转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
+  纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Web 原生流式客户端（`StreamClient`）、全双工长连接客户端（`WebSocketClient`）、幂等安全重试与飞行中请求合并、通用 Token 与多租户凭据门面（`AuthManager` / `TenantManager`）、带时效缓存（`CacheStorage`）、大文件分片切片与受控并发上传协调器（`UploadCoordinator`）、全链路 `traceId` 透传与提取、雪花 Long ID 与高精度金额保真转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
 
 ### L1 无头响应式层 (Headless Layer)
 
