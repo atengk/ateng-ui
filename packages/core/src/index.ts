@@ -22,3 +22,4 @@ export * from './cache';
 export * from './dedupe';
 export * from './retry';
 export * from './security';
+export * from './stream';

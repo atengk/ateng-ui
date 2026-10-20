@@ -109,4 +109,12 @@ describe('@atengk/core baseline', () => {
     expect(core.generateNonce).toBeDefined();
     expect(core.defaultBuildCanonicalString).toBeDefined();
   });
+
+  it('should export stream client and sse parser items from root index', async () => {
+    const core = await import('../src/index');
+    expect(core.DefaultStreamClient).toBeDefined();
+    expect(core.createStreamClient).toBeDefined();
+    expect(core.streamClient).toBeDefined();
+    expect(core.SseParser).toBeDefined();
+  });
 });
