@@ -45,3 +45,43 @@ _Avoid_: ServiceUrl, ApiBase, ServerMap, BaseUrl
 **AbortCoordinator**:
 异步请求取消协调器，用于管理未决请求的生命周期与重复请求防抖阻断。
 _Avoid_: RequestCanceler, CancelManager, AbortHelper
+
+**StreamClient**:
+Web 原生流式响应与 SSE 事件流客户端门面，支持逐块解析、自动重连与链路中断。
+_Avoid_: SseHelper, StreamRequest, AiClient, EventSourceWrapper
+
+**RetryPolicy**:
+网络请求瞬态故障自动重试契约，严格限定幂等方法与指数退避延迟。
+_Avoid_: RetryConfig, HttpRetryStrategy, ReattemptOptions
+
+**TenantManager**:
+统一多租户上下文隔离操作门面，负责租户标识读取、持久化与请求头注入。
+_Avoid_: TenantService, TenantContext, TenantHolder
+
+**RequestDeduplicator**:
+并发飞行中未决请求合并调度器，避免同一只读接口多处并发调用时的网络雪崩。
+_Avoid_: requestCache, promiseShare, swrMerge
+
+**RequestSigner**:
+API 请求防重放与防篡改签名门面，自动注入时间戳、Nonce 与原生 WebCrypto 签名摘要。
+_Avoid_: SecurityHelper, SignManager, AntiReplay, CryptoUtil
+
+## 存储与数据原语
+
+**CacheStorage**:
+具备命名空间隔离、存活时间（TTL）与自动过期清理的通用本地缓存门面。
+_Avoid_: LocalCache, TimedStorage, StorageHelper
+
+**Currency**:
+金融级纯原生高精度金额换算与标准千分位规整工具箱。
+_Avoid_: MoneyUtil, PriceFormatter, Fen2Yuan, CentsToYuan
+
+**Assertions**:
+强类型业务前置条件卫语句断言与防御性判空工具箱，不满足时自动抛出 BusinessException。
+_Avoid_: check, validate, verify, ensure
+
+## 文件传输原语
+
+**UploadCoordinator**:
+大文件分片受控并发上传协调器，支持切片切分、并发度限制、总进度汇报与单片重试。
+_Avoid_: Uploader, UploadManager, SliceHelper, BigFileWorker
