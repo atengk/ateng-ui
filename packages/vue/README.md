@@ -24,6 +24,7 @@
 | **防刷防重**   | 提交幂等互斥锁   | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`  | 按钮连打拦截、执行中互斥加锁与超时自动防死锁解除                             | [useIdempotent.test.ts](./test/useIdempotent.test.ts)       |
 | **Excel 驱动** | 流式导出批注回写 | `useExcel(options?)`                        | `(Options) -> UseExcelResult`               | 结合 Fesod 协议，流式导出、RFC 5987 解析、Blob-JSON 双态拦截与内存回收       | [useExcel.test.ts](./test/useExcel.test.ts)                 |
 | **文件上传**   | 大文件分片并发   | `useUpload(options)`                        | `(Options) -> UseUploadResult`              | 纯原生切片计算、受控并发调度 (默认 3)、状态机、暂停/恢复断点续传与作用域注销 | [useUpload.test.ts](./test/useUpload.test.ts)               |
+| **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`         | 增量累积打字机文本、SseParser 规范解析、自动断连与作用域确定性注销           | [useStream.test.ts](./test/useStream.test.ts)               |
 
 ---
 
@@ -303,6 +304,41 @@ const onFileSelected = (e: Event) => {
 </template>
 ```
 
+### 8. SSE 大模型打字机流式响应 (useStream)
+
+```vue
+<script setup lang="ts">
+import { useStream } from '@atengk/vue';
+
+// 实例化流式打字机状态机
+const { text, isStreaming, event, start, abort, reset } = useStream('/api/v1/chat/completions', {
+  method: 'POST',
+  body: { prompt: '请简述 ateng-ui 的设计理念' },
+  onMessage: (chunk, sseEvent) => {
+    console.log('增量分块:', chunk, sseEvent?.id);
+  },
+  onDone: fullText => {
+    console.log('流式传输结束，全文:', fullText);
+  },
+});
+</script>
+
+<template>
+  <div>
+    <button :disabled="isStreaming" @click="start()">
+      {{ isStreaming ? '正在生成中...' : '开始生成' }}
+    </button>
+    <button :disabled="!isStreaming" @click="abort">中断</button>
+    <button @click="reset">清空</button>
+
+    <div class="terminal-content">
+      <span>{{ text }}</span>
+      <span v-if="isStreaming" class="cursor"></span>
+    </div>
+  </div>
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary)
@@ -315,12 +351,14 @@ const onFileSelected = (e: Event) => {
   `useExcel` 针对 `responseType: 'blob'` 实施双态嗅探：若响应头或载荷为 `application/json`，必须异步提取文本解析为 `Result<never>` 并转译为 `BusinessException` 抛出，彻底杜绝下载损坏伪文件；优先采用 RFC 5987 / RFC 6266 `filename*=` 提取 UTF-8 编码文件名，并在下载后由 `URL.revokeObjectURL` 确定性回收内存；
 - **大文件切片受控并发与断点续传不变量 (Chunk Upload & Concurrency Invariant)**：
   `useUpload` 响应式桥接 `UploadCoordinator`，坚持纯原生 `Blob.prototype.slice` 算法切分文件并保证零孔洞；并发度严格受限不溢出（默认 3）；切片级局部异常采用指数退避重试而不推倒整体；在途主动 `pause()` 时物理切断未决切片请求并将状态置为 `paused`，`resume()` 仅扫描未完成切片恢复上传，实现真正的零重复传输断点续传；
+- **SSE 打字机增量响应与防分包撕裂不变量 (SSE Stream & Typewriter Invariant)**：
+  `useStream` 基于 Web 标准 `ReadableStream` 与纯原生 `SseParser`，支持跨网络分包撕裂缓冲区无损拼接，原生自动过滤大模型 `[DONE]` 终止符；支持 `autoConnect` 自动握手与 `abort()` 物理切断，在活跃作用域销毁时由 `tryOnScopeDispose` 确定性注销读取器释放句柄；
 - **响应式鉴权与多租户切片不变量 (Auth & Tenant Reactivity Invariant)**：
   `useAuth` 与 `useTenant` 基于单例维度映射响应式状态，全应用跨组件即时同步；当底层 HTTP 拦截器捕获 401 触发 `authManager.handleUnauthorized()` 时，响应式登录态自动清理为未登录；`tenantManager` 租户切换时全应用无缝响应重绘；
 - **提交防刷与防死锁互斥锁不变量 (Idempotent Mutex & Deadlock Prevention Invariant)**：
   `useIdempotent` 针对写操作严格维持 `executing` 执行中独占互斥锁，连击请求直接阻断；同时配备可配置的安全 `timeout` 熔断机制，超时后确定性自动释放互斥锁，杜绝前端死锁卡死；
 - **状态单向流与只读保护 (Readonly Reactivity Invariant)**：
-  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`、`exporting`、`status`、`uploading`、`progress`、`chunks`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
+  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`、`exporting`、`status`、`uploading`、`progress`、`chunks`、`text`、`isStreaming`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
 - **确定性生命周期回收**：
   所有异步状态机在组件或活跃作用域销毁时，均通过 `tryOnScopeDispose` 自动物理切断未决请求（`AbortController`）并销毁定时器。
 
@@ -328,4 +366,4 @@ const onFileSelected = (e: Event) => {
 
 ## 维度四：物理排版与代码全真验证
 
-所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)、[useExcel.test.ts](./test/useExcel.test.ts)、[useUpload.test.ts](./test/useUpload.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。
+所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)、[useExcel.test.ts](./test/useExcel.test.ts)、[useUpload.test.ts](./test/useUpload.test.ts)、[useStream.test.ts](./test/useStream.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。

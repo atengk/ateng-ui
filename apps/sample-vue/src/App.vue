@@ -22,6 +22,7 @@ import AuthTenantDemo from './components/AuthTenantDemo.vue';
 import IdempotentDemo from './components/IdempotentDemo.vue';
 import ExcelDemo from './components/ExcelDemo.vue';
 import UploadDemo from './components/UploadDemo.vue';
+import StreamDemo from './components/StreamDemo.vue';
 
 // 1. 读取全局注入配置
 const config = useAtengConfig();
@@ -223,6 +224,9 @@ const onOptimisticMutate = () => {
 
     <!-- 9. 大文件分片切片与受控并发上传自验组件 -->
     <UploadDemo />
+
+    <!-- 10. SSE 大模型打字机流式响应自验组件 -->
+    <StreamDemo />
   </main>
 </template>
 

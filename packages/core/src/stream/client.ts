@@ -69,7 +69,7 @@ export class DefaultStreamClient implements StreamClient {
   private readonly defaultReconnect: boolean;
   private readonly defaultMaxRetries: number;
   private readonly defaultRetryDelay: number;
-  private readonly nativeFetch: typeof fetch;
+  private readonly customFetch?: typeof fetch;
 
   /**
    * 构造流式客户端实例。
@@ -95,17 +95,7 @@ export class DefaultStreamClient implements StreamClient {
     this.defaultReconnect = defaultReconnect;
     this.defaultMaxRetries = defaultMaxRetries;
     this.defaultRetryDelay = defaultRetryDelay;
-
-    const resolvedFetch =
-      customFetch ??
-      (typeof fetch !== 'undefined'
-        ? fetch
-        : (globalThis as unknown as { fetch?: typeof fetch }).fetch);
-
-    if (!resolvedFetch) {
-      throw new Error('Native fetch API is not available in the current runtime environment');
-    }
-    this.nativeFetch = resolvedFetch.bind(globalThis);
+    this.customFetch = customFetch;
   }
 
   /**
@@ -190,7 +180,17 @@ export class DefaultStreamClient implements StreamClient {
       }
 
       try {
-        const response = await this.nativeFetch(fullUrl, {
+        const fetchFn =
+          this.customFetch ??
+          (typeof fetch !== 'undefined'
+            ? fetch
+            : (globalThis as unknown as { fetch?: typeof fetch }).fetch);
+
+        if (!fetchFn) {
+          throw new Error('Native fetch API is not available in the current runtime environment');
+        }
+
+        const response = await fetchFn(fullUrl, {
           method,
           headers,
           body: payload,
