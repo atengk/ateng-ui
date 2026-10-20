@@ -19,3 +19,5 @@ export * from './currency';
 export * from './assertions';
 export * from './tenant';
 export * from './cache';
+export * from './dedupe';
+export * from './retry';

@@ -11,11 +11,13 @@ import type { GatewayRoute, GatewayRouter } from '../routing';
 import type { AuthManager } from '../auth';
 import type { TenantManager } from '../tenant';
 import type { AbortCoordinator } from '../abort';
+import type { RequestDeduplicator } from '../dedupe';
+import type { RetryPolicy } from '../retry';
 
 /**
  * 扩展 Axios 请求配置，赋予微服务路由、重复请求中断与结果自动解包控制能力。
  */
-export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D> {
+export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D>, RetryPolicy {
   /**
    * 显式指定微服务标识（覆盖基于 URL 路径前缀的自动分发规则）。
    */
@@ -28,6 +30,17 @@ export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D> {
   cancelDuplicate?: boolean;
 
   /**
+   * 是否对飞行中并发同指纹（Method + URL + Params）只读请求合并去重。
+   * 若开启，并发触发的相同请求将复用同一 pending Promise。
+   */
+  dedupeInFlight?: boolean;
+
+  /**
+   * 自定义去重指纹键（覆盖基于 Method + URL + Params 的自动指纹生成）。
+   */
+  dedupeKey?: string;
+
+  /**
    * 是否自动解包 Result<T> 响应载荷。
    * - true (默认)：自动校验 code === 200 并返回 Promise<T>；若非 200 则抛出 BusinessException；
    * - false (逃生门)：保留完整统一信封，返回 Promise<Result<T>>。
@@ -38,7 +51,7 @@ export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D> {
 /**
  * HTTP 客户端构造与集成配置选项。
  */
-export interface HttpClientOptions {
+export interface HttpClientOptions extends RetryPolicy {
   /**
    * 默认基础请求 URL。
    */
@@ -75,9 +88,19 @@ export interface HttpClientOptions {
   abortCoordinator?: AbortCoordinator;
 
   /**
+   * 飞行中并发请求去重调度器。若未提供，将为当前客户端分配专属实例。
+   */
+  deduplicator?: RequestDeduplicator;
+
+  /**
    * 客户端全局默认防重复提交与竞态中断开关。默认为 false。
    */
   cancelDuplicate?: boolean;
+
+  /**
+   * 客户端全局默认是否对飞行中并发只读请求合并去重。默认为 false。
+   */
+  dedupeInFlight?: boolean;
 
   /**
    * 客户端全局默认是否自动解包。默认为 true。
@@ -118,6 +141,11 @@ export interface HttpClient {
    * 当前客户端绑定的请求取消协调器。
    */
   readonly abortCoordinator: AbortCoordinator;
+
+  /**
+   * 当前客户端绑定的飞行中请求去重合并调度器。
+   */
+  readonly deduplicator: RequestDeduplicator;
 
   /**
    * 当前客户端绑定的微服务网关路由器。

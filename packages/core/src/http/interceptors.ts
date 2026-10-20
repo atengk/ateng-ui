@@ -22,6 +22,7 @@ import type { AuthManager } from '../auth';
 import type { TenantManager } from '../tenant';
 import { generateRequestKey, isAbortError, type AbortCoordinator } from '../abort';
 import { checkBlobForJsonError } from '../file';
+import { isIdempotentMethod, isRetriableError, calculateBackoffDelay } from '../retry';
 import type { HttpRequestConfig } from './types';
 
 /**
@@ -41,6 +42,37 @@ export function getBlobDisposition(blob: Blob): string | undefined {
 }
 
 /**
+ * 异步睡眠等待，支持 AbortSignal 级联即时中断唤醒。
+ *
+ * @param ms 等待毫秒数
+ * @param signal 可选的中断信号
+ */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new Error('Request aborted during retry backoff'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      reject(signal?.reason ?? new Error('Request aborted during retry backoff'));
+    };
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
+/**
  * 拦截器管道内部运行依赖上下文。
  */
 export interface InterceptorContext {
@@ -50,6 +82,9 @@ export interface InterceptorContext {
   abortCoordinator: AbortCoordinator;
   defaultCancelDuplicate: boolean;
   defaultUnwrap: boolean;
+  defaultRetry?: number;
+  defaultRetryDelay?: number;
+  defaultShouldRetry?: (error: BusinessException) => boolean;
   onUnauthorized?: () => void;
 }
 
@@ -66,6 +101,9 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     abortCoordinator,
     defaultCancelDuplicate,
     defaultUnwrap,
+    defaultRetry = 0,
+    defaultRetryDelay = 1000,
+    defaultShouldRetry,
     onUnauthorized,
   } = context;
 
@@ -78,11 +116,20 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       customConfig.unwrap = defaultUnwrap;
     }
 
-    // 1.2 微服务网关路由前缀匹配与 service 显式覆盖
-    const originalUrl = customConfig.url || '';
+    // 1.2 微服务网关路由前缀匹配与 service 显式覆盖（保留原始路径防重试时二次路由篡改）
+    const customRecord = customConfig as unknown as Record<string, unknown>;
+    if (!customRecord.__originalUrl) {
+      customRecord.__originalUrl = customConfig.url;
+      customRecord.__originalBaseURL = customConfig.baseURL;
+    }
+    if (customRecord.__originalSignal === undefined) {
+      customRecord.__originalSignal = customConfig.signal;
+    }
+
+    const originalUrl = (customRecord.__originalUrl as string) ?? customConfig.url ?? '';
     const resolvedRoute = router.resolve({
       url: originalUrl,
-      baseURL: customConfig.baseURL,
+      baseURL: (customRecord.__originalBaseURL as string) ?? customConfig.baseURL,
       service: customConfig.service,
     });
     if (resolvedRoute.target) {
@@ -109,21 +156,29 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       }
     }
 
-    // 1.4 雪花 ID 大数防截断反序列化管道注入
-    const existingTransformers: AxiosResponseTransformer[] = Array.isArray(
-      customConfig.transformResponse,
-    )
-      ? (customConfig.transformResponse as AxiosResponseTransformer[])
-      : customConfig.transformResponse
-        ? [customConfig.transformResponse as AxiosResponseTransformer]
-        : Array.isArray(axios.defaults.transformResponse)
-          ? (axios.defaults.transformResponse as AxiosResponseTransformer[])
-          : [];
+    // 1.4 雪花 ID 大数防截断反序列化管道注入（去重防重复包装）
+    const hasSnowflakeTransformer =
+      Array.isArray(customConfig.transformResponse) &&
+      customConfig.transformResponse.includes(
+        transformSnowflakeResponse as AxiosResponseTransformer,
+      );
 
-    customConfig.transformResponse = [
-      transformSnowflakeResponse as AxiosResponseTransformer,
-      ...existingTransformers,
-    ];
+    if (!hasSnowflakeTransformer) {
+      const existingTransformers: AxiosResponseTransformer[] = Array.isArray(
+        customConfig.transformResponse,
+      )
+        ? (customConfig.transformResponse as AxiosResponseTransformer[])
+        : customConfig.transformResponse
+          ? [customConfig.transformResponse as AxiosResponseTransformer]
+          : Array.isArray(axios.defaults.transformResponse)
+            ? (axios.defaults.transformResponse as AxiosResponseTransformer[])
+            : [];
+
+      customConfig.transformResponse = [
+        transformSnowflakeResponse as AxiosResponseTransformer,
+        ...existingTransformers,
+      ];
+    }
 
     // 1.5 异步请求取消协调器与防竞态
     const shouldCancelDuplicate = customConfig.cancelDuplicate ?? defaultCancelDuplicate;
@@ -136,10 +191,14 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     const requestKey = generateRequestKey(target);
     (customConfig as unknown as Record<string, unknown>).__requestKey = requestKey;
 
+    const originalSignal =
+      (customRecord.__originalSignal as AbortSignal | undefined) ??
+      (customConfig.signal as AbortSignal | undefined);
+
     const registration = abortCoordinator.register({
       key: requestKey,
       target,
-      signal: customConfig.signal as AbortSignal | undefined,
+      signal: originalSignal,
       cancelDuplicate: shouldCancelDuplicate,
     });
 
@@ -206,10 +265,18 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       return response.data;
     },
     async (error: unknown) => {
+      const errObj =
+        error && typeof error === 'object' ? (error as Record<string, unknown>) : undefined;
+      const responseObj =
+        errObj?.response && typeof errObj.response === 'object'
+          ? (errObj.response as Record<string, unknown>)
+          : undefined;
+      const config = (errObj?.config ?? responseObj?.config) as
+        (HttpRequestConfig & InternalAxiosRequestConfig) | undefined;
+
       // 3.1 清理取消协调器中的未决状态
-      if (error && typeof error === 'object' && 'config' in error) {
-        const errorConfig = (error as { config?: unknown }).config;
-        const requestKey = (errorConfig as Record<string, unknown> | undefined)?.__requestKey as
+      if (config) {
+        const requestKey = (config as unknown as Record<string, unknown>).__requestKey as
           string | undefined;
         if (requestKey) {
           abortCoordinator.remove(requestKey);
@@ -221,13 +288,11 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
         throw error;
       }
 
-      // 3.3 若已是 BusinessException（如拦截器内部抛出），直接向上抛出
+      // 3.3 构建或获取 BusinessException 实体
+      let exception: BusinessException;
       if (error instanceof BusinessException) {
-        throw error;
-      }
-
-      // 3.4 底层 Axios 异常统一转译为 BusinessException
-      if (axios.isAxiosError(error)) {
+        exception = error;
+      } else if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? 500;
         const responseData = error.response?.data;
 
@@ -262,12 +327,65 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
             string | undefined;
         }
 
-        throw new BusinessException(code, msg, traceId, error);
+        exception = new BusinessException(code, msg, traceId, error);
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        exception = new BusinessException(500, message, undefined, error);
       }
 
-      // 3.5 未知异常保底转译
-      const message = error instanceof Error ? error.message : String(error);
-      throw new BusinessException(500, message, undefined, error);
+      // 3.4 检查重试策略与幂等安全不变量
+      if (config) {
+        const customRecord = config as unknown as Record<string, unknown>;
+        const originalSignal =
+          (customRecord.__originalSignal as AbortSignal | undefined) ??
+          (config.signal as AbortSignal | undefined);
+
+        const maxRetries = config.retry ?? defaultRetry;
+        const currentRetry = (customRecord.__retryCount as number | undefined) ?? 0;
+
+        if (maxRetries > 0 && currentRetry < maxRetries && !originalSignal?.aborted) {
+          const method = (config.method ?? 'GET').toUpperCase();
+          const isIdempotent = isIdempotentMethod(method);
+
+          let allowRetry = false;
+          const customShouldRetry = config.shouldRetry ?? defaultShouldRetry;
+
+          if (customShouldRetry) {
+            allowRetry = customShouldRetry(exception);
+          } else if (isIdempotent) {
+            // 安全重试不变量：默认仅在幂等方法（GET、HEAD）且错误为网络中断、超时或 5xx 状态时按指数退避重试
+            allowRetry = isRetriableError(exception, error);
+          } else {
+            // POST/PUT/DELETE 写操作默认严禁自动重试
+            allowRetry = false;
+          }
+
+          if (allowRetry) {
+            customRecord.__retryCount = currentRetry + 1;
+            const baseDelay = config.retryDelay ?? defaultRetryDelay;
+            const delayMs = calculateBackoffDelay(currentRetry, baseDelay);
+
+            // 指数退避等待（支持外部 AbortSignal 联动唤醒）
+            await sleep(delayMs, originalSignal);
+
+            // 恢复原始 URL、baseURL 与 signal
+            if (customRecord.__originalUrl) {
+              config.url = customRecord.__originalUrl as string;
+            }
+            if (customRecord.__originalBaseURL !== undefined) {
+              config.baseURL = customRecord.__originalBaseURL as string;
+            }
+            if (customRecord.__originalSignal !== undefined) {
+              config.signal = customRecord.__originalSignal as AbortSignal | undefined;
+            }
+
+            return instance.request(config);
+          }
+        }
+      }
+
+      // 3.5 最终抛出统一因果业务异常
+      throw exception;
     },
   );
 }

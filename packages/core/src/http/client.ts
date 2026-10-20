@@ -14,6 +14,7 @@ import { createGatewayRouter, type GatewayRouter } from '../routing';
 import { authManager as defaultAuthManager, type AuthManager } from '../auth';
 import { tenantManager as defaultTenantManager, type TenantManager } from '../tenant';
 import { createAbortCoordinator, type AbortCoordinator } from '../abort';
+import { createRequestDeduplicator, type RequestDeduplicator } from '../dedupe';
 import { parseContentDispositionFilename, saveBlobAsFile } from '../file';
 import { setupInterceptors, getBlobDisposition } from './interceptors';
 import type { HttpClient, HttpClientOptions, HttpRequestConfig } from './types';
@@ -43,9 +44,19 @@ export class DefaultHttpClient implements HttpClient {
   readonly abortCoordinator: AbortCoordinator;
 
   /**
+   * 当前客户端绑定的飞行中请求合并去重调度器。
+   */
+  readonly deduplicator: RequestDeduplicator;
+
+  /**
    * 当前客户端绑定的微服务网关路由器。
    */
   readonly router: GatewayRouter;
+
+  /**
+   * 客户端全局默认是否对并发同指纹只读请求去重合并。
+   */
+  private readonly defaultDedupeInFlight: boolean;
 
   /**
    * 构造 HTTP 客户端实例并完成全链路拦截器编排。
@@ -61,8 +72,13 @@ export class DefaultHttpClient implements HttpClient {
       authManager = defaultAuthManager,
       tenantManager = defaultTenantManager,
       abortCoordinator = createAbortCoordinator(),
+      deduplicator = createRequestDeduplicator(),
       cancelDuplicate = false,
+      dedupeInFlight = false,
       unwrap = true,
+      retry = 0,
+      retryDelay = 1000,
+      shouldRetry,
       onUnauthorized,
       axiosConfig = {},
     } = options;
@@ -70,6 +86,8 @@ export class DefaultHttpClient implements HttpClient {
     this.authManager = authManager;
     this.tenantManager = tenantManager;
     this.abortCoordinator = abortCoordinator;
+    this.deduplicator = deduplicator;
+    this.defaultDedupeInFlight = dedupeInFlight;
     this.router = createGatewayRouter({ routes, defaultTarget });
 
     // 1. 初始化底层 Axios 实例
@@ -87,6 +105,9 @@ export class DefaultHttpClient implements HttpClient {
       abortCoordinator: this.abortCoordinator,
       defaultCancelDuplicate: cancelDuplicate,
       defaultUnwrap: unwrap,
+      defaultRetry: retry,
+      defaultRetryDelay: retryDelay,
+      defaultShouldRetry: shouldRetry,
       onUnauthorized,
     });
   }
@@ -101,6 +122,20 @@ export class DefaultHttpClient implements HttpClient {
   async request<T = unknown, D = unknown>(
     config: HttpRequestConfig<D> = {},
   ): Promise<T | Result<T>> {
+    const shouldDedupe = config.dedupeInFlight ?? this.defaultDedupeInFlight;
+
+    if (shouldDedupe) {
+      const target = {
+        method: config.method ?? 'GET',
+        url: config.url,
+        params: config.params,
+        dedupeKey: config.dedupeKey,
+      };
+      return this.deduplicator.execute(target, () => {
+        return this.instance.request<T>(config as HttpRequestConfig) as Promise<T | Result<T>>;
+      });
+    }
+
     return this.instance.request<T>(config as HttpRequestConfig) as Promise<T | Result<T>>;
   }
 

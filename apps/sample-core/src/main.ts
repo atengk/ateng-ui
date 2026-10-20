@@ -212,6 +212,21 @@ if (app) {
             </tbody>
           </table>
         </div>
+
+        <!-- 卡片 8: 幂等安全重试与飞行中合并去重 -->
+        <div class="dashboard-card full-width">
+          <div class="card-title">
+            <span>8. 幂等安全重试与飞行中请求合并去重 (RetryPolicy & RequestDeduplicator)</span>
+            <span style="font-size: 12px; color: #8b5cf6;">高可用韧性防线</span>
+          </div>
+          <p class="card-desc">针对 GET/HEAD 幂等只读请求遭遇网络或 5xx 抖动执行指数退避自动重试，写操作严格禁止重试；并发相同只读请求复用单一飞行中 Promise，向后端并发从 N 降为 1。</p>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="btn-retry-get">GET 瞬态抖动重试 (retry: 2)</button>
+            <button class="btn btn-danger" id="btn-retry-post">POST 写操作故障 (严禁重试防重复扣款)</button>
+            <button class="btn btn-success" id="btn-dedupe-flight">并发 5 个相同 GET (去重合并为 1 次网络)</button>
+          </div>
+          <div class="log-box" id="log-resilience">// 韧性重试与去重合并执行日志...</div>
+        </div>
       </div>
     </div>
   `;
@@ -439,6 +454,87 @@ function bindDownloadEvents(): void {
 }
 
 /**
+ * 绑定高可用韧性重试与去重合并事件。
+ */
+function bindResilienceEvents(): void {
+  const logResilience = document.getElementById('log-resilience');
+
+  // 1. GET 瞬态故障安全指数退避重试
+  document.getElementById('btn-retry-get')?.addEventListener('click', async () => {
+    if (logResilience) {
+      logResilience.textContent =
+        '[触发 GET 幂等请求] 配置 retry: 2, retryDelay: 500ms... 首次调用将模拟 500 抖动并自动指数退避重试...';
+    }
+    const startTime = Date.now();
+    try {
+      const res = await http.get<{ status: string; attempts: number }>(
+        '/api/resilience/retry-transient',
+        {
+          retry: 2,
+          retryDelay: 300,
+        },
+      );
+      const elapsed = Date.now() - startTime;
+      if (logResilience) {
+        logResilience.textContent = `[GET 幂等重试成功]\n- 耗时: ${elapsed}ms (包含指数退避等待)\n- 响应数据: ${JSON.stringify(res, null, 2)}\n- 状态说明: 首次遭遇 500 故障，拦截器自动捕获并执行指数退避重试，第 2 次尝试成功恢复！`;
+      }
+    } catch (err) {
+      if (logResilience) logResilience.textContent = `[重试最终失败] ${String(err)}`;
+    }
+  });
+
+  // 2. POST 写操作安全防护
+  document.getElementById('btn-retry-post')?.addEventListener('click', async () => {
+    if (logResilience) {
+      logResilience.textContent =
+        '[触发 POST 写操作] 配置 retry: 3... 校验安全重试不变量（写操作默认严禁自动重试）...';
+    }
+    try {
+      await http.post(
+        '/api/resilience/write-forbidden',
+        { orderId: '10086', amount: 500 },
+        {
+          retry: 3,
+          retryDelay: 300,
+        },
+      );
+      if (logResilience) logResilience.textContent = '[异常] 写操作本应抛出错误但成功返回！';
+    } catch (err) {
+      if (err instanceof BusinessException) {
+        if (logResilience) {
+          logResilience.textContent = `[安全重试不变量生效]\n成功拦截写操作自动重试！\n- 错误码: ${err.code}\n- 错误消息: ${err.msg}\n- 安全状态: POST 非幂等写操作严格禁止自动重试，杜绝了重复扣款与脏写！`;
+        }
+      } else {
+        if (logResilience) logResilience.textContent = `[错误] ${String(err)}`;
+      }
+    }
+  });
+
+  // 3. 5 个并发 GET 请求飞行中去重合并
+  document.getElementById('btn-dedupe-flight')?.addEventListener('click', async () => {
+    if (logResilience) {
+      logResilience.textContent = '[并发触发 5 个相同只读 GET 请求] 开启 dedupeInFlight: true...';
+    }
+    const startTime = Date.now();
+    try {
+      const results = await Promise.all([
+        http.get('/api/resilience/dedupe-flight', { dedupeInFlight: true }),
+        http.get('/api/resilience/dedupe-flight', { dedupeInFlight: true }),
+        http.get('/api/resilience/dedupe-flight', { dedupeInFlight: true }),
+        http.get('/api/resilience/dedupe-flight', { dedupeInFlight: true }),
+        http.get('/api/resilience/dedupe-flight', { dedupeInFlight: true }),
+      ]);
+      const elapsed = Date.now() - startTime;
+      if (logResilience) {
+        logResilience.textContent = `[飞行中去重合并成功]\n- 5 个组件并发调用总耗时: ${elapsed}ms\n- 共享结果数量: ${results.length}\n- 飞行中队列当前大小: ${http.deduplicator.getInFlightCount()} (已确定性释放)\n- 5 个并发请求仅向后端发起了 1 次真实网络调用，其余 4 个共享同一未决 Promise！`;
+      }
+    } catch (err) {
+      if (logResilience) logResilience.textContent = `[去重调用异常] ${String(err)}`;
+    }
+  });
+}
+
+/**
  * 初始化所有交互看板事件。
  */
 function initDashboardEvents(): void {
@@ -448,4 +544,5 @@ function initDashboardEvents(): void {
   bindRoutingEvents();
   bindRaceEvents();
   bindDownloadEvents();
+  bindResilienceEvents();
 }

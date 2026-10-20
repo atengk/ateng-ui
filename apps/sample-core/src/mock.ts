@@ -14,6 +14,16 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+let transientFailCount = 0;
+let dedupeNetworkCallCount = 0;
+
+/**
+ * 获取飞行中去重模拟的网络实际调用计数。
+ */
+export function getMockDedupeNetworkCalls(): number {
+  return dedupeNetworkCallCount;
+}
+
 /**
  * 安装离线自洽模拟适配器。
  *
@@ -177,7 +187,69 @@ export function installMockAdapter(targetAxios: AxiosInstance): void {
       };
     }
 
-    // 8. 默认透传兜底
+    // 8. 幂等安全重试与飞行中合并去重模拟
+    if (url.includes('/api/resilience/retry-transient')) {
+      transientFailCount++;
+      if (transientFailCount % 2 === 1) {
+        const error = new axios.AxiosError(
+          '服务端 500 临时故障（模拟网关抖动）',
+          'ERR_BAD_RESPONSE',
+          config,
+        );
+        error.response = {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { code: 500, msg: '网关临时抖动 (500)' },
+          headers: {},
+          config,
+        };
+        throw error;
+      }
+      return {
+        data: {
+          code: 200,
+          data: { status: 'recovered', attempts: 2 },
+          msg: '第 1 次重试成功：网关服务已恢复正常！',
+          traceId: 'tr-retry-success-200',
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    }
+
+    if (url.includes('/api/resilience/write-forbidden')) {
+      const error = new axios.AxiosError('订单支付写操作超时', 'ERR_BAD_RESPONSE', config);
+      error.response = {
+        status: 500,
+        statusText: 'Internal Server Error',
+        data: { code: 500, msg: '写操作异常 (杜绝自动重试防重复扣款)' },
+        headers: {},
+        config,
+      };
+      throw error;
+    }
+
+    if (url.includes('/api/resilience/dedupe-flight')) {
+      dedupeNetworkCallCount++;
+      const currentCall = dedupeNetworkCallCount;
+      await new Promise(r => setTimeout(r, 200));
+      return {
+        data: {
+          code: 200,
+          data: { callIndex: currentCall, payload: '仪表盘用户聚合数据' },
+          msg: '飞行中合并成功',
+          traceId: 'tr-dedupe-999',
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    }
+
+    // 9. 默认透传兜底
     return {
       data: { code: 200, data: `Echo: ${method} ${url}`, msg: 'ok' },
       status: 200,
