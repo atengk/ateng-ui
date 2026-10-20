@@ -19,11 +19,12 @@ function createDummyBlob(sizeBytes: number): Blob {
 
 describe('useUpload', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

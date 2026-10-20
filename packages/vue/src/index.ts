@@ -18,3 +18,4 @@ export * from './idempotent';
 export * from './excel';
 export * from './upload';
 export * from './stream';
+export * from './websocket';

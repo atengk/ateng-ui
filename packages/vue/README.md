@@ -25,6 +25,7 @@
 | **Excel 驱动** | 流式导出批注回写 | `useExcel(options?)`                        | `(Options) -> UseExcelResult`               | 结合 Fesod 协议，流式导出、RFC 5987 解析、Blob-JSON 双态拦截与内存回收       | [useExcel.test.ts](./test/useExcel.test.ts)                 |
 | **文件上传**   | 大文件分片并发   | `useUpload(options)`                        | `(Options) -> UseUploadResult`              | 纯原生切片计算、受控并发调度 (默认 3)、状态机、暂停/恢复断点续传与作用域注销 | [useUpload.test.ts](./test/useUpload.test.ts)               |
 | **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`         | 增量累积打字机文本、SseParser 规范解析、自动断连与作用域确定性注销           | [useStream.test.ts](./test/useStream.test.ts)               |
+| **全双工长连** | WebSocket 状态机 | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`      | 双向心跳保活、指数退避断线重连、离线缓冲队列与作用域确定性清理               | [useWebSocket.test.ts](./test/useWebSocket.test.ts)         |
 
 ---
 
@@ -339,6 +340,49 @@ const { text, isStreaming, event, start, abort, reset } = useStream('/api/v1/cha
 </template>
 ```
 
+### 9. WebSocket 全双工长连接心跳状态机 (useWebSocket)
+
+```vue
+<script setup lang="ts">
+import { useWebSocket } from '@atengk/vue';
+
+// 实例化 WebSocket 全双工状态机
+const { status, isOpen, data, reconnectAttempt, send, open, close } = useWebSocket(
+  'wss://echo.websocket.events',
+  {
+    heartbeat: {
+      interval: 15000,
+      pingMessage: 'ping',
+      pongMessage: 'pong',
+    },
+    autoReconnect: {
+      maxRetries: 5,
+      delay: 1000,
+      maxDelay: 10000,
+    },
+    bufferWhileConnecting: true,
+    onMessage: msg => {
+      console.log('收到服务端推送:', msg);
+    },
+  },
+);
+
+const onSendMessage = () => {
+  send(JSON.stringify({ type: 'chat', content: 'Hello WebSocket!' }));
+};
+</script>
+
+<template>
+  <div>
+    <p>状态: {{ status }} | 重连次数: {{ reconnectAttempt }}</p>
+    <button :disabled="isOpen" @click="open()">连接</button>
+    <button :disabled="!isOpen" @click="close()">断开</button>
+    <button :disabled="!isOpen" @click="onSendMessage">发送消息</button>
+    <div>最新消息: {{ data }}</div>
+  </div>
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary)
@@ -353,17 +397,19 @@ const { text, isStreaming, event, start, abort, reset } = useStream('/api/v1/cha
   `useUpload` 响应式桥接 `UploadCoordinator`，坚持纯原生 `Blob.prototype.slice` 算法切分文件并保证零孔洞；并发度严格受限不溢出（默认 3）；切片级局部异常采用指数退避重试而不推倒整体；在途主动 `pause()` 时物理切断未决切片请求并将状态置为 `paused`，`resume()` 仅扫描未完成切片恢复上传，实现真正的零重复传输断点续传；
 - **SSE 打字机增量响应与防分包撕裂不变量 (SSE Stream & Typewriter Invariant)**：
   `useStream` 基于 Web 标准 `ReadableStream` 与纯原生 `SseParser`，支持跨网络分包撕裂缓冲区无损拼接，原生自动过滤大模型 `[DONE]` 终止符；支持 `autoConnect` 自动握手与 `abort()` 物理切断，在活跃作用域销毁时由 `tryOnScopeDispose` 确定性注销读取器释放句柄；
+- **WebSocket 双向心跳保活与指数退避重连不变量 (WebSocket Heartbeat & Reconnect Invariant)**：
+  `useWebSocket` 基于 `@atengk/core` 的 `WebSocketClient` 架构，提供开箱即用的应用层双向心跳（`heartbeat` 定时发送 ping 并等待服务端 pong，超时自动判定假死断线重连）；内置离散抖动指数退避自动重连机制（`autoReconnect`）；开启 `bufferWhileConnecting` 时，连接就绪前发送的消息自动进入高阶离线缓冲队列并在握手成功后原子刷新清空；在组件或活跃作用域卸载时，通过 `tryOnScopeDispose` 确定性断开物理连接并注销所有事件监听与定时器句柄，彻底杜绝僵尸长连接与内存泄漏；
 - **响应式鉴权与多租户切片不变量 (Auth & Tenant Reactivity Invariant)**：
   `useAuth` 与 `useTenant` 基于单例维度映射响应式状态，全应用跨组件即时同步；当底层 HTTP 拦截器捕获 401 触发 `authManager.handleUnauthorized()` 时，响应式登录态自动清理为未登录；`tenantManager` 租户切换时全应用无缝响应重绘；
 - **提交防刷与防死锁互斥锁不变量 (Idempotent Mutex & Deadlock Prevention Invariant)**：
   `useIdempotent` 针对写操作严格维持 `executing` 执行中独占互斥锁，连击请求直接阻断；同时配备可配置的安全 `timeout` 熔断机制，超时后确定性自动释放互斥锁，杜绝前端死锁卡死；
 - **状态单向流与只读保护 (Readonly Reactivity Invariant)**：
-  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`、`exporting`、`status`、`uploading`、`progress`、`chunks`、`text`、`isStreaming`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
+  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`、`exporting`、`status`、`uploading`、`progress`、`chunks`、`text`、`isStreaming`、`isOpen`、`isClosed`、`reconnectAttempt`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
 - **确定性生命周期回收**：
-  所有异步状态机在组件或活跃作用域销毁时，均通过 `tryOnScopeDispose` 自动物理切断未决请求（`AbortController`）并销毁定时器。
+  所有异步状态机在组件或活跃作用域销毁时，均通过 `tryOnScopeDispose` 自动物理切断未决请求（`AbortController` / WebSocket 连接）并销毁定时器。
 
 ---
 
 ## 维度四：物理排版与代码全真验证
 
-所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)、[useExcel.test.ts](./test/useExcel.test.ts)、[useUpload.test.ts](./test/useUpload.test.ts)、[useStream.test.ts](./test/useStream.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。
+所有示例均经过内部单元测试（[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)、[useExcel.test.ts](./test/useExcel.test.ts)、[useUpload.test.ts](./test/useUpload.test.ts)、[useStream.test.ts](./test/useStream.test.ts)、[useWebSocket.test.ts](./test/useWebSocket.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。

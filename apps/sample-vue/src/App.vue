@@ -23,6 +23,7 @@ import IdempotentDemo from './components/IdempotentDemo.vue';
 import ExcelDemo from './components/ExcelDemo.vue';
 import UploadDemo from './components/UploadDemo.vue';
 import StreamDemo from './components/StreamDemo.vue';
+import WebSocketDemo from './components/WebSocketDemo.vue';
 
 // 1. 读取全局注入配置
 const config = useAtengConfig();
@@ -227,6 +228,9 @@ const onOptimisticMutate = () => {
 
     <!-- 10. SSE 大模型打字机流式响应自验组件 -->
     <StreamDemo />
+
+    <!-- 11. WebSocket 全双工长连接心跳状态机自验组件 -->
+    <WebSocketDemo />
   </main>
 </template>
 
