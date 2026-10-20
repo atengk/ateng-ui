@@ -10,6 +10,7 @@ import type {
   WebSocketClientOptions,
   WebSocketEventMap,
   WebSocketHeartbeatOptions,
+  WebSocketReconnectOptions,
   WebSocketStatus,
 } from './types';
 import { resolveWebSocketUrl } from './url';
@@ -28,11 +29,16 @@ export class WebSocketClient {
     close: new Set(),
     error: new Set(),
     message: new Set(),
+    reconnect: new Set(),
   };
 
   private connectPromise: Promise<void> | null = null;
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
+  private isManualClose = false;
+  private sendBuffer: (string | ArrayBufferLike | Blob | ArrayBufferView | object)[] = [];
 
   /**
    * 构造全新的 WebSocket 客户端实例。
@@ -43,7 +49,9 @@ export class WebSocketClient {
     this.options = typeof options === 'string' ? { url: options } : options;
 
     if (this.options.autoConnect) {
-      void this.connect();
+      void this.connect().catch(() => {
+        // 自动连接阶段异常交由底层生命周期事件通知
+      });
     }
   }
 
@@ -89,6 +97,7 @@ export class WebSocketClient {
       return this.connectPromise ?? Promise.resolve();
     }
 
+    this.isManualClose = false;
     this.status = 'CONNECTING';
 
     const urlResult = resolveWebSocketUrl(this.options);
@@ -109,11 +118,14 @@ export class WebSocketClient {
 
       ws.onopen = (event: Event) => {
         this.status = 'OPEN';
+        this.reconnectAttempt = 0;
+        this.stopReconnect();
         if (!isHandshakeSettled) {
           isHandshakeSettled = true;
           resolve();
         }
         this.startHeartbeat();
+        this.flushBuffer();
         this.emit('open', event);
       };
 
@@ -133,6 +145,7 @@ export class WebSocketClient {
           );
         }
         this.emit('close', event);
+        this.scheduleReconnect();
       };
 
       ws.onmessage = (event: MessageEvent) => {
@@ -188,47 +201,81 @@ export class WebSocketClient {
   /**
    * 向服务端发送数据帧。
    * 若传入非 Buffer 的普通对象，自动调用 JSON 序列化处理。
+   * 若连接尚未就绪且开启了 bufferWhileConnecting，自动暂存至 FIFO 缓冲队列并在连接建立后自动冲刷。
    *
    * @param data 待发送的数据载荷
-   * @returns 是否成功交付底层 socket 发送（未连接时返回 false）
+   * @returns 是否成功交付底层 socket 发送或成功排队入离线缓冲
    */
   send(data: string | ArrayBufferLike | Blob | ArrayBufferView | object): boolean {
-    if (!this.socket || this.socket.readyState !== 1) {
-      return false;
-    }
+    if (this.socket && this.socket.readyState === 1) {
+      try {
+        let payload: string | ArrayBufferLike | Blob | ArrayBufferView;
 
-    try {
-      let payload: string | ArrayBufferLike | Blob | ArrayBufferView;
+        if (typeof data === 'string') {
+          payload = data;
+        } else if (
+          data instanceof ArrayBuffer ||
+          ArrayBuffer.isView(data) ||
+          (typeof Blob !== 'undefined' && data instanceof Blob)
+        ) {
+          payload = data as ArrayBufferLike | Blob | ArrayBufferView;
+        } else {
+          const stringifier = this.options.jsonStringify ?? JSON.stringify;
+          payload = stringifier(data);
+        }
 
-      if (typeof data === 'string') {
-        payload = data;
-      } else if (
-        data instanceof ArrayBuffer ||
-        ArrayBuffer.isView(data) ||
-        (typeof Blob !== 'undefined' && data instanceof Blob)
-      ) {
-        payload = data as ArrayBufferLike | Blob | ArrayBufferView;
-      } else {
-        const stringifier = this.options.jsonStringify ?? JSON.stringify;
-        payload = stringifier(data);
+        this.socket.send(payload);
+        return true;
+      } catch {
+        return false;
       }
-
-      this.socket.send(payload);
-      return true;
-    } catch {
-      return false;
     }
+
+    // 若连接尚未就绪且启用了离线缓冲，且未处于主动关闭状态，压入 FIFO 缓冲队列
+    if (this.options.bufferWhileConnecting && !this.isManualClose) {
+      const maxBuffer = Math.max(1, this.options.maxBufferSize ?? 100);
+      this.sendBuffer.push(data);
+      if (this.sendBuffer.length > maxBuffer) {
+        this.sendBuffer.shift();
+        console.warn(
+          `[WebSocketClient] 离线缓冲队列已达上限 (${maxBuffer})，已丢弃最早入队的数据帧`,
+        );
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 获取当前离线发送缓冲队列中暂存的消息数量。
+   *
+   * @returns 缓冲队列长度
+   */
+  getBufferSize(): number {
+    return this.sendBuffer.length;
+  }
+
+  /**
+   * 清空离线发送缓冲队列。
+   */
+  clearBuffer(): void {
+    this.sendBuffer = [];
   }
 
   /**
    * 确定性主动断开底层连接并释放资源。
+   * 设置主动关闭标记，永久阻断后续任何自动重连。
    *
    * @param code 状态码（默认 1000）
    * @param reason 关闭原因说明
    */
   close(code = 1000, reason = ''): void {
-    // 1. 注销心跳探针与超时定时器
+    // 1. 设置主动关闭标记，注销心跳探针、重连定时器并清空离线缓冲区
+    this.isManualClose = true;
     this.stopHeartbeat();
+    this.stopReconnect();
+    this.clearBuffer();
 
     // 2. 断开底层原生 WebSocket 连接
     if (!this.socket) {
@@ -421,6 +468,103 @@ export class WebSocketClient {
         this.status = 'CLOSED';
       }
     }
+  }
+
+  /**
+   * 冲刷并按序发送离线缓冲队列中的全部数据帧。
+   */
+  private flushBuffer(): void {
+    if (!this.socket || this.socket.readyState !== 1 || this.sendBuffer.length === 0) {
+      return;
+    }
+
+    // 1. 拷贝并重置缓冲队列，防止发送过程中递归调用 send 导致死循环
+    const queue = [...this.sendBuffer];
+    this.sendBuffer = [];
+
+    // 2. 依次交付底层 socket 发送
+    for (const item of queue) {
+      this.send(item);
+    }
+  }
+
+  /**
+   * 解析并规范化指数退避自动重连配置。若未配置或显式禁用，返回 null。
+   */
+  private resolveReconnectOptions(): Required<WebSocketReconnectOptions> | null {
+    const { reconnect } = this.options;
+    if (!reconnect) {
+      return null;
+    }
+
+    if (reconnect === true) {
+      return {
+        enabled: true,
+        maxRetries: Infinity,
+        baseDelay: 1000,
+        maxDelay: 30000,
+        factor: 2,
+      };
+    }
+
+    if (reconnect.enabled === false) {
+      return null;
+    }
+
+    return {
+      enabled: true,
+      maxRetries: reconnect.maxRetries ?? Infinity,
+      baseDelay: Math.max(0, reconnect.baseDelay ?? 1000),
+      maxDelay: Math.max(0, reconnect.maxDelay ?? 30000),
+      factor: Math.max(1, reconnect.factor ?? 2),
+    };
+  }
+
+  /**
+   * 停止并注销待执行的自动重连定时器。
+   */
+  private stopReconnect(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  /**
+   * 根据指数退避算法调度下一次自动重连。
+   */
+  private scheduleReconnect(): void {
+    this.stopReconnect();
+
+    if (this.isManualClose) {
+      return;
+    }
+
+    const config = this.resolveReconnectOptions();
+    if (!config) {
+      return;
+    }
+
+    if (this.reconnectAttempt >= config.maxRetries) {
+      return;
+    }
+
+    // 1. 计算当前指数退避重试延迟
+    const delay = Math.min(
+      config.maxDelay,
+      config.baseDelay * Math.pow(config.factor, this.reconnectAttempt),
+    );
+
+    // 2. 递增重试计数并触发 reconnect 事件
+    this.reconnectAttempt += 1;
+    this.emit('reconnect', this.reconnectAttempt, delay);
+
+    // 3. 启动重连定时器
+    this.reconnectTimer = setTimeout(() => {
+      void this.connect().catch(() => {
+        // 重连阶段底层握手失败由 ws.onclose 捕获并流转下一轮，在此吸收未决 Promise 异常
+      });
+    }, delay);
   }
 
   /**

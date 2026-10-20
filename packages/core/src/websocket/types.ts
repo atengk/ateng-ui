@@ -42,6 +42,11 @@ export interface WebSocketEventMap {
    * 数据已自动尝试 JSON 反序列化及 Snowflake ID 保真。
    */
   message: (data: unknown, event: MessageEvent) => void;
+
+  /**
+   * 触发自动重连尝试时触发。传递当前重试次数（从 1 开始）与计算的退避延迟（毫秒）。
+   */
+  reconnect: (attempt: number, delay: number) => void;
 }
 
 /**
@@ -75,6 +80,36 @@ export interface WebSocketHeartbeatOptions {
    * - 若为函数：接收解码后的消息数据，返回布尔值（true 表示当前消息为合法 pong 心跳应答）。
    */
   pongMessage?: string | ((data: unknown) => boolean);
+}
+
+/**
+ * WebSocket 指数退避自动重连配置选项。
+ */
+export interface WebSocketReconnectOptions {
+  /**
+   * 是否开启异常断开自动重连机制。默认为 true（传入配置对象时）。
+   */
+  enabled?: boolean;
+
+  /**
+   * 最大重连尝试次数。默认为 Infinity（持续尝试）。
+   */
+  maxRetries?: number;
+
+  /**
+   * 基础重试延迟（毫秒）。默认为 1000 (1秒)。
+   */
+  baseDelay?: number;
+
+  /**
+   * 最大重试延迟上限（毫秒）。默认为 30000 (30秒)。
+   */
+  maxDelay?: number;
+
+  /**
+   * 退避倍数因子。默认为 2。
+   */
+  factor?: number;
 }
 
 /**
@@ -132,6 +167,26 @@ export interface WebSocketClientOptions {
    * 支持传入 true（启用默认 30s 心跳与 5s 假死判定）或详细配置对象。
    */
   heartbeat?: boolean | WebSocketHeartbeatOptions;
+
+  /**
+   * 可选的指数退避自动重连配置。
+   * 支持传入 true（使用默认指数退避参数）或详细配置对象。
+   * 默认为 undefined（不启用自动重连）。主动调用 close() 不会触发重连。
+   */
+  reconnect?: boolean | WebSocketReconnectOptions;
+
+  /**
+   * 是否在连接建立中（CONNECTING）或断线重连期间启用发送数据离线缓冲。
+   * 若为 true，在 readyState !== OPEN 时调用 send() 将暂存入 FIFO 队列并在连接就绪后自动冲刷发送。
+   * 默认为 false。
+   */
+  bufferWhileConnecting?: boolean;
+
+  /**
+   * 离线缓冲队列的最大允许容量上限。默认为 100 条。
+   * 超出上限时将自动丢弃队列中最旧的消息以杜绝内存泄露。
+   */
+  maxBufferSize?: number;
 
   /**
    * 自定义底层 WebSocket 构造工厂（用于 Node.js / SSR 环境或单测 Mock 注入）。

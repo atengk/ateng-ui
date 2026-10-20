@@ -578,4 +578,277 @@ describe('WebSocketClient (核心长连接状态机、编解码与凭据透传)'
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('6. 指数退避自动重连与受控离线缓冲 (#22)', () => {
+    describe('6.1 FIFO 离线缓冲队列', () => {
+      it('开启 bufferWhileConnecting 时，未连接状态下调用 send 应暂存并在连接就绪时按序 Flush', async () => {
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          bufferWhileConnecting: true,
+        });
+
+        // 1. 未连接状态下发送消息
+        expect(client.send('offline-msg-1')).toBe(true);
+        expect(client.send({ id: 100, text: 'offline-msg-2' })).toBe(true);
+        expect(client.getBufferSize()).toBe(2);
+
+        // 2. 建立连接
+        const connectPromise = client.connect();
+        const mockWs = MockWebSocket.latest!;
+        mockWs.simulateOpen();
+        await connectPromise;
+
+        // 3. 校验连接就绪后自动冲刷并清空缓冲区
+        expect(client.getBufferSize()).toBe(0);
+        expect(mockWs.sentData).toEqual([
+          'offline-msg-1',
+          JSON.stringify({ id: 100, text: 'offline-msg-2' }),
+        ]);
+
+        // 4. 连接建立后继续发送直接交付底层
+        expect(client.send('online-msg-3')).toBe(true);
+        expect(mockWs.sentData).toEqual([
+          'offline-msg-1',
+          JSON.stringify({ id: 100, text: 'offline-msg-2' }),
+          'online-msg-3',
+        ]);
+      });
+
+      it('缓冲队列堆积超过 maxBufferSize 时应丢弃最早入队的消息', async () => {
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          bufferWhileConnecting: true,
+          maxBufferSize: 3,
+        });
+
+        // 连续推入 4 条
+        client.send('msg-1');
+        client.send('msg-2');
+        client.send('msg-3');
+        client.send('msg-4');
+
+        // 上限为 3，msg-1 被丢弃
+        expect(client.getBufferSize()).toBe(3);
+
+        const connectPromise = client.connect();
+        const mockWs = MockWebSocket.latest!;
+        mockWs.simulateOpen();
+        await connectPromise;
+
+        expect(mockWs.sentData).toEqual(['msg-2', 'msg-3', 'msg-4']);
+      });
+
+      it('未开启缓冲 (bufferWhileConnecting: false) 时，未连接调用 send 应直接返回 false 并不发送', async () => {
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          bufferWhileConnecting: false,
+        });
+
+        expect(client.send('drop-me')).toBe(false);
+        expect(client.getBufferSize()).toBe(0);
+
+        const connectPromise = client.connect();
+        const mockWs = MockWebSocket.latest!;
+        mockWs.simulateOpen();
+        await connectPromise;
+
+        expect(mockWs.sentData).toHaveLength(0);
+      });
+
+      it('主动 close() 时应清空未发送的离线缓冲区', async () => {
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          bufferWhileConnecting: true,
+        });
+
+        client.send('queued-1');
+        client.send('queued-2');
+        expect(client.getBufferSize()).toBe(2);
+
+        client.close();
+        expect(client.getBufferSize()).toBe(0);
+        expect(client.send('after-close')).toBe(false);
+      });
+    });
+
+    describe('6.2 指数退避自动重连', () => {
+      it('异常断开后应按照指数退避曲线自动尝试重连并派发 reconnect 事件', async () => {
+        vi.useFakeTimers();
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          reconnect: {
+            baseDelay: 1000,
+            maxDelay: 5000,
+            factor: 2,
+          },
+        });
+
+        const reconnectSpy = vi.fn();
+        client.on('reconnect', reconnectSpy);
+
+        // 1. 首次连接并就绪
+        const connectPromise = client.connect();
+        const ws1 = MockWebSocket.latest!;
+        ws1.simulateOpen();
+        await connectPromise;
+        expect(client.getStatus()).toBe('OPEN');
+
+        // 2. 服务端异常断开
+        ws1.simulateClose(1006, 'Abnormal');
+        expect(client.getStatus()).toBe('CLOSED');
+
+        // 此时已安排第 1 次重连：delay = 1000ms
+        expect(reconnectSpy).toHaveBeenCalledWith(1, 1000);
+        expect(MockWebSocket.instances).toHaveLength(1);
+
+        // 推进 1000ms，触发第 1 次重连创建新的 WebSocket 实例
+        vi.advanceTimersByTime(1000);
+        expect(MockWebSocket.instances).toHaveLength(2);
+        const ws2 = MockWebSocket.latest!;
+
+        // 3. 第 2 次连接建立前再次失败
+        ws2.simulateClose(1006, 'Connect failed');
+        // 安排第 2 次重连：delay = 2000ms
+        expect(reconnectSpy).toHaveBeenCalledWith(2, 2000);
+
+        // 推进 2000ms，触发第 2 次重连
+        vi.advanceTimersByTime(2000);
+        expect(MockWebSocket.instances).toHaveLength(3);
+        const ws3 = MockWebSocket.latest!;
+
+        // 4. 第 3 次再次断开：delay = min(5000, 4000) = 4000ms
+        ws3.simulateClose(1006, 'Failed again');
+        expect(reconnectSpy).toHaveBeenCalledWith(3, 4000);
+
+        // 5. 推进 4000ms，触发第 3 次重连
+        vi.advanceTimersByTime(4000);
+        expect(MockWebSocket.instances).toHaveLength(4);
+        const ws4 = MockWebSocket.latest!;
+
+        // 6. 第 4 次再次断开：delay = min(5000, 8000) = 5000ms (达到上限)
+        ws4.simulateClose(1006, 'Failed again');
+        expect(reconnectSpy).toHaveBeenCalledWith(4, 5000);
+
+        // 7. 推进 5000ms 成功连接
+        vi.advanceTimersByTime(5000);
+        expect(MockWebSocket.instances).toHaveLength(5);
+        const ws5 = MockWebSocket.latest!;
+        ws5.simulateOpen();
+        expect(client.getStatus()).toBe('OPEN');
+      });
+
+      it('达到 maxRetries 重试上限后应停止重试，连接保持 CLOSED', async () => {
+        vi.useFakeTimers();
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          reconnect: {
+            maxRetries: 2,
+            baseDelay: 1000,
+            factor: 2,
+          },
+        });
+
+        const reconnectSpy = vi.fn();
+        client.on('reconnect', reconnectSpy);
+
+        const connectPromise = client.connect();
+        const ws1 = MockWebSocket.latest!;
+        ws1.simulateOpen();
+        await connectPromise;
+
+        // 第 1 次断开 -> 触发第 1 次重试
+        ws1.simulateClose(1006);
+        expect(reconnectSpy).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(1000);
+        const ws2 = MockWebSocket.latest!;
+        expect(MockWebSocket.instances).toHaveLength(2);
+
+        // 第 2 次断开 -> 触发第 2 次重试
+        ws2.simulateClose(1006);
+        expect(reconnectSpy).toHaveBeenCalledTimes(2);
+
+        vi.advanceTimersByTime(2000);
+        const ws3 = MockWebSocket.latest!;
+        expect(MockWebSocket.instances).toHaveLength(3);
+
+        // 第 3 次断开 -> 已达上限 2，不再重试
+        ws3.simulateClose(1006);
+        expect(reconnectSpy).toHaveBeenCalledTimes(2);
+
+        // 推进时间，不再创建新实例
+        vi.advanceTimersByTime(20000);
+        expect(MockWebSocket.instances).toHaveLength(3);
+        expect(client.getStatus()).toBe('CLOSED');
+      });
+
+      it('主动调用 client.close() 应永久阻断重连并取消待执行的重连定时器', async () => {
+        vi.useFakeTimers();
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          reconnect: true,
+        });
+
+        const reconnectSpy = vi.fn();
+        client.on('reconnect', reconnectSpy);
+
+        const connectPromise = client.connect();
+        const ws1 = MockWebSocket.latest!;
+        ws1.simulateOpen();
+        await connectPromise;
+
+        // 主动关闭
+        client.close(1000, 'User normal shutdown');
+        vi.runOnlyPendingTimers();
+
+        expect(client.getStatus()).toBe('CLOSED');
+        expect(reconnectSpy).not.toHaveBeenCalled();
+
+        // 推进时间，确保没有任何重试
+        vi.advanceTimersByTime(100000);
+        expect(MockWebSocket.instances).toHaveLength(1);
+      });
+
+      it('心跳假死超时切断连接后，应联动触发自动重连机制', async () => {
+        vi.useFakeTimers();
+        const client = createWebSocketClient({
+          url: 'ws://localhost:8080/ws',
+          heartbeat: {
+            interval: 5000,
+            timeout: 2000,
+          },
+          reconnect: {
+            baseDelay: 1000,
+          },
+        });
+
+        const reconnectSpy = vi.fn();
+        client.on('reconnect', reconnectSpy);
+
+        const connectPromise = client.connect();
+        const ws1 = MockWebSocket.latest!;
+        ws1.simulateOpen();
+        await connectPromise;
+
+        // 5s 发送 ping
+        vi.advanceTimersByTime(5000);
+        expect(ws1.sentData).toEqual(['ping']);
+
+        // 2s 内无 pong，判定假死，切断连接
+        vi.advanceTimersByTime(2000);
+        vi.runOnlyPendingTimers();
+        expect(client.getStatus()).toBe('CLOSED');
+
+        // 自动触发重连调度
+        expect(reconnectSpy).toHaveBeenCalledWith(1, 1000);
+
+        // 推进 1000ms，触发重连
+        vi.advanceTimersByTime(1000);
+        expect(MockWebSocket.instances).toHaveLength(2);
+        const ws2 = MockWebSocket.latest!;
+        ws2.simulateOpen();
+        expect(client.getStatus()).toBe('OPEN');
+      });
+    });
+  });
 });
