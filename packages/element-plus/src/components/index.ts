@@ -9,4 +9,5 @@ export * from './empty';
 export * from './dialog';
 export * from './drawer';
 export * from './query-form';
+export * from './table';
 export * from './shared/context';
