@@ -68,6 +68,7 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       wrapper = null;
     }
     document.body.innerHTML = '';
+    localStorage.clear();
   });
 
   const mockData = [
@@ -355,5 +356,159 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     expect(wrapper.find('.custom-empty-slot').exists()).toBe(true);
     expect(wrapper.text()).toContain('自定义暂无数据内容');
     expect(wrapper.find('.at-empty').exists()).toBe(false);
+  });
+
+  it('企业级工具栏：默认渲染工具栏并在 tools 禁用或指定子集时自适应', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 默认工具栏存在
+    expect(wrapper.find('.at-table__toolbar').exists()).toBe(true);
+    expect(wrapper.find('.at-table__tools').exists()).toBe(true);
+    expect(wrapper.findAll('.at-table__tool-btn').length).toBe(5);
+
+    // 仅启用 refresh 和 stripe
+    await wrapper.setProps({ tools: ['refresh', 'stripe'] });
+    await doubleWait();
+    expect(wrapper.findAll('.at-table__tool-btn').length).toBe(2);
+
+    // 完全禁用工具栏
+    await wrapper.setProps({ tools: false });
+    await doubleWait();
+    expect(wrapper.find('.at-table__toolbar').exists()).toBe(false);
+  });
+
+  it('工具栏交互：刷新、密度切换与斑马纹联动', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        density: 'default',
+        stripe: false,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 1. 刷新按钮
+    const refreshBtn = wrapper.find('button[aria-label="刷新"]');
+    expect(refreshBtn.exists()).toBe(true);
+    await refreshBtn.trigger('click');
+    expect(wrapper.emitted('refresh')).toBeTruthy();
+
+    // 2. 斑马纹按钮切换
+    const stripeBtn = wrapper.find('button[aria-label="斑马纹"]');
+    expect(stripeBtn.exists()).toBe(true);
+    expect(stripeBtn.classes()).not.toContain('is-active');
+
+    await stripeBtn.trigger('click');
+    await doubleWait();
+    expect(stripeBtn.classes()).toContain('is-active');
+    expect(wrapper.emitted('update:stripe')?.[0]).toEqual([true]);
+
+    // 再次点击取消斑马纹
+    await stripeBtn.trigger('click');
+    await doubleWait();
+    expect(stripeBtn.classes()).not.toContain('is-active');
+    expect(wrapper.emitted('update:stripe')?.[1]).toEqual([false]);
+  });
+
+  it('工具栏全屏与 ESC 退出键盘事件监听', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const fullscreenBtn = wrapper.find('button[aria-label="全屏"]');
+    expect(fullscreenBtn.exists()).toBe(true);
+
+    // 点击切换为全屏
+    await fullscreenBtn.trigger('click');
+    await doubleWait();
+    expect(wrapper.classes()).toContain('at-table--fullscreen');
+    expect(wrapper.emitted('fullscreen-change')?.[0]).toEqual([true]);
+
+    // 按下 ESC 键退出全屏
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await doubleWait();
+    expect(wrapper.classes()).not.toContain('at-table--fullscreen');
+    expect(wrapper.emitted('fullscreen-change')?.[1]).toEqual([false]);
+  });
+
+  it('列配置 Popover 与本地 localStorage 持久化', async () => {
+    const storageKey = 'test-table-storage-columns';
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { prop: 'id', label: '编号' }),
+          h(ElTableColumn, { prop: 'username', label: '姓名' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const colBtn = wrapper.find('button[aria-label="列设置"]');
+    expect(colBtn.exists()).toBe(true);
+
+    // 验证初始列均显示
+    const vm = wrapper.vm as unknown as AtengTableInstance;
+    expect(vm.columns.length).toBe(2);
+    expect(vm.columns[0].visible).toBe(true);
+
+    // 模拟取消勾选第一列 (编号)
+    const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+    // 寻找 label 匹配 '编号' 的 checkbox
+    const idCheckbox = checkboxes.find(c => {
+      const text = c.text();
+      return text.includes('编号');
+    });
+    expect(idCheckbox).toBeDefined();
+
+    idCheckbox!.vm.$emit('update:modelValue', false);
+    idCheckbox!.vm.$emit('change', false);
+    await doubleWait();
+
+    // 验证 localStorage 记录了更新
+    const stored = localStorage.getItem(storageKey);
+    expect(stored).toBeTruthy();
+    expect(JSON.parse(stored!)).toHaveProperty('id', false);
+
+    // 验证当前生效列元数据中的 id 列 visible 已更新为 false
+    expect(vm.columns[0].visible).toBe(false);
+
+    // 点击重置按钮
+    const resetBtn = wrapper.find('.at-table-column-setting__header button');
+    if (resetBtn.exists()) {
+      await resetBtn.trigger('click');
+      await doubleWait();
+      // 验证 localStorage 被清空，列恢复可见
+      expect(localStorage.getItem(storageKey)).toBeNull();
+      expect(vm.columns[0].visible).toBe(true);
+    }
   });
 });

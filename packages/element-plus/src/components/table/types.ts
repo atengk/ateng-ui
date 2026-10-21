@@ -215,6 +215,21 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
   (e: 'update:density', density: TableDensity): void;
 
   /**
+   * 斑马纹改变事件。
+   */
+  (e: 'update:stripe', stripe: boolean): void;
+
+  /**
+   * 全屏状态改变事件。
+   */
+  (e: 'fullscreen-change', fullscreen: boolean): void;
+
+  /**
+   * 列显隐或配置变动事件。
+   */
+  (e: 'columns-change', columns: TableColumnConfig[]): void;
+
+  /**
    * 页码更新事件（支持 v-model:pageNum）。
    */
   (e: 'update:pageNum', pageNum: number): void;

@@ -47,3 +47,33 @@ export function parseColumnVNodes(vnodes: VNode[]): TableColumnConfig[] {
   traverse(vnodes);
   return result;
 }
+
+/**
+ * 根据列显隐状态字典，递归过滤插槽 VNodes 中的不可见列节点。
+ *
+ * @param vnodes 原始插槽 VNode 列表
+ * @param visibilityMap 列 Key 对应显隐状态映射
+ * @returns 过滤后的有效 VNode 列表
+ */
+export function filterColumnVNodes(vnodes: VNode[], visibilityMap: Map<string, boolean>): VNode[] {
+  const result: VNode[] = [];
+
+  for (const node of vnodes) {
+    if (!node || node.type === Comment) {
+      continue;
+    }
+    if (node.type === Fragment && Array.isArray(node.children)) {
+      const filteredChildren = filterColumnVNodes(node.children as VNode[], visibilityMap);
+      result.push({ ...node, children: filteredChildren });
+      continue;
+    }
+    const props = (node.props ?? {}) as Record<string, unknown>;
+    const key = (props.prop as string) || (props.label as string) || (props.type as string) || '';
+    if (key && visibilityMap.get(key) === false) {
+      continue;
+    }
+    result.push(node);
+  }
+
+  return result;
+}
