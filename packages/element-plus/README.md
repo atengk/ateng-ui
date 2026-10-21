@@ -162,7 +162,16 @@ DictManager.setProvider(async (dictCode: string): Promise<DictItem[]> => {
 // 2. 局部组件覆盖数据源（优先级高于全局 Provider）
 <AtengDictSelect v-model="role" :loader="fetchCustomRoleList" />
 
-// 3. 内存缓存穿透刷新
+// 3. 字典多选框组（支持全选快捷复选框与逗号分隔字符串双向解构绑定）
+<AtengDictCheckbox
+  v-model="selectedTags"
+  dict-code="sys_notice_level"
+  separator=","
+  show-check-all
+  button
+/>
+
+// 4. 内存缓存穿透刷新
 await DictManager.loadDict('sys_user_status', undefined, true);
 ```
 

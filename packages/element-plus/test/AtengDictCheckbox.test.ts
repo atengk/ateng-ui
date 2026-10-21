@@ -199,4 +199,77 @@ describe('AtengDictCheckbox 字典多选框组组件交互与契约测试', () =
 
     wrapper.unmount();
   });
+
+  it('数字类型字典项与逗号分隔字符串双向精确解构对齐', async () => {
+    const numberOptions = [
+      { label: '启用', value: 1 },
+      { label: '停用', value: 0 },
+      { label: '锁定', value: 2 },
+    ];
+
+    const wrapper = mount(AtengDictCheckbox, {
+      props: {
+        options: numberOptions,
+        modelValue: '1,2',
+        separator: ',',
+      },
+    });
+
+    const checkboxes = wrapper.findAll('.el-checkbox');
+    expect(checkboxes.length).toBe(3);
+    // 第 1 项 (1) 和第 3 项 (2) 应该由于自动对齐类型而被正确选中
+    expect(checkboxes[0].classes()).toContain('is-checked');
+    expect(checkboxes[1].classes()).not.toContain('is-checked');
+    expect(checkboxes[2].classes()).toContain('is-checked');
+
+    // 勾选第 2 项，触发变化
+    const group = wrapper.findComponent({ name: 'ElCheckboxGroup' });
+    group.vm.$emit('update:modelValue', [1, 2, 0]);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted('update:modelValue')).toBeTruthy();
+    expect(wrapper.emitted('update:modelValue')![0][0]).toBe('1,2,0');
+
+    wrapper.unmount();
+  });
+
+  it('自定义局部 loader 覆盖全局字典加载', async () => {
+    const customLoader = vi.fn().mockResolvedValue([
+      { label: '自定义 A', value: 'a' },
+      { label: '自定义 B', value: 'b' },
+    ]);
+
+    const wrapper = mount(AtengDictCheckbox, {
+      props: {
+        loader: customLoader,
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.el-checkbox').length).toBe(2);
+    });
+    expect(customLoader).toHaveBeenCalled();
+    expect(wrapper.findAll('.el-checkbox').map(c => c.text())).toEqual(['自定义 A', '自定义 B']);
+
+    wrapper.unmount();
+  });
+
+  it('空字符串或未传 modelValue 安全保底无任何选中与崩溃', async () => {
+    const wrapper = mount(AtengDictCheckbox, {
+      props: {
+        dictCode: 'hobby',
+        modelValue: '   ',
+        separator: ',',
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.el-checkbox').length).toBe(3);
+    });
+
+    const checkboxes = wrapper.findAll('.el-checkbox');
+    expect(checkboxes.every(c => !c.classes().includes('is-checked'))).toBe(true);
+
+    wrapper.unmount();
+  });
 });

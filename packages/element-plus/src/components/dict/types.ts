@@ -148,6 +148,11 @@ export interface AtengDictSelectExpose {
 }
 
 /**
+ * AtengDictSelect 专有组件实例类型。
+ */
+export type AtengDictSelectInstance = AtengDictSelectExpose;
+
+/**
  * AtengDictRadio 单选框组组件属性契约。
  */
 export interface AtengDictRadioProps {
@@ -216,6 +221,11 @@ export interface AtengDictRadioExpose {
 }
 
 /**
+ * AtengDictRadio 专有组件实例类型。
+ */
+export type AtengDictRadioInstance = AtengDictRadioExpose;
+
+/**
  * AtengDictTag 彩色状态标签展示组件属性契约。
  */
 export interface AtengDictTagProps {
@@ -282,6 +292,11 @@ export interface AtengDictTagExpose {
    */
   isLoading: Ref<boolean>;
 }
+
+/**
+ * AtengDictTag 专有组件实例类型。
+ */
+export type AtengDictTagInstance = AtengDictTagExpose;
 
 /**
  * AtengDictCheckbox 多选框组组件属性契约。
@@ -359,3 +374,8 @@ export interface AtengDictCheckboxExpose {
    */
   isLoading: Ref<boolean>;
 }
+
+/**
+ * AtengDictCheckbox 专有组件实例类型。
+ */
+export type AtengDictCheckboxInstance = AtengDictCheckboxExpose;

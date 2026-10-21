@@ -25,6 +25,7 @@ import AtengElementPlus, {
   // Stage 3 业务组件与门面
   AtengDictSelect,
   AtengDictRadio,
+  AtengDictCheckbox,
   AtengDictTag,
   DictManager,
   AtengDescriptions,
@@ -40,6 +41,7 @@ import AtengElementPlus, {
   AtTable,
   AtDictSelect,
   AtDictRadio,
+  AtDictCheckbox,
   AtDictTag,
   AtDescriptions,
   AtDescriptionsItem,
@@ -48,6 +50,8 @@ import AtengElementPlus, {
   AtUpload,
   // 核心类型导出验证
   type DictItem,
+  type AtengDictCheckboxProps,
+  type AtengDictCheckboxInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -83,6 +87,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     // Stage 3
     expect(AtengDictSelect).toBeDefined();
     expect(AtengDictRadio).toBeDefined();
+    expect(AtengDictCheckbox).toBeDefined();
     expect(AtengDictTag).toBeDefined();
     expect(DictManager).toBeDefined();
     expect(AtengDescriptions).toBeDefined();
@@ -100,6 +105,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtTable).toBe(AtengTable);
     expect(AtDictSelect).toBe(AtengDictSelect);
     expect(AtDictRadio).toBe(AtengDictRadio);
+    expect(AtDictCheckbox).toBe(AtengDictCheckbox);
     expect(AtDictTag).toBe(AtengDictTag);
     expect(AtDescriptions).toBe(AtengDescriptions);
     expect(AtDescriptionsItem).toBe(AtengDescriptionsItem);
@@ -112,6 +118,14 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     // 静态类型断言验证，保障下游开发者 import type 时 100% 存在且有效
     const mockDictItem: DictItem = { label: '启用', value: 1 };
     expect(mockDictItem.label).toBe('启用');
+
+    const mockCheckboxProps: AtengDictCheckboxProps = { dictCode: 'test', button: true };
+    expect(mockCheckboxProps.dictCode).toBe('test');
+
+    const mockCheckboxInstance: Partial<AtengDictCheckboxInstance> = {
+      refresh: vi.fn(),
+    };
+    expect(mockCheckboxInstance.refresh).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');

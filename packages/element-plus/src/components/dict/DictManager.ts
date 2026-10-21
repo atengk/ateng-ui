@@ -89,6 +89,14 @@ export class DictManagerClass {
     forceRefresh: boolean = false,
   ): Promise<DictItem[]> {
     if (!code) {
+      if (typeof customLoader === 'function') {
+        try {
+          const items = await customLoader();
+          return Array.isArray(items) ? items : [];
+        } catch {
+          return [];
+        }
+      }
       return [];
     }
 

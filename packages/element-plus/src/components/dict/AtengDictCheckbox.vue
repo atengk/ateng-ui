@@ -60,7 +60,16 @@ const internalCheckedValues = computed<Array<string | number | boolean>>(() => {
     return props.modelValue;
   }
   if (typeof props.modelValue === 'string' && props.separator) {
-    return props.modelValue.trim() ? props.modelValue.split(props.separator) : [];
+    const trimmed = props.modelValue.trim();
+    if (!trimmed) {
+      return [];
+    }
+    const rawStrs = trimmed.split(props.separator).map(s => s.trim());
+    const items = effectiveItems.value;
+    return rawStrs.map(str => {
+      const matched = items.find(item => String(item.value) === str);
+      return matched !== undefined ? matched.value : str;
+    });
   }
   return [];
 });
@@ -141,6 +150,15 @@ watch(
 );
 
 watch(
+  () => props.loader,
+  newLoader => {
+    if (typeof newLoader === 'function' && props.autoLoad) {
+      fetchDictData(false);
+    }
+  },
+);
+
+watch(
   () => props.options,
   newOptions => {
     if (Array.isArray(newOptions)) {
@@ -171,7 +189,7 @@ defineExpose<AtengDictCheckboxExpose>({
         :indeterminate="isIndeterminate"
         :disabled="disabled"
         :size="size"
-        @change="(v: any) => handleCheckAllChange(Boolean(v))"
+        @change="(v: unknown) => handleCheckAllChange(Boolean(v))"
       >
         <span>{{ checkAllText }}</span>
       </el-checkbox>
@@ -185,7 +203,10 @@ defineExpose<AtengDictCheckboxExpose>({
       :size="size"
       :disabled="disabled"
       v-bind="$attrs"
-      @update:model-value="(v: any) => handleGroupChange(v as Array<string | number | boolean>)"
+      @update:model-value="
+        (v: unknown) =>
+          handleGroupChange(Array.isArray(v) ? (v as Array<string | number | boolean>) : [])
+      "
     >
       <template v-if="button">
         <el-checkbox-button
