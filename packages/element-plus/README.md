@@ -107,7 +107,13 @@ const searchForm = reactive({
 
 <template>
   <div class="user-management-page">
-    <AtengTable :pagination="pagination" row-key="id" storage-key="user-table-columns" border>
+    <AtengTable
+      :pagination="pagination"
+      row-key="id"
+      storage-key="user-table-columns"
+      auto-height
+      border
+    >
       <!-- 顶部嵌入高级搜索表单：通过 Provide/Inject 自动触发 pagination.search 与 reset -->
       <template #query>
         <AtengQueryForm :model="searchForm" label-width="80px">

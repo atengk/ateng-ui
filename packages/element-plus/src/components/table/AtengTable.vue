@@ -237,29 +237,16 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('keydown', handleKeydown);
   }
-  if (props.autoHeight && typeof window !== 'undefined') {
-    nextTick(() => {
-      updateAutoHeight();
-      if ('ResizeObserver' in window && tableRootRef.value) {
-        resizeObserver = new ResizeObserver(() => {
-          updateAutoHeight();
-        });
-        resizeObserver.observe(tableRootRef.value);
-      }
-      window.addEventListener('resize', updateAutoHeight);
-    });
+  if (props.autoHeight) {
+    attachAutoHeightObserver();
   }
 });
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeydown);
-    window.removeEventListener('resize', updateAutoHeight);
   }
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
+  detachAutoHeightObserver();
 });
 
 // 原子工具项判断
@@ -483,8 +470,8 @@ const activeAttributeColumns = computed<TableColumnConfig[]>(() => {
     .sort((a, b) => {
       const kA = getColumnKey(a);
       const kB = getColumnKey(b);
-      const idxA = kA && orderMap.has(kA) ? orderMap.get(kA)! : 9999;
-      const idxB = kB && orderMap.has(kB) ? orderMap.get(kB)! : 9999;
+      const idxA = kA && orderMap.has(kA) ? (orderMap.get(kA) ?? 9999) : 9999;
+      const idxB = kB && orderMap.has(kB) ? (orderMap.get(kB) ?? 9999) : 9999;
       return idxA - idxB;
     });
 });
@@ -510,7 +497,7 @@ const tableRootRef = ref<HTMLElement | null>(null);
 const calculatedHeight = ref<number | undefined>(undefined);
 let resizeObserver: ResizeObserver | null = null;
 
-const updateAutoHeight = () => {
+function updateAutoHeight(): void {
   if (!props.autoHeight || typeof window === 'undefined' || !tableRootRef.value) {
     return;
   }
@@ -518,7 +505,46 @@ const updateAutoHeight = () => {
   const bottomOffset = typeof props.autoHeight === 'number' ? props.autoHeight : 32;
   const availableHeight = Math.max(150, Math.floor(window.innerHeight - rect.top - bottomOffset));
   calculatedHeight.value = availableHeight;
-};
+}
+
+function detachAutoHeightObserver(): void {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateAutoHeight);
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+  calculatedHeight.value = undefined;
+}
+
+function attachAutoHeightObserver(): void {
+  if (typeof window === 'undefined') return;
+  detachAutoHeightObserver();
+  if (!props.autoHeight) return;
+
+  nextTick(() => {
+    updateAutoHeight();
+    if ('ResizeObserver' in window && tableRootRef.value) {
+      resizeObserver = new ResizeObserver(() => {
+        updateAutoHeight();
+      });
+      resizeObserver.observe(tableRootRef.value);
+    }
+    window.addEventListener('resize', updateAutoHeight);
+  });
+}
+
+watch(
+  () => props.autoHeight,
+  newVal => {
+    if (newVal) {
+      attachAutoHeightObserver();
+    } else {
+      detachAutoHeightObserver();
+    }
+  },
+);
 
 const effectiveTableHeight = computed(() => {
   if (props.autoHeight && calculatedHeight.value) {

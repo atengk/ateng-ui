@@ -705,4 +705,42 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     expect(tableEl.props('height')).toBeDefined();
     expect(typeof tableEl.props('height')).toBe('number');
   });
+
+  it('autoHeight 动态响应式切换与确定性清理', async () => {
+    Object.defineProperty(window, 'innerHeight', { value: 800, writable: true });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        autoHeight: false,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    // autoHeight=false 时，height 为 undefined
+    expect(tableEl.props('height')).toBeUndefined();
+
+    // 动态开启 autoHeight
+    await wrapper.setProps({ autoHeight: 40 });
+    await doubleWait();
+
+    // 动态计算出高度注入 ElTable
+    expect(tableEl.props('height')).toBeDefined();
+    expect(typeof tableEl.props('height')).toBe('number');
+
+    // 动态关闭 autoHeight
+    await wrapper.setProps({ autoHeight: false });
+    await doubleWait();
+
+    expect(tableEl.props('height')).toBeUndefined();
+
+    wrapper.unmount();
+    wrapper = null as any;
+  });
 });

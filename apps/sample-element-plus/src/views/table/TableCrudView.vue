@@ -157,6 +157,9 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
     clearSelection();
   });
 };
+
+// 7. 进阶特性演示状态
+const enableAutoHeight = ref(false);
 </script>
 
 <template>
@@ -174,11 +177,24 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
           />
         </div>
         <div class="control-item">
+          <span class="ctrl-title">视口高度自适应 (autoHeight)：</span>
+          <ElSwitch
+            v-model="enableAutoHeight"
+            active-text="开启自适应 (撑满视口防双滚动条)"
+            inactive-text="固定高度/自适应行高"
+          />
+        </div>
+        <div class="control-item">
           <ElButton size="small" @click="pagination.refresh"> 状态机刷新 (refresh) </ElButton>
           <ElButton size="small" type="danger" plain @click="tableRef?.clearSelection">
             清空多选 (clearSelection)
           </ElButton>
         </div>
+      </div>
+      <div class="control-tip">
+        💡
+        提示：点击表格工具栏右侧<strong>「列设置」</strong>图标，可在此弹层中按住<strong>「⋮⋮」</strong>手柄进行纯原生
+        HTML5 拖拽列排序，且顺序刷新后持久化记忆。
       </div>
     </ElCard>
 
@@ -187,6 +203,7 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
       <AtengTable
         ref="tableRef"
         :pagination="pagination"
+        :auto-height="enableAutoHeight ? 32 : false"
         row-key="id"
         storage-key="sample-crud-table-columns"
         border
@@ -296,6 +313,16 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 
 .control-card {
   border-radius: 8px;
+}
+
+.control-tip {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+  background-color: var(--el-fill-color-light);
+  padding: 8px 12px;
+  border-radius: 6px;
 }
 
 .control-row {
