@@ -77,6 +77,18 @@ export interface AtengCodeViewProps {
   indent?: number;
 
   /**
+   * 是否支持代码块折叠展开。
+   * @default true
+   */
+  collapsible?: boolean;
+
+  /**
+   * 是否默认全部折叠代码块。
+   * @default false
+   */
+  defaultCollapsed?: boolean;
+
+  /**
    * 根容器自定义样式类名。
    */
   customClass?: string;
@@ -90,6 +102,11 @@ export interface AtengCodeViewEmits {
    * 复制成功时触发。
    */
   (e: 'copy', text: string): void;
+
+  /**
+   * 折叠行状态发生变更时触发。
+   */
+  (e: 'fold-change', collapsedLines: number[]): void;
 }
 
 /**
@@ -104,7 +121,12 @@ export interface AtengCodeViewSlots {
   /**
    * 自定义标题栏右侧操作区。
    */
-  actions?: (scope: { copy: () => void }) => unknown;
+  actions?: (scope: {
+    copy: () => Promise<boolean>;
+    foldAll: () => void;
+    unfoldAll: () => void;
+    isAllFolded: boolean;
+  }) => unknown;
 }
 
 /**
@@ -125,4 +147,27 @@ export interface AtengCodeViewExpose {
    * 代码总行数。
    */
   lineCount: number;
+
+  /**
+   * 全部折叠代码块。
+   */
+  foldAll: () => void;
+
+  /**
+   * 全部展开代码块。
+   */
+  unfoldAll: () => void;
+
+  /**
+   * 切换指定行的折叠状态。
+   * @param lineIndex 0-based 原始行号
+   */
+  toggleFold: (lineIndex: number) => void;
+
+  /**
+   * 获取当前已折叠的代码块起始行集合。
+   */
+  getCollapsedLines: () => number[];
 }
+
+export type AtengCodeViewInstance = AtengCodeViewExpose;

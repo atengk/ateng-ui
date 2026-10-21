@@ -8,6 +8,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { AtengCodeView } from '../src/components/code-view';
+import {
+  computeFoldRanges,
+  buildFoldRangeMap,
+  computeVisibleLines,
+} from '../src/components/code-view/folding';
 
 describe('AtengCodeView 源码与数据高亮查看器交互与契约测试', () => {
   afterEach(() => {
@@ -117,7 +122,106 @@ describe('AtengCodeView 源码与数据高亮查看器交互与契约测试', ()
     expect(success).toBe(true);
     expect(writeText).toHaveBeenCalledWith(code);
     expect(wrapper.emitted('copy')).toBeTruthy();
-    expect(wrapper.emitted('copy')![0][0]).toBe(code);
+    expect(wrapper.emitted('copy')?.[0]?.[0]).toBe(code);
+
+    wrapper.unmount();
+  });
+
+  it('代码块折叠算法：纯原生成对括号计算与可见行过滤', () => {
+    const lines = [
+      '{',
+      '  "user": {',
+      '    "name": "ateng",',
+      '    "roles": [',
+      '      "admin",',
+      '      "user"',
+      '    ]',
+      '  },',
+      '  "active": true',
+      '}',
+    ];
+
+    const ranges = computeFoldRanges(lines);
+    expect(ranges.length).toBe(3);
+    expect(ranges[0].startLine).toBe(0);
+    expect(ranges[0].endLine).toBe(9);
+    expect(ranges[1].startLine).toBe(1);
+    expect(ranges[1].endLine).toBe(7);
+    expect(ranges[2].startLine).toBe(3);
+    expect(ranges[2].endLine).toBe(6);
+
+    const rangeMap = buildFoldRangeMap(ranges);
+    expect(rangeMap.has(1)).toBe(true);
+
+    // 测试折叠第 1 行 (user 对象)
+    const collapsed = new Set([1]);
+    const visible = computeVisibleLines(lines, lines, rangeMap, collapsed);
+
+    // 行 0 正常
+    expect(visible[0].lineIndex).toBe(0);
+    // 行 1 折叠，带占位文案
+    expect(visible[1].lineIndex).toBe(1);
+    expect(visible[1].isFolded).toBe(true);
+    expect(visible[1].placeholder).toContain('... }');
+    // 行 2..7 被跳过，下一可见行为行 8
+    expect(visible[2].lineIndex).toBe(8);
+  });
+
+  it('交互式代码块折叠与全展开控制', async () => {
+    const data = {
+      project: 'ateng-ui',
+      author: {
+        name: 'Ateng',
+        city: 'Guangzhou',
+      },
+      tags: ['ui', 'vue3'],
+    };
+
+    const wrapper = mount(AtengCodeView, {
+      props: {
+        code: data,
+        collapsible: true,
+      },
+    });
+
+    const vm = wrapper.vm;
+    expect(vm.lineCount).toBeGreaterThan(5);
+
+    // 初始状态未折叠
+    expect(vm.getCollapsedLines().length).toBe(0);
+
+    // 命令式全部折叠
+    vm.foldAll();
+    await wrapper.vm.$nextTick();
+    expect(vm.getCollapsedLines().length).toBeGreaterThan(0);
+    expect(wrapper.emitted('fold-change')).toBeTruthy();
+
+    // 折叠占位符应出现在 DOM 中
+    const foldMarker = wrapper.find('.at-code-view__fold-marker');
+    expect(foldMarker.exists()).toBe(true);
+
+    // 点击占位符展开
+    await foldMarker.trigger('click');
+    expect(vm.getCollapsedLines().includes(0)).toBe(false);
+
+    // 命令式全部展开
+    vm.unfoldAll();
+    await wrapper.vm.$nextTick();
+    expect(vm.getCollapsedLines().length).toBe(0);
+
+    wrapper.unmount();
+  });
+
+  it('防御性处理：空数据与空行边界安全', async () => {
+    const wrapper = mount(AtengCodeView, {
+      props: {
+        code: null,
+      },
+    });
+
+    expect(wrapper.vm.getRawCode()).toBe('');
+    expect(wrapper.vm.lineCount).toBe(0);
+    expect(wrapper.text()).toContain('0 lines');
 
     wrapper.unmount();
   });

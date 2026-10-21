@@ -2,16 +2,18 @@
 /**
  * AtengCodeView 源码与数据高亮查看器组件。
  *
- * 采用纯原生正则分词与 AST 解析（零外部重型依赖），
- * 支持 JSON/SQL/JS/HTML 语法着色、行号侧边栏、一键复制与明暗主题双模。
+ * 采用纯原生正则分词与成对括号折叠算法（零外部重型依赖），
+ * 支持 JSON/SQL/JS/HTML 语法着色、行号侧边栏、代码块树形折叠、一键复制与明暗主题双模。
  *
  * @author Ateng
  * @since 2026-10-21
  */
 
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { ElTooltip, ElMessage } from 'element-plus';
 import { highlightLine } from './highlight';
+import { useCodeFolding } from './useCodeFolding';
+import { writeClipboard } from '../../directives/copy';
 import type {
   AtengCodeViewProps,
   AtengCodeViewEmits,
@@ -34,17 +36,26 @@ const props = withDefaults(defineProps<AtengCodeViewProps>(), {
   title: '',
   showHeader: true,
   indent: 2,
+  collapsible: true,
+  defaultCollapsed: false,
   customClass: '',
 });
 
 const emit = defineEmits<AtengCodeViewEmits>();
 defineSlots<AtengCodeViewSlots>();
 
-// 复制状态与反馈微标
+// 1. 复制状态与定时器
 const isCopied = ref<boolean>(false);
 let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 格式化为标准原始文本字符串
+onBeforeUnmount(() => {
+  if (copiedTimer) {
+    clearTimeout(copiedTimer);
+    copiedTimer = null;
+  }
+});
+
+// 2. 格式化代码文本
 const rawCode = computed<string>(() => {
   if (props.code === null || props.code === undefined) {
     return '';
@@ -69,46 +80,43 @@ const rawCode = computed<string>(() => {
   return str;
 });
 
-// 切分每行
+// 3. 切分行
 const lines = computed<string[]>(() => {
   if (!rawCode.value) {
-    return [''];
+    return [];
   }
   return rawCode.value.split('\n');
 });
 
-// 行数
 const lineCount = computed<number>(() => lines.value.length);
 
-// 每行的高亮 HTML 缓存
+// 4. 每行语法高亮
 const highlightedLines = computed<string[]>(() => {
   return lines.value.map(line => highlightLine(line, props.language));
 });
 
-// 复制到剪贴板
+// 5. 折叠逻辑外抽状态机
+const {
+  foldRanges,
+  collapsedLines,
+  visibleLines,
+  isAllFolded,
+  toggleFold,
+  foldAll,
+  unfoldAll,
+  toggleAllFolds,
+} = useCodeFolding(lines, highlightedLines, props, emit);
+
+// 6. 复制逻辑
 async function copy(): Promise<boolean> {
   const text = rawCode.value;
   try {
-    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      // 降级 textarea 复制
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-
+    await writeClipboard(text);
     isCopied.value = true;
     if (copiedTimer) clearTimeout(copiedTimer);
     copiedTimer = setTimeout(() => {
       isCopied.value = false;
     }, 2000);
-
     emit('copy', text);
     return true;
   } catch (_err) {
@@ -117,7 +125,7 @@ async function copy(): Promise<boolean> {
   }
 }
 
-// 容器高度样式
+// 7. 容器高度行内样式
 const containerStyle = computed(() => {
   const style: Record<string, string> = {};
   if (props.height) {
@@ -134,6 +142,10 @@ defineExpose<AtengCodeViewExpose>({
   copy,
   getRawCode: () => rawCode.value,
   lineCount: lineCount.value,
+  foldAll,
+  unfoldAll,
+  toggleFold,
+  getCollapsedLines: () => Array.from(collapsedLines.value),
 });
 </script>
 
@@ -146,7 +158,6 @@ defineExpose<AtengCodeViewExpose>({
     <div v-if="showHeader" class="at-code-view__header">
       <slot name="header" :language="language" :line-count="lineCount">
         <div class="at-code-view__info">
-          <!-- macOS 装饰圆点 -->
           <div class="at-code-view__dots">
             <span class="dot dot--red" />
             <span class="dot dot--yellow" />
@@ -159,7 +170,23 @@ defineExpose<AtengCodeViewExpose>({
 
       <!-- 右侧操作区 -->
       <div class="at-code-view__actions">
-        <slot name="actions" :copy="copy">
+        <slot
+          name="actions"
+          :copy="copy"
+          :fold-all="foldAll"
+          :unfold-all="unfoldAll"
+          :is-all-folded="isAllFolded"
+        >
+          <button
+            v-if="collapsible && foldRanges.length > 0"
+            type="button"
+            class="at-code-view__btn"
+            :title="isAllFolded ? '展开全部代码块' : '折叠全部代码块'"
+            @click="toggleAllFolds"
+          >
+            {{ isAllFolded ? '展开全部' : '折叠全部' }}
+          </button>
+
           <ElTooltip :content="isCopied ? '已复制！' : '复制代码'" placement="top">
             <button
               v-if="copyable"
@@ -180,270 +207,38 @@ defineExpose<AtengCodeViewExpose>({
     <div class="at-code-view__body">
       <!-- 行号栏 -->
       <div v-if="lineNumbers" class="at-code-view__gutter">
-        <div v-for="idx in lineCount" :key="idx" class="at-code-view__line-no">
-          {{ idx }}
+        <div v-for="item in visibleLines" :key="item.lineIndex" class="at-code-view__line-no">
+          <span class="line-number">{{ item.lineNo }}</span>
+          <button
+            v-if="collapsible && item.isFoldable"
+            type="button"
+            class="fold-btn"
+            :title="item.isFolded ? '点击展开' : '点击折叠'"
+            @click="toggleFold(item.lineIndex)"
+          >
+            {{ item.isFolded ? '▶' : '▼' }}
+          </button>
+          <span v-else-if="collapsible" class="fold-spacer" />
         </div>
       </div>
 
       <!-- 代码内容 -->
       <div class="at-code-view__content">
         <!-- eslint-disable-next-line vue/no-v-html -->
-        <div
-          v-for="(html, idx) in highlightedLines"
-          :key="idx"
-          class="at-code-view__line"
-          v-html="html"
-        />
+        <div v-for="item in visibleLines" :key="item.lineIndex" class="at-code-view__line">
+          <span v-html="item.html" />
+          <span
+            v-if="item.isFolded && item.placeholder"
+            class="at-code-view__fold-marker"
+            title="点击展开代码块"
+            @click="toggleFold(item.lineIndex)"
+          >
+            {{ item.placeholder }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-<style scoped lang="scss">
-.at-code-view {
-  display: flex;
-  flex-direction: column;
-  border-radius: 8px;
-  overflow: hidden;
-  box-sizing: border-box;
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-  font-size: 13px;
-  line-height: 1.6;
-
-  // 暗黑主题 (Dark)
-  &--dark {
-    background-color: #1e1e24;
-    color: #e2e8f0;
-    border: 1px solid #2d3748;
-
-    .at-code-view__header {
-      background-color: #16161a;
-      border-bottom: 1px solid #2d3748;
-      color: #94a3b8;
-    }
-
-    .at-code-view__gutter {
-      background-color: #18181c;
-      color: #4b5563;
-      border-right: 1px solid #2d3748;
-    }
-
-    .at-code-view__btn {
-      color: #94a3b8;
-      background: #27272a;
-      border: 1px solid #3f3f46;
-
-      &:hover {
-        background: #3f3f46;
-        color: #f1f5f9;
-      }
-    }
-
-    // 暗色高亮配色
-    :deep(.tok-key) {
-      color: #38bdf8;
-      font-weight: 500;
-    }
-    :deep(.tok-string) {
-      color: #4ade80;
-    }
-    :deep(.tok-number) {
-      color: #f59e0b;
-    }
-    :deep(.tok-boolean) {
-      color: #ec4899;
-      font-weight: 600;
-    }
-    :deep(.tok-punct) {
-      color: #94a3b8;
-    }
-    :deep(.tok-keyword) {
-      color: #c084fc;
-      font-weight: 600;
-    }
-    :deep(.tok-comment) {
-      color: #64748b;
-      font-style: italic;
-    }
-    :deep(.tok-tag) {
-      color: #f43f5e;
-      font-weight: 600;
-    }
-    :deep(.tok-attr) {
-      color: #fbbf24;
-    }
-    :deep(.tok-word) {
-      color: #e2e8f0;
-    }
-  }
-
-  // 浅色主题 (Light)
-  &--light {
-    background-color: #ffffff;
-    color: #1f2937;
-    border: 1px solid #e5e7eb;
-
-    .at-code-view__header {
-      background-color: #f8fafc;
-      border-bottom: 1px solid #e5e7eb;
-      color: #64748b;
-    }
-
-    .at-code-view__gutter {
-      background-color: #f9fafb;
-      color: #9ca3af;
-      border-right: 1px solid #e5e7eb;
-    }
-
-    .at-code-view__btn {
-      color: #4b5563;
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-
-      &:hover {
-        background: #f3f4f6;
-        color: #111827;
-      }
-    }
-
-    // 浅色高亮配色
-    :deep(.tok-key) {
-      color: #0284c7;
-      font-weight: 500;
-    }
-    :deep(.tok-string) {
-      color: #16a34a;
-    }
-    :deep(.tok-number) {
-      color: #d97706;
-    }
-    :deep(.tok-boolean) {
-      color: #db2777;
-      font-weight: 600;
-    }
-    :deep(.tok-punct) {
-      color: #6b7280;
-    }
-    :deep(.tok-keyword) {
-      color: #7c3aed;
-      font-weight: 600;
-    }
-    :deep(.tok-comment) {
-      color: #9ca3af;
-      font-style: italic;
-    }
-    :deep(.tok-tag) {
-      color: #e11d48;
-      font-weight: 600;
-    }
-    :deep(.tok-attr) {
-      color: #b45309;
-    }
-    :deep(.tok-word) {
-      color: #1f2937;
-    }
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
-    font-size: 12px;
-    user-select: none;
-  }
-
-  &__info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__dots {
-    display: flex;
-    gap: 5px;
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-
-      &--red {
-        background: #ef4444;
-      }
-      &--yellow {
-        background: #f59e0b;
-      }
-      &--green {
-        background: #10b981;
-      }
-    }
-  }
-
-  &__title {
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-
-  &__badge {
-    font-size: 11px;
-    opacity: 0.7;
-    background: rgba(125, 125, 125, 0.15);
-    padding: 1px 6px;
-    border-radius: 4px;
-  }
-
-  &__btn {
-    border: none;
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    &.is-copied {
-      color: #10b981;
-      border-color: #10b981;
-    }
-  }
-
-  &__body {
-    display: flex;
-    flex: 1;
-    overflow: auto;
-    position: relative;
-  }
-
-  &__gutter {
-    flex-shrink: 0;
-    padding: 10px 10px 10px 12px;
-    text-align: right;
-    user-select: none;
-    font-size: 12px;
-  }
-
-  &__line-no {
-    height: 21px;
-    line-height: 21px;
-  }
-
-  &__content {
-    flex: 1;
-    padding: 10px 14px;
-    overflow-x: auto;
-    white-space: pre;
-  }
-
-  &.is-word-wrap &__content {
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
-  &__line {
-    height: 21px;
-    line-height: 21px;
-  }
-}
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

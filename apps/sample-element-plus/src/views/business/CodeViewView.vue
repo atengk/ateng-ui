@@ -14,6 +14,8 @@ import {
   ElSwitch,
   ElSpace,
   ElDivider,
+  ElButton,
+  ElTag,
   ElMessage,
 } from 'element-plus';
 import {
@@ -29,6 +31,20 @@ const currentLang = ref<CodeViewLanguage>('json');
 const currentTheme = ref<CodeViewTheme>('dark');
 const showLineNo = ref<boolean>(true);
 const wordWrap = ref<boolean>(true);
+const collapsible = ref<boolean>(true);
+const collapsedCount = ref<number>(0);
+
+const handleFoldAll = () => {
+  codeViewRef.value?.foldAll();
+};
+
+const handleUnfoldAll = () => {
+  codeViewRef.value?.unfoldAll();
+};
+
+const handleFoldChange = (lines: number[]) => {
+  collapsedCount.value = lines.length;
+};
 
 // 示例代码字典
 const sampleCodes: Record<CodeViewLanguage, string | Record<string, unknown>> = {
@@ -156,6 +172,19 @@ const handleCopy = (text: string) => {
             <span class="label">自动折行：</span>
             <ElSwitch v-model="wordWrap" />
           </div>
+
+          <div class="ctrl-group">
+            <span class="label">代码折叠：</span>
+            <ElSwitch v-model="collapsible" />
+          </div>
+
+          <div v-if="collapsible" class="ctrl-group">
+            <ElButton size="small" @click="handleFoldAll">全部折叠</ElButton>
+            <ElButton size="small" @click="handleUnfoldAll">全部展开</ElButton>
+            <ElTag v-if="collapsedCount > 0" size="small" type="warning">
+              已折叠 {{ collapsedCount }} 块
+            </ElTag>
+          </div>
         </ElSpace>
       </div>
 
@@ -170,8 +199,10 @@ const handleCopy = (text: string) => {
           :theme="currentTheme"
           :line-numbers="showLineNo"
           :word-wrap="wordWrap"
+          :collapsible="collapsible"
           max-height="450px"
           @copy="handleCopy"
+          @fold-change="handleFoldChange"
         />
       </div>
     </ElCard>

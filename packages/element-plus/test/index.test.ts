@@ -36,6 +36,7 @@ import AtengElementPlus, {
   AtengUpload,
   AtengLogViewer,
   AtengStatistic,
+  AtengCodeView,
   // 便捷 At* 别名
   AtDialog,
   AtDrawer,
@@ -54,6 +55,7 @@ import AtengElementPlus, {
   AtUpload,
   AtLogViewer,
   AtStatistic,
+  AtCodeView,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
@@ -64,6 +66,8 @@ import AtengElementPlus, {
   type AtengLogViewerInstance,
   type AtengStatisticProps,
   type AtengStatisticInstance,
+  type AtengCodeViewProps,
+  type AtengCodeViewInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -110,9 +114,10 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengUpload).toBeDefined();
     expect(AtengLogViewer).toBeDefined();
     expect(AtengStatistic).toBeDefined();
+    expect(AtengCodeView).toBeDefined();
   });
 
-  it('完整导出全部 13 项组件的 At 规范别名', () => {
+  it('完整导出全部 14 项组件的 At 规范别名', () => {
     expect(AtDialog).toBe(AtengDialog);
     expect(AtDrawer).toBe(AtengDrawer);
     expect(AtEmpty).toBe(AtengEmpty);
@@ -130,6 +135,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtUpload).toBe(AtengUpload);
     expect(AtLogViewer).toBe(AtengLogViewer);
     expect(AtStatistic).toBe(AtengStatistic);
+    expect(AtCodeView).toBe(AtengCodeView);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {
@@ -169,6 +175,15 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       restart: vi.fn(),
     };
     expect(mockStatisticInstance.restart).toBeDefined();
+
+    const mockCodeViewProps: AtengCodeViewProps = { code: 'const a = 1;', language: 'javascript' };
+    expect(mockCodeViewProps.language).toBe('javascript');
+
+    const mockCodeViewInstance: Partial<AtengCodeViewInstance> = {
+      foldAll: vi.fn(),
+      unfoldAll: vi.fn(),
+    };
+    expect(mockCodeViewInstance.foldAll).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');
