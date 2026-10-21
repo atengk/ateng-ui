@@ -6,3 +6,5 @@
  */
 
 export * from './empty';
+export * from './dialog';
+export * from './drawer';

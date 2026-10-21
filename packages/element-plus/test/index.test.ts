@@ -7,6 +7,8 @@ import {
   vCopy,
   vWatermark,
   AtengEmpty,
+  AtengDialog,
+  AtengDrawer,
 } from '../src/index';
 
 describe('@atengk/element-plus baseline', () => {
@@ -18,5 +20,7 @@ describe('@atengk/element-plus baseline', () => {
     expect(vCopy).toBeDefined();
     expect(vWatermark).toBeDefined();
     expect(AtengEmpty).toBeDefined();
+    expect(AtengDialog).toBeDefined();
+    expect(AtengDrawer).toBeDefined();
   });
 });
