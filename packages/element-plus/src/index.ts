@@ -8,3 +8,5 @@
 import './styles/index.scss';
 
 export const VERSION: string = '0.1.0';
+
+export * from './directives';

@@ -56,5 +56,11 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['**/test/**/*.{ts,js,vue}', '**/*.test.{ts,js,vue}', '**/*.spec.{ts,js,vue}'],
+    rules: {
+      'vue/one-component-per-file': 'off',
+    },
+  },
   prettierConfig,
 );
