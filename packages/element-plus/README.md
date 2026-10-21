@@ -247,7 +247,46 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
-### 6. 高性能运维日志终端与防内存泄漏缓冲 (`AtengLogViewer`)
+### 6. 纯原生 HTML5 列配置拖拽排序与 `autoHeight` 视口自适应 (`AtengTable`)
+
+`AtengTable` 针对现代企业级中后台视口适配痛点，坚决摒弃引入 `SortableJS` 等重型第三方库。基于纯原生 HTML5 Drag & Drop API 实现列配置弹窗内的拖拽排序，并通过 `storageKey` 自动持久化至 LocalStorage；同时集成 `autoHeight` 基于 `ResizeObserver` 动态计算视口剩余空间，告别双滚动条与视口撑破：
+
+```vue
+<!-- 表格视口高度自适应（autoHeight 基于 ResizeObserver 动态计算剩余空间）与原生列拖拽排序持久化 -->
+<AtengTable
+  :pagination="pagination"
+  :auto-height="32"
+  storage-key="admin-user-table-columns"
+  row-key="id"
+  border
+>
+  <el-table-column type="selection" width="55" fixed="left" />
+  <el-table-column prop="id" label="分布式ID" width="180" />
+  <el-table-column prop="username" label="用户名" width="140" />
+  <el-table-column prop="role" label="岗位角色" width="120" />
+  <el-table-column prop="createTime" label="创建时间" min-width="160" />
+</AtengTable>
+```
+
+### 7. 面向 LLM 与 SSE 流式响应的纯原生打字机 (`AtengStreamText`)
+
+`AtengStreamText` 面向现代大语言模型生成式输出与 SSE 流式数据推送，纯原生微任务实现平滑打字机切片呈现，内置呼吸光标状态机，可一键复制文本并无缝对接 `@atengk/vue` 的 `useStream` 状态机：
+
+```vue
+<!-- 纯原生逐字打字机切片、呼吸光标自适应淡出与一键复制代码 -->
+<AtengStreamText
+  ref="streamRef"
+  :text="aiGeneratedMarkdown"
+  :speed="30"
+  :cursor="true"
+  cursor-char="|"
+  :show-copy="true"
+  @finished="val => console.log('流式输出完毕, 总长:', val.length)"
+  @copy="val => ElMessage.success(`内容已复制 (${val.length} 字符)`)"
+/>
+```
+
+### 8. 高性能运维日志终端与防内存泄漏缓冲 (`AtengLogViewer`)
 
 `AtengLogViewer` 面向 CI/CD 容器构建、服务端日志追踪与设备监控，深度对接 `@atengk/vue` 的 `useWebSocket` 或静态日志列表：
 
@@ -262,7 +301,7 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
-### 7. 金融级动效统计指标卡片 (`AtengStatistic`)
+### 9. 金融级动效统计指标卡片 (`AtengStatistic`)
 
 `AtengStatistic` 基于原生 `requestAnimationFrame` 指数衰减缓动算法实现平滑翻牌过渡动画（零第三方依赖），支持金融级千分位与涨跌微标：
 
@@ -280,7 +319,7 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
-### 8. 零依赖结构化代码与数据查看器 (`AtengCodeView`)
+### 10. 零依赖结构化代码与数据查看器 (`AtengCodeView`)
 
 `AtengCodeView` 面向接口报文查阅、审计日志详情与配置展示，坚决拒绝引入 Monaco Editor 或 Prism.js 等庞大类库。采用纯原生 TypeScript 分词状态机与成对括号折叠算法，支持 JSON 对象/数组树形折叠、SQL 语法高亮、自适应行号侧边栏与一键复制反馈：
 
@@ -297,7 +336,7 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
-### 9. 企业级原生图标选择器与拼音极速检索 (`AtengIconSelect`)
+### 11. 企业级原生图标选择器与拼音极速检索 (`AtengIconSelect`)
 
 `AtengIconSelect` 面向菜单管理与权限分配，内建全量常用官方标准 SVG 图标库（零外部依赖）。支持中文、全拼与拼音首字母模糊检索，支持 Popover 浮窗与 Dialog 模态窗双模展现，并提供网格分页与一键复制 `<el-icon>` 组件代码：
 
@@ -313,7 +352,7 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
-### 10. 安全防刷新验证码倒计时与前置拦截 (`AtengCaptcha`)
+### 12. 安全防刷新验证码倒计时与前置拦截 (`AtengCaptcha`)
 
 `AtengCaptcha` 面向登录注册、找回密码与短信推送场景，摒弃易失的内存倒计时，基于 LocalStorage 物理时间戳防刷新清零。支持前置异步校验拦截（`beforeSend`）、异步发送 Loading 互斥防重锁与图形验证码刷新形态：
 
@@ -330,7 +369,7 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 <AtengCaptcha type="image" :image-src="currentImageSrc" :refresh="handleRefreshImage" />
 ```
 
-### 11. 原生轻量多格式文件在线预览门户 (`AtengFilePreview`)
+### 13. 原生轻量多格式文件在线预览门户 (`AtengFilePreview`)
 
 `AtengFilePreview` 面向附件查阅、图片轮播、音视频审查与日志报文浏览，坚决拒绝引入数十 MB 的 pdfjs 或 video.js 重型依赖。基于纯原生 HTML5 与组件联动，支持图片灯箱、原生 PDF、音视频播放、代码文本高亮（复用 `AtengCodeView`）与未知格式降级下载：
 
@@ -380,7 +419,23 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 
 11. **纯原生零依赖文件渲染与 ObjectURL 确定性生命周期防线 (Zero-Bloat Preview & ObjectURL Lifecycle Invariant)**：
 
-- `AtengFilePreview` 坚决拒绝引入 pdfjs、video.js 等数十 MB 级庞大依赖包，采用原生 HTML5 `iframe`、`video`、`audio`、`ElImage` 与 `AtengCodeView` 高性能组合实现全格式开箱即览；在传入本地 `File`/`Blob` 对象时，自动安全生成 `URL.createObjectURL` 临时句柄，并在更新资源或组件卸载（`onUnmounted`）时 100% 确定性调用 `URL.revokeObjectURL` 释放句柄，彻底杜绝浏览器内存泄漏。
+- `AtengFilePreview` 坚决拒绝引入 pdfjs、video.js 等数十 MB 级庞大依赖包，采用原生 HTML5 `iframe`、`video`、`audio`、`ElImage` 与 `AtengCodeView` 高性能组合实现全格式开箱即览；在传入本地 `File`/`Blob` 对象时，自动安全生成 `URL.createObjectURL` 临时句柄，并在更新资源或组件卸载（`onUnmounted`）时 100% 确定性调用 `URL.revokeObjectURL` 释放句柄，彻底杜绝浏览器内存泄漏；
+
+12. **纯原生 HTML5 列拖拽排序与 ResizeObserver 视口高度自适应防线 (Native Drag Order & AutoHeight Invariant)**：
+
+- `AtengTable` 坚决拒绝引入重型 `SortableJS`，基于原生 HTML5 Drag & Drop API 实现列配置列表的毫秒级拖拽排序，并通过 `storageKey` 本地持久化记忆用户排序列顺序；`autoHeight` 基于 `ResizeObserver` 实时监听父容器/视口变化动态计算表格体最大高度，组件销毁时确定性解绑监听，彻底告别双滚动条与视口撑破；
+
+13. **2000 行环形内存截断防 DOM 膨胀与贴底滚动防线 (Circular Memory Buffer & Anti-DOM-Bloat Invariant)**：
+
+- `AtengLogViewer` 面向高频实时日志流，内置固定容量环形队列（默认最大 2000 行），超限时以 $O(1)$ 复杂度自动丢弃最旧日志行，坚决杜绝因数万行 DOM 元素导致浏览器标签页内存溢出或卡顿崩溃；支持用户向上滚动时自动挂起贴底跟随，恢复贴底时无缝恢复实时滚屏；
+
+14. **原生逐字打字机切片与 SSE/LLM 呼吸光标淡出防线 (Stream Text Tokenization Invariant)**：
+
+- `AtengStreamText` 针对现代大模型流式输出（SSE/Fetch ReadableStream），基于原生微任务队列与字符切片实现打字机平滑过渡；内置呼吸光标状态机，在流式完成（`finished`）或中断时自动优雅淡出，杜绝幽灵光标残留；集成防 XSS 字符转义与一键剪贴板无感复制；
+
+15. **原生 rAF 指数衰减缓动与金融级货币千分位防线 (rAF Easing Transition Invariant)**：
+
+- `AtengStatistic` 摒弃庞大的 `countup.js`，采用原生 `requestAnimationFrame` 与三阶指数衰减缓动算法驱动数字平滑过渡，并在目标值突变时自动从当前过渡值平滑重定向至新目标值，在组件销毁时立即取消未决帧，防内存泄露与脏帧渲染。
 
 ---
 
