@@ -1,0 +1,11 @@
+/**
+ * @atengk/element-plus 核心样式与设计令牌基线。
+ *
+ * @author Ateng
+ * @since 2026-10-21
+ */
+
+:root {
+  --at-namespace: 'at';
+  --at-transition-duration: var(--el-transition-duration, 0.3s);
+}

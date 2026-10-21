@@ -5,4 +5,6 @@
  * @since 2026-10-19
  */
 
+import './styles/index.scss';
+
 export const VERSION: string = '0.1.0';
