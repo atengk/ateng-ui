@@ -5,7 +5,7 @@
  * @since 2026-10-20
  */
 
-import type { DeepReadonly, MaybeRefOrGetter, Ref } from 'vue';
+import type { DeepReadonly, MaybeRefOrGetter, Ref, WatchSource } from 'vue';
 import type { PageQuery, PageResult } from '@atengk/core';
 import type { MutateUpdater } from '../request/types';
 
@@ -31,9 +31,24 @@ export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQue
   defaultPageSize?: MaybeRefOrGetter<number>;
 
   /**
+   * 默认初始排序字段。支持传入 Ref 或 Getter。
+   */
+  defaultSortField?: MaybeRefOrGetter<string | undefined>;
+
+  /**
+   * 默认初始升降序标识。true 为升序，false 为降序。支持传入 Ref 或 Getter。
+   */
+  defaultSortAsc?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
    * 初始默认查询与筛选参数。支持传入 Ref 或 Getter。
    */
   defaultParams?: MaybeRefOrGetter<Partial<TParams>>;
+
+  /**
+   * 响应式依赖项。当指定的一个或多个依赖发生变化时，将自动重置页码归 1 并重新查询。
+   */
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
 
   /**
    * 是否手动执行。默认 false（即初始化时自动触发第一页请求）。
@@ -82,7 +97,7 @@ export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQue
 }
 
 /**
- * usePagination 返回的只读状态机与四维原子操作门面。
+ * usePagination 返回的只读状态机与五维原子操作门面。
  */
 export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuery> {
   /**
@@ -94,6 +109,16 @@ export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuer
    * 当前生效的每页记录数，受到 readonly 只读保护。
    */
   pageSize: DeepReadonly<Ref<number>>;
+
+  /**
+   * 当前生效的排序字段，受到 readonly 只读保护。
+   */
+  sortField: DeepReadonly<Ref<string | undefined>>;
+
+  /**
+   * 当前生效的排序升降序标识，受到 readonly 只读保护。
+   */
+  sortAsc: DeepReadonly<Ref<boolean | undefined>>;
 
   /**
    * 总记录数，受到 readonly 只读保护（空数据或异常时保底为 0）。
@@ -138,6 +163,15 @@ export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuer
    * @param size 目标每页条数
    */
   changePageSize: (size: number) => Promise<PageResult<TItem> | undefined>;
+
+  /**
+   * 列排序原子动作：更新排序字段与升降序标识，自动将 pageNum 归 1 并重新发起请求。
+   * 若 field 为空或未传，则清除当前排序。
+   *
+   * @param field 目标排序字段
+   * @param asc 是否升序（默认为 true）
+   */
+  changeSort: (field?: string, asc?: boolean) => Promise<PageResult<TItem> | undefined>;
 
   /**
    * 条件搜索原子动作：合并新的筛选参数，自动将 pageNum 归 1 并重新发起请求。

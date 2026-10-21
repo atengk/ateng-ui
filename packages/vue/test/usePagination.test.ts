@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp, effectScope, h, isReadonly } from 'vue';
+import { createApp, effectScope, h, isReadonly, ref } from 'vue';
 import { BusinessException, type PageQuery, type PageResult } from '@atengk/core';
 import { createAtengVue, usePagination } from '../src';
 
@@ -538,6 +538,224 @@ describe('usePagination', () => {
       scope.stop();
 
       expect(result.loading.value).toBe(false);
+    });
+  });
+
+  describe('Seam: Sorting & changeSort', () => {
+    it('should initialize with sortField and sortAsc as undefined by default', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+      let result!: ReturnType<typeof usePagination<TestUser>>;
+
+      scope.run(() => {
+        result = usePagination(service);
+      });
+
+      expect(result.sortField.value).toBeUndefined();
+      expect(result.sortAsc.value).toBeUndefined();
+      expect(isReadonly(result.sortField)).toBe(true);
+      expect(isReadonly(result.sortAsc)).toBe(true);
+
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+          pageSize: 10,
+          sortField: undefined,
+          sortAsc: undefined,
+        }),
+      );
+
+      scope.stop();
+    });
+
+    it('should initialize with defaultSortField and defaultSortAsc options', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+      let result!: ReturnType<typeof usePagination<TestUser>>;
+
+      scope.run(() => {
+        result = usePagination(service, {
+          defaultSortField: () => 'createTime',
+          defaultSortAsc: () => false,
+        });
+      });
+
+      expect(result.sortField.value).toBe('createTime');
+      expect(result.sortAsc.value).toBe(false);
+
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sortField: 'createTime',
+          sortAsc: false,
+        }),
+      );
+
+      scope.stop();
+    });
+
+    it('should update sortField/sortAsc, reset pageNum to 1 and trigger request on changeSort', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+      let result!: ReturnType<typeof usePagination<TestUser>>;
+
+      scope.run(() => {
+        result = usePagination(service, { defaultPageNum: 3 });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(result.pageNum.value).toBe(3);
+
+      // 切换排序为 age 升序
+      await result.changeSort('age', true);
+      expect(result.sortField.value).toBe('age');
+      expect(result.sortAsc.value).toBe(true);
+      expect(result.pageNum.value).toBe(1);
+
+      expect(service).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+          sortField: 'age',
+          sortAsc: true,
+        }),
+      );
+
+      // 切换为 age 降序
+      await result.changeSort('age', false);
+      expect(result.sortField.value).toBe('age');
+      expect(result.sortAsc.value).toBe(false);
+      expect(result.pageNum.value).toBe(1);
+
+      expect(service).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+          sortField: 'age',
+          sortAsc: false,
+        }),
+      );
+
+      // 清除排序
+      await result.changeSort(undefined);
+      expect(result.sortField.value).toBeUndefined();
+      expect(result.sortAsc.value).toBeUndefined();
+
+      expect(service).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+          sortField: undefined,
+          sortAsc: undefined,
+        }),
+      );
+
+      scope.stop();
+    });
+
+    it('should restore sortField and sortAsc to initial state on reset()', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+      let result!: ReturnType<typeof usePagination<TestUser>>;
+
+      scope.run(() => {
+        result = usePagination(service, {
+          defaultSortField: 'id',
+          defaultSortAsc: true,
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(result.sortField.value).toBe('id');
+      expect(result.sortAsc.value).toBe(true);
+
+      // 调整为别的排序
+      await result.changeSort('createTime', false);
+      expect(result.sortField.value).toBe('createTime');
+      expect(result.sortAsc.value).toBe(false);
+
+      // 执行 reset()
+      await result.reset();
+      expect(result.sortField.value).toBe('id');
+      expect(result.sortAsc.value).toBe(true);
+      expect(result.pageNum.value).toBe(1);
+
+      expect(service).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+          sortField: 'id',
+          sortAsc: true,
+        }),
+      );
+
+      scope.stop();
+    });
+  });
+
+  describe('Seam: refreshDeps in usePagination', () => {
+    it('should reset pageNum to 1 and re-fetch when refreshDeps changes', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+      let result!: ReturnType<typeof usePagination<TestUser>>;
+
+      const deptRef = ref(101);
+
+      scope.run(() => {
+        result = usePagination(service, {
+          defaultPageNum: 4,
+          refreshDeps: () => deptRef.value,
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(1);
+      expect(result.pageNum.value).toBe(4);
+
+      // 依赖变化
+      deptRef.value = 102;
+      await vi.runAllTimersAsync();
+
+      expect(service).toHaveBeenCalledTimes(2);
+      expect(result.pageNum.value).toBe(1);
+      expect(service).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pageNum: 1,
+        }),
+      );
+
+      scope.stop();
+    });
+
+    it('should not re-fetch when refreshDeps changes if ready is false', async () => {
+      const isReady = ref(false);
+      const deptRef = ref(101);
+      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const scope = effectScope();
+
+      scope.run(() => {
+        usePagination(service, {
+          ready: isReady,
+          refreshDeps: deptRef,
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(service).not.toHaveBeenCalled();
+
+      // 依赖变动但 ready 仍为 false
+      deptRef.value = 102;
+      await vi.runAllTimersAsync();
+      expect(service).not.toHaveBeenCalled();
+
+      // ready 变为 true
+      isReady.value = true;
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(1);
+
+      // 此时依赖变动触发重新查询
+      deptRef.value = 103;
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(2);
+
+      scope.stop();
     });
   });
 });

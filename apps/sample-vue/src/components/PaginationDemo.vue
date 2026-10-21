@@ -2,7 +2,8 @@
 /**
  * sample-vue 契约分页联动与空安全保底自验卡片组件。
  *
- * 演示双向绑定 PageQuery、四维原子动作 (changePage/changePageSize/search/reset) 以及空安全保底不变量。
+ * 演示双向绑定 PageQuery、五维原子动作 (changePage/changePageSize/changeSort/search/reset)、
+ * 响应式依赖自动刷新 (refreshDeps) 以及空安全保底不变量。
  *
  * @author Ateng
  * @since 2026-10-20
@@ -23,6 +24,7 @@ interface MemberItem {
 interface MemberQuery extends PageQuery {
   keyword?: string;
   role?: string;
+  department?: string;
 }
 
 // 模拟后端全部数据集（25 条）
@@ -43,6 +45,9 @@ const mockDatabase: MemberItem[] = Array.from({ length: 25 }, (_, i) => {
 const simulateEmpty = ref(false);
 const simulateError = ref(false);
 
+// 响应式联动部门依赖 (refreshDeps 联动自验)
+const activeDept = ref('');
+
 // 模拟异步 API 服务
 const fetchMembers = async (params: MemberQuery): Promise<PageResult<MemberItem>> => {
   await new Promise(resolve => setTimeout(resolve, 300));
@@ -60,6 +65,11 @@ const fetchMembers = async (params: MemberQuery): Promise<PageResult<MemberItem>
 
   let filtered = [...mockDatabase];
 
+  // 1. 响应式依赖与普通条件过滤
+  if (params.department) {
+    filtered = filtered.filter(item => item.department === params.department);
+  }
+
   if (params.keyword?.trim()) {
     const kw = params.keyword.trim().toLowerCase();
     filtered = filtered.filter(item => item.name.toLowerCase().includes(kw));
@@ -69,6 +79,20 @@ const fetchMembers = async (params: MemberQuery): Promise<PageResult<MemberItem>
     filtered = filtered.filter(item => item.role === params.role);
   }
 
+  // 2. 契约排序支持
+  if (params.sortField) {
+    const field = params.sortField as keyof MemberItem;
+    const isAsc = params.sortAsc !== false;
+    filtered.sort((a, b) => {
+      const valA = a[field];
+      const valB = b[field];
+      if (valA < valB) return isAsc ? -1 : 1;
+      if (valA > valB) return isAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // 3. 分页切片
   const pageNum = params.pageNum ?? 1;
   const pageSize = params.pageSize ?? 5;
   const start = (pageNum - 1) * pageSize;
@@ -86,15 +110,21 @@ const searchForm = ref<{ keyword: string; role: string }>({
   role: '',
 });
 
-// 初始化 usePagination 状态机
-const pagination = usePagination<MemberItem, MemberQuery>(fetchMembers, {
-  defaultPageNum: 1,
-  defaultPageSize: 5,
-  defaultParams: {
-    keyword: '',
-    role: '',
+// 初始化 usePagination 状态机 (包含 defaultSortField / defaultSortAsc 与 refreshDeps)
+const pagination = usePagination<MemberItem, MemberQuery>(
+  params => fetchMembers({ ...params, department: activeDept.value || undefined }),
+  {
+    defaultPageNum: 1,
+    defaultPageSize: 5,
+    defaultSortField: 'id',
+    defaultSortAsc: true,
+    defaultParams: {
+      keyword: '',
+      role: '',
+    },
+    refreshDeps: activeDept,
   },
-});
+);
 
 // 动作触发方法
 const handleSearch = () => {
@@ -108,6 +138,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchForm.value = { keyword: '', role: '' };
+  activeDept.value = '';
   simulateEmpty.value = false;
   simulateError.value = false;
   pagination.reset();
@@ -116,6 +147,18 @@ const handleReset = () => {
 const handlePageSizeChange = (event: Event) => {
   const target = event.target as HTMLSelectElement;
   pagination.changePageSize(Number(target.value));
+};
+
+const toggleSort = (field: string) => {
+  if (pagination.sortField.value !== field) {
+    pagination.changeSort(field, true);
+  } else if (pagination.sortAsc.value === true) {
+    pagination.changeSort(field, false);
+  } else if (pagination.sortAsc.value === false) {
+    pagination.changeSort(undefined);
+  } else {
+    pagination.changeSort(field, true);
+  }
 };
 
 const triggerSimulateEmpty = () => {
@@ -144,8 +187,9 @@ const restoreNormal = () => {
       <code>PageQuery</code>
       入参与
       <code>PageResult</code>
-      响应实体。支持四维原子动作（翻页、切条数、搜索、重置），且搜索与切条数自动归 1
-      页；空数据与异常时
+      响应实体。支持五维原子动作（翻页、切条数、条件搜索、列排序、全量重置）与
+      <code>refreshDeps</code>
+      响应式依赖自动刷新；空数据与异常时
       <code>list</code> 100% 保底空数组 <code>[]</code>。
     </p>
 
@@ -171,6 +215,16 @@ const restoreNormal = () => {
           <option value="TESTER">TESTER (测试)</option>
         </select>
       </div>
+      <div class="form-item">
+        <label>部门联动 (refreshDeps 自动归1刷新):</label>
+        <select v-model="activeDept" class="select-sm">
+          <option value="">全部部门</option>
+          <option value="研发中心">研发中心</option>
+          <option value="体验设计部">体验设计部</option>
+          <option value="产品创新部">产品创新部</option>
+          <option value="质量保障部">质量保障部</option>
+        </select>
+      </div>
       <div class="form-actions">
         <button class="btn btn-sm" :disabled="pagination.loading.value" @click="handleSearch">
           搜索 (search 归1页)
@@ -180,9 +234,61 @@ const restoreNormal = () => {
           :disabled="pagination.loading.value"
           @click="handleReset"
         >
-          重置 (reset 归1页)
+          重置 (reset 还原排序与筛选)
         </button>
       </div>
+    </div>
+
+    <!-- 排序原子动作栏 -->
+    <div class="sort-actions-bar">
+      <span class="bar-title">五维排序动作演示 (changeSort):</span>
+      <button
+        :class="[
+          'btn btn-outline btn-xs',
+          pagination.sortField.value === 'id' && pagination.sortAsc.value === true && 'btn-active',
+        ]"
+        @click="pagination.changeSort('id', true)"
+      >
+        ID 升序 (ASC)
+      </button>
+      <button
+        :class="[
+          'btn btn-outline btn-xs',
+          pagination.sortField.value === 'id' && pagination.sortAsc.value === false && 'btn-active',
+        ]"
+        @click="pagination.changeSort('id', false)"
+      >
+        ID 降序 (DESC)
+      </button>
+      <button
+        :class="[
+          'btn btn-outline btn-xs',
+          pagination.sortField.value === 'name' &&
+            pagination.sortAsc.value === true &&
+            'btn-active',
+        ]"
+        @click="pagination.changeSort('name', true)"
+      >
+        姓名 升序 (ASC)
+      </button>
+      <button
+        :class="[
+          'btn btn-outline btn-xs',
+          pagination.sortField.value === 'name' &&
+            pagination.sortAsc.value === false &&
+            'btn-active',
+        ]"
+        @click="pagination.changeSort('name', false)"
+      >
+        姓名 降序 (DESC)
+      </button>
+      <button
+        class="btn btn-outline btn-xs btn-danger"
+        :disabled="!pagination.sortField.value"
+        @click="pagination.changeSort(undefined)"
+      >
+        清空排序 (clear)
+      </button>
     </div>
 
     <!-- 异常与空安全对抗性测试触发器 -->
@@ -212,10 +318,14 @@ const restoreNormal = () => {
         </span>
       </div>
       <div class="meta-item">
-        异常状态:
-        <span :class="['status-tag', pagination.error.value ? 'status-error' : 'status-idle']">
-          {{ pagination.error.value ? String(pagination.error.value) : '无异常' }}
-        </span>
+        当前排序 (只读):
+        <strong>
+          {{
+            pagination.sortField.value
+              ? `${pagination.sortField.value} (${pagination.sortAsc.value ? '升序 ASC' : '降序 DESC'})`
+              : '默认无排序'
+          }}
+        </strong>
       </div>
       <div class="meta-item">
         当前页码 (只读): <strong>{{ pagination.pageNum.value }}</strong>
@@ -233,8 +343,26 @@ const restoreNormal = () => {
       <table class="data-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>姓名</th>
+            <th class="sortable-th" @click="toggleSort('id')">
+              ID
+              <span class="sort-icon">
+                {{
+                  pagination.sortField.value === 'id' ? (pagination.sortAsc.value ? '▲' : '▼') : '⇅'
+                }}
+              </span>
+            </th>
+            <th class="sortable-th" @click="toggleSort('name')">
+              姓名
+              <span class="sort-icon">
+                {{
+                  pagination.sortField.value === 'name'
+                    ? pagination.sortAsc.value
+                      ? '▲'
+                      : '▼'
+                    : '⇅'
+                }}
+              </span>
+            </th>
             <th>部门</th>
             <th>岗位角色</th>
             <th>账号状态</th>

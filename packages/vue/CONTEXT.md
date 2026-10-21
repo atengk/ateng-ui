@@ -5,11 +5,11 @@
 ## 响应式请求与分页
 
 **useRequest**:
-异步数据请求响应式包装 Hook，提供 loading、data、error 状态机流转、防抖/节流/轮询及只读保护。
+异步数据请求响应式包装 Hook，提供 loading、data、error 状态机流转、防抖/节流/轮询、响应式依赖自动刷新（refreshDeps）及只读保护。
 _Avoid_: useFetch, useHttp, useApi, useQuery
 
 **usePagination**:
-双向绑定 PageQuery 入参与 PageResult 响应的分页状态调度 Hook，基于 useRequest 深度组合，结果集硬性保底空数组。
+双向绑定 PageQuery 入参与 PageResult 响应的分页状态调度 Hook，基于 useRequest 深度组合，结果集硬性保底空数组。提供五维原子语义动作（翻页、改条数、条件搜索、列排序、全量重置）与响应式依赖自动刷新（refreshDeps）。
 _Avoid_: usePage, useTablePagination, usePager
 
 **useLatest**:

@@ -211,6 +211,21 @@ export function useRequest<TData, TParams extends unknown[] = []>(
     }
   }
 
+  // 6. 响应式依赖自动刷新（受 ready 守卫保护）
+  if (options.refreshDeps !== undefined) {
+    const stopWatch = watch(
+      options.refreshDeps,
+      () => {
+        const isReady = options.ready === undefined ? true : toValue(options.ready);
+        if (isReady) {
+          refresh();
+        }
+      },
+      { deep: true },
+    );
+    tryOnScopeDispose(stopWatch);
+  }
+
   return {
     data: readonly(data) as DeepReadonly<Ref<TData | undefined>>,
     loading: readonly(loading) as DeepReadonly<Ref<boolean>>,

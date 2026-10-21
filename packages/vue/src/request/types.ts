@@ -5,7 +5,7 @@
  * @since 2026-10-20
  */
 
-import type { DeepReadonly, MaybeRefOrGetter, Ref } from 'vue';
+import type { DeepReadonly, MaybeRefOrGetter, Ref, WatchSource } from 'vue';
 import type { BusinessException } from '@atengk/core';
 
 /**
@@ -53,6 +53,11 @@ export interface UseRequestOptions<TData, TParams extends unknown[]> {
    * 轮询间隔毫秒数。设置大于 0 时，请求完成后将定时自动刷新。
    */
   pollingInterval?: number;
+
+  /**
+   * 响应式依赖项。当指定的一个或多个依赖发生变化时，将自动调用 refresh() 重新发起请求。
+   */
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
 
   /**
    * 并发时是否取消并丢弃前序未决请求。默认为 true。

@@ -345,4 +345,98 @@ describe('useRequest', () => {
 
     app.unmount();
   });
+
+  describe('Seam: refreshDeps', () => {
+    it('should automatically trigger refresh when single ref in refreshDeps changes', async () => {
+      const dep = ref('category_a');
+      const service = vi.fn(async (d: string) => `data_for_${d}`);
+      const scope = effectScope();
+      let result!: ReturnType<typeof useRequest<string, [string]>>;
+
+      scope.run(() => {
+        result = useRequest(service, {
+          defaultParams: [dep.value],
+          refreshDeps: dep,
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(1);
+      expect(result.data.value).toBe('data_for_category_a');
+
+      // 依赖变化
+      dep.value = 'category_b';
+      // Vue watch 默认异步/微任务触发
+      await vi.runAllTimersAsync();
+
+      expect(service).toHaveBeenCalledTimes(2);
+      expect(result.data.value).toBe('data_for_category_a'); // refresh uses previous params
+      scope.stop();
+    });
+
+    it('should trigger refresh when any dependency in an array of refreshDeps changes', async () => {
+      const dep1 = ref(1);
+      const dep2 = ref('init');
+      const service = vi.fn(async () => 'ok');
+      const scope = effectScope();
+
+      scope.run(() => {
+        useRequest(service, {
+          refreshDeps: [dep1, dep2],
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(1);
+
+      dep1.value = 2;
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(2);
+
+      dep2.value = 'updated';
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(3);
+
+      scope.stop();
+
+      // 销毁后依赖变化不再触发
+      dep1.value = 3;
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(3);
+    });
+
+    it('should not trigger refresh when refreshDeps changes if ready is false', async () => {
+      const isReady = ref(false);
+      const dep = ref('a');
+      const service = vi.fn(async () => 'ok');
+      const scope = effectScope();
+
+      scope.run(() => {
+        useRequest(service, {
+          ready: isReady,
+          refreshDeps: dep,
+        });
+      });
+
+      await vi.runAllTimersAsync();
+      expect(service).not.toHaveBeenCalled();
+
+      // 依赖变动但 ready 仍为 false，不触发请求
+      dep.value = 'b';
+      await vi.runAllTimersAsync();
+      expect(service).not.toHaveBeenCalled();
+
+      // ready 变为 true，触发就绪请求
+      isReady.value = true;
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(1);
+
+      // 现在 ready 为 true，依赖变动触发 refresh
+      dep.value = 'c';
+      await vi.runAllTimersAsync();
+      expect(service).toHaveBeenCalledTimes(2);
+
+      scope.stop();
+    });
+  });
 });
