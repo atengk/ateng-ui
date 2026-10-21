@@ -313,6 +313,23 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
+### 10. 安全防刷新验证码倒计时与前置拦截 (`AtengCaptcha`)
+
+`AtengCaptcha` 面向登录注册、找回密码与短信推送场景，摒弃易失的内存倒计时，基于 LocalStorage 物理时间戳防刷新清零。支持前置异步校验拦截（`beforeSend`）、异步发送 Loading 互斥防重锁与图形验证码刷新形态：
+
+```vue
+<!-- 短信/邮件验证码倒计时：持久化防刷新 + 前置异步校验拦截 -->
+<AtengCaptcha
+  storage-key="login_sms_timer"
+  :seconds="60"
+  :before-send="checkPhoneBeforeSend"
+  :send="mockSendSms"
+/>
+
+<!-- 图形验证码形态与点击刷新 -->
+<AtengCaptcha type="image" :image-src="currentImageSrc" :refresh="handleRefreshImage" />
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -334,7 +351,10 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 8. **严格 XSS 转义与零重型库语法高亮防线 (Safe Syntax Tokenization Invariant)**：
    - `AtengCodeView` 坚持纯原生 TypeScript 分词状态机与严格 HTML 字符实体转义，严禁将未受转义的原始标签直接注入 DOM；摒弃 Monaco Editor 与 Prism.js 等百 KB 级重型库，兼顾毫秒级极速渲染与成对成块树形折叠，并无缝集成 `v-copy` 一键剪贴板复制；
 9. **图标库零臃肿与极速多维检索防线 (Zero-Bloat Icon Search Invariant)**：
-   - `AtengIconSelect` 内建常用标准 SVG 矢量路径与拼音/中英索引，无需下游全量打包庞大外部图标包；通过纯内存拼音与英文倒排检索，兼顾毫秒级极速响应、网格极速分页与一键复制 `<el-icon>` 代码组件。
+   - `AtengIconSelect` 内建常用标准 SVG 矢量路径与拼音/中英索引，无需下游全量打包庞大外部图标包；通过纯内存拼音与英文倒排检索，兼顾毫秒级极速响应、网格极速分页与一键复制 `<el-icon>` 代码组件；
+10. **物理时间戳防刷新与并发防刷互斥锁防线 (Physical Timestamp & Concurrency Lock Invariant)**：
+
+- `AtengCaptcha` 倒计时摒弃传统的易失纯内存计时器，将绝对到期时间戳（`Date.now() + seconds * 1000`）持久化至 LocalStorage/SessionStorage。用户刷新页面或路由流转后重新挂载时，根据物理时钟差值自动精准恢复倒计时，彻底杜绝刷新页面重置倒计时的防刷漏洞；同时内置 `beforeSend` 前置校验与发送互斥锁，多重防护杜绝接口重复调用。
 
 ---
 

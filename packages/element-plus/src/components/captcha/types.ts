@@ -188,3 +188,5 @@ export interface AtengCaptchaExpose {
    */
   isLoading: ComputedRef<boolean>;
 }
+
+export type AtengCaptchaInstance = AtengCaptchaExpose;

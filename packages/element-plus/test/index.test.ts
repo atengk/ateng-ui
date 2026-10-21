@@ -38,6 +38,7 @@ import AtengElementPlus, {
   AtengStatistic,
   AtengCodeView,
   AtengIconSelect,
+  AtengCaptcha,
   // 便捷 At* 别名
   AtDialog,
   AtDrawer,
@@ -58,6 +59,7 @@ import AtengElementPlus, {
   AtStatistic,
   AtCodeView,
   AtIconSelect,
+  AtCaptcha,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
@@ -72,6 +74,8 @@ import AtengElementPlus, {
   type AtengCodeViewInstance,
   type AtengIconSelectProps,
   type AtengIconSelectInstance,
+  type AtengCaptchaProps,
+  type AtengCaptchaInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -120,6 +124,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengStatistic).toBeDefined();
     expect(AtengCodeView).toBeDefined();
     expect(AtengIconSelect).toBeDefined();
+    expect(AtengCaptcha).toBeDefined();
   });
 
   it('完整导出全部 15 项组件的 At 规范别名', () => {
@@ -142,6 +147,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtStatistic).toBe(AtengStatistic);
     expect(AtCodeView).toBe(AtengCodeView);
     expect(AtIconSelect).toBe(AtengIconSelect);
+    expect(AtCaptcha).toBe(AtengCaptcha);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {
@@ -199,6 +205,16 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       copyIconCode: vi.fn(),
     };
     expect(mockIconSelectInstance.clear).toBeDefined();
+
+    const mockCaptchaProps: AtengCaptchaProps = { seconds: 60, storageKey: 'test_code' };
+    expect(mockCaptchaProps.seconds).toBe(60);
+
+    const mockCaptchaInstance: Partial<AtengCaptchaInstance> = {
+      start: vi.fn(),
+      reset: vi.fn(),
+      refreshImage: vi.fn(),
+    };
+    expect(mockCaptchaInstance.start).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');

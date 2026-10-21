@@ -154,6 +154,47 @@ describe('AtengCaptcha 验证码与防刷新倒计时按钮交互与契约测试
     wrapper.unmount();
   });
 
+  it('并发防重与互斥锁：倒计时中重复调用 start() 立即拒绝', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const wrapper = mount(AtengCaptcha, {
+      props: {
+        seconds: 30,
+        send,
+      },
+    });
+
+    const first = await wrapper.vm.start();
+    expect(first).toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    // 倒计时中再次调用
+    const second = await wrapper.vm.start();
+    expect(second).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it('发送异常容错：send 方法抛错时触发 error 事件，释放 loading 锁', async () => {
+    const sendError = new Error('网络请求超时');
+    const send = vi.fn().mockRejectedValue(sendError);
+
+    const wrapper = mount(AtengCaptcha, {
+      props: {
+        seconds: 60,
+        send,
+      },
+    });
+
+    const success = await wrapper.vm.start();
+    expect(success).toBe(false);
+    expect(wrapper.emitted('error')?.[0]?.[0]).toBe(sendError);
+    expect(wrapper.vm.isCounting).toBe(false);
+    expect(wrapper.vm.isLoading).toBe(false);
+
+    wrapper.unmount();
+  });
+
   it('图形验证码形态与点击刷新', async () => {
     const refresh = vi.fn().mockResolvedValue(undefined);
     const wrapper = mount(AtengCaptcha, {
