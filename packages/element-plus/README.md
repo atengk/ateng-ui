@@ -1,6 +1,6 @@
 # @atengk/element-plus
 
-面向企业级管理系统的 Element Plus 基础设施增强组件库与指令集。
+面向现代 Web 应用与企业级系统的 Element Plus 基础设施增强组件库与指令集。
 
 ---
 

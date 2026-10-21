@@ -6,7 +6,7 @@
 
 ## 1. 项目定位与技术基线 (Project Baseline)
 
-`ateng-ui` 是面向现代企业级中后台与微服务架构的工业级前端基础设施与中间件套件，坚持纯原生、强类型契约、零臃肿依赖与深模块解耦设计，兼顾单体应用直连与分布式微服务网关支撑。
+`ateng-ui` 是面向现代 Web 应用与企业级系统的工业级前端基础设施与核心套件，坚持纯原生、强类型契约、零臃肿依赖与深模块解耦设计，兼顾单体应用直连、分布式微服务网关支撑以及现代云原生/AI 交互场景。
 
 - **运行与包管理器**：Node.js `>=20.18.0`（开发环境推荐 22.x LTS），pnpm `>=9.12.3`（由根 `packageManager` 严格锁定，参见 [ADR-0001](./docs/adr/0001-toolchain-and-pnpm-version-baseline.md) 与 [ADR-0006](./docs/adr/0006-dependency-baseline-and-upgrade-governance-strategy.md)）；
 - **构建与编排**：Turborepo 2.x（增量编排与任务流），tsup 8.x（底层库双模构建，输出 ESM + CJS + DTS），Vite 6（应用与自验展厅构建）；

@@ -17,3 +17,4 @@
 | [ADR-0011](./0011-l0-core-resilience-and-capability-enhancement-architecture.md)   | L0 核心底座高可用韧性、流式通信与数据安全增强架构    | Accepted | 原生 StreamClient、幂等重试、飞行中请求去重合并、原生高精度金额、切片上传与防重放签名       |
 | [ADR-0012](./0012-websocket-client-architecture-and-l0-convergence.md)             | WebSocket 全双工长连接客户端架构与 L0 最终收敛决策   | Accepted | 原生双向心跳探针、断线指数退避重连、受控容量离线缓冲、双轨凭据注入，封顶 L0 核心底座        |
 | [ADR-0013](./0013-vue-headless-architecture-and-reactivity-contracts.md)           | Vue 3.5 无头响应式基础设施架构与状态单向契约         | Accepted | 10 大核心 Composables、严格只读导出、usePagination 组合式契约、双重抗竞态与零重型第三方依赖 |
+| [ADR-0014](./0014-project-positioning-and-scope-generalization.md)                 | 项目定位松绑与广义 Web 基础设施范畴演进决策          | Accepted | 面向现代 Web 应用与企业级系统，去中后台化与去强绑定微服务化，重塑全场景基础设施底座定位     |

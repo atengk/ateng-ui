@@ -2,7 +2,7 @@
   "name": "ateng-ui",
   "version": "0.0.0",
   "private": true,
-  "description": "面向现代企业级中后台与微服务架构的工业级前端基础设施与中间件套件 | Production-ready enterprise frontend infrastructure suite.",
+  "description": "面向现代 Web 应用与企业级系统的工业级前端基础设施与核心套件 | Industrial-grade frontend infrastructure and core toolkit for modern web applications.",
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "build": "turbo run build",
