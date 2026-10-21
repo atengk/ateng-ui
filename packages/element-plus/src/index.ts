@@ -16,4 +16,21 @@ export * from './installer';
 export * from './directives';
 export * from './components';
 
+// 便捷别名导出（与 Ateng* 形成双轨具名导出支持）
+export {
+  AtengDialog as AtDialog,
+  AtengDrawer as AtDrawer,
+  AtengEmpty as AtEmpty,
+  AtengQueryForm as AtQueryForm,
+  AtengTable as AtTable,
+  AtengDictSelect as AtDictSelect,
+  AtengDictRadio as AtDictRadio,
+  AtengDictTag as AtDictTag,
+  AtengDescriptions as AtDescriptions,
+  AtengDescriptionsItem as AtDescriptionsItem,
+  AtengDateRange as AtDateRange,
+  AtengExcelFeedback as AtExcelFeedback,
+  AtengUpload as AtUpload,
+} from './components';
+
 export default installer;

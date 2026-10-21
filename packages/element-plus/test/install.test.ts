@@ -17,6 +17,28 @@ import AtengElementPlus, {
   AtengEmpty,
   AtengQueryForm,
   AtengTable,
+  AtengDictSelect,
+  AtengDictRadio,
+  AtengDictTag,
+  AtengDescriptions,
+  AtengDescriptionsItem,
+  AtengDateRange,
+  AtengExcelFeedback,
+  AtengUpload,
+  DictManager,
+  AtDialog,
+  AtDrawer,
+  AtEmpty,
+  AtQueryForm,
+  AtTable,
+  AtDictSelect,
+  AtDictRadio,
+  AtDictTag,
+  AtDescriptions,
+  AtDescriptionsItem,
+  AtDateRange,
+  AtExcelFeedback,
+  AtUpload,
   vPermission,
   vRole,
   vIdempotent,
@@ -41,12 +63,38 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(installer).toBeDefined();
     expect(AtengElementPlus).toBe(installer);
 
-    // 验证组件导出
+    // 验证 Stage 1 & Stage 2 组件原名导出
     expect(AtengDialog).toBeDefined();
     expect(AtengDrawer).toBeDefined();
     expect(AtengEmpty).toBeDefined();
     expect(AtengQueryForm).toBeDefined();
     expect(AtengTable).toBeDefined();
+
+    // 验证 Stage 3 新增组件与门面原名导出
+    expect(AtengDictSelect).toBeDefined();
+    expect(AtengDictRadio).toBeDefined();
+    expect(AtengDictTag).toBeDefined();
+    expect(AtengDescriptions).toBeDefined();
+    expect(AtengDescriptionsItem).toBeDefined();
+    expect(AtengDateRange).toBeDefined();
+    expect(AtengExcelFeedback).toBeDefined();
+    expect(AtengUpload).toBeDefined();
+    expect(DictManager).toBeDefined();
+
+    // 验证便捷 At* 别名导出
+    expect(AtDialog).toBe(AtengDialog);
+    expect(AtDrawer).toBe(AtengDrawer);
+    expect(AtEmpty).toBe(AtengEmpty);
+    expect(AtQueryForm).toBe(AtengQueryForm);
+    expect(AtTable).toBe(AtengTable);
+    expect(AtDictSelect).toBe(AtengDictSelect);
+    expect(AtDictRadio).toBe(AtengDictRadio);
+    expect(AtDictTag).toBe(AtengDictTag);
+    expect(AtDescriptions).toBe(AtengDescriptions);
+    expect(AtDescriptionsItem).toBe(AtengDescriptionsItem);
+    expect(AtDateRange).toBe(AtengDateRange);
+    expect(AtExcelFeedback).toBe(AtengExcelFeedback);
+    expect(AtUpload).toBe(AtengUpload);
 
     // 验证指令导出
     expect(vPermission).toBeDefined();
@@ -56,25 +104,52 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(vWatermark).toBeDefined();
   });
 
-  it('全局安装器 install(app)：批量注册官方规范组件与指令', () => {
+  it('全局安装器 install(app)：批量注册全量组件（含 PascalCase 原名与 At 别名）及 DictManager 注入', () => {
     const dummyApp = createApp({});
     dummyApp.use(AtengElementPlus);
 
-    // 验证 PascalCase 组件注册
+    // 1. 验证 Stage 1 & Stage 2 PascalCase 组件原名注册
     expect(dummyApp.component('AtengDialog')).toBeDefined();
     expect(dummyApp.component('AtengDrawer')).toBeDefined();
     expect(dummyApp.component('AtengEmpty')).toBeDefined();
     expect(dummyApp.component('AtengQueryForm')).toBeDefined();
     expect(dummyApp.component('AtengTable')).toBeDefined();
 
-    // 验证严格拒绝非标别名
-    expect(dummyApp.component('ateng-dialog')).toBeUndefined();
-    expect(dummyApp.component('ateng-drawer')).toBeUndefined();
-    expect(dummyApp.component('ateng-empty')).toBeUndefined();
-    expect(dummyApp.component('ateng-query-form')).toBeUndefined();
-    expect(dummyApp.component('ateng-table')).toBeUndefined();
+    // 2. 验证 Stage 3 全量组件原名注册
+    expect(dummyApp.component('AtengDictSelect')).toBeDefined();
+    expect(dummyApp.component('AtengDictRadio')).toBeDefined();
+    expect(dummyApp.component('AtengDictTag')).toBeDefined();
+    expect(dummyApp.component('AtengDescriptions')).toBeDefined();
+    expect(dummyApp.component('AtengDescriptionsItem')).toBeDefined();
+    expect(dummyApp.component('AtengDateRange')).toBeDefined();
+    expect(dummyApp.component('AtengExcelFeedback')).toBeDefined();
+    expect(dummyApp.component('AtengUpload')).toBeDefined();
 
-    // 验证全部 5 组指令注册
+    // 3. 验证便捷 At* 别名注册
+    expect(dummyApp.component('AtDialog')).toBeDefined();
+    expect(dummyApp.component('AtDrawer')).toBeDefined();
+    expect(dummyApp.component('AtEmpty')).toBeDefined();
+    expect(dummyApp.component('AtQueryForm')).toBeDefined();
+    expect(dummyApp.component('AtTable')).toBeDefined();
+    expect(dummyApp.component('AtDictSelect')).toBeDefined();
+    expect(dummyApp.component('AtDictRadio')).toBeDefined();
+    expect(dummyApp.component('AtDictTag')).toBeDefined();
+    expect(dummyApp.component('AtDescriptions')).toBeDefined();
+    expect(dummyApp.component('AtDescriptionsItem')).toBeDefined();
+    expect(dummyApp.component('AtDateRange')).toBeDefined();
+    expect(dummyApp.component('AtExcelFeedback')).toBeDefined();
+    expect(dummyApp.component('AtUpload')).toBeDefined();
+
+    // 4. 验证严格拒绝非标 kebab-case 别名
+    expect(dummyApp.component('ateng-dialog')).toBeUndefined();
+    expect(dummyApp.component('ateng-table')).toBeUndefined();
+    expect(dummyApp.component('at-table')).toBeUndefined();
+    expect(dummyApp.component('ateng-date-range')).toBeUndefined();
+
+    // 5. 验证全局注入 DictManager 门面
+    expect(dummyApp.config.globalProperties.$dictManager).toBe(DictManager);
+
+    // 6. 验证全部 5 组指令注册
     expect(dummyApp.directive('permission')).toBeDefined();
     expect(dummyApp.directive('role')).toBeDefined();
     expect(dummyApp.directive('idempotent')).toBeDefined();
@@ -91,7 +166,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     }).not.toThrow();
   });
 
-  it('挂载体验：全局安装后在模板中直接使用组件与指令，无需局部重复声明', async () => {
+  it('挂载体验：全局安装后在模板中直接使用 At 别名组件与指令，无需局部重复声明', async () => {
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: writeTextMock },
@@ -102,7 +177,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     const TestRoot = defineComponent({
       template: `
         <div id="test-root">
-          <AtengEmpty status="search" description="全局组件已生效" />
+          <AtEmpty status="search" description="全局组件已生效" />
           <button id="global-copy-btn" v-copy="'来自全局指令的内容'">全局复制</button>
         </div>
       `,
@@ -116,7 +191,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     });
     await nextTick();
 
-    // 验证全局注册的 AtengEmpty 正常渲染
+    // 验证全局注册的 AtEmpty (At 别名) 正常渲染
     expect(wrapper.find('.at-empty--search').exists()).toBe(true);
     expect(wrapper.text()).toContain('全局组件已生效');
 
