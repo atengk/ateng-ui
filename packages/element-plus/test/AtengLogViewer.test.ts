@@ -157,4 +157,54 @@ describe('AtengLogViewer 实时日志终端组件交互与契约测试', () => {
 
     wrapper.unmount();
   });
+
+  it('XSS 防御与 HTML 实体转义：包含脚本标签与标签语法的日志安全转义', async () => {
+    const maliciousLogs = ['<script>alert("xss")</script>', '<div class="danger">XML Data</div>'];
+
+    const wrapper = mount(AtengLogViewer, {
+      props: {
+        logs: maliciousLogs,
+      },
+    });
+
+    const lines = wrapper.findAll('.at-log-viewer__line-content');
+    expect(lines.length).toBe(2);
+
+    // 验证 HTML 已经被实体转义为 &lt;script&gt;
+    const html0 = lines[0].html();
+    expect(html0).toContain('&lt;script&gt;alert("xss")&lt;/script&gt;');
+    expect(lines[0].find('script').exists()).toBe(false);
+
+    // 输入关键词转义后高亮
+    const input = wrapper.find('.at-log-viewer__search-input input');
+    await input.setValue('alert');
+    await wrapper.vm.$nextTick();
+
+    expect(lines[0].html()).toContain('<mark class="at-log-kw">alert</mark>');
+
+    wrapper.unmount();
+  });
+
+  it('主题切换：点击主题切换按钮在 dark 与 light 之间流转', async () => {
+    const wrapper = mount(AtengLogViewer, {
+      props: {
+        logs: ['Sample Line'],
+        theme: 'dark',
+      },
+    });
+
+    expect(wrapper.classes()).toContain('at-log-viewer--dark');
+
+    const toggleBtn = wrapper.find('.theme-toggle-btn');
+    await toggleBtn.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain('at-log-viewer--light');
+
+    await toggleBtn.trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).toContain('at-log-viewer--dark');
+
+    wrapper.unmount();
+  });
 });

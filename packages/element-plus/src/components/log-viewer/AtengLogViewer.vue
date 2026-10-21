@@ -134,13 +134,24 @@ function handleScroll(): void {
   }
 }
 
-// 高亮关键词
+// 安全转义 HTML 实体，杜绝日志注入与 XSS 风险
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// 高亮关键词（安全转义后注入标记）
 function highlightKeyword(text: string): string {
+  const safeText = escapeHtml(text);
   const kw = searchKeyword.value.trim();
-  if (!kw) return text;
-  // 简易安全替换转义
-  const escaped = kw.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-  return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="at-log-kw">$1</mark>');
+  if (!kw) return safeText;
+  const safeKw = escapeHtml(kw);
+  const escaped = safeKw.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  return safeText.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="at-log-kw">$1</mark>');
 }
 
 // 监听静态 logs 属性变动

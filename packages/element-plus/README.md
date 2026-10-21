@@ -247,6 +247,21 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
+### 6. 高性能运维日志终端与防内存泄漏缓冲 (`AtengLogViewer`)
+
+`AtengLogViewer` 面向 CI/CD 容器构建、服务端日志追踪与设备监控，深度对接 `@atengk/vue` 的 `useWebSocket` 或静态日志列表：
+
+```vue
+<!-- 绑定 WebSocket 实时流，限制最大 2000 行环形缓冲，内置关键词检索过滤与 XSS 安全防御 -->
+<AtengLogViewer
+  :web-socket="wsResult"
+  :max-lines="2000"
+  height="480px"
+  theme="dark"
+  title="生产构建监控终端"
+/>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
