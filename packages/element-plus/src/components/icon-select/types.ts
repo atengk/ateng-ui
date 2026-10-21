@@ -24,7 +24,7 @@ export interface IconItem {
   label?: string;
 
   /**
-   * 汉语拼音或简拼（如 'yonghu', 'shezhi'），用于拼音检索。
+   * 汉语拼音或简拼（如 'yonghu,yh', 'shezhi,sz'），用于拼音检索。
    */
   pinyin?: string;
 
@@ -78,15 +78,27 @@ export interface AtengIconSelectProps {
   size?: 'large' | 'default' | 'small';
 
   /**
-   * 自定义额外图标列表，若传入则与默认图标合并或直接覆盖。
+   * 自定义额外图标列表，若传入则与默认图标合并。
    */
   customIcons?: IconItem[];
 
   /**
    * 弹层弹出宽度（popover 模式有效）。
-   * @default '360px'
+   * @default '380px'
    */
   popoverWidth?: string | number;
+
+  /**
+   * 是否提供一键复制代码组件名按钮。
+   * @default true
+   */
+  showCopy?: boolean;
+
+  /**
+   * 网格每页图标渲染条数（若为 0 则不分页，一次性滚屏展示）。
+   * @default 36
+   */
+  pageSize?: number;
 
   /**
    * 根容器自定义样式类名。
@@ -98,10 +110,30 @@ export interface AtengIconSelectProps {
  * AtengIconSelect 事件接口。
  */
 export interface AtengIconSelectEmits {
+  /**
+   * 双向绑定值更新事件。
+   */
   (e: 'update:modelValue', val: string): void;
+
+  /**
+   * 选中图标变更事件。
+   */
   (e: 'change', val: string): void;
+
+  /**
+   * 选中具体图标项事件。
+   */
   (e: 'select', item: IconItem): void;
+
+  /**
+   * 清空选中项事件。
+   */
   (e: 'clear'): void;
+
+  /**
+   * 复制组件代码成功时触发。
+   */
+  (e: 'copy', code: string): void;
 }
 
 /**
@@ -109,7 +141,7 @@ export interface AtengIconSelectEmits {
  */
 export interface AtengIconSelectSlots {
   /**
-   * 自定义前缀。
+   * 自定义前缀预览。
    */
   prefix?: () => unknown;
 
@@ -117,6 +149,11 @@ export interface AtengIconSelectSlots {
    * 自定义单项图标渲染。
    */
   icon?: (scope: { item: IconItem; selected: boolean }) => unknown;
+
+  /**
+   * 自定义面板底部操作区。
+   */
+  footer?: (scope: { selectedItem?: IconItem; copyCode: () => Promise<boolean> }) => unknown;
 }
 
 /**
@@ -132,4 +169,27 @@ export interface AtengIconSelectExpose {
    * 强制聚焦输入框。
    */
   focus: () => void;
+
+  /**
+   * 命令式复制代码组件代码 `<el-icon><IconName /></el-icon>`。
+   * @param name 可选显式指定的图标名称，若为空则读取当前选中项
+   */
+  copyIconCode: (name?: string) => Promise<boolean>;
+
+  /**
+   * 获取当前选中的图标元数据对象。
+   */
+  getCurrentIcon: () => IconItem | undefined;
+
+  /**
+   * 打开选择浮层。
+   */
+  open: () => void;
+
+  /**
+   * 关闭选择浮层。
+   */
+  close: () => void;
 }
+
+export type AtengIconSelectInstance = AtengIconSelectExpose;

@@ -16,9 +16,17 @@ import {
   ElSwitch,
   ElDivider,
   ElTag,
+  ElButton,
+  ElMessage,
 } from 'element-plus';
-import { AtengIconSelect, type IconSelectMode, type IconItem } from '@atengk/element-plus';
+import {
+  AtengIconSelect,
+  type IconSelectMode,
+  type IconItem,
+  type AtengIconSelectInstance,
+} from '@atengk/element-plus';
 
+const iconSelectRef1 = ref<AtengIconSelectInstance>();
 const selectedIcon1 = ref<string>('User');
 const selectedIcon2 = ref<string>('Setting');
 const selectedIcon3 = ref<string>('');
@@ -26,6 +34,10 @@ const selectedIcon3 = ref<string>('');
 const currentMode = ref<IconSelectMode>('popover');
 const isDisabled = ref<boolean>(false);
 const currentSize = ref<'large' | 'default' | 'small'>('default');
+
+const handleCopy = (code: string) => {
+  ElMessage.success(`展厅监听到复制事件: ${code}`);
+};
 
 // 自定义企业图标扩充
 const customIcons: IconItem[] = [
@@ -90,14 +102,25 @@ const customIcons: IconItem[] = [
         <ElForm label-width="130px" style="max-width: 560px">
           <ElFormItem label="系统菜单图标：">
             <AtengIconSelect
+              ref="iconSelectRef1"
               v-model="selectedIcon1"
               :mode="currentMode"
               :size="currentSize"
               :disabled="isDisabled"
               :custom-icons="customIcons"
+              @copy="handleCopy"
             />
             <div class="val-hint">
               当前选中：<ElTag size="small">{{ selectedIcon1 || '未选择' }}</ElTag>
+              <ElButton
+                v-if="selectedIcon1"
+                size="small"
+                text
+                type="primary"
+                @click="iconSelectRef1?.copyIconCode()"
+              >
+                复制代码组件
+              </ElButton>
             </div>
           </ElFormItem>
 

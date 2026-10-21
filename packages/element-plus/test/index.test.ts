@@ -37,6 +37,7 @@ import AtengElementPlus, {
   AtengLogViewer,
   AtengStatistic,
   AtengCodeView,
+  AtengIconSelect,
   // 便捷 At* 别名
   AtDialog,
   AtDrawer,
@@ -56,6 +57,7 @@ import AtengElementPlus, {
   AtLogViewer,
   AtStatistic,
   AtCodeView,
+  AtIconSelect,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
@@ -68,6 +70,8 @@ import AtengElementPlus, {
   type AtengStatisticInstance,
   type AtengCodeViewProps,
   type AtengCodeViewInstance,
+  type AtengIconSelectProps,
+  type AtengIconSelectInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -115,9 +119,10 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengLogViewer).toBeDefined();
     expect(AtengStatistic).toBeDefined();
     expect(AtengCodeView).toBeDefined();
+    expect(AtengIconSelect).toBeDefined();
   });
 
-  it('完整导出全部 14 项组件的 At 规范别名', () => {
+  it('完整导出全部 15 项组件的 At 规范别名', () => {
     expect(AtDialog).toBe(AtengDialog);
     expect(AtDrawer).toBe(AtengDrawer);
     expect(AtEmpty).toBe(AtengEmpty);
@@ -136,6 +141,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtLogViewer).toBe(AtengLogViewer);
     expect(AtStatistic).toBe(AtengStatistic);
     expect(AtCodeView).toBe(AtengCodeView);
+    expect(AtIconSelect).toBe(AtengIconSelect);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {
@@ -184,6 +190,15 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       unfoldAll: vi.fn(),
     };
     expect(mockCodeViewInstance.foldAll).toBeDefined();
+
+    const mockIconSelectProps: AtengIconSelectProps = { placeholder: '请选择', mode: 'dialog' };
+    expect(mockIconSelectProps.mode).toBe('dialog');
+
+    const mockIconSelectInstance: Partial<AtengIconSelectInstance> = {
+      clear: vi.fn(),
+      copyIconCode: vi.fn(),
+    };
+    expect(mockIconSelectInstance.clear).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');

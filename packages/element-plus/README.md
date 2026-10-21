@@ -36,7 +36,7 @@
 | **运维监控** | 实时日志滚屏终端    | `AtengLogViewer`                                               | `logs`, `webSocket`, `maxLines`, `theme: 'dark' \| 'light'`, `autoScroll`, `height`, `title`                  | 2000 行环形内存缓冲防 DOM 膨胀；原生贴底滚动与手动回滚暂停；关键字高亮检索与日志下载；双轨对接 `useWebSocket`                                                                                                                                              | [`AtengLogViewer.test.ts`](./test/AtengLogViewer.test.ts)<br>`/business/log-viewer`             |
 | **统计指标** | 指标趋势与数字翻牌  | `AtengStatistic`                                               | `value`, `title`, `precision`, `separator`, `prefix`, `suffix`, `duration`, `trend`, `loading`                | 原生 `requestAnimationFrame` 缓动平滑翻牌（零第三方依赖）；集成货币千分位；红绿涨跌微标与国际反转配色；内置骨架屏防抖                                                                                                                                      | [`AtengStatistic.test.ts`](./test/AtengStatistic.test.ts)<br>`/business/statistic`              |
 | **代码数据** | 零依赖代码高亮查看  | `AtengCodeView`                                                | `code`, `language: 'json' \| 'sql' \| 'javascript' \| ...`, `collapsible`, `theme`, `lineNumbers`, `copyable` | 纯原生 AST 分词与严格 XSS 转义；JSON 树形代码块折叠展开；JSON/SQL/JS/XML 语法高亮；自适应行号侧边栏、一键复制反馈与明暗主题双模                                                                                                                            | [`AtengCodeView.test.ts`](./test/AtengCodeView.test.ts)<br>`/business/code-view`                |
-| **通用选择** | 全量通用图标选择器  | `AtengIconSelect`                                              | `v-model`, `placeholder`, `mode: 'popover' \| 'dialog'`, `clearable`, `customIcons`, `size`                   | 纯原生内建标准 SVG 图标库（零图标包强绑定）；支持拼音/中文/英文全维模糊检索；Popover 浮窗与 Dialog 弹窗双模展现                                                                                                                                            | [`AtengIconSelect.test.ts`](./test/AtengIconSelect.test.ts)<br>`/business/icon-select`          |
+| **通用选择** | 原生图标选择器      | `AtengIconSelect`                                              | `v-model`, `mode: 'popover' \| 'dialog'`, `clearable`, `showCopy`, `pageSize`, `customIcons`                  | 原生收敛 Element Plus 标准图标库（0 外部图标包强绑定）；支持拼音缩写/全拼/中英文毫秒级模糊检索；网格分页与一键复制 `<el-icon>` 代码组件                                                                                                                    | [`AtengIconSelect.test.ts`](./test/AtengIconSelect.test.ts)<br>`/business/icon-select`          |
 | **安全交互** | 验证码防刷新倒计时  | `AtengCaptcha`                                                 | `type: 'button' \| 'image'`, `seconds`, `storageKey`, `beforeSend`, `send`, `imageSrc`                        | LocalStorage 物理时间戳防页面刷新清零；前置异步校验拦截钩子；异步发送 Loading 互斥防重锁；支持图形字符验证码防重刷新                                                                                                                                       | [`AtengCaptcha.test.ts`](./test/AtengCaptcha.test.ts)<br>`/business/captcha`                    |
 | **文件预览** | 多格式文件在线预览  | `AtengFilePreview`                                             | `url`, `file`, `content`, `name`, `fileType`, `mode: 'inline' \| 'dialog'`, `downloadable`                    | 纯原生 HTML5 高性能内嵌（零第三方重型体积）；图片灯箱、原生 PDF、音视频播放、代码文本联动（复用 AtengCodeView）与未知格式降级下载；临时 ObjectURL 确定性生命周期回收                                                                                       | [`AtengFilePreview.test.ts`](./test/AtengFilePreview.test.ts)<br>`/business/file-preview`       |
 | **专属类型** | 组件 Ref 实例与契约 | `AtengTableInstance`<br>`AtengUploadInstance`<br>`DictItem` 等 | `InstanceType` 与接口定义                                                                                     | 100% 显式收敛导出对外门面方法与状态，强类型安全闭环                                                                                                                                                                                                        | [`index.test.ts`](./test/index.test.ts)                                                         |
@@ -297,6 +297,22 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
+### 9. 企业级原生图标选择器与拼音极速检索 (`AtengIconSelect`)
+
+`AtengIconSelect` 面向菜单管理与权限分配，内建全量常用官方标准 SVG 图标库（零外部依赖）。支持中文、全拼与拼音首字母模糊检索，支持 Popover 浮窗与 Dialog 模态窗双模展现，并提供网格分页与一键复制 `<el-icon>` 组件代码：
+
+```vue
+<!-- 支持 Popover/Dialog 双模、拼音首字母/全拼检索与一键复制代码组件 -->
+<AtengIconSelect
+  v-model="menuIcon"
+  mode="popover"
+  placeholder="请选择菜单图标"
+  :show-copy="true"
+  :page-size="36"
+  @select="item => console.log('选中图标:', item)"
+/>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -316,7 +332,9 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 7. **暗黑模式与设计令牌 100% 绑定 (Design Token Invariant)**：
    - 组件库样式 100% 复用 Element Plus 原生 CSS 变量（`--el-color-*`、`--el-bg-*`、`--el-border-*`、`--el-fill-*`），支持通过 `html.dark` 实现零配置暗黑模式自适应变色；
 8. **严格 XSS 转义与零重型库语法高亮防线 (Safe Syntax Tokenization Invariant)**：
-   - `AtengCodeView` 坚持纯原生 TypeScript 分词状态机与严格 HTML 字符实体转义，严禁将未受转义的原始标签直接注入 DOM；摒弃 Monaco Editor 与 Prism.js 等百 KB 级重型库，兼顾毫秒级极速渲染与成对成块树形折叠，并无缝集成 `v-copy` 一键剪贴板复制。
+   - `AtengCodeView` 坚持纯原生 TypeScript 分词状态机与严格 HTML 字符实体转义，严禁将未受转义的原始标签直接注入 DOM；摒弃 Monaco Editor 与 Prism.js 等百 KB 级重型库，兼顾毫秒级极速渲染与成对成块树形折叠，并无缝集成 `v-copy` 一键剪贴板复制；
+9. **图标库零臃肿与极速多维检索防线 (Zero-Bloat Icon Search Invariant)**：
+   - `AtengIconSelect` 内建常用标准 SVG 矢量路径与拼音/中英索引，无需下游全量打包庞大外部图标包；通过纯内存拼音与英文倒排检索，兼顾毫秒级极速响应、网格极速分页与一键复制 `<el-icon>` 代码组件。
 
 ---
 
