@@ -12,10 +12,11 @@
   },
   "dependencies": {
     "@atengk/core": "workspace:*",
-    "@atengk/vue": "workspace:*",
     "@atengk/element-plus": "workspace:*",
+    "@atengk/vue": "workspace:*",
     "element-plus": "^2.14.7",
-    "vue": "^3.5.44"
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
