@@ -72,6 +72,21 @@ export function filterColumnVNodes(vnodes: VNode[], visibilityMap: Map<string, b
     if (key && visibilityMap.get(key) === false) {
       continue;
     }
+    // 跨页多选保持增强：如果为 selection 列且未显式指定 reserve-selection，则默认开启
+    if (
+      props.type === 'selection' &&
+      props.reserveSelection === undefined &&
+      props['reserve-selection'] === undefined
+    ) {
+      result.push({
+        ...node,
+        props: {
+          ...props,
+          reserveSelection: true,
+        },
+      });
+      continue;
+    }
     result.push(node);
   }
 

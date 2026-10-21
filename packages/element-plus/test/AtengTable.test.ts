@@ -511,4 +511,121 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       expect(vm.columns[0].visible).toBe(true);
     }
   });
+
+  it('跨页多选与底部粘滞悬浮条：多选变更时动态滑出批量操作栏并派发事件', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        rowKey: 'id',
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { type: 'selection', width: 55 }),
+          h(ElTableColumn, { prop: 'username', label: '姓名' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 初始状态下无选中项，批量悬浮条不渲染
+    expect(wrapper.find('.at-table__batch-bar').exists()).toBe(false);
+
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    expect(tableEl.exists()).toBe(true);
+
+    // 模拟选中两行
+    const selectedItems = [mockData[0], mockData[1]];
+    tableEl.vm.$emit('selection-change', selectedItems);
+    await doubleWait();
+
+    // 验证批量悬浮条已滑出
+    const batchBar = wrapper.find('.at-table__batch-bar');
+    expect(batchBar.exists()).toBe(true);
+    expect(batchBar.text()).toContain('已选择 2 项');
+
+    // 验证实例暴露的状态
+    const vm = wrapper.vm as unknown as AtengTableInstance;
+    expect(vm.selectedCount).toBe(2);
+    expect(vm.selectedRows.length).toBe(2);
+
+    // 验证事件派发
+    expect(wrapper.emitted('selection-change')?.[0]).toEqual([selectedItems]);
+    expect(wrapper.emitted('update:selectedRows')?.[0]).toEqual([selectedItems]);
+  });
+
+  it('清空勾选与批量操作插槽：支持点击清空按钮与自定义 batch-actions 作用域插槽', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        rowKey: 'id',
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { type: 'selection', width: 55 }),
+          h(ElTableColumn, { prop: 'username', label: '姓名' }),
+        ],
+        'batch-actions': ({ selectedRows, clearSelection }) =>
+          h(
+            'button',
+            {
+              class: 'custom-batch-delete-btn',
+              onClick: () => clearSelection(),
+            },
+            `批量删除 (${(selectedRows as unknown[]).length})`,
+          ),
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    tableEl.vm.$emit('selection-change', [mockData[0]]);
+    await doubleWait();
+
+    // 验证批量操作插槽正确渲染
+    const customBtn = wrapper.find('.custom-batch-delete-btn');
+    expect(customBtn.exists()).toBe(true);
+    expect(customBtn.text()).toContain('批量删除 (1)');
+
+    // 触发清空
+    const clearBtn = wrapper.find('.at-table__batch-bar-clear');
+    expect(clearBtn.exists()).toBe(true);
+    await clearBtn.trigger('click');
+    await doubleWait();
+
+    // 验证清空后批量条隐藏
+    expect(wrapper.find('.at-table__batch-bar').exists()).toBe(false);
+    const vm = wrapper.vm as unknown as AtengTableInstance;
+    expect(vm.selectedCount).toBe(0);
+    expect(vm.selectedRows.length).toBe(0);
+  });
+
+  it('批量悬浮条开关：支持通过 showBatchBar: false 显式关闭', async () => {
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        rowKey: 'id',
+        showBatchBar: false,
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { type: 'selection', width: 55 }),
+          h(ElTableColumn, { prop: 'username', label: '姓名' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    tableEl.vm.$emit('selection-change', [mockData[0]]);
+    await doubleWait();
+
+    // 即使有选中项，也不展示批量条
+    expect(wrapper.find('.at-table__batch-bar').exists()).toBe(false);
+  });
 });

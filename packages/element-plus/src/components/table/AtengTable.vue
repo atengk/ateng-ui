@@ -85,6 +85,7 @@ const props = withDefaults(defineProps<AtengTableProps>(), {
   pageSizes: () => [10, 20, 50, 100],
   paginationLayout: 'total, sizes, prev, pager, next, jumper',
   showPagination: undefined,
+  showBatchBar: true,
   error: undefined,
   emptyDescription: undefined,
   errorDescription: undefined,
@@ -393,8 +394,23 @@ const renderFilteredSlotColumns = () => {
 // 6. 表格实例与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
 
+const selectedRows = ref<Record<string, unknown>[]>([]);
+const selectedCount = computed<number>(() => selectedRows.value.length);
+const shouldShowBatchBar = computed<boolean>(() => {
+  return props.showBatchBar !== false;
+});
+
+const handleSelectionChange = (selection: unknown[]) => {
+  selectedRows.value = selection as Record<string, unknown>[];
+  emit('selection-change', selectedRows.value);
+  emit('update:selectedRows', selectedRows.value);
+};
+
 const clearSelection = () => {
   tableRef.value?.clearSelection();
+  selectedRows.value = [];
+  emit('selection-change', []);
+  emit('update:selectedRows', []);
 };
 
 const toggleRowSelection = (row: Record<string, unknown>, selected?: boolean) => {
@@ -402,7 +418,7 @@ const toggleRowSelection = (row: Record<string, unknown>, selected?: boolean) =>
 };
 
 const getSelectionRows = (): Record<string, unknown>[] => {
-  return (tableRef.value?.getSelectionRows() ?? []) as Record<string, unknown>[];
+  return (tableRef.value?.getSelectionRows() ?? selectedRows.value) as Record<string, unknown>[];
 };
 
 const handleRefresh = async () => {
@@ -433,6 +449,8 @@ provide(ATENG_TABLE_CONTEXT_KEY, tableContext);
 defineExpose<AtengTableExpose>({
   tableRef,
   columns: columnSettings as ComputedRef<TableColumnConfig[]>,
+  selectedRows: computed(() => selectedRows.value),
+  selectedCount,
   clearSelection,
   toggleRowSelection: toggleRowSelection as (row: unknown, selected?: boolean) => void,
   getSelectionRows: getSelectionRows as () => unknown[],
@@ -609,9 +627,7 @@ defineExpose<AtengTableExpose>({
         :border="border"
         :stripe="currentStripe"
         class="at-table__inner"
-        @selection-change="
-          (selection: unknown[]) => emit('selection-change', selection as Record<string, unknown>[])
-        "
+        @selection-change="handleSelectionChange"
         @sort-change="handleSortChange"
       >
         <!-- 属性列合并渲染 -->
@@ -640,6 +656,33 @@ defineExpose<AtengTableExpose>({
           </template>
         </template>
       </el-table>
+
+      <!-- 底部粘滞批量操作悬浮条 -->
+      <transition name="at-fade-slide">
+        <div v-if="shouldShowBatchBar && selectedCount > 0" class="at-table__batch-bar">
+          <div class="at-table__batch-bar-left">
+            <span class="at-table__batch-bar-text">
+              已选择 <strong class="at-table__batch-bar-count">{{ selectedCount }}</strong> 项
+            </span>
+            <el-button
+              link
+              type="primary"
+              size="small"
+              class="at-table__batch-bar-clear"
+              @click="clearSelection"
+            >
+              清空
+            </el-button>
+          </div>
+          <div class="at-table__batch-bar-right">
+            <slot
+              name="batch-actions"
+              :selected-rows="selectedRows"
+              :clear-selection="clearSelection"
+            />
+          </div>
+        </div>
+      </transition>
     </div>
 
     <!-- 表格底部分页区域 -->
@@ -755,6 +798,51 @@ defineExpose<AtengTableExpose>({
     box-sizing: border-box;
   }
 
+  &__batch-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background-color: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-7);
+    border-radius: var(--el-border-radius-base);
+    box-shadow: var(--el-box-shadow-light);
+    box-sizing: border-box;
+
+    &-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    &-text {
+      font-size: 14px;
+      color: var(--el-text-color-regular);
+    }
+
+    &-count {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+
+    &-clear {
+      padding: 0;
+      font-size: 13px;
+    }
+
+    &-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
   // 全屏变体
   &--fullscreen {
     position: fixed;
@@ -824,5 +912,17 @@ defineExpose<AtengTableExpose>({
       background-color: var(--el-fill-color-light);
     }
   }
+}
+
+// 批量操作栏滑出淡入过渡动画
+.at-fade-slide-enter-active,
+.at-fade-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.5, 1);
+}
+
+.at-fade-slide-enter-from,
+.at-fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
 }
 </style>

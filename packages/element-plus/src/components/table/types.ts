@@ -170,6 +170,12 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   showPagination?: boolean;
 
   /**
+   * 是否在有多选选中项时显示底部悬浮批量操作栏。
+   * @default true
+   */
+  showBatchBar?: boolean;
+
+  /**
    * 外部受控异常错误对象（离散模式）。
    */
   error?: unknown;
@@ -198,6 +204,11 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
    * 多选项改变事件。
    */
   (e: 'selection-change', selection: T[]): void;
+
+  /**
+   * 多选项双向更新事件（支持 v-model:selectedRows）。
+   */
+  (e: 'update:selectedRows', selection: T[]): void;
 
   /**
    * 排序改变事件。
@@ -313,6 +324,16 @@ export interface AtengTableExpose<T = Record<string, unknown>> {
    * 当前表格生效的列元数据列表。
    */
   columns: ComputedRef<TableColumnConfig[]>;
+
+  /**
+   * 当前所有选中的数据行。
+   */
+  selectedRows: ComputedRef<T[]>;
+
+  /**
+   * 当前选中的数据行总数。
+   */
+  selectedCount: ComputedRef<number>;
 
   /**
    * 清空多选勾选。
