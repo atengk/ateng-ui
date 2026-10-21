@@ -60,6 +60,18 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/containers/EmptyView.vue'),
     meta: { title: '统一缺省态占位 AtengEmpty' },
   },
+  {
+    path: '/table/query-form',
+    name: 'TableQueryForm',
+    component: () => import('../views/table/QueryFormView.vue'),
+    meta: { title: '响应式搜索表单 AtengQueryForm' },
+  },
+  {
+    path: '/table/crud',
+    name: 'TableCrud',
+    component: () => import('../views/table/TableCrudView.vue'),
+    meta: { title: '综合表格沙箱 AtengTable' },
+  },
 ];
 
 export const router = createRouter({

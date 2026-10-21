@@ -95,6 +95,14 @@ onMounted(() => {
               <ElMenuItem index="/containers/drawer"> 抽屉容器 (AtengDrawer) </ElMenuItem>
               <ElMenuItem index="/containers/empty"> 缺省占位 (AtengEmpty) </ElMenuItem>
             </ElSubMenu>
+
+            <ElSubMenu index="table">
+              <template #title>
+                <span>📊 表格与检索 (Table & Query)</span>
+              </template>
+              <ElMenuItem index="/table/query-form"> 搜索表单 (AtengQueryForm) </ElMenuItem>
+              <ElMenuItem index="/table/crud"> 综合表格沙箱 (AtengTable CRUD) </ElMenuItem>
+            </ElSubMenu>
           </ElMenu>
         </ElAside>
 
