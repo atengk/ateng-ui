@@ -103,4 +103,53 @@ describe('AtengFilePreview 多格式文件预览门户交互与契约测试', ()
     wrapper.unmount();
     expect(revokeSpy).toHaveBeenCalled();
   });
+
+  it('显式指定 fileType 覆盖自动推导，并在 Expose 中动态输出', async () => {
+    // 文件名为 .txt，但显式指定 fileType="code"
+    const wrapper = mount(AtengFilePreview, {
+      props: {
+        name: 'script.txt',
+        fileType: 'code',
+        content: 'console.log("hello");',
+      },
+    });
+
+    expect(wrapper.vm.detectedType).toBe('code');
+    expect(wrapper.findComponent({ name: 'AtengCodeView' }).exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it('命令式调用 download() 触发 download 事件与下载流程', async () => {
+    const wrapper = mount(AtengFilePreview, {
+      props: {
+        url: 'https://example.com/files/report.pdf',
+        name: 'custom_report.pdf',
+      },
+    });
+
+    wrapper.vm.download();
+    expect(wrapper.emitted('download')?.[0]?.[0]).toBe('custom_report.pdf');
+
+    wrapper.unmount();
+  });
+
+  it('自定义 #unsupported 插槽内容替换默认降级提示', async () => {
+    const wrapper = mount(AtengFilePreview, {
+      props: {
+        name: 'archive.tar.gz',
+        url: 'https://example.com/archive.tar.gz',
+      },
+      slots: {
+        unsupported: `<template #unsupported="{ filename }">
+          <div class="custom-unsupported">自定义不支持格式：{{ filename }}</div>
+        </template>`,
+      },
+    });
+
+    expect(wrapper.find('.custom-unsupported').exists()).toBe(true);
+    expect(wrapper.find('.custom-unsupported').text()).toContain('archive.tar.gz');
+
+    wrapper.unmount();
+  });
 });

@@ -39,6 +39,7 @@ import AtengElementPlus, {
   AtengCodeView,
   AtengIconSelect,
   AtengCaptcha,
+  AtengFilePreview,
   // 便捷 At* 别名
   AtDialog,
   AtDrawer,
@@ -60,6 +61,7 @@ import AtengElementPlus, {
   AtCodeView,
   AtIconSelect,
   AtCaptcha,
+  AtFilePreview,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
@@ -76,6 +78,8 @@ import AtengElementPlus, {
   type AtengIconSelectInstance,
   type AtengCaptchaProps,
   type AtengCaptchaInstance,
+  type AtengFilePreviewProps,
+  type AtengFilePreviewInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -125,6 +129,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengCodeView).toBeDefined();
     expect(AtengIconSelect).toBeDefined();
     expect(AtengCaptcha).toBeDefined();
+    expect(AtengFilePreview).toBeDefined();
   });
 
   it('完整导出全部 15 项组件的 At 规范别名', () => {
@@ -148,6 +153,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtCodeView).toBe(AtengCodeView);
     expect(AtIconSelect).toBe(AtengIconSelect);
     expect(AtCaptcha).toBe(AtengCaptcha);
+    expect(AtFilePreview).toBe(AtengFilePreview);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {
@@ -215,6 +221,19 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       refreshImage: vi.fn(),
     };
     expect(mockCaptchaInstance.start).toBeDefined();
+
+    const mockFilePreviewProps: AtengFilePreviewProps = {
+      url: 'https://example.com/test.pdf',
+      fileType: 'pdf',
+      mode: 'dialog',
+      downloadable: true,
+    };
+    expect(mockFilePreviewProps.fileType).toBe('pdf');
+
+    const mockFilePreviewInstance: Partial<AtengFilePreviewInstance> = {
+      download: vi.fn(),
+    };
+    expect(mockFilePreviewInstance.download).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');

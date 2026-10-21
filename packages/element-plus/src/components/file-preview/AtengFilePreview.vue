@@ -50,13 +50,13 @@ const isLocalBlob = ref<boolean>(false);
 // 生成或解析资源访问 URL
 function resolveResourceUrl(): void {
   // 释放前序 ObjectURL 防内存泄漏
-  if (objectUrl.value && isLocalBlob.value) {
+  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
     URL.revokeObjectURL(objectUrl.value);
     objectUrl.value = '';
     isLocalBlob.value = false;
   }
 
-  if (props.file instanceof Blob) {
+  if (typeof URL !== 'undefined' && props.file instanceof Blob) {
     objectUrl.value = URL.createObjectURL(props.file);
     isLocalBlob.value = true;
   } else if (props.url) {
@@ -74,7 +74,7 @@ watch(
 );
 
 onUnmounted(() => {
-  if (objectUrl.value && isLocalBlob.value) {
+  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
     URL.revokeObjectURL(objectUrl.value);
   }
 });
@@ -121,6 +121,7 @@ const textContent = computed<string>(() => {
 
 // 触发下载
 function download(): void {
+  if (typeof document === 'undefined') return;
   const url = currentUrl.value;
   const filename = computedFileName.value || 'download';
   if (!url) return;
@@ -143,7 +144,7 @@ function handleDialogClose(): void {
 
 defineExpose<AtengFilePreviewExpose>({
   download,
-  detectedType: detectedType.value,
+  detectedType,
 });
 </script>
 

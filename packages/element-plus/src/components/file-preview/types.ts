@@ -5,6 +5,8 @@
  * @since 2026-10-21
  */
 
+import type { ComputedRef } from 'vue';
+
 export type PreviewFileType =
   'auto' | 'image' | 'pdf' | 'video' | 'audio' | 'code' | 'text' | 'unknown';
 
@@ -113,5 +115,7 @@ export interface AtengFilePreviewExpose {
   /**
    * 获取解析出的文件类型。
    */
-  detectedType: PreviewFileType;
+  detectedType: ComputedRef<PreviewFileType>;
 }
+
+export type AtengFilePreviewInstance = AtengFilePreviewExpose;

@@ -330,6 +330,28 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 <AtengCaptcha type="image" :image-src="currentImageSrc" :refresh="handleRefreshImage" />
 ```
 
+### 11. 原生轻量多格式文件在线预览门户 (`AtengFilePreview`)
+
+`AtengFilePreview` 面向附件查阅、图片轮播、音视频审查与日志报文浏览，坚决拒绝引入数十 MB 的 pdfjs 或 video.js 重型依赖。基于纯原生 HTML5 与组件联动，支持图片灯箱、原生 PDF、音视频播放、代码文本高亮（复用 `AtengCodeView`）与未知格式降级下载：
+
+```vue
+<!-- 内嵌模式：智能推导文件类型（支持图片、PDF、音视频、代码文本与未知降级） -->
+<AtengFilePreview
+  url="https://example.com/files/report.pdf"
+  name="年度经营汇报.pdf"
+  height="520px"
+  @download="filename => console.log('下载文件:', filename)"
+/>
+
+<!-- 模态弹窗模式 (v-model:visible) 与本地 File/Blob 即时预览 -->
+<AtengFilePreview
+  v-model:visible="isPreviewDialogVisible"
+  mode="dialog"
+  :file="uploadFileRaw"
+  title="本地文件预览"
+/>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -354,7 +376,11 @@ await DictManager.loadDict('sys_user_status', undefined, true);
    - `AtengIconSelect` 内建常用标准 SVG 矢量路径与拼音/中英索引，无需下游全量打包庞大外部图标包；通过纯内存拼音与英文倒排检索，兼顾毫秒级极速响应、网格极速分页与一键复制 `<el-icon>` 代码组件；
 10. **物理时间戳防刷新与并发防刷互斥锁防线 (Physical Timestamp & Concurrency Lock Invariant)**：
 
-- `AtengCaptcha` 倒计时摒弃传统的易失纯内存计时器，将绝对到期时间戳（`Date.now() + seconds * 1000`）持久化至 LocalStorage/SessionStorage。用户刷新页面或路由流转后重新挂载时，根据物理时钟差值自动精准恢复倒计时，彻底杜绝刷新页面重置倒计时的防刷漏洞；同时内置 `beforeSend` 前置校验与发送互斥锁，多重防护杜绝接口重复调用。
+- `AtengCaptcha` 倒计时摒弃传统的易失纯内存计时器，将绝对到期时间戳（`Date.now() + seconds * 1000`）持久化至 LocalStorage/SessionStorage。用户刷新页面或路由流转后重新挂载时，根据物理时钟差值自动精准恢复倒计时，彻底杜绝刷新页面重置倒计时的防刷漏洞；同时内置 `beforeSend` 前置校验与发送互斥锁，多重防护杜绝接口重复调用；
+
+11. **纯原生零依赖文件渲染与 ObjectURL 确定性生命周期防线 (Zero-Bloat Preview & ObjectURL Lifecycle Invariant)**：
+
+- `AtengFilePreview` 坚决拒绝引入 pdfjs、video.js 等数十 MB 级庞大依赖包，采用原生 HTML5 `iframe`、`video`、`audio`、`ElImage` 与 `AtengCodeView` 高性能组合实现全格式开箱即览；在传入本地 `File`/`Blob` 对象时，自动安全生成 `URL.createObjectURL` 临时句柄，并在更新资源或组件卸载（`onUnmounted`）时 100% 确定性调用 `URL.revokeObjectURL` 释放句柄，彻底杜绝浏览器内存泄漏。
 
 ---
 
