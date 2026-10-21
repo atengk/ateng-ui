@@ -8,6 +8,10 @@
 与统一网络契约（PageQuery / PageResult）深度绑定的企业级分页表格容器组件。
 _Avoid_: ProTable, SuperTable, DataTable, BaseTable
 
+**AtengQueryForm**:
+具备响应式栅格、平滑折叠展开与操作防抖的企业级结构化高级搜索表单容器组件。
+_Avoid_: SearchForm, FilterBar, QueryBox, AtengSearch, SearchPanel
+
 **AtengExcelFeedback**:
 Excel 导入错误明细在线预览与 Apache Fesod 标红批注回写文件下载弹窗组件。
 _Avoid_: ErrorDialog, ExcelModal, FeedbackDialog, ImportResultModal
