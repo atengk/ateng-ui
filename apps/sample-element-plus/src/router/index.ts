@@ -72,6 +72,36 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/table/TableCrudView.vue'),
     meta: { title: '综合表格沙箱 AtengTable' },
   },
+  {
+    path: '/business/dict',
+    name: 'BusinessDict',
+    component: () => import('../views/business/DictView.vue'),
+    meta: { title: '字典套件 AtengDict' },
+  },
+  {
+    path: '/business/descriptions',
+    name: 'BusinessDescriptions',
+    component: () => import('../views/business/DescriptionsView.vue'),
+    meta: { title: '结构化数据详情 AtengDescriptions' },
+  },
+  {
+    path: '/business/date-range',
+    name: 'BusinessDateRange',
+    component: () => import('../views/business/DateRangeView.vue'),
+    meta: { title: '快捷时间范围选择器 AtengDateRange' },
+  },
+  {
+    path: '/business/excel-feedback',
+    name: 'BusinessExcelFeedback',
+    component: () => import('../views/business/ExcelFeedbackView.vue'),
+    meta: { title: '导入错误明细反馈 AtengExcelFeedback' },
+  },
+  {
+    path: '/business/upload',
+    name: 'BusinessUpload',
+    component: () => import('../views/business/UploadView.vue'),
+    meta: { title: '多源切片上传器 AtengUpload' },
+  },
 ];
 
 export const router = createRouter({

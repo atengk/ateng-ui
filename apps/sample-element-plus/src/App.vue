@@ -103,6 +103,21 @@ onMounted(() => {
               <ElMenuItem index="/table/query-form"> 搜索表单 (AtengQueryForm) </ElMenuItem>
               <ElMenuItem index="/table/crud"> 综合表格沙箱 (AtengTable CRUD) </ElMenuItem>
             </ElSubMenu>
+
+            <ElSubMenu index="business">
+              <template #title>
+                <span>🧩 业务控件套件 (Business Suite)</span>
+              </template>
+              <ElMenuItem index="/business/dict"> 字典管理套件 (AtengDict*) </ElMenuItem>
+              <ElMenuItem index="/business/descriptions">
+                结构化详情 (AtengDescriptions)
+              </ElMenuItem>
+              <ElMenuItem index="/business/date-range"> 时间范围选择 (AtengDateRange) </ElMenuItem>
+              <ElMenuItem index="/business/excel-feedback">
+                导入错误反馈 (AtengExcelFeedback)
+              </ElMenuItem>
+              <ElMenuItem index="/business/upload"> 大文件切片上传 (AtengUpload) </ElMenuItem>
+            </ElSubMenu>
           </ElMenu>
         </ElAside>
 

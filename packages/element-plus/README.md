@@ -6,22 +6,31 @@
 
 ## 维度零：特性与公共 API 全景速查矩阵
 
-| 特性分类     | 特性名称           | 核心门面 / 组件 / 指令                          | 关键参数 / Props / Emits                                                                        | 核心行为说明                                                                                                                                                                                                                                                    | 锚定验证源头 (*Test / Sample)                                                     |
-| :----------- | :----------------- | :---------------------------------------------- | :---------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
-| **基础底座** | 插件全局安装器     | `install(app)` / `installer`                    | `app: App`                                                                                      | 批量注册官方 PascalCase 组件与全部操作指令，具备 Symbol 幂等保护                                                                                                                                                                                                | [`install.test.ts`](./test/install.test.ts)                                       |
-| **基础底座** | 版本标识           | `VERSION`                                       | `string`                                                                                        | 导出当前模块运行时版本号（0.1.0）                                                                                                                                                                                                                               | [`index.test.ts`](./test/index.test.ts)                                           |
-| **权限指令** | 细粒度操作权限控制 | `v-permission`                                  | `string \| string[]`, 修饰符 `.disabled`, `.all`                                                | 默认物理移除 DOM 并留存注释锚点，支持原位插回；支持 `.disabled` 置灰态与 `.all` 且逻辑                                                                                                                                                                          | [`v-permission.test.ts`](./test/v-permission.test.ts)<br>`/directives/permission` |
-| **权限指令** | 角色细粒度控制     | `v-role`                                        | `string \| string[]`, 修饰符 `.disabled`, `.all`                                                | 基于用户角色判定；内置 admin / superadmin 超管全局豁免放行机制                                                                                                                                                                                                  | [`v-role.test.ts`](./test/v-role.test.ts)<br>`/directives/role`                   |
-| **防重指令** | 提交防刷与前端幂等 | `v-idempotent`                                  | `number \| Function \| IdempotentOptions`, 参数 `:delay`, 修饰符 `.noFeedback`                  | DOM 捕获阶段拦截连击；支持时间窗口防刷与异步 Promise 互斥锁双模，自动联动按钮 loading 与禁用，超时与异常安全兜底防死锁                                                                                                                                          | [`v-idempotent.test.ts`](./test/v-idempotent.test.ts)<br>`/directives/idempotent` |
-| **工具指令** | 剪贴板一键复制     | `v-copy`                                        | `string \| CopyGetter \| CopyOptions`                                                           | 优先调用 `navigator.clipboard`，自动安全降级至 `execCommand`；支持动态 Getter 与 ElMessage 反馈联动                                                                                                                                                             | [`v-copy.test.ts`](./test/v-copy.test.ts)<br>`/directives/copy`                   |
-| **工具指令** | 动态防篡改水印     | `v-watermark`                                   | `string \| WatermarkOptions`, 修饰符 `.full`                                                    | Canvas 离屏高清渲染（SVG 安全降级）；MutationObserver 深度监听实现控制台删除与样式篡改微任务自愈                                                                                                                                                                | [`v-watermark.test.ts`](./test/v-watermark.test.ts)<br>`/directives/watermark`    |
-| **交互容器** | 企业级弹窗容器     | `AtengDialog`                                   | `v-model`, `title`, `draggable`, `beforeConfirm`, `@confirm`, `@success`                        | 默认可拖拽；右上角全屏切换与双击 Header 全屏；el-scrollbar 限制视口高度防撑破；异步确认 Loading 锁协议                                                                                                                                                          | [`AtengDialog.test.ts`](./test/AtengDialog.test.ts)<br>`/containers/dialog`       |
-| **交互容器** | 企业级抽屉容器     | `AtengDrawer`                                   | `v-model`, `title`, `size: 'small' \| 'default' \| 'large'`, `beforeConfirm`                    | 响应式语义尺寸断点；移动端视口（< 768px）自适应 100% 全宽；统一的异步确认 Loading 锁协议                                                                                                                                                                        | [`AtengDrawer.test.ts`](./test/AtengDrawer.test.ts)<br>`/containers/drawer`       |
-| **交互容器** | 统一缺省态占位     | `AtengEmpty`                                    | `status: 'empty' \| 'search' \| '403' \| 'network-error' \| '500'`, `description`, `imageSize`  | 聚合 5 大语义状态；内置纯矢量 SVG 插画深度绑定 Element Plus 设计令牌，天然完美自适应暗黑模式                                                                                                                                                                    | [`AtengEmpty.test.ts`](./test/AtengEmpty.test.ts)<br>`/containers/empty`          |
-| **查询套件** | 响应式搜索表单容器 | `AtengQueryForm`                                | `model`, `cols`, `collapsed`, `defaultCollapsed`, `showCollapse`, `@search`, `@reset`           | 24 栅格自适应布局（1~4 列自适应）；平滑展开/收起过渡动画；查询与重置按钮内置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                           | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`  |
-| **表格套件** | 企业级核心表格容器 | `AtengTable`                                    | `:pagination`, `:columns`, `rowKey`, `tools`, `storageKey`, `density`, `stripe`, `@sort-change` | 渐进混合列架构（SFC 插槽为主，兼顾属性列）；双轨深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏（刷新、密度、斑马纹、全屏、列配置 Popover 与本地持久化）；跨页多选保持机制与底部粘滞批量悬浮操作条（`#batch-actions`）；空数据与异常重试占位自动集成 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                |
-| **协同契约** | 表格表单协同上下文 | `ATENG_TABLE_CONTEXT_KEY`                       | `InjectionKey<AtengTableContext>`                                                               | `AtengTable` 与 `AtengQueryForm` 跨组件层级的 Provide/Inject 自动化联动通道，消灭业务胶水代码                                                                                                                                                                   | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                |
-| **专属类型** | 组件 Ref 实例契约  | `AtengTableInstance` / `AtengQueryFormInstance` | `InstanceType` 约束接口                                                                         | 100% 显式收敛导出对外门面方法与状态（`tableRef`, `formRef`, `columns`, `selectedRows`, `selectedCount`, `clearSelection`, `validate` 等）                                                                                                                       | [`index.test.ts`](./test/index.test.ts)                                           |
+| 特性分类     | 特性名称            | 核心门面 / 组件 / 指令                                         | 关键参数 / Props / Emits                                                                        | 核心行为说明                                                                                                                                                                                                                                                    | 锚定验证源头 (*Test / Sample)                                                                   |
+| :----------- | :------------------ | :------------------------------------------------------------- | :---------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+| **基础底座** | 插件全局安装器      | `install(app)` / `installer`                                   | `app: App`                                                                                      | 批量注册 PascalCase 原名组件与 At* 别名组件，批量注册全部操作指令，具备 Symbol 幂等保护                                                                                                                                                                         | [`install.test.ts`](./test/install.test.ts)                                                     |
+| **基础底座** | 版本标识            | `VERSION`                                                      | `string`                                                                                        | 导出当前模块运行时版本号（0.1.0）                                                                                                                                                                                                                               | [`index.test.ts`](./test/index.test.ts)                                                         |
+| **权限指令** | 细粒度操作权限控制  | `v-permission`                                                 | `string \| string[]`, 修饰符 `.disabled`, `.all`                                                | 默认物理移除 DOM 并留存注释锚点，支持原位插回；支持 `.disabled` 置灰态与 `.all` 且逻辑                                                                                                                                                                          | [`v-permission.test.ts`](./test/v-permission.test.ts)<br>`/directives/permission`               |
+| **权限指令** | 角色细粒度控制      | `v-role`                                                       | `string \| string[]`, 修饰符 `.disabled`, `.all`                                                | 基于用户角色判定；内置 admin / superadmin 超管全局豁免放行机制                                                                                                                                                                                                  | [`v-role.test.ts`](./test/v-role.test.ts)<br>`/directives/role`                                 |
+| **防重指令** | 提交防刷与前端幂等  | `v-idempotent`                                                 | `number \| Function \| IdempotentOptions`, 参数 `:delay`, 修饰符 `.noFeedback`                  | DOM 捕获阶段拦截连击；支持时间窗口防刷与异步 Promise 互斥锁双模，自动联动按钮 loading 与禁用，超时与异常安全兜底防死锁                                                                                                                                          | [`v-idempotent.test.ts`](./test/v-idempotent.test.ts)<br>`/directives/idempotent`               |
+| **工具指令** | 剪贴板一键复制      | `v-copy`                                                       | `string \| CopyGetter \| CopyOptions`                                                           | 优先调用 `navigator.clipboard`，自动安全降级至 `execCommand`；支持动态 Getter 与 ElMessage 反馈联动                                                                                                                                                             | [`v-copy.test.ts`](./test/v-copy.test.ts)<br>`/directives/copy`                                 |
+| **工具指令** | 动态防篡改水印      | `v-watermark`                                                  | `string \| WatermarkOptions`, 修饰符 `.full`                                                    | Canvas 离屏高清渲染（SVG 安全降级）；MutationObserver 深度监听实现控制台删除与样式篡改微任务自愈                                                                                                                                                                | [`v-watermark.test.ts`](./test/v-watermark.test.ts)<br>`/directives/watermark`                  |
+| **交互容器** | 企业级弹窗容器      | `AtengDialog`                                                  | `v-model`, `title`, `draggable`, `beforeConfirm`, `@confirm`, `@success`                        | 默认可拖拽；右上角全屏切换与双击 Header 全屏；el-scrollbar 限制视口高度防撑破；异步确认 Loading 锁协议                                                                                                                                                          | [`AtengDialog.test.ts`](./test/AtengDialog.test.ts)<br>`/containers/dialog`                     |
+| **交互容器** | 企业级抽屉容器      | `AtengDrawer`                                                  | `v-model`, `title`, `size: 'small' \| 'default' \| 'large'`, `beforeConfirm`                    | 响应式语义尺寸断点；移动端视口（< 768px）自适应 100% 全宽；统一的异步确认 Loading 锁协议                                                                                                                                                                        | [`AtengDrawer.test.ts`](./test/AtengDrawer.test.ts)<br>`/containers/drawer`                     |
+| **交互容器** | 统一缺省态占位      | `AtengEmpty`                                                   | `status: 'empty' \| 'search' \| '403' \| 'network-error' \| '500'`, `description`, `imageSize`  | 聚合 5 大语义状态；内置纯矢量 SVG 插画深度绑定 Element Plus 设计令牌，天然完美自适应暗黑模式                                                                                                                                                                    | [`AtengEmpty.test.ts`](./test/AtengEmpty.test.ts)<br>`/containers/empty`                        |
+| **查询套件** | 响应式搜索表单容器  | `AtengQueryForm`                                               | `model`, `cols`, `collapsed`, `defaultCollapsed`, `showCollapse`, `@search`, `@reset`           | 24 栅格自适应布局（1~4 列自适应）；平滑展开/收起过渡动画；查询与重置按钮内置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                           | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`                |
+| **表格套件** | 企业级核心表格容器  | `AtengTable`                                                   | `:pagination`, `:columns`, `rowKey`, `tools`, `storageKey`, `density`, `stripe`, `@sort-change` | 渐进混合列架构（SFC 插槽为主，兼顾属性列）；双轨深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏（刷新、密度、斑马纹、全屏、列配置 Popover 与本地持久化）；跨页多选保持机制与底部粘滞批量悬浮操作条（`#batch-actions`）；空数据与异常重试占位自动集成 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
+| **表格协同** | 表格表单协同上下文  | `ATENG_TABLE_CONTEXT_KEY`                                      | `InjectionKey<AtengTableContext>`                                                               | `AtengTable` 与 `AtengQueryForm` 跨组件层级的 Provide/Inject 自动化联动通道，消灭业务胶水代码                                                                                                                                                                   | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
+| **字典底座** | 字典门面管理器      | `DictManager`                                                  | `setProvider`, `loadDict`, `hasCache`, `getCache`, `clearCache`                                 | 纯内存常驻映射、飞行中未决 Promise 毫秒级并发请求合并去重、三级回退加载协议与空安全保底返回 `[]`                                                                                                                                                                | [`DictManager.test.ts`](./test/dict/DictManager.test.ts)<br>`/business/dict`                    |
+| **字典控件** | 字典下拉选择器      | `AtengDictSelect`                                              | `dictCode`, `loader`, `options`, `v-model`, `multiple`, `filterable`, `clearable`               | 自动联动 `DictManager` 异步加载字典；支持单选/多选/输入筛选；支持局部 Loader 或静态 options 覆盖                                                                                                                                                                | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                             |
+| **字典控件** | 字典单选框组        | `AtengDictRadio`                                               | `dictCode`, `loader`, `options`, `v-model`, `button: boolean`, `size`                           | 自动拉取字典项并渲染为单选框组；支持普通 Radio 与 Button 按钮风格单选无缝切换                                                                                                                                                                                   | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                             |
+| **字典控件** | 彩色状态标签        | `AtengDictTag`                                                 | `dictCode`, `value`, `separator`, `emptyText`, `effect`, `round`                                | 自动匹配字典项并渲染为 Element Plus 彩色 Tag；支持单值、多值数组与逗号分隔字符串；未匹配时保底渲染 `'-'`                                                                                                                                                        | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                             |
+| **数据详情** | 结构化数据详情容器  | `AtengDescriptions`                                            | `data`, `items`, `border`, `column`, `direction`, `size`, `emptyText`                           | 基于 `el-descriptions` 增强封装；双模驱动（Schema 数据驱动与 SFC 声明式子组件）；空值全局保底 `'-'`                                                                                                                                                             | [`AtengDescriptions.test.ts`](./test/AtengDescriptions.test.ts)<br>`/business/descriptions`     |
+| **数据详情** | 详情单项声明组件    | `AtengDescriptionsItem`                                        | `prop`, `label`, `span`, `mask`, `type`, `dictCode`, `emptyText`, `formatter`                   | 内置 5 大脱敏管道（phone/idCard/email/name/bankCard）；内置货币/日期格式化；自动联动 AtengDictTag                                                                                                                                                               | [`AtengDescriptions.test.ts`](./test/AtengDescriptions.test.ts)<br>`/business/descriptions`     |
+| **时间控件** | 快捷时间范围选择器  | `AtengDateRange`                                               | `v-model`, `v-model:start`, `v-model:end`, `shortcuts`, `autoTime`, `valueFormat`               | 预置 7 大自然时间快捷跨度；双字段解构绑定协议（告别手动拆数组）；智能时刻边界对齐（00:00:00 与 23:59:59）                                                                                                                                                       | [`AtengDateRange.test.ts`](./test/AtengDateRange.test.ts)<br>`/business/date-range`             |
+| **文件交互** | 导入错误反馈弹窗    | `AtengExcelFeedback`                                           | `v-model`, `errors`, `fileUrl`, `downloadAction`, `fileName`, `pageSize`, `showCopy`            | 集成 `AtengDialog`；在线表格分页展示导入错误行号、列名与失败原因；一键格式化复制剪贴板；双模批注文件下载                                                                                                                                                        | [`AtengExcelFeedback.test.ts`](./test/AtengExcelFeedback.test.ts)<br>`/business/excel-feedback` |
+| **文件交互** | 多源切片上传器      | `AtengUpload`                                                  | `chunk: boolean`, `chunkSize`, `concurrency`, `customUploadChunk`, `customMerge`, `maxSize`     | 原生直传增强与大文件切片双模；前置格式与体积拦截；图片缩略图大图弹窗预览；深度绑定 useUpload 状态机                                                                                                                                                             | [`AtengUpload.test.ts`](./test/AtengUpload.test.ts)<br>`/business/upload`                       |
+| **专属类型** | 组件 Ref 实例与契约 | `AtengTableInstance`<br>`AtengUploadInstance`<br>`DictItem` 等 | `InstanceType` 与接口定义                                                                       | 100% 显式收敛导出对外门面方法与状态，强类型安全闭环                                                                                                                                                                                                             | [`index.test.ts`](./test/index.test.ts)                                                         |
 
 ---
 
@@ -43,7 +52,7 @@ import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 
 // 引入 @atengk/element-plus 核心套件与单一样式产物
-import AtengElementPlus from '@atengk/element-plus';
+import AtengElementPlus, { DictManager } from '@atengk/element-plus';
 import '@atengk/element-plus/style.css';
 
 import App from './App.vue';
@@ -51,6 +60,13 @@ import App from './App.vue';
 const app = createApp(App);
 app.use(ElementPlus);
 app.use(AtengElementPlus);
+
+// 注入全局通用业务字典 Provider
+DictManager.setProvider(async (code: string) => {
+  const res = await fetch(`/api/system/dict/data/${code}`).then(r => r.json());
+  return res.data;
+});
+
 app.mount('#app');
 ```
 
@@ -62,7 +78,7 @@ app.mount('#app');
 <script setup lang="ts">
 import { reactive } from 'vue';
 import { usePagination } from '@atengk/vue';
-import { AtengTable, AtengQueryForm } from '@atengk/element-plus';
+import { AtengTable, AtengQueryForm, AtengDateRange, AtengDictSelect } from '@atengk/element-plus';
 
 // 1. 初始化业务分页服务状态机
 const pagination = usePagination(fetchUserPageList, {
@@ -71,10 +87,12 @@ const pagination = usePagination(fetchUserPageList, {
   defaultSortAsc: false,
 });
 
-// 2. 搜索表单状态模型
+// 2. 搜索表单状态模型（支持双字段解构时间绑定与字典选择）
 const searchForm = reactive({
   username: '',
   role: '',
+  startTime: '',
+  endTime: '',
 });
 </script>
 
@@ -88,37 +106,24 @@ const searchForm = reactive({
             <el-input v-model="searchForm.username" placeholder="请输入姓名" clearable />
           </el-form-item>
           <el-form-item label="所属角色" prop="role">
-            <el-select v-model="searchForm.role" placeholder="请选择角色" clearable>
-              <el-option label="管理员" value="admin" />
-              <el-option label="运营人员" value="operator" />
-            </el-select>
+            <AtengDictSelect v-model="searchForm.role" dict-code="sys_user_role" clearable />
+          </el-form-item>
+          <el-form-item label="创建时间">
+            <AtengDateRange v-model:start="searchForm.startTime" v-model:end="searchForm.endTime" />
           </el-form-item>
         </AtengQueryForm>
-      </template>
-
-      <!-- 工具栏左侧自定义业务操作 -->
-      <template #toolbar-left>
-        <el-button type="primary"> + 新增用户 </el-button>
-        <el-button plain> 导出数据 </el-button>
       </template>
 
       <!-- 原生与混合列插槽：保留最熟悉的 Vue SFC 模板语法与复杂作用域插槽 -->
       <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="分布式ID" width="180" />
       <el-table-column prop="username" label="用户名" width="140" />
-      <el-table-column prop="role" label="岗位角色" width="120" />
+      <el-table-column prop="status" label="状态" width="120">
+        <template #default="{ row }">
+          <AtengDictTag dict-code="sys_user_status" :value="row.status" />
+        </template>
+      </el-table-column>
       <el-table-column prop="createTime" label="创建时间" sortable="custom" min-width="160" />
-
-      <!-- 底部粘滞批量操作悬浮条自定义业务插槽 -->
-      <template #batch-actions="{ selectedRows, clearSelection }">
-        <el-button
-          type="danger"
-          size="small"
-          @click="handleBatchDelete(selectedRows, clearSelection)"
-        >
-          批量删除 ({{ selectedRows.length }})
-        </el-button>
-      </template>
     </AtengTable>
   </div>
 </template>
@@ -128,71 +133,96 @@ const searchForm = reactive({
 
 ## 维度二：生产扩展接管 (Customization & Extensibility)
 
-### 1. 双轨分页绑定与离散逃生门 (Dual-Track Pagination)
+### 1. 字典套件数据源接管与并发去重 (`DictManager`)
 
-`AtengTable` 遵循 [ADR-0016](../../docs/adr/0016-ateng-table-hybrid-columns-and-query-synergy-architecture.md) 确立的双轨契约：
+`DictManager` 采用单例无状态与纯内存缓存架构：
 
-- **高阶双轨模式**：直接传入 `:pagination="paginationState"`（`UsePaginationResult` 类型），自动双向接管数据渲染、Loading 遮罩、底部分页组件调度以及服务端排序列转换（`sort-change` ➔ `changeSort`）；
-- **离散原生逃生门**：当不使用 `@atengk/vue` 状态机时，向下兼容原生离散属性：
-  ```vue
-  <AtengTable
-    :data="userList"
-    :loading="tableLoading"
-    :total="totalCount"
-    :page-num="currentPage"
-    :page-size="pageSize"
-    :show-pagination="true"
-    @pagination-change="({ pageNum, pageSize }) => fetchPage(pageNum, pageSize)"
-    @sort-change="handleCustomSort"
-  />
-  ```
+```ts
+import { DictManager, type DictItem } from '@atengk/element-plus';
 
-### 2. 企业级工具栏与本地持久化 (`storageKey`)
+// 1. 注册全局字典数据源 Provider
+DictManager.setProvider(async (dictCode: string): Promise<DictItem[]> => {
+  const result = await http.get(`/system/dict/data/type/${dictCode}`);
+  return result.data.map(item => ({
+    label: item.dictLabel,
+    value: item.dictValue,
+    tagType: item.listClass,
+  }));
+});
 
-`AtengTable` 默认内置 5 大原子工具项：
+// 2. 局部组件覆盖数据源（优先级高于全局 Provider）
+<AtengDictSelect v-model="role" :loader="fetchCustomRoleList" />
 
-1. **刷新 (`refresh`)**：点击自动调用 `pagination.refresh()` 并触发 `@refresh` 事件；
-2. **密度切换 (`density`)**：下拉支持宽松（`large`）、默认（`default`）、紧凑（`small`）无缝切换行高并同步派发 `@update:density`；
-3. **斑马线开关 (`stripe`)**：一键切换表格斑马条纹样式，图标高亮指示激活状态；
-4. **全屏沉浸 (`fullscreen`)**：一键将表格容器固定全屏放大，支持 `ESC` 键盘监听退出并在组件卸载时确定性解绑；
-5. **列配置浮层 (`column-setting`)**：弹出 `el-popover` 支持列显隐勾选、全选/半选指示与重置还原。
+// 3. 内存缓存穿透刷新
+await DictManager.loadDict('sys_user_status', undefined, true);
+```
 
-若配置了 `:storage-key="key"`，列显隐状态自动序列化写回浏览器的 `localStorage`，点击“重置”即可一键恢复出厂配置并清除本地缓存。
+### 2. 双字段解构绑定与时刻智能对齐 (`AtengDateRange`)
 
-### 3. 跨页多选保持与底部粘滞批量悬浮条 (Sticky Batch Bar)
+针对后端接口通常拆分为 `beginTime` 与 `endTime` 两个离散入参的常见痛点，`AtengDateRange` 深度内置双字段解构绑定协议：
 
-- 表格依赖 `:row-key="rowKey"`（默认 `id`，对 64 位雪花大数字符串 100% 友好），多选列自动赋予 `reserveSelection: true`，翻页后跨页选中数据确定性累积记忆；
-- 当 `selectedCount > 0` 且 `showBatchBar !== false` 时，在表格容器内部平滑向上滑出粘滞操作条（`position: sticky; bottom: 0; z-index: 10;`）；
-- 作用域插槽 `#batch-actions` 接收 `{ selectedRows, clearSelection }`，开发者可自由挂载批量业务操作按钮。
+```vue
+<!-- 双向双字段解构绑定，并在选择单日时自动补全为 00:00:00 与 23:59:59 -->
+<AtengDateRange
+  v-model:start="query.beginTime"
+  v-model:end="query.endTime"
+  :auto-time="true"
+  value-format="YYYY-MM-DD HH:mm:ss"
+/>
+```
 
-### 4. 异步确认 Loading 锁协议 (`beforeConfirm`)
+### 3. Fesod 批注错误回写与下载集成 (`AtengExcelFeedback`)
 
-`AtengDialog` 与 `AtengDrawer` 统一支持 `beforeConfirm` 异步钩子函数。当该函数返回 `Promise` 时：
+当用户上传导入 Excel 失败时，后端通常返回结构化错误明细或带有错误批注的 Excel 文件。通过 `AtengExcelFeedback` 可无缝接入：
 
-1. 确定按钮自动切换为 `loading` 状态；
-2. **同步禁用取消按钮、Header 关闭按钮、ESC 快捷键与遮罩点击**，杜绝并发竞态与半提交状态；
-3. **成功决议**：自动关闭弹窗并触发 `@success` 事件；
-4. **抛错容错**：若 Promise 发生 reject 或抛错，自动退出 loading 并**保持弹窗/抽屉开启**，严格保护用户表单输入现场。
+```vue
+<AtengExcelFeedback
+  v-model="feedbackVisible"
+  title="用户数据导入校验失败"
+  :errors="errorList"
+  :download-action="handleDownloadAnnotatedExcel"
+  file-name="用户导入校验失败批注清单.xlsx"
+  @copy="onCopySuccess"
+/>
+```
+
+### 4. 大文件切片并发上传状态机 (`AtengUpload`)
+
+开启 `:chunk="true"` 模式后，`AtengUpload` 自动组装 `@atengk/vue` 的 `useUpload` 状态机，无需编写复杂的切片切片循环与并发限制：
+
+```vue
+<AtengUpload
+  ref="uploadRef"
+  :chunk="true"
+  :chunk-size="5 * 1024 * 1024"
+  :concurrency="3"
+  :custom-upload-chunk="uploadChunkApi"
+  :custom-merge="mergeChunksApi"
+  @chunk-progress="progress => console.log('总进度:', progress)"
+  @chunk-success="onAllChunksSuccess"
+/>
+```
+
+通过对外暴露的 `uploadRef.value.pause()`、`resume()`、`cancel()` 可实现毫秒级暂停、恢复与网络中断。
 
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
 
-1. **雪花 ID 字符串主键不变量 (Snowflake String Key Invariant)**：
-   - 企业级系统的全局主键均为 64 位分布式 Snowflake ID。`AtengTable` 的 `rowKey` 默认指向 `'id'`，底层多选记忆与批量操作在内存中严格以字符串（String）为基准比对，杜绝因转换为 JS Number 造成 $2^{53}-1$ 精度截断与多选错乱；
-2. **渐进混合列 VNode 扁平递归解析不变量 (Hybrid Column VNode Parsing Invariant)**：
-   - 原生 `<el-table-column>` 插槽列通过递归 VNode 遍历（支持 Fragment 解构与动态循环）提取列元数据；
-   - 动态列显隐过滤机制通过在渲染管线中剔除隐藏列 VNode，使 Element Plus 原生插槽列无需重新声明复杂的 Schema JSON 即可实现列显隐；
-3. **粘滞批量条隔离不变量 (Sticky Batch Bar Containment Invariant)**：
-   - 批量悬浮操作条物理严格定位于 `.at-table__main` 容器内部（`position: sticky; bottom: 0;`），严禁超出表格容器外部，确保在多 Tab 页签卡、抽屉或复杂分栏布局下绝对不发生视口越界遮挡；
-4. **注释定位锚点不变量 (Comment Anchor Invariant)**：
-   - `v-permission` 与 `v-role` 在无权限时通过 `replaceChild(comment, el)` 物理剔除真实 DOM 节点；内部严格同步将 `vnode.el = comment`，当组件带有 `v-if` 或动态销毁时，确保 Vue 运行时可正确定位卸载，彻底根除 `Cannot read properties of null (reading 'insertBefore')` 空指针异常；
-5. **DOM 捕获阶段防重锁 (Capture Phase Invariant)**：
-   - `v-idempotent` 在 DOM 原生捕获阶段（`capture: true`）注册监听，在锁定状态下立即调用 `stopImmediatePropagation()` 与 `preventDefault()`，在浏览器事件流最前端彻底切断下游业务绑定的普通 `@click`；
-6. **DevTools 恶意篡改微任务自愈防线 (MutationObserver Anti-Tamper Invariant)**：
-   - `v-watermark` 配备 MutationObserver 深度监听宿主属性与子节点变动。当遭遇控制台恶意 `remove()` 节点或增加 `display: none` / `opacity: 0` 时，微任务级立即强制重建自愈；
-7. **暗黑模式自适应 (Design Token Invariant)**：
-   - 组件库样式 100% 绑定复用 Element Plus 原生 CSS 变量（`--el-color-*`、`--el-bg-*`、`--el-border-*`、`--el-fill-*`），支持通过 `html.dark` 实现零配置暗黑模式自适应变色。
+1. **字典高并发请求合并去重不变量 (In-Flight Request Coalescing Invariant)**：
+   - 界面上无论同时渲染多少个同类型字典组件（例如表格一屏 50 行同时使用 `AtengDictTag dict-code="sys_user_status"`），`DictManager` 在飞行中（In-Flight）自动合并同 code 的并发 Promise。真实物理网络只发送 1 次 HTTP 请求，结果解析后全量常驻内存，彻底杜绝字典并发风暴；
+2. **数据脱敏与“内存真明文”防线 (In-Memory Plaintext Invariant)**：
+   - `AtengDescriptions` 内置的手机（`mask="phone"`）、身份证（`mask="idCard"`）、银行卡（`mask="bankCard"`）等脱敏管道仅在虚拟 DOM 渲染视图层动态格式化，底层绑定的响应式对象始终保持原始真实明文，防止数据回传时将星号脏数据写回数据库；
+3. **时刻对齐防边界遗漏不变量 (Date Boundary Alignment Invariant)**：
+   - `AtengDateRange` 默认开启 `autoTime: true`。当选择时间区间时，起始时间无论原始毫秒如何，自动规范化为当天 `00:00:00`，截止时间自动规范化为当天 `23:59:59`，彻底根除因缺少截止当天最后一秒导致查询漏数据的经典边界缺陷；
+4. **大文件切片生命周期与 AbortSignal 秒级中断 (Deterministic Cleanup Invariant)**：
+   - `AtengUpload` 分片上传在调用 `cancel()` 或组件销毁（`onUnmounted`）时，通过内部 `AbortController` 立即中断底层 Axios HTTP 连接，且确定性回收大文件切片的内存引用，坚决杜绝内存泄漏；
+5. **雪花 ID 字符串主键不变量 (Snowflake String Key Invariant)**：
+   - `AtengTable` 的 `rowKey` 默认指向 `'id'`，底层多选记忆与批量操作在内存中严格以字符串（String）为基准比对，杜绝因转换为 JS Number 造成 $2^{53}-1$ 精度截断与多选错乱；
+6. **异步确认 Loading 锁协议 (Async Confirm Lock Invariant)**：
+   - `AtengDialog` 与 `AtengDrawer` 统一支持 `beforeConfirm` 异步钩子。在确认提交过程中自动开启 loading 并禁用取消按钮、ESC 键与遮罩关闭；若异步提交失败保持弹窗开启，保护用户输入现场；
+7. **暗黑模式与设计令牌 100% 绑定 (Design Token Invariant)**：
+   - 组件库样式 100% 复用 Element Plus 原生 CSS 变量（`--el-color-*`、`--el-bg-*`、`--el-border-*`、`--el-fill-*`），支持通过 `html.dark` 实现零配置暗黑模式自适应变色。
 
 ---
 
