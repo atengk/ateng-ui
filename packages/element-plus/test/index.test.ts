@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VERSION, vPermission, vRole, vIdempotent } from '../src/index';
+import { VERSION, vPermission, vRole, vIdempotent, vCopy, vWatermark } from '../src/index';
 
 describe('@atengk/element-plus baseline', () => {
   it('should export correct initial version and directives', () => {
@@ -7,5 +7,7 @@ describe('@atengk/element-plus baseline', () => {
     expect(vPermission).toBeDefined();
     expect(vRole).toBeDefined();
     expect(vIdempotent).toBeDefined();
+    expect(vCopy).toBeDefined();
+    expect(vWatermark).toBeDefined();
   });
 });

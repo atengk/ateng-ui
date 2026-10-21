@@ -8,3 +8,5 @@
 export * from './permission';
 export * from './role';
 export * from './idempotent';
+export * from './copy';
+export * from './watermark';
