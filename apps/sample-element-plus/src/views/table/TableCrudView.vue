@@ -260,6 +260,30 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
         </template>
       </AtengTable>
     </ElCard>
+
+    <!-- 独立导出功能演示卡片（无 AtengTable 上下文，纯属性直传与下拉菜单多模切换） -->
+    <ElCard shadow="hover" class="export-demo-card" header="AtengExcelExport 独立页面导出演示">
+      <div class="export-demo-row">
+        <div class="demo-item">
+          <span class="demo-label">1. 纯属性直传独立导出 (params 绑定)：</span>
+          <AtengExcelExport
+            :action="handleExportExcel"
+            :params="{ category: 'finance', department: 'rd' }"
+            text="独立参数导出"
+          />
+        </div>
+        <div class="demo-item">
+          <span class="demo-label">2. 多模下拉菜单模式 (mode="dropdown")：</span>
+          <AtengExcelExport
+            :action="handleExportExcel"
+            :selected-ids="['1001', '1002']"
+            mode="dropdown"
+            type="success"
+            text="多模导出菜单"
+          />
+        </div>
+      </div>
+    </ElCard>
   </div>
 </template>
 
@@ -296,5 +320,27 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 
 .main-card {
   border-radius: 8px;
+}
+
+.export-demo-card {
+  border-radius: 8px;
+}
+
+.export-demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+}
+
+.demo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
 }
 </style>

@@ -223,6 +223,24 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 
 通过对外暴露的 `uploadRef.value.pause()`、`resume()`、`cancel()` 可实现毫秒级暂停、恢复与网络中断。
 
+### 5. 流式 Excel 声明式导出与 ADR-0004 双态异常防御 (`AtengExcelExport`)
+
+`AtengExcelExport` 深度契合 ADR-0004 协议，可嵌套于 `AtengTable` 自动感知当前查询条件与跨页勾选行，或独立传参使用：
+
+```vue
+<!-- 表格上下文感知：勾选时优先导出选中项，无勾选时全量导出；内置 Blob-JSON 双态拦截与 Loading 互斥锁 -->
+<AtengExcelExport :action="exportApi" filename="用户清单.xlsx" />
+
+<!-- 独立传参与多模下拉菜单 -->
+<AtengExcelExport
+  :action="exportApi"
+  :params="{ role: 'admin' }"
+  mode="dropdown"
+  type="success"
+  text="多模导出"
+/>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)

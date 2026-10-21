@@ -128,4 +128,56 @@ describe('AtengExcelExport 流式导出按钮组件交互与契约测试', () =>
 
     wrapper.unmount();
   });
+
+  it('ADR-0004 双态异常防御：action 返回 application/json 伪装 Blob 时识别业务错误，绝不下载', async () => {
+    const errorJson = JSON.stringify({ code: 500, msg: '权限不足，无法导出全量敏感资产' });
+    const mockJsonBlob = new Blob([errorJson], { type: 'application/json;charset=utf-8' });
+    const mockAction = vi.fn().mockResolvedValue(mockJsonBlob);
+
+    const createObjectURLMock = vi.fn();
+    globalThis.URL.createObjectURL = createObjectURLMock;
+
+    const wrapper = mount(AtengExcelExport, {
+      props: {
+        action: mockAction,
+      },
+    });
+
+    await wrapper.find('.el-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(wrapper.emitted('export-error')).toBeTruthy();
+    });
+
+    const emittedErrors = wrapper.emitted('export-error')![0] as [Error];
+    expect(emittedErrors[0].message).toBe('权限不足，无法导出全量敏感资产');
+    // 关键校验：绝不能调用 URL.createObjectURL 触发假下载！
+    expect(createObjectURLMock).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('多模下拉菜单模式：mode="dropdown" 渲染 el-dropdown 并能正确通过 handleCommand 触发', async () => {
+    const mockAction = vi.fn().mockResolvedValue(true);
+    const wrapper = mount(AtengExcelExport, {
+      props: {
+        mode: 'dropdown',
+        action: mockAction,
+        selectedIds: [101, 102],
+      },
+    });
+
+    expect(wrapper.findComponent({ name: 'ElDropdown' }).exists()).toBe(true);
+
+    // 调用暴露的 triggerExport 模拟 command 派发
+    await wrapper.vm.triggerExport('selected');
+
+    expect(mockAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ids: [101, 102],
+      }),
+    );
+    expect(wrapper.emitted('export-start')![0]).toEqual(['selected']);
+
+    wrapper.unmount();
+  });
 });

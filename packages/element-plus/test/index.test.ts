@@ -32,6 +32,7 @@ import AtengElementPlus, {
   AtengDescriptionsItem,
   AtengDateRange,
   AtengExcelFeedback,
+  AtengExcelExport,
   AtengUpload,
   // 便捷 At* 别名
   AtDialog,
@@ -47,11 +48,14 @@ import AtengElementPlus, {
   AtDescriptionsItem,
   AtDateRange,
   AtExcelFeedback,
+  AtExcelExport,
   AtUpload,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
   type AtengDictCheckboxInstance,
+  type AtengExcelExportProps,
+  type AtengExcelExportInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -94,6 +98,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengDescriptionsItem).toBeDefined();
     expect(AtengDateRange).toBeDefined();
     expect(AtengExcelFeedback).toBeDefined();
+    expect(AtengExcelExport).toBeDefined();
     expect(AtengUpload).toBeDefined();
   });
 
@@ -111,6 +116,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtDescriptionsItem).toBe(AtengDescriptionsItem);
     expect(AtDateRange).toBe(AtengDateRange);
     expect(AtExcelFeedback).toBe(AtengExcelFeedback);
+    expect(AtExcelExport).toBe(AtengExcelExport);
     expect(AtUpload).toBe(AtengUpload);
   });
 
@@ -126,6 +132,14 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       refresh: vi.fn(),
     };
     expect(mockCheckboxInstance.refresh).toBeDefined();
+
+    const mockExportProps: AtengExcelExportProps = { mode: 'dropdown', text: '导出' };
+    expect(mockExportProps.mode).toBe('dropdown');
+
+    const mockExportInstance: Partial<AtengExcelExportInstance> = {
+      triggerExport: vi.fn(),
+    };
+    expect(mockExportInstance.triggerExport).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');
