@@ -39,6 +39,7 @@ export default defineConfig({
     rollupOptions: {
       external: ['vue', 'element-plus', '@atengk/core', '@atengk/vue', /^element-plus\/.*/],
       output: {
+        exports: 'named',
         assetFileNames: assetInfo => {
           if (assetInfo.name?.endsWith('.css')) {
             return 'index.css';
