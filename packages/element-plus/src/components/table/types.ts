@@ -136,6 +136,55 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   loading?: boolean;
 
   /**
+   * 总记录数（离散分页模式）。
+   */
+  total?: number;
+
+  /**
+   * 当前页码（离散分页模式）。
+   * @default 1
+   */
+  pageNum?: number;
+
+  /**
+   * 每页条数（离散分页模式）。
+   * @default 10
+   */
+  pageSize?: number;
+
+  /**
+   * 每页条数选择器的选项列表。
+   * @default [10, 20, 50, 100]
+   */
+  pageSizes?: number[];
+
+  /**
+   * 分页组件布局配置。
+   * @default 'total, sizes, prev, pager, next, jumper'
+   */
+  paginationLayout?: string;
+
+  /**
+   * 是否显示底部分页条。未指定时若有 pagination 或 total 则自动为 true。
+   */
+  showPagination?: boolean;
+
+  /**
+   * 外部受控异常错误对象（离散模式）。
+   */
+  error?: unknown;
+
+  /**
+   * 空数据时的自定义文案。
+   */
+  emptyDescription?: string;
+
+  /**
+   * 异常状态时的自定义文案。
+   */
+  errorDescription?: string;
+
+  /**
    * 根容器自定义样式类名。
    */
   customClass?: string;
@@ -164,6 +213,31 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
    * 密度改变事件。
    */
   (e: 'update:density', density: TableDensity): void;
+
+  /**
+   * 页码更新事件（支持 v-model:pageNum）。
+   */
+  (e: 'update:pageNum', pageNum: number): void;
+
+  /**
+   * 每页条数更新事件（支持 v-model:pageSize）。
+   */
+  (e: 'update:pageSize', pageSize: number): void;
+
+  /**
+   * 分页参数联合变动事件。
+   */
+  (e: 'pagination-change', data: { pageNum: number; pageSize: number }): void;
+
+  /**
+   * 单独页码变动事件。
+   */
+  (e: 'page-change', pageNum: number): void;
+
+  /**
+   * 单独每页条数变动事件。
+   */
+  (e: 'size-change', pageSize: number): void;
 }
 
 /**
@@ -194,6 +268,11 @@ export interface AtengTableSlots<T = Record<string, unknown>> {
    * 自定义表格空状态插槽。
    */
   empty?: () => unknown;
+
+  /**
+   * 自定义底部分页条插槽。
+   */
+  pagination?: () => unknown;
 
   /**
    * 插入至表格最后一行之后的内容。
