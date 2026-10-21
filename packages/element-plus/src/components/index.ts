@@ -13,4 +13,5 @@ export * from './table';
 export * from './dict';
 export * from './descriptions';
 export * from './date-range';
+export * from './excel-feedback';
 export * from './shared/context';
