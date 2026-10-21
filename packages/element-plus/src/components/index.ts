@@ -10,4 +10,5 @@ export * from './dialog';
 export * from './drawer';
 export * from './query-form';
 export * from './table';
+export * from './dict';
 export * from './shared/context';

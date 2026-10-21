@@ -12,6 +12,30 @@ _Avoid_: ProTable, SuperTable, DataTable, BaseTable
 具备响应式栅格、平滑折叠展开与操作防抖的企业级结构化高级搜索表单容器组件。
 _Avoid_: SearchForm, FilterBar, QueryBox, AtengSearch, SearchPanel
 
+**AtengDescriptions**:
+具备预置脱敏管道（手机号、身份证、银行卡、金额）与空值防御展示的企业级结构化详情组件。
+_Avoid_: DetailView, InfoDescriptions, ProDescriptions
+
+**AtengDictSelect**:
+接入全局 DictManager 单例去重与常驻缓存的下拉字典选择组件。
+_Avoid_: DictSelect, EnumSelect, CodeSelect
+
+**AtengDictRadio**:
+接入全局 DictManager 单例去重与常驻缓存的单选框组字典组件。
+_Avoid_: DictRadio, EnumRadio
+
+**AtengDictTag**:
+基于全局 DictManager 字典项自动映射显示样式与标签的企业级彩色 Tag 组件。
+_Avoid_: DictTag, EnumTag, StatusTag
+
+**DictManager**:
+负责全局字典异步请求并发合并去重与内存常驻缓存的无状态/单例门面管理器。
+_Avoid_: DictService, CodeManager, EnumCache
+
+**AtengDateRange**:
+具备常用区间快捷切换与双字段解构绑定的快捷时间范围选择器组件。
+_Avoid_: RangePicker, DateRangePicker, QuickDateRange
+
 **AtengExcelFeedback**:
 Excel 导入错误明细在线预览与 Apache Fesod 标红批注回写文件下载弹窗组件。
 _Avoid_: ErrorDialog, ExcelModal, FeedbackDialog, ImportResultModal
