@@ -35,6 +35,7 @@ import AtengElementPlus, {
   AtengExcelExport,
   AtengUpload,
   AtengLogViewer,
+  AtengStatistic,
   // 便捷 At* 别名
   AtDialog,
   AtDrawer,
@@ -52,6 +53,7 @@ import AtengElementPlus, {
   AtExcelExport,
   AtUpload,
   AtLogViewer,
+  AtStatistic,
   // 核心类型导出验证
   type DictItem,
   type AtengDictCheckboxProps,
@@ -60,6 +62,8 @@ import AtengElementPlus, {
   type AtengExcelExportInstance,
   type AtengLogViewerProps,
   type AtengLogViewerInstance,
+  type AtengStatisticProps,
+  type AtengStatisticInstance,
   type DescriptionsItemConfig,
   type DateRangeShortcut,
   type ExcelFeedbackItem,
@@ -105,6 +109,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengExcelExport).toBeDefined();
     expect(AtengUpload).toBeDefined();
     expect(AtengLogViewer).toBeDefined();
+    expect(AtengStatistic).toBeDefined();
   });
 
   it('完整导出全部 13 项组件的 At 规范别名', () => {
@@ -124,6 +129,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtExcelExport).toBe(AtengExcelExport);
     expect(AtUpload).toBe(AtengUpload);
     expect(AtLogViewer).toBe(AtengLogViewer);
+    expect(AtStatistic).toBe(AtengStatistic);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {
@@ -155,6 +161,14 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       scrollToBottom: vi.fn(),
     };
     expect(mockLogInstance.clear).toBeDefined();
+
+    const mockStatisticProps: AtengStatisticProps = { value: 999, thousands: true };
+    expect(mockStatisticProps.thousands).toBe(true);
+
+    const mockStatisticInstance: Partial<AtengStatisticInstance> = {
+      restart: vi.fn(),
+    };
+    expect(mockStatisticInstance.restart).toBeDefined();
 
     const mockDescConfig: DescriptionsItemConfig = { prop: 'username', label: '用户名' };
     expect(mockDescConfig.prop).toBe('username');

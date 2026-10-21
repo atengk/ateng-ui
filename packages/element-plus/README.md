@@ -262,6 +262,24 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 />
 ```
 
+### 7. 金融级动效统计指标卡片 (`AtengStatistic`)
+
+`AtengStatistic` 基于原生 `requestAnimationFrame` 指数衰减缓动算法实现平滑翻牌过渡动画（零第三方依赖），支持金融级千分位与涨跌微标：
+
+```vue
+<!-- 金融级平滑数字滚动卡片，支持千分位格式化、红涨绿跌微标与骨架屏 Loading -->
+<AtengStatistic
+  title="年度总成交额 (GMV)"
+  :value="8923450.68"
+  prefix="¥"
+  suffix="元"
+  :thousands="true"
+  trend="up"
+  trend-value="+18.5%"
+  :duration="1200"
+/>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)

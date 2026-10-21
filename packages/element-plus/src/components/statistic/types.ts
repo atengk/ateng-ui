@@ -30,6 +30,12 @@ export interface AtengStatisticProps {
   precision?: number;
 
   /**
+   * 是否开启千分位格式化。
+   * @default true
+   */
+  thousands?: boolean;
+
+  /**
    * 千分位分隔符。
    * @default ','
    */
@@ -135,3 +141,8 @@ export interface AtengStatisticExpose {
    */
   displayValue: ComputedRef<string>;
 }
+
+/**
+ * AtengStatistic 专有组件实例类型。
+ */
+export type AtengStatisticInstance = AtengStatisticExpose;

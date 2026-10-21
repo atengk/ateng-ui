@@ -25,6 +25,7 @@ defineOptions({
 const props = withDefaults(defineProps<AtengStatisticProps>(), {
   title: '',
   precision: undefined,
+  thousands: true,
   separator: ',',
   prefix: '',
   suffix: '',
@@ -80,8 +81,15 @@ function formatNumber(num: number, prec: number, sep: string): string {
   return isNegative ? `-${result}` : result;
 }
 
+const effectiveSeparator = computed<string>(() => {
+  if (props.thousands === false) {
+    return '';
+  }
+  return props.separator ?? ',';
+});
+
 const displayValue = computed<string>(() => {
-  return formatNumber(currentNum.value, computedPrecision.value, props.separator);
+  return formatNumber(currentNum.value, computedPrecision.value, effectiveSeparator.value);
 });
 
 // 启动数字滚动动画

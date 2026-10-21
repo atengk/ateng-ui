@@ -122,4 +122,37 @@ describe('AtengStatistic 统计指标与数字滚动组件交互与契约测试'
 
     wrapper.unmount();
   });
+
+  it('千分位开关：配置 thousands: false 禁用千分位分隔符', async () => {
+    const wrapper = mount(AtengStatistic, {
+      props: {
+        value: 1234567,
+        thousands: false,
+        duration: 0,
+      },
+    });
+
+    expect(wrapper.find('.at-statistic__number').text()).toBe('1234567');
+
+    await wrapper.setProps({ thousands: true });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('.at-statistic__number').text()).toBe('1,234,567');
+
+    wrapper.unmount();
+  });
+
+  it('确定性生命周期：组件卸载时取消 requestAnimationFrame 动画句柄', async () => {
+    const cancelSpy = vi.fn();
+    window.cancelAnimationFrame = cancelSpy;
+
+    const wrapper = mount(AtengStatistic, {
+      props: {
+        value: 1000,
+        duration: 2000,
+      },
+    });
+
+    wrapper.unmount();
+    expect(cancelSpy).toHaveBeenCalled();
+  });
 });
