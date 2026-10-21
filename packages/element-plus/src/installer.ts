@@ -11,6 +11,8 @@ import type { App, Plugin } from 'vue';
 import { AtengDialog } from './components/dialog';
 import { AtengDrawer } from './components/drawer';
 import { AtengEmpty } from './components/empty';
+import { AtengQueryForm } from './components/query-form';
+import { AtengTable } from './components/table';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
@@ -36,6 +38,8 @@ export function install(app: App): void {
   app.component('AtengDialog', AtengDialog);
   app.component('AtengDrawer', AtengDrawer);
   app.component('AtengEmpty', AtengEmpty);
+  app.component('AtengQueryForm', AtengQueryForm);
+  app.component('AtengTable', AtengTable);
 
   // 3. 批量注册操作指令
   app.directive('permission', vPermission);

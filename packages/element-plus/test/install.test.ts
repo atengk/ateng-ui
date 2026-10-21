@@ -15,6 +15,8 @@ import AtengElementPlus, {
   AtengDialog,
   AtengDrawer,
   AtengEmpty,
+  AtengQueryForm,
+  AtengTable,
   vPermission,
   vRole,
   vIdempotent,
@@ -43,6 +45,8 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(AtengDialog).toBeDefined();
     expect(AtengDrawer).toBeDefined();
     expect(AtengEmpty).toBeDefined();
+    expect(AtengQueryForm).toBeDefined();
+    expect(AtengTable).toBeDefined();
 
     // 验证指令导出
     expect(vPermission).toBeDefined();
@@ -60,11 +64,15 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(dummyApp.component('AtengDialog')).toBeDefined();
     expect(dummyApp.component('AtengDrawer')).toBeDefined();
     expect(dummyApp.component('AtengEmpty')).toBeDefined();
+    expect(dummyApp.component('AtengQueryForm')).toBeDefined();
+    expect(dummyApp.component('AtengTable')).toBeDefined();
 
     // 验证严格拒绝非标别名
     expect(dummyApp.component('ateng-dialog')).toBeUndefined();
     expect(dummyApp.component('ateng-drawer')).toBeUndefined();
     expect(dummyApp.component('ateng-empty')).toBeUndefined();
+    expect(dummyApp.component('ateng-query-form')).toBeUndefined();
+    expect(dummyApp.component('ateng-table')).toBeUndefined();
 
     // 验证全部 5 组指令注册
     expect(dummyApp.directive('permission')).toBeDefined();

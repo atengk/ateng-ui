@@ -9,6 +9,8 @@ import {
   AtengEmpty,
   AtengDialog,
   AtengDrawer,
+  AtengQueryForm,
+  AtengTable,
 } from '../src/index';
 
 describe('@atengk/element-plus baseline', () => {
@@ -22,5 +24,7 @@ describe('@atengk/element-plus baseline', () => {
     expect(AtengEmpty).toBeDefined();
     expect(AtengDialog).toBeDefined();
     expect(AtengDrawer).toBeDefined();
+    expect(AtengQueryForm).toBeDefined();
+    expect(AtengTable).toBeDefined();
   });
 });
