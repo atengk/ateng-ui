@@ -30,7 +30,12 @@ import {
   ElMessageBox,
 } from 'element-plus';
 import { usePagination } from '@atengk/vue';
-import { AtengTable, AtengQueryForm, type AtengTableInstance } from '@atengk/element-plus';
+import {
+  AtengTable,
+  AtengQueryForm,
+  AtengExcelExport,
+  type AtengTableInstance,
+} from '@atengk/element-plus';
 import type { PageQuery, PageResult } from '@atengk/core';
 
 interface UserItem {
@@ -127,6 +132,11 @@ const handleAddUser = () => {
   ElMessage.success('触发新建用户');
 };
 
+const handleExportExcel = async (payload: Record<string, unknown>) => {
+  await new Promise(r => setTimeout(r, 600));
+  ElMessage.success(`模拟流式导出成功！入参：${JSON.stringify(payload)}`);
+};
+
 const handleEditRow = (row: UserItem) => {
   ElMessage.info(`编辑用户：${row.username} (ID: ${row.id})`);
 };
@@ -200,7 +210,7 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
         <!-- 2. 工具栏左侧自定义操作按钮 -->
         <template #toolbar-left>
           <ElButton type="primary" @click="handleAddUser"> + 新建用户 </ElButton>
-          <ElButton plain> 批量导出 Excel </ElButton>
+          <AtengExcelExport :action="handleExportExcel" />
         </template>
 
         <!-- 3. 原生与混合列插槽 -->
@@ -232,6 +242,13 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 
         <!-- 4. 底部粘滞批量操作悬浮条自定义业务插槽 -->
         <template #batch-actions="{ selectedRows, clearSelection }">
+          <AtengExcelExport
+            :action="handleExportExcel"
+            text="导出选中数据"
+            size="small"
+            type="success"
+            plain
+          />
           <ElButton
             type="danger"
             size="small"

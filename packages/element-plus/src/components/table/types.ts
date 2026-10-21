@@ -131,6 +131,13 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   storageKey?: string;
 
   /**
+   * 是否开启视口高度自适应，自动计算表格高度撑满屏幕剩余空间。
+   * 若为 number 则表示自定义距离视口底部的预留像素。
+   * @default false
+   */
+  autoHeight?: boolean | number;
+
+  /**
    * 外部受控 Loading 状态。
    */
   loading?: boolean;

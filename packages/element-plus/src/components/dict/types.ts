@@ -282,3 +282,80 @@ export interface AtengDictTagExpose {
    */
   isLoading: Ref<boolean>;
 }
+
+/**
+ * AtengDictCheckbox 多选框组组件属性契约。
+ */
+export interface AtengDictCheckboxProps {
+  /**
+   * 字典业务编码。
+   */
+  dictCode?: string;
+  /**
+   * 局部覆盖的字典加载函数。
+   */
+  loader?: DictLoader;
+  /**
+   * 静态字典选项数组。
+   */
+  options?: DictItem[];
+  /**
+   * 双向绑定值（支持数组，或配合 separator 的字符串）。
+   */
+  modelValue?: Array<string | number | boolean> | string;
+  /**
+   * 字符串多值分隔符（设置后支持双向绑定字符串，如 ','）。
+   */
+  separator?: string;
+  /**
+   * 是否使用按钮风格多选。
+   */
+  button?: boolean;
+  /**
+   * 是否展示全选复选框。
+   */
+  showCheckAll?: boolean;
+  /**
+   * 全选复选框文案。
+   * @default '全选'
+   */
+  checkAllText?: string;
+  /**
+   * 组件尺寸。
+   */
+  size?: ComponentSize;
+  /**
+   * 是否整体禁用。
+   */
+  disabled?: boolean;
+  /**
+   * 是否自动触发加载。
+   */
+  autoLoad?: boolean;
+}
+
+/**
+ * AtengDictCheckbox 多选框组组件事件契约。
+ */
+export interface AtengDictCheckboxEmits {
+  (e: 'update:modelValue', value: Array<string | number | boolean> | string | undefined): void;
+  (e: 'change', value: Array<string | number | boolean> | string | undefined): void;
+}
+
+/**
+ * AtengDictCheckbox 对外暴露实例。
+ */
+export interface AtengDictCheckboxExpose {
+  /**
+   * 强制刷新字典数据。
+   */
+  refresh: () => Promise<DictItem[]>;
+  /**
+   * 当前字典项列表。
+   */
+  dictItems: ShallowRef<DictItem[]>;
+  /**
+   * 内部 loading 状态。
+   */
+  isLoading: Ref<boolean>;
+}

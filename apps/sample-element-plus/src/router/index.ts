@@ -102,6 +102,48 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/business/UploadView.vue'),
     meta: { title: '多源切片上传器 AtengUpload' },
   },
+  {
+    path: '/business/stream-text',
+    name: 'BusinessStreamText',
+    component: () => import('../views/business/StreamTextView.vue'),
+    meta: { title: '流式打字机 AtengStreamText' },
+  },
+  {
+    path: '/business/log-viewer',
+    name: 'BusinessLogViewer',
+    component: () => import('../views/business/LogViewerView.vue'),
+    meta: { title: '实时日志终端 AtengLogViewer' },
+  },
+  {
+    path: '/business/statistic',
+    name: 'BusinessStatistic',
+    component: () => import('../views/business/StatisticView.vue'),
+    meta: { title: '指标翻牌统计 AtengStatistic' },
+  },
+  {
+    path: '/business/code-view',
+    name: 'BusinessCodeView',
+    component: () => import('../views/business/CodeViewView.vue'),
+    meta: { title: '源码数据高亮 AtengCodeView' },
+  },
+  {
+    path: '/business/icon-select',
+    name: 'BusinessIconSelect',
+    component: () => import('../views/business/IconSelectView.vue'),
+    meta: { title: '通用图标选择器 AtengIconSelect' },
+  },
+  {
+    path: '/business/captcha',
+    name: 'BusinessCaptcha',
+    component: () => import('../views/business/CaptchaView.vue'),
+    meta: { title: '验证码防刷新倒计时 AtengCaptcha' },
+  },
+  {
+    path: '/business/file-preview',
+    name: 'BusinessFilePreview',
+    component: () => import('../views/business/FilePreviewView.vue'),
+    meta: { title: '多格式文件预览 AtengFilePreview' },
+  },
 ];
 
 export const router = createRouter({

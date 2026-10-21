@@ -92,3 +92,37 @@ export function filterColumnVNodes(vnodes: VNode[], visibilityMap: Map<string, b
 
   return result;
 }
+
+/**
+ * 根据列显隐状态字典与排序顺序，过滤并排序插槽 VNodes 中的列节点。
+ *
+ * @param vnodes 原始插槽 VNode 列表
+ * @param visibilityMap 列 Key 对应显隐状态映射
+ * @param orderList 列 Key 期望的渲染顺序数组
+ * @returns 过滤与排重后的有效 VNode 列表
+ */
+export function filterAndSortColumnVNodes(
+  vnodes: VNode[],
+  visibilityMap: Map<string, boolean>,
+  orderList?: string[],
+): VNode[] {
+  const filtered = filterColumnVNodes(vnodes, visibilityMap);
+  if (!orderList || orderList.length === 0) {
+    return filtered;
+  }
+  const orderMap = new Map<string, number>();
+  orderList.forEach((key, idx) => orderMap.set(key, idx));
+
+  return [...filtered].sort((a, b) => {
+    const propsA = (a.props ?? {}) as Record<string, unknown>;
+    const keyA =
+      (propsA.prop as string) || (propsA.label as string) || (propsA.type as string) || '';
+    const propsB = (b.props ?? {}) as Record<string, unknown>;
+    const keyB =
+      (propsB.prop as string) || (propsB.label as string) || (propsB.type as string) || '';
+
+    const indexA = orderMap.has(keyA) ? orderMap.get(keyA)! : 9999;
+    const indexB = orderMap.has(keyB) ? orderMap.get(keyB)! : 9999;
+    return indexA - indexB;
+  });
+}

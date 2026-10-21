@@ -26,6 +26,16 @@ export interface AtengTableContext {
    * 当前表格是否处于加载状态。
    */
   loading?: { value: boolean };
+
+  /**
+   * 获取当前所有选中的数据行。
+   */
+  getSelectedRows?: () => Record<string, unknown>[];
+
+  /**
+   * 获取当前表格分页或检索入参模型。
+   */
+  getQueryParams?: () => Record<string, unknown> | undefined;
 }
 
 export const ATENG_TABLE_CONTEXT_KEY: InjectionKey<AtengTableContext> = Symbol('AtengTableContext');

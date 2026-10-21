@@ -23,6 +23,7 @@ import {
   watch,
   onMounted,
   onUnmounted,
+  nextTick,
   useSlots,
   provide,
   type ComputedRef,
@@ -61,7 +62,7 @@ import type {
   TableDensity,
   TableToolItem,
 } from './types';
-import { parseColumnVNodes, filterColumnVNodes } from './utils/vnode';
+import { parseColumnVNodes, filterAndSortColumnVNodes } from './utils/vnode';
 
 defineOptions({
   name: 'AtengTable',
@@ -78,6 +79,7 @@ const props = withDefaults(defineProps<AtengTableProps>(), {
   density: 'default',
   tools: true,
   storageKey: undefined,
+  autoHeight: false,
   loading: false,
   total: undefined,
   pageNum: undefined,
@@ -235,11 +237,28 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('keydown', handleKeydown);
   }
+  if (props.autoHeight && typeof window !== 'undefined') {
+    nextTick(() => {
+      updateAutoHeight();
+      if ('ResizeObserver' in window && tableRootRef.value) {
+        resizeObserver = new ResizeObserver(() => {
+          updateAutoHeight();
+        });
+        resizeObserver.observe(tableRootRef.value);
+      }
+      window.addEventListener('resize', updateAutoHeight);
+    });
+  }
 });
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('resize', updateAutoHeight);
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
   }
 });
 
@@ -281,12 +300,24 @@ const rawColumns = computed<TableColumnConfig[]>(() => {
 
 const columnSettings = ref<TableColumnConfig[]>([]);
 
-const loadPersistedColumns = (): Record<string, boolean> | null => {
+interface PersistedColumnConfig {
+  order?: string[];
+  visible?: Record<string, boolean>;
+}
+
+const loadPersistedColumns = (): PersistedColumnConfig | null => {
   if (!props.storageKey || typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(props.storageKey);
     if (!raw) return null;
-    return JSON.parse(raw) as Record<string, boolean>;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      if ('visible' in parsed) {
+        return parsed as PersistedColumnConfig;
+      }
+      return { visible: parsed as Record<string, boolean> };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -295,14 +326,19 @@ const loadPersistedColumns = (): Record<string, boolean> | null => {
 const savePersistedColumns = () => {
   if (!props.storageKey || typeof window === 'undefined') return;
   try {
-    const map: Record<string, boolean> = {};
+    const visibleMap: Record<string, boolean> = {};
+    const orderList: string[] = [];
     for (const col of columnSettings.value) {
       const key = getColumnKey(col);
       if (key) {
-        map[key] = col.visible !== false;
+        orderList.push(key);
+        visibleMap[key] = col.visible !== false;
       }
     }
-    localStorage.setItem(props.storageKey, JSON.stringify(map));
+    localStorage.setItem(
+      props.storageKey,
+      JSON.stringify({ order: orderList, visible: visibleMap }),
+    );
   } catch {
     // 弹性防御
   }
@@ -310,11 +346,73 @@ const savePersistedColumns = () => {
 
 const initColumnSettings = () => {
   const persisted = loadPersistedColumns();
-  columnSettings.value = rawColumns.value.map(col => {
-    const key = getColumnKey(col);
-    const visible = persisted && key in persisted ? persisted[key] : col.visible !== false;
-    return { ...col, visible };
-  });
+  const rawList = rawColumns.value;
+
+  if (persisted?.order && Array.isArray(persisted.order)) {
+    const sorted: TableColumnConfig[] = [];
+    const rawMap = new Map<string, TableColumnConfig>();
+    for (const col of rawList) {
+      rawMap.set(getColumnKey(col), col);
+    }
+    for (const key of persisted.order) {
+      const col = rawMap.get(key);
+      if (col) {
+        const visible =
+          persisted.visible && key in persisted.visible
+            ? persisted.visible[key]
+            : col.visible !== false;
+        sorted.push({ ...col, visible });
+        rawMap.delete(key);
+      }
+    }
+    for (const col of rawMap.values()) {
+      const key = getColumnKey(col);
+      const visible =
+        persisted.visible && key in persisted.visible
+          ? persisted.visible[key]
+          : col.visible !== false;
+      sorted.push({ ...col, visible });
+    }
+    columnSettings.value = sorted;
+  } else {
+    columnSettings.value = rawList.map(col => {
+      const key = getColumnKey(col);
+      const visible =
+        persisted?.visible && key in persisted.visible
+          ? persisted.visible[key]
+          : col.visible !== false;
+      return { ...col, visible };
+    });
+  }
+};
+
+// 列配置纯原生 HTML5 拖拽排序
+let draggedColumnIndex: number | null = null;
+
+const onColumnDragStart = (e: DragEvent, index: number) => {
+  draggedColumnIndex = index;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  }
+};
+
+const onColumnDragOver = (e: DragEvent, _index: number) => {
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const onColumnDrop = (_e: DragEvent, targetIndex: number) => {
+  if (draggedColumnIndex === null || draggedColumnIndex === targetIndex) {
+    draggedColumnIndex = null;
+    return;
+  }
+  const itemToMove = columnSettings.value.splice(draggedColumnIndex, 1)[0];
+  columnSettings.value.splice(targetIndex, 0, itemToMove);
+  draggedColumnIndex = null;
+  savePersistedColumns();
+  emit('columns-change', columnSettings.value);
 };
 
 watch(
@@ -369,27 +467,65 @@ const handleToggleAllColumns = (val: string | number | boolean) => {
 // 动态过滤可见属性列
 const activeAttributeColumns = computed<TableColumnConfig[]>(() => {
   const stateMap = new Map<string, boolean>();
-  for (const item of columnSettings.value) {
+  const orderMap = new Map<string, number>();
+  columnSettings.value.forEach((item, idx) => {
     const k = getColumnKey(item);
-    if (k) stateMap.set(k, item.visible !== false);
-  }
-  return (props.columns ?? []).filter(col => {
-    const k = getColumnKey(col);
-    return !k || stateMap.get(k) !== false;
+    if (k) {
+      stateMap.set(k, item.visible !== false);
+      orderMap.set(k, idx);
+    }
   });
+  return (props.columns ?? [])
+    .filter(col => {
+      const k = getColumnKey(col);
+      return !k || stateMap.get(k) !== false;
+    })
+    .sort((a, b) => {
+      const kA = getColumnKey(a);
+      const kB = getColumnKey(b);
+      const idxA = kA && orderMap.has(kA) ? orderMap.get(kA)! : 9999;
+      const idxB = kB && orderMap.has(kB) ? orderMap.get(kB)! : 9999;
+      return idxA - idxB;
+    });
 });
 
-// 动态过滤插槽列
+// 动态过滤与排序列插槽
 const renderFilteredSlotColumns = () => {
   if (!slots.default) return [];
   const defaultNodes = slots.default();
   const stateMap = new Map<string, boolean>();
+  const orderList: string[] = [];
   for (const item of columnSettings.value) {
     const k = getColumnKey(item);
-    if (k) stateMap.set(k, item.visible !== false);
+    if (k) {
+      stateMap.set(k, item.visible !== false);
+      orderList.push(k);
+    }
   }
-  return filterColumnVNodes(defaultNodes, stateMap);
+  return filterAndSortColumnVNodes(defaultNodes, stateMap, orderList);
 };
+
+// 视口高度自适应状态与监听器
+const tableRootRef = ref<HTMLElement | null>(null);
+const calculatedHeight = ref<number | undefined>(undefined);
+let resizeObserver: ResizeObserver | null = null;
+
+const updateAutoHeight = () => {
+  if (!props.autoHeight || typeof window === 'undefined' || !tableRootRef.value) {
+    return;
+  }
+  const rect = tableRootRef.value.getBoundingClientRect();
+  const bottomOffset = typeof props.autoHeight === 'number' ? props.autoHeight : 32;
+  const availableHeight = Math.max(150, Math.floor(window.innerHeight - rect.top - bottomOffset));
+  calculatedHeight.value = availableHeight;
+};
+
+const effectiveTableHeight = computed(() => {
+  if (props.autoHeight && calculatedHeight.value) {
+    return calculatedHeight.value;
+  }
+  return undefined;
+});
 
 // 6. 表格实例与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
@@ -441,6 +577,8 @@ const tableContext: AtengTableContext = {
     }
   },
   loading: isLoading,
+  getSelectedRows: () => selectedRows.value as Record<string, unknown>[],
+  getQueryParams: () => props.pagination?.query as Record<string, unknown> | undefined,
 };
 
 provide(ATENG_TABLE_CONTEXT_KEY, tableContext);
@@ -460,6 +598,7 @@ defineExpose<AtengTableExpose>({
 
 <template>
   <div
+    ref="tableRootRef"
     :class="[
       'at-table',
       `at-table--${currentDensity}`,
@@ -599,10 +738,15 @@ defineExpose<AtengTableExpose>({
               <div class="at-table-column-setting__divider" />
               <div class="at-table-column-setting__list">
                 <div
-                  v-for="item in columnSettings"
+                  v-for="(item, index) in columnSettings"
                   :key="item.prop || item.label || item.type"
                   class="at-table-column-setting__item"
+                  draggable="true"
+                  @dragstart="onColumnDragStart($event, index)"
+                  @dragover.prevent="onColumnDragOver($event, index)"
+                  @drop="onColumnDrop($event, index)"
                 >
+                  <span class="at-table-column-setting__handle" title="按住拖拽排序">⋮⋮</span>
                   <el-checkbox
                     v-model="item.visible"
                     :label="item.label || item.prop || item.type"
@@ -626,6 +770,7 @@ defineExpose<AtengTableExpose>({
         :row-key="rowKey"
         :border="border"
         :stripe="currentStripe"
+        :height="effectiveTableHeight"
         class="at-table__inner"
         @selection-change="handleSelectionChange"
         @sort-change="handleSortChange"
@@ -910,6 +1055,19 @@ defineExpose<AtengTableExpose>({
 
     &:hover {
       background-color: var(--el-fill-color-light);
+    }
+  }
+
+  &__handle {
+    cursor: grab;
+    user-select: none;
+    font-size: 14px;
+    letter-spacing: -2px;
+    margin-right: 6px;
+    color: var(--el-text-color-placeholder);
+
+    &:active {
+      cursor: grabbing;
     }
   }
 }

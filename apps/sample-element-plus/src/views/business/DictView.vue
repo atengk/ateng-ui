@@ -21,6 +21,7 @@ import {
   DictManager,
   AtengDictSelect,
   AtengDictRadio,
+  AtengDictCheckbox,
   AtengDictTag,
   type DictItem,
 } from '@atengk/element-plus';
@@ -66,6 +67,8 @@ const staticValue = ref<string>('beijing');
 const loaderValue = ref<string>('finance');
 const noticeLevel = ref<string>('medium');
 const buttonNoticeLevel = ref<string>('high');
+const checkboxHobbyArray = ref<string[]>(['low', 'high']);
+const checkboxHobbyString = ref<string>('low,critical');
 const statusTagValue = ref<string>('1');
 const multiStatusString = ref<string>('1,0,2');
 
@@ -256,9 +259,50 @@ onMounted(() => {
 
       <ElDivider />
 
-      <!-- 4. AtengDictTag 彩色状态标签 -->
+      <!-- 4. AtengDictCheckbox 多选框组 -->
       <div class="demo-section">
-        <div class="section-title">4. AtengDictTag 彩色状态标签（单值 / 多值 / 空安全保底）</div>
+        <div class="section-title">
+          4. AtengDictCheckbox 多选框组（全选 / 按钮风格 / separator解构）
+        </div>
+        <ElForm label-width="140px" class="demo-form">
+          <ElFormItem label="普通多选 (带全选)">
+            <AtengDictCheckbox
+              v-model="checkboxHobbyArray"
+              dict-code="sys_notice_level"
+              show-check-all
+            />
+            <span class="value-hint" style="margin-left: 16px"
+              >当前数组: {{ checkboxHobbyArray }}</span
+            >
+          </ElFormItem>
+
+          <ElFormItem label="按钮风格 (带全选)">
+            <AtengDictCheckbox
+              v-model="checkboxHobbyArray"
+              dict-code="sys_notice_level"
+              button
+              show-check-all
+            />
+          </ElFormItem>
+
+          <ElFormItem label="字符串解构绑定">
+            <AtengDictCheckbox
+              v-model="checkboxHobbyString"
+              dict-code="sys_notice_level"
+              separator=","
+            />
+            <span class="value-hint" style="margin-left: 16px"
+              >当前字符串: '{{ checkboxHobbyString }}'</span
+            >
+          </ElFormItem>
+        </ElForm>
+      </div>
+
+      <ElDivider />
+
+      <!-- 5. AtengDictTag 彩色状态标签 -->
+      <div class="demo-section">
+        <div class="section-title">5. AtengDictTag 彩色状态标签（单值 / 多值 / 空安全保底）</div>
         <div class="tag-row">
           <span class="row-label">单值展示 (value="1"):</span>
           <AtengDictTag dict-code="sys_user_status" :value="statusTagValue" />

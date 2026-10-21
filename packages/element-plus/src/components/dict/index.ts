@@ -7,8 +7,9 @@
 
 import AtengDictSelect from './AtengDictSelect.vue';
 import AtengDictRadio from './AtengDictRadio.vue';
+import AtengDictCheckbox from './AtengDictCheckbox.vue';
 import AtengDictTag from './AtengDictTag.vue';
 
-export { AtengDictSelect, AtengDictRadio, AtengDictTag };
+export { AtengDictSelect, AtengDictRadio, AtengDictCheckbox, AtengDictTag };
 export * from './DictManager';
 export * from './types';

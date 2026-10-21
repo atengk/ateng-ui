@@ -24,6 +24,10 @@ _Avoid_: DictSelect, EnumSelect, CodeSelect
 接入全局 DictManager 单例去重与常驻缓存的单选框组字典组件。
 _Avoid_: DictRadio, EnumRadio
 
+**AtengDictCheckbox**:
+接入全局 DictManager 单例去重与常驻缓存的多选框组字典组件。
+_Avoid_: DictCheckbox, EnumCheckbox, DictCheckGroup
+
 **AtengDictTag**:
 基于全局 DictManager 字典项自动映射显示样式与标签的企业级彩色 Tag 组件。
 _Avoid_: DictTag, EnumTag, StatusTag
@@ -40,6 +44,10 @@ _Avoid_: RangePicker, DateRangePicker, QuickDateRange
 Excel 导入错误明细在线预览与 Apache Fesod 标红批注回写文件下载弹窗组件。
 _Avoid_: ErrorDialog, ExcelModal, FeedbackDialog, ImportResultModal
 
+**AtengExcelExport**:
+具备防重复连击、Loading 锁与表格状态感知的流式 Excel 导出按钮组件。
+_Avoid_: ExportButton, ExcelBtn, Downloader, TableExport
+
 **AtengUpload**:
 统一抽象本地与标准 S3/MinIO 多源存储的直传与分片上传器组件。
 _Avoid_: FileUploader, OssUpload, UploadBox, StorageUpload
@@ -55,6 +63,34 @@ _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 **AtengEmpty**:
 统一多语义状态（空数据、403、网络异常、搜索无结果、500）与暗黑自适应插画的缺省态占位组件。
 _Avoid_: EmptyState, Placeholder, NoData, ErrorPlaceholder
+
+**AtengStreamText**:
+面向 AI/SSE 流式响应与平滑打字机吐字呈现的轻量级纯文本展示组件。
+_Avoid_: Typewriter, StreamView, ChatStream, AiText
+
+**AtengLogViewer**:
+对接全双工 WebSocket 与受控内存缓冲的企业级实时日志终端滚屏组件。
+_Avoid_: ConsoleView, WsLog, TerminalBox, LogTerminal
+
+**AtengStatistic**:
+具备纯原生 rAF 动效数字翻牌、千分位规整与涨跌趋势的企业级统计卡片组件。
+_Avoid_: StatCard, NumberRoll, MetricBox, DigitCard
+
+**AtengIconSelect**:
+集成 Element Plus 原生图标库与拼音极速模糊检索的系统配置图标选择器组件。
+_Avoid_: IconPicker, IconSelector, AtengIconPicker
+
+**AtengCodeView**:
+具备自适应行号栏、JSON 树形折叠展开与格式化一键复制的轻量结构化代码展示组件。
+_Avoid_: CodeMirrorWrapper, HighlightBox, PreCode, JsonViewer
+
+**AtengCaptcha**:
+具备 60 秒防刷新倒计时状态机、前置校验钩子与防刷互斥锁的验证码输入组件。
+_Avoid_: VerifyCode, SafeInput, PwdMeter, CaptchaInput
+
+**AtengFilePreview**:
+具备图片灯箱、原生 PDF 内嵌、多媒体播放与异常降级下载的多格式轻量文件预览弹窗组件。
+_Avoid_: FileViewer, DocPreview, QuickPreview, MediaModal
 
 ## 权限与防重指令
 

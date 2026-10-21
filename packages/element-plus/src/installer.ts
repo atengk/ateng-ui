@@ -17,6 +17,7 @@ import { AtengTable } from './components/table';
 import {
   AtengDictSelect,
   AtengDictRadio,
+  AtengDictCheckbox,
   AtengDictTag,
   DictManager,
   type DictProvider,
@@ -24,7 +25,15 @@ import {
 import { AtengDescriptions, AtengDescriptionsItem } from './components/descriptions';
 import { AtengDateRange } from './components/date-range';
 import { AtengExcelFeedback } from './components/excel-feedback';
+import { AtengExcelExport } from './components/excel-export';
 import { AtengUpload } from './components/upload';
+import { AtengStreamText } from './components/stream-text';
+import { AtengLogViewer } from './components/log-viewer';
+import { AtengStatistic } from './components/statistic';
+import { AtengCodeView } from './components/code-view';
+import { AtengIconSelect } from './components/icon-select';
+import { AtengCaptcha } from './components/captcha';
+import { AtengFilePreview } from './components/file-preview';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
@@ -54,12 +63,21 @@ const components: Record<string, Component> = {
   AtengTable,
   AtengDictSelect,
   AtengDictRadio,
+  AtengDictCheckbox,
   AtengDictTag,
   AtengDescriptions,
   AtengDescriptionsItem,
   AtengDateRange,
   AtengExcelFeedback,
+  AtengExcelExport,
   AtengUpload,
+  AtengStreamText,
+  AtengLogViewer,
+  AtengStatistic,
+  AtengCodeView,
+  AtengIconSelect,
+  AtengCaptcha,
+  AtengFilePreview,
 };
 
 /**

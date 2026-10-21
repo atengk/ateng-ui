@@ -28,7 +28,7 @@
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
 
 - **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`，当前活跃）：
-  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengTable`（高度整合契约的分页表格容器）、`AtengExcelFeedback`（Excel 导入标红批注错误在线预览与回写弹窗）、`AtengUpload`（存储直传与断点上传下载组件）、`v-permission`（细粒度按钮权限指令）、`v-role`（角色指令）以及 `v-idempotent`（按键防刷防重指令）。
+  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty` 以及 5 大权限防重与安全指令。
 - **React 企业级组件套件**（如 `@atengk/antd` 等，架构预留规划）：
   未来面向 React 生态的高阶组件套件，组装下层 L0 及 `@atengk/react` 能力。
 

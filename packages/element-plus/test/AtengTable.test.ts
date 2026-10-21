@@ -496,7 +496,8 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     // 验证 localStorage 记录了更新
     const stored = localStorage.getItem(storageKey);
     expect(stored).toBeTruthy();
-    expect(JSON.parse(stored!)).toHaveProperty('id', false);
+    const parsedStored = JSON.parse(stored!);
+    expect(parsedStored.visible || parsedStored).toHaveProperty('id', false);
 
     // 验证当前生效列元数据中的 id 列 visible 已更新为 false
     expect(vm.columns[0].visible).toBe(false);
@@ -627,5 +628,81 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
 
     // 即使有选中项，也不展示批量条
     expect(wrapper.find('.at-table__batch-bar').exists()).toBe(false);
+  });
+
+  it('列配置纯原生 HTML5 拖拽排序与顺序持久化', async () => {
+    const storageKey = 'test-table-drag-order';
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { prop: 'id', label: '编号' }),
+          h(ElTableColumn, { prop: 'username', label: '姓名' }),
+          h(ElTableColumn, { prop: 'age', label: '年龄' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 点击打开列设置 Popover
+    const colBtn = wrapper.find('button[aria-label="列设置"]');
+    await colBtn.trigger('click');
+    await doubleWait();
+
+    const items = document.querySelectorAll('.at-table-column-setting__item');
+    expect(items.length).toBe(3);
+
+    // 抓手存在
+    expect(items[0].querySelector('.at-table-column-setting__handle')).toBeTruthy();
+
+    // 模拟拖拽：将第 2 列 (姓名, index=1) 拖到第 0 列 (index=0)
+    const dragEvent = new Event('dragstart', { bubbles: true });
+    items[1].dispatchEvent(dragEvent);
+
+    const dragOverEvent = new Event('dragover', { bubbles: true });
+    items[0].dispatchEvent(dragOverEvent);
+
+    const dropEvent = new Event('drop', { bubbles: true });
+    items[0].dispatchEvent(dropEvent);
+    await doubleWait();
+
+    const vm = wrapper.vm as unknown as AtengTableInstance;
+    expect(vm.columns[0].prop).toBe('username');
+    expect(vm.columns[1].prop).toBe('id');
+
+    // 验证 localStorage 持久化了 order
+    const stored = localStorage.getItem(storageKey);
+    expect(stored).toBeTruthy();
+    const parsed = JSON.parse(stored!);
+    expect(parsed.order).toEqual(['username', 'id', 'age']);
+    expect(wrapper.emitted('columns-change')).toBeTruthy();
+  });
+
+  it('autoHeight 视口自适应高度：开启后动态计算剩余空间并通过 el-table:height 驱动', async () => {
+    // 模拟窗口高度与 DOM getBoundingClientRect
+    Object.defineProperty(window, 'innerHeight', { value: 900, writable: true });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        autoHeight: 40,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 验证 ElTable 接收到了计算后的 height 属性
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    expect(tableEl.props('height')).toBeDefined();
+    expect(typeof tableEl.props('height')).toBe('number');
   });
 });

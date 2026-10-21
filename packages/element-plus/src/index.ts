@@ -25,12 +25,21 @@ export {
   AtengTable as AtTable,
   AtengDictSelect as AtDictSelect,
   AtengDictRadio as AtDictRadio,
+  AtengDictCheckbox as AtDictCheckbox,
   AtengDictTag as AtDictTag,
   AtengDescriptions as AtDescriptions,
   AtengDescriptionsItem as AtDescriptionsItem,
   AtengDateRange as AtDateRange,
   AtengExcelFeedback as AtExcelFeedback,
+  AtengExcelExport as AtExcelExport,
   AtengUpload as AtUpload,
+  AtengStreamText as AtStreamText,
+  AtengLogViewer as AtLogViewer,
+  AtengStatistic as AtStatistic,
+  AtengCodeView as AtCodeView,
+  AtengIconSelect as AtIconSelect,
+  AtengCaptcha as AtCaptcha,
+  AtengFilePreview as AtFilePreview,
 } from './components';
 
 export default installer;

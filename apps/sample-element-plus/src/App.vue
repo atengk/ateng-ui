@@ -117,6 +117,19 @@ onMounted(() => {
                 导入错误反馈 (AtengExcelFeedback)
               </ElMenuItem>
               <ElMenuItem index="/business/upload"> 大文件切片上传 (AtengUpload) </ElMenuItem>
+              <ElMenuItem index="/business/stream-text">
+                AI 流式打字机 (AtengStreamText)
+              </ElMenuItem>
+              <ElMenuItem index="/business/log-viewer"> 实时日志终端 (AtengLogViewer) </ElMenuItem>
+              <ElMenuItem index="/business/statistic"> 指标翻牌统计 (AtengStatistic) </ElMenuItem>
+              <ElMenuItem index="/business/code-view"> 源码数据高亮 (AtengCodeView) </ElMenuItem>
+              <ElMenuItem index="/business/icon-select">
+                通用图标选择器 (AtengIconSelect)
+              </ElMenuItem>
+              <ElMenuItem index="/business/captcha"> 验证码倒计时 (AtengCaptcha) </ElMenuItem>
+              <ElMenuItem index="/business/file-preview">
+                多格式文件预览 (AtengFilePreview)
+              </ElMenuItem>
             </ElSubMenu>
           </ElMenu>
         </ElAside>
