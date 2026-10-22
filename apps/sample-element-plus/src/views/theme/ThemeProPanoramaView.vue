@@ -19,7 +19,7 @@
  * @since 2026-10-22
  */
 
-import { ref, reactive, onUnmounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import {
   ElButton,
   ElInput,
@@ -37,7 +37,11 @@ import {
 } from 'element-plus';
 import { AtengCard, setThemeColor } from '@atengk/element-plus';
 
-// 1. 预设主题控制
+// 1. 暗黑模式监听与主动感知
+const isDark = ref(false);
+let darkObserver: MutationObserver | null = null;
+
+// 2. 预设主题控制
 type PresetType = 'indigo' | 'emerald' | 'violet' | 'ocean' | 'rose';
 const activePreset = ref<PresetType>('indigo');
 
@@ -75,7 +79,15 @@ const switchPreset = (preset: PresetType) => {
   });
 };
 
-// 2. 按钮 Loading
+// 3. 快速平滑滚动定位锚点
+const scrollToSection = (id: string) => {
+  const target = document.getElementById(id);
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+// 4. 按钮 Loading
 const isBtnLoading = ref(false);
 const triggerBtnLoading = () => {
   isBtnLoading.value = true;
@@ -84,7 +96,7 @@ const triggerBtnLoading = () => {
   }, 1200);
 };
 
-// 3. 表单状态与错误联动
+// 5. 表单状态与错误联动
 const formModel = reactive({
   clusterName: 'us-east-production-01',
   region: 'us-east-1',
@@ -92,7 +104,7 @@ const formModel = reactive({
 });
 const hasFormError = ref(false);
 
-// 4. 表格与高频数字防抖实测
+// 6. 表格与高频数字防抖实测
 interface ServerItem {
   id: string;
   name: string;
@@ -123,13 +135,6 @@ const tableData = ref<ServerItem[]>([
     latency: 12.45,
     status: 'warning',
   },
-  {
-    id: '1850000000000000004',
-    name: 'llm-rag-vector-db-01',
-    qps: 620,
-    latency: 148.9,
-    status: 'critical',
-  },
 ]);
 
 const isPulsing = ref(false);
@@ -150,10 +155,31 @@ const togglePulsing = (enabled: boolean) => {
   }
 };
 
+onMounted(() => {
+  // 初始化探测暗黑模式与动态监听
+  isDark.value = document.documentElement.classList.contains('dark');
+  darkObserver = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark');
+  });
+  darkObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+
+  // 默认激活 indigo 预设
+  if (!document.documentElement.getAttribute('data-theme')) {
+    document.documentElement.setAttribute('data-theme', 'indigo');
+  }
+});
+
 onUnmounted(() => {
   if (pulseTimer) {
     clearInterval(pulseTimer);
     pulseTimer = null;
+  }
+  if (darkObserver) {
+    darkObserver.disconnect();
+    darkObserver = null;
   }
 });
 
@@ -204,7 +230,7 @@ const applyCustomBrand = () => {
     <div class="ambient-radial-glow" />
 
     <!-- 1. 英雄区 Banner -->
-    <div class="hero-banner-card mb-4">
+    <div class="hero-banner-card mb-3">
       <div class="hero-header-flex">
         <div class="hero-brand">
           <div class="hero-icon">P</div>
@@ -234,24 +260,42 @@ const applyCustomBrand = () => {
           </ElRadioGroup>
         </div>
       </div>
+
+      <!-- 快速锚点导航 -->
+      <div class="hero-quick-nav">
+        <span class="nav-label">快速直达：</span>
+        <a class="nav-pill" @click="scrollToSection('section-buttons')">🏆 三轨按钮</a>
+        <a class="nav-pill" @click="scrollToSection('section-forms')">⚡ 激光表单</a>
+        <a class="nav-pill" @click="scrollToSection('section-tags')">🏷️ 晶体标签</a>
+        <a class="nav-pill" @click="scrollToSection('section-switches')">🎛️ 数控开关</a>
+        <a class="nav-pill" @click="scrollToSection('section-tables')">📊 流体表格</a>
+        <a class="nav-pill" @click="scrollToSection('section-overlays')">🪟 浮层反馈</a>
+        <a class="nav-pill" @click="scrollToSection('section-tenant')">💼 租户换肤</a>
+      </div>
     </div>
 
     <!-- 2. 三轨现代按钮工艺与激光 Focus-Ring 表单 -->
-    <div class="grid-two-col mb-4">
+    <div class="grid-two-col mb-3">
       <!-- 按钮工艺 -->
-      <AtengCard title="🏆 三轨主按钮体系 (彻底消除拟物果冻反光线与文字阴影)">
+      <AtengCard id="section-buttons" title="🏆 三轨主按钮体系 (彻底消除拟物果冻反光线与文字阴影)">
         <div class="section-desc mb-3">
           支持 Linear 签名级高反差主按钮 (.is-contrast)、天鹅绒沉稳主色按钮与冷钛金次级按钮，标配
           scale(0.975) 阻尼微动效。
         </div>
         <div class="btn-cluster mb-3">
-          <ElButton type="primary" class="is-contrast">Linear 纯白高反差 (.is-contrast)</ElButton>
+          <ElButton type="primary" class="is-contrast">
+            Linear 高反差主按钮 ({{ isDark ? '纯白底黑字' : '纯黑底白字' }})
+          </ElButton>
           <ElButton type="primary">天鹅绒沉稳主色</ElButton>
+          <ElButton type="primary" class="at-btn-gradient">极客渐变光晕</ElButton>
           <ElButton>Secondary 冷钛金</ElButton>
           <ElButton dashed>Ghost 虚线幽灵</ElButton>
+        </div>
+        <div class="btn-cluster mb-3">
           <ElButton type="primary" :loading="isBtnLoading" @click="triggerBtnLoading">
             {{ isBtnLoading ? '提交中...' : '点击触发 Loading' }}
           </ElButton>
+          <ElButton type="primary" class="at-btn-glow">脉冲微光发光 (.at-btn-glow)</ElButton>
         </div>
         <div class="btn-cluster">
           <ElButton type="success">Success 翠绿</ElButton>
@@ -262,7 +306,16 @@ const applyCustomBrand = () => {
       </AtengCard>
 
       <!-- 双层激光 Focus-Ring 表单 -->
-      <AtengCard title="⚡ 双层激光 Focus-Ring 表单控件">
+      <AtengCard id="section-forms" title="⚡ 双层激光 Focus-Ring 表单控件">
+        <template #extra>
+          <ElButton
+            size="small"
+            :type="hasFormError ? 'danger' : 'default'"
+            @click="hasFormError = !hasFormError"
+          >
+            {{ hasFormError ? '恢复正常' : '模拟 .is-error 错误' }}
+          </ElButton>
+        </template>
         <div class="section-desc mb-3">
           聚焦激活 4px 激光柔光扩散环，实时联动当前多主题预设；支持表单错误态 (.is-error)
           绯红光晕警报。
@@ -274,38 +327,33 @@ const applyCustomBrand = () => {
           </div>
           <div class="form-row">
             <span class="field-label">部署目标 Region:</span>
-            <ElSelect v-model="formModel.region" placeholder="请选择">
+            <ElSelect v-model="formModel.region" placeholder="请选择" style="width: 100%">
               <ElOption label="US-East (Virginia)" value="us-east-1" />
               <ElOption label="AP-East (Hong Kong)" value="ap-east-1" />
               <ElOption label="EU-Central (Frankfurt)" value="eu-central-1" />
             </ElSelect>
           </div>
-          <div class="form-row" :class="{ 'has-error-state': hasFormError }">
+          <div class="form-row">
             <span class="field-label">集群密钥 Token:</span>
-            <div class="input-with-error">
-              <ElInput
-                v-model="formModel.apiKey"
-                :class="{ 'is-error': hasFormError }"
-                placeholder="请输入密钥"
-              />
-              <ElButton
-                size="small"
-                :type="hasFormError ? 'danger' : 'default'"
-                @click="hasFormError = !hasFormError"
-              >
-                {{ hasFormError ? '清除错误态' : '模拟 .is-error 错误态' }}
-              </ElButton>
-            </div>
+            <ElInput
+              v-model="formModel.apiKey"
+              :class="{ 'is-error': hasFormError }"
+              placeholder="请输入密钥"
+            />
           </div>
         </div>
       </AtengCard>
     </div>
 
-    <!-- 3. 黑曜石 LED 状态标签与数控滑动开关 -->
-    <div class="grid-two-col mb-4">
-      <AtengCard title="🏷️ 黑曜石暗晶体底 + 呼吸微发光 LED 状态核标签">
+    <!-- 3. 现代多态晶体标签与数控滑动开关 -->
+    <div class="grid-two-col mb-3">
+      <AtengCard id="section-tags" title="🏷️ 现代多态晶体标签 (浅色柔和软质 + 暗黑黑曜石暗晶体)">
+        <template #extra>
+          <span class="text-xs text-muted">💡 可点击右上角暗黑模式查看黑曜石暗晶</span>
+        </template>
         <div class="section-desc mb-3">
-          彻底告别刺眼生硬的交通灯实线塑料感大药丸，采用高透软质 Soft Pill 底色与暗黑暗晶体底。
+          彻底告别刺眼生硬的交通灯实线塑料感大药丸；浅色模式呈现高透轻柔软质底色，暗黑模式自动激活黑曜石暗晶体底并内置呼吸发光
+          LED 状态核。
         </div>
         <div class="tag-cluster mb-3">
           <ElTag class="is-dot" type="primary">Primary 动态主色</ElTag>
@@ -323,7 +371,7 @@ const applyCustomBrand = () => {
         </div>
       </AtengCard>
 
-      <AtengCard title="🎛️ 精密数控滑动开关 (ElSwitch)">
+      <AtengCard id="section-switches" title="🎛️ 精密数控滑动开关 (ElSwitch)">
         <div class="section-desc mb-3">
           关闭态冷钛底色，开启态天鹅绒主色伴随 12px 柔光扩散，滑块内置立体微内凹阴影与 0.25s
           阻尼弹性过渡。
@@ -346,7 +394,11 @@ const applyCustomBrand = () => {
     </div>
 
     <!-- 4. 流体无框表格与 tabular-nums 防抖 -->
-    <AtengCard title="📊 流体无框工整表格 (规整冷灰独立表头分层 + tabular-nums 防抖)" class="mb-4">
+    <AtengCard
+      id="section-tables"
+      title="📊 流体无框工整表格 (规整冷灰独立表头分层 + tabular-nums 防抖)"
+      class="mb-3"
+    >
       <div class="table-control-bar mb-3">
         <div class="control-left">
           <span class="control-label">高频数值波动防抖实测：</span>
@@ -401,8 +453,9 @@ const applyCustomBrand = () => {
 
     <!-- 5. 沉浸景深毛玻璃浮层与药丸浮岛 Toast -->
     <AtengCard
+      id="section-overlays"
       title="🪟 浮层与反馈系统 (blur(8px) 景深遮罩 + 16px 弹窗 + 9999px 药丸 Message)"
-      class="mb-4"
+      class="mb-3"
     >
       <div class="feedback-btn-cluster mb-4">
         <ElButton type="primary" @click="dialogVisible = true">
@@ -441,7 +494,7 @@ const applyCustomBrand = () => {
     </AtengCard>
 
     <!-- 6. 运行时 setThemeColor 任意企业品牌色动态演算 -->
-    <AtengCard title="💼 运行时任意企业品牌色动态演算 (setThemeColor)">
+    <AtengCard id="section-tenant" title="💼 运行时任意企业品牌色动态演算 (setThemeColor)">
       <div class="section-desc mb-3">
         调用 <code>setThemeColor(hex)</code>，采用与 Element Plus 官方 Sass
         完全一致的线性插值算法，实时演算 1~9 级轻量色阶与 RGB 通道。
@@ -552,11 +605,47 @@ const applyCustomBrand = () => {
   margin-top: 4px;
 }
 
+/* 快速锚点导航条 */
+.hero-quick-nav {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.nav-pill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background-color: var(--el-fill-color);
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--el-border-color-light);
+
+  &:hover {
+    color: var(--el-color-primary);
+    background-color: rgba(var(--el-color-primary-rgb), 0.08);
+    border-color: rgba(var(--el-color-primary-rgb), 0.3);
+    transform: translateY(-1px);
+  }
+}
+
 /* 双列栅格 */
 .grid-two-col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .section-desc {
@@ -591,13 +680,6 @@ const applyCustomBrand = () => {
   font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-regular);
-}
-
-.input-with-error {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .switch-row-cluster {

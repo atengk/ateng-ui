@@ -46,7 +46,16 @@
 // ========================================================
 // 2. Primary 主按钮 (天鹅绒沉稳主色，无果冻反光线)
 // ========================================================
-.el-button--primary:not(.is-link):not(.is-text):not(.is-dashed) {
+.el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+  --el-button-bg-color: var(--el-color-primary);
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: var(--el-color-primary);
+  --el-button-hover-bg-color: var(--el-color-primary-light-3);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: var(--el-color-primary-light-3);
+  --el-button-active-bg-color: var(--el-color-primary-dark-2);
+  --el-button-active-border-color: var(--el-color-primary-dark-2);
+
   border-color: transparent;
   text-shadow: none;
 
@@ -72,7 +81,15 @@
 }
 
 // 暗黑模式下：深邃天鹅绒色阶微调
-html.dark .el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not(.is-contrast) {
+html.dark
+  .el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]):not(.is-contrast) {
+  --el-button-bg-color: var(--el-color-primary-dark-2);
+  --el-button-text-color: #f1f5f9;
+  --el-button-border-color: rgba(255, 255, 255, 0.12);
+  --el-button-hover-bg-color: var(--el-color-primary);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: rgba(255, 255, 255, 0.2);
+
   background-color: var(--el-color-primary-dark-2);
   color: #f1f5f9;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -104,6 +121,16 @@ html.dark .el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not(.i
   font-weight: 600;
   letter-spacing: -0.01em;
 
+  // 显式覆写 Element Plus 按钮 CSS 变量与真实属性双保险
+  --el-button-bg-color: #090d16;
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: #090d16;
+  --el-button-hover-bg-color: #1e293b;
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: #1e293b;
+  --el-button-active-bg-color: #0f172a;
+  --el-button-active-border-color: #0f172a;
+
   // 浅色模式：极黑曜石底 + 纯白文字
   background-color: #090d16;
   color: #ffffff;
@@ -129,6 +156,15 @@ html.dark .el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not(.i
 // 暗黑模式下：纯白底 + 纯黑文字 (极致反差与权威感)
 html.dark .el-button--contrast,
 html.dark .el-button--primary.is-contrast {
+  --el-button-bg-color: #f8fafc;
+  --el-button-text-color: #07090e;
+  --el-button-border-color: #ffffff;
+  --el-button-hover-bg-color: #e2e8f0;
+  --el-button-hover-text-color: #07090e;
+  --el-button-hover-border-color: #e2e8f0;
+  --el-button-active-bg-color: #cbd5e1;
+  --el-button-active-border-color: #cbd5e1;
+
   background-color: #f8fafc;
   color: #07090e;
   border-color: #ffffff;
@@ -199,7 +235,8 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
 // ========================================================
 // 5. 幽灵/虚线按钮与辅助语义按钮
 // ========================================================
-.el-button.is-dashed {
+.el-button.is-dashed,
+.el-button[dashed] {
   border-style: dashed;
   border-color: var(--el-border-color);
   background-color: transparent;
@@ -213,22 +250,73 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
   }
 }
 
-.el-button--success:not(.is-link):not(.is-text):not(.is-dashed) {
+.el-button--success:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+  --el-button-bg-color: var(--el-color-success);
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: var(--el-color-success);
+  --el-button-hover-bg-color: var(--el-color-success-light-3);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: var(--el-color-success-light-3);
+  --el-button-active-bg-color: var(--el-color-success-dark-2);
+  --el-button-active-border-color: var(--el-color-success-dark-2);
+
+  background-color: var(--el-color-success);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-success-rgb), 0.2);
 }
-.el-button--warning:not(.is-link):not(.is-text):not(.is-dashed) {
+
+.el-button--warning:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+  --el-button-bg-color: var(--el-color-warning);
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: var(--el-color-warning);
+  --el-button-hover-bg-color: var(--el-color-warning-light-3);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: var(--el-color-warning-light-3);
+  --el-button-active-bg-color: var(--el-color-warning-dark-2);
+  --el-button-active-border-color: var(--el-color-warning-dark-2);
+
+  background-color: var(--el-color-warning);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-warning-rgb), 0.2);
 }
-.el-button--danger:not(.is-link):not(.is-text):not(.is-dashed) {
+
+.el-button--danger:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+  --el-button-bg-color: var(--el-color-danger);
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: var(--el-color-danger);
+  --el-button-hover-bg-color: var(--el-color-danger-light-3);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: var(--el-color-danger-light-3);
+  --el-button-active-bg-color: var(--el-color-danger-dark-2);
+  --el-button-active-border-color: var(--el-color-danger-dark-2);
+
+  background-color: var(--el-color-danger);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-danger-rgb), 0.2);
 }
-.el-button--info:not(.is-link):not(.is-text):not(.is-dashed) {
+
+.el-button--info:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+  --el-button-bg-color: var(--el-color-info);
+  --el-button-text-color: #ffffff;
+  --el-button-border-color: var(--el-color-info);
+  --el-button-hover-bg-color: var(--el-color-info-light-3);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: var(--el-color-info-light-3);
+  --el-button-active-bg-color: var(--el-color-info-dark-2);
+  --el-button-active-border-color: var(--el-color-info-dark-2);
+
+  background-color: var(--el-color-info);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-info-rgb), 0.2);

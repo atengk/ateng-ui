@@ -44,7 +44,7 @@
 | **通用选择** | 原生图标选择器      | `AtengIconSelect`                                              | `v-model`, `mode: 'popover' \| 'dialog'`, `clearable`, `showCopy`, `pageSize`, `customIcons`                                                                                                                       | 原生收敛 Element Plus 标准图标库（0 外部图标包强绑定）；支持拼音缩写/全拼/中英文毫秒级模糊检索；网格分页与一键复制 `<el-icon>` 代码组件                                                                                                                                                                                | [`AtengIconSelect.test.ts`](./test/AtengIconSelect.test.ts)<br>`/business/icon-select`          |
 | **安全交互** | 验证码防刷新倒计时  | `AtengCaptcha`                                                 | `type: 'button' \| 'image'`, `seconds`, `storageKey`, `beforeSend`, `send`, `imageSrc`                                                                                                                             | LocalStorage 物理时间戳防页面刷新清零；前置异步校验拦截钩子；异步发送 Loading 互斥防重锁；支持图形字符验证码防重刷新                                                                                                                                                                                                   | [`AtengCaptcha.test.ts`](./test/AtengCaptcha.test.ts)<br>`/business/captcha`                    |
 | **文件预览** | 多格式文件在线预览  | `AtengFilePreview`                                             | `url`, `file`, `content`, `name`, `fileType`, `mode: 'inline' \| 'dialog'`, `downloadable`                                                                                                                         | 纯原生 HTML5 高性能内嵌（零第三方重型体积）；图片灯箱、原生 PDF、音视频播放、代码文本联动（复用 AtengCodeView）与未知格式降级下载；临时 ObjectURL 确定性生命周期回收                                                                                                                                                   | [`AtengFilePreview.test.ts`](./test/AtengFilePreview.test.ts)<br>`/business/file-preview`       |
-| **主题引擎** | 现代极客多主题引擎  | `@atengk/element-plus/theme-pro.css`                           | `data-theme="cyber-blue \| emerald \| violet \| sunset \| amber"`, `html.dark`                                                                                                                                     | 纯 CSS 变量驱动现代极客主题引擎（零 `!important`）；预设 5 套科技风主题（赛博蓝/翡翠绿/极客紫/落日橙/琥珀金）；Slate 暗黑冷感基底；三轨主按钮、激光 Focus-Ring 表单、黑曜石 LED 状态标签、数控轻拟物开关、流体无框表格、毛玻璃浮层与结构化微光卡片                                                                     | `dist/theme-pro.css`<br>`/theme-pro`<br>`/theme/*`                                              |
+| **主题引擎** | 现代极客多主题引擎  | `@atengk/element-plus/theme-pro.css`                           | `data-theme="indigo \| emerald \| violet \| ocean \| rose"`, `html.dark`                                                                                                                                           | 纯 CSS 变量驱动现代极客主题引擎（零 `!important`）；预设 5 套科技风主题（极客靛蓝/极客翠绿/赛博幻紫/商务深海/极光绯红）；Slate 暗黑冷感基底；三轨主按钮、激光 Focus-Ring 表单、黑曜石 LED 状态标签、数控轻拟物开关、流体无框表格、毛玻璃浮层与结构化微光卡片                                                           | `dist/theme-pro.css`<br>`/theme-pro`<br>`/theme/*`                                              |
 | **主题引擎** | 租户品牌色动态换肤  | `setThemeColor`                                                | `color: string`, `options?: SetThemeColorOptions`                                                                                                                                                                  | 纯原生高精度色阶演算（对齐 Element Plus 官方 Sass 混合算法）；100% 运行时动态生成 9 阶 light 与 2 阶 dark 色阶；支持 LocalStorage 持久化存储记忆、自定义 DOM 挂载目标与即时无刷换肤                                                                                                                                    | [`setThemeColor.test.ts`](./test/theme/setThemeColor.test.ts)<br>`/theme/tenant`                |
 | **主题引擎** | 品牌色阶纯函数算法  | `generateThemePalette`                                         | `color: string`                                                                                                                                                                                                    | 纯函数调色算法，输入 16 进制颜色（如 `#409eff`），高精度输出主色及全套 9 阶浅色与 2 阶深色配色字典；零外部调色库依赖                                                                                                                                                                                                   | [`setThemeColor.test.ts`](./test/theme/setThemeColor.test.ts)                                   |
 | **专属类型** | 组件 Ref 实例与契约 | `AtengTableInstance`<br>`AtengUploadInstance`<br>`DictItem` 等 | `InstanceType` 与接口定义                                                                                                                                                                                          | 100% 显式收敛导出对外门面方法与状态，强类型安全闭环                                                                                                                                                                                                                                                                    | [`index.test.ts`](./test/index.test.ts)                                                         |
@@ -91,7 +91,7 @@ app.mount('#app');
 ```
 
 > [!TIP]
-> **多主题启用**：引入 `theme-pro.css` 后，仅需在根节点 `<html data-theme="cyber-blue">` 设置属性即可秒级开启预置科技风主题（支持 `cyber-blue` 赛博蓝、`emerald` 翡翠绿、`violet` 极客紫、`sunset` 落日橙、`amber` 琥珀金），搭配 `class="dark"` 即可激活工业级 Slate 深空暗黑基底。全量样式纯 CSS 变量驱动，运行时零损耗。
+> **多主题启用**：引入 `theme-pro.css` 后，仅需在根节点 `<html data-theme="indigo">` 设置属性即可秒级开启预置科技风主题（支持 `indigo` 极客靛蓝、`emerald` 极客翠绿、`violet` 赛博幻紫、`ocean` 商务深海、`rose` 极光绯红），搭配 `class="dark"` 即可激活工业级 Slate 深空暗黑基底。全量样式纯 CSS 变量驱动，运行时零损耗。
 
 ### 3. 开箱即用体验：企业级 CRUD 查询与表格联动
 
@@ -554,11 +554,11 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 面向现代云原生控制台、DevOps 平台与 AI 交互系统，提供开箱即用、纯 CSS 变量驱动的工业级现代极客主题引擎：
 
 - **5 款预置科技配色**：
-  - `cyber-blue`（赛博蓝，默认科技蓝 `#3b82f6`）
-  - `emerald`（翡翠绿，极客极客青 `#10b981`）
-  - `violet`（极客紫，未来霓虹紫 `#8b5cf6`）
-  - `sunset`（落日橙，活力落日橙 `#f97316`）
-  - `amber`（琥珀金，尊贵高能金 `#f59e0b`）
+  - `indigo`（极客靛蓝，默认 Linear 质感高智冷调 `#4f46e5`）
+  - `emerald`（极客翠绿，清新翡翠青 `#10b981`）
+  - `violet`（赛博幻紫，未来主义霓虹幻紫 `#7c3aed`）
+  - `ocean`（商务深海，严谨可靠深海蓝 `#0284c7`）
+  - `rose`（极光绯红，热烈创新高能绯红 `#e11d48`）
 - **Slate 冷感深空暗黑基底**：基于 Slate 调色板重构 Element Plus 暗黑体系（底板 `--el-bg-color-page: #0b0f19`、卡片 `--el-bg-color: #111827`、浮层 `--el-bg-color-overlay: #1e293b`），告别发灰混浊的视觉体验；
 - **现代质感组件增强**：
   - **三轨主按钮**：纯色扁平、渐变极客（`.at-btn-gradient`）与微光脉冲发光（`.at-btn-glow`）；
@@ -574,8 +574,8 @@ await DictManager.loadDict('sys_user_status', undefined, true);
 <script setup lang="ts">
 import { ref } from 'vue';
 
-type ThemeName = 'cyber-blue' | 'emerald' | 'violet' | 'sunset' | 'amber';
-const currentTheme = ref<ThemeName>('cyber-blue');
+type ThemeName = 'indigo' | 'emerald' | 'violet' | 'ocean' | 'rose';
+const currentTheme = ref<ThemeName>('indigo');
 
 function switchTheme(theme: ThemeName) {
   currentTheme.value = theme;
