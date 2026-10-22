@@ -57,6 +57,16 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('.el-image-viewer__actions');
   });
 
+  it('表单布局、必填指示与复合输入全景 (Inputs & Form Layout) 规则正确编译', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-form-item');
+    expect(content).toContain('.el-input-number');
+    expect(content).toContain('.el-input-tag');
+    expect(content).toContain('.el-input-otp');
+    expect(content).toContain('.el-autocomplete');
+    expect(content).toContain('.el-mention');
+  });
+
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {
     const content = fs.readFileSync(cssPath, 'utf-8');
     expect(content).toContain('[data-theme=indigo]');

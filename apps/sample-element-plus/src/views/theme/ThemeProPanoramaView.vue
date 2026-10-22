@@ -70,6 +70,13 @@ import {
   ElAvatarGroup,
   ElImage,
   ElImageViewer,
+  ElForm,
+  ElFormItem,
+  ElInputNumber,
+  ElInputTag,
+  ElInputOtp,
+  ElAutocomplete,
+  ElMention,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -134,6 +141,37 @@ const formModel = reactive({
 const hasFormError = ref(false);
 const switchAudit = ref(true);
 const switchDebug = ref(false);
+
+// 新型输入与表单布局校验状态
+const testFormRef = ref();
+const complexForm = reactive({
+  serverCount: 3,
+  tagList: ['CloudNative', 'ZeroBloat', 'K8sEdge'],
+  otpCode: '8520',
+  autoCluster: '',
+  mentionComment: '',
+});
+const formRules = {
+  serverCount: [{ required: true, message: '请配置实例节点数量', trigger: 'change' }],
+  tagList: [{ required: true, message: '请至少添加一个集群标签', trigger: 'change' }],
+  otpCode: [{ required: true, message: '请输入 4 位安全验证码', trigger: 'change' }],
+};
+const querySearchCluster = (
+  queryString: string,
+  cb: (results: Array<{ value: string }>) => void,
+) => {
+  const clusters = [
+    { value: 'k8s-cluster-virginia-prod' },
+    { value: 'k8s-cluster-frankfurt-prod' },
+    { value: 'k8s-cluster-tokyo-edge' },
+    { value: 'k8s-cluster-shanghai-uat' },
+  ];
+  const results = queryString
+    ? clusters.filter(item => item.value.toLowerCase().includes(queryString.toLowerCase()))
+    : clusters;
+  cb(results);
+};
+const mentionUsers = ['Ateng', 'Linus', 'EvanYou', 'VercelBot', 'Architect'];
 
 // 5. Tab 2: 高级拾取器状态
 const dateSingle = ref('2026-10-22');
@@ -598,6 +636,82 @@ onUnmounted(() => {
             </div>
           </AtengCard>
         </div>
+
+        <!-- 表单校验与新型复合输入全景 -->
+        <AtengCard
+          title="📋 表单校验与新型复合输入全景 (Form / FormItem & InputNumber / InputTag / InputOtp / Autocomplete / Mention)"
+          class="mb-3"
+        >
+          <template #extra>
+            <ElSpace>
+              <ElButton size="small" type="danger" plain @click="testFormRef?.validate()">
+                触发整表校验 (.is-error 红光警报)
+              </ElButton>
+              <ElButton size="small" @click="testFormRef?.resetFields()">重置表单</ElButton>
+            </ElSpace>
+          </template>
+          <div class="section-desc mb-3">
+            支持必填红星微调与平滑对齐；整表 .is-error
+            联动双层红光报警聚焦光晕；步进器微加减阻尼微动、晶体标签输入、等宽验证码与毛玻璃联想/提及浮层。
+          </div>
+          <ElForm
+            ref="testFormRef"
+            :model="complexForm"
+            :rules="formRules"
+            label-position="top"
+            class="grid-two-col gap-4"
+          >
+            <!-- 数字步进器 -->
+            <ElFormItem label="集群弹性实例节点数 (ElInputNumber)" prop="serverCount" required>
+              <div class="flex items-center gap-3">
+                <ElInputNumber v-model="complexForm.serverCount" :min="1" :max="99" />
+                <ElInputNumber
+                  v-model="complexForm.serverCount"
+                  controls-position="right"
+                  :min="1"
+                  :max="99"
+                />
+                <span class="text-xs text-muted">双翼对称与紧凑右翼两种控制位置</span>
+              </div>
+            </ElFormItem>
+
+            <!-- 晶体标签输入 -->
+            <ElFormItem label="集群元数据标签 (ElInputTag)" prop="tagList" required>
+              <ElInputTag
+                v-model="complexForm.tagList"
+                placeholder="按回车添加标签"
+                style="width: 100%"
+              />
+            </ElFormItem>
+
+            <!-- 等宽验证码输入框 -->
+            <ElFormItem label="安全发布确认验证码 (ElInputOtp)" prop="otpCode" required>
+              <div class="flex items-center gap-3">
+                <ElInputOtp v-model="complexForm.otpCode" :length="4" />
+                <span class="text-xs text-muted">4 位独立单元格等宽数字排版与激光聚焦光晕</span>
+              </div>
+            </ElFormItem>
+
+            <!-- 联想建议与提及下拉 -->
+            <ElFormItem label="集群智能联想与上下文提及 (Autocomplete & Mention)">
+              <div class="flex items-center gap-3 flex-wrap w-full">
+                <ElAutocomplete
+                  v-model="complexForm.autoCluster"
+                  :fetch-suggestions="querySearchCluster"
+                  placeholder="输入 k8s 触发联想建议..."
+                  style="flex: 1; min-width: 180px"
+                />
+                <ElMention
+                  v-model="complexForm.mentionComment"
+                  :options="mentionUsers"
+                  prefix="@"
+                  placeholder="输入 @ 提及通知人员..."
+                  style="flex: 1; min-width: 180px"
+                />
+              </div>
+            </ElFormItem>
+          </ElForm>
+        </AtengCard>
       </ElTabPane>
 
       <!-- ==================================================== -->

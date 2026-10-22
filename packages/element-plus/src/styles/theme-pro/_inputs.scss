@@ -4,8 +4,12 @@
  * 核心特性：
  * 1. 双层激光 Focus-Ring (4px 柔光扩散环，跟随当前主题色自洽联动)；
  * 2. 统一重构 ElInput、ElSelect、ElDatePicker、ElTextarea 边框与光影；
- * 3. 严格联动 .is-error 错误态红光报警光晕；
- * 4. 深度适配深浅双模冷钛与黑曜石基底。
+ * 3. 表单布局与必填红星指示微调，联动 .is-error 双层红光报警光晕；
+ * 4. 步进器微加减按钮 (ElInputNumber) 紧凑微调与阻尼按压微动；
+ * 5. 晶体标签输入 (ElInputTag) 柔光边框与内嵌标签悬浮动效；
+ * 6. 验证码输入 (ElInputOtp) 等宽数字单元格与微光聚焦；
+ * 7. 联想与提及下拉浮窗 (ElAutocomplete & ElMention) 毛玻璃与高亮项美化；
+ * 8. 严格恪守深浅双模与零 !important 铁律。
  *
  * @author Ateng
  * @since 2026-10-22
@@ -158,17 +162,319 @@ html.dark .el-textarea__inner {
 }
 
 // ========================================================
-// 4. 表单验证错误态联动 (.is-error)
+// 4. 数字步进器 (ElInputNumber)
 // ========================================================
+.el-input-number {
+  .el-input__inner {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .el-input-number__decrease,
+  .el-input-number__increase {
+    background-color: var(--el-fill-color-light);
+    border-color: var(--el-border-color-lighter);
+    color: var(--el-text-color-regular);
+    transition:
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background-color: var(--el-fill-color);
+      color: var(--el-color-primary);
+    }
+
+    &:active {
+      background-color: var(--el-fill-color-dark, var(--el-fill-color));
+      transform: scale(0.92);
+    }
+  }
+
+  &.is-controls-right {
+    .el-input-number__decrease,
+    .el-input-number__increase {
+      border-left: 1px solid var(--el-border-color-lighter);
+    }
+
+    .el-input-number__increase {
+      border-bottom: 1px solid var(--el-border-color-lighter);
+      border-top-right-radius: var(--el-border-radius-base);
+    }
+
+    .el-input-number__decrease {
+      border-bottom-right-radius: var(--el-border-radius-base);
+    }
+  }
+}
+
+html.dark .el-input-number {
+  .el-input-number__decrease,
+  .el-input-number__increase {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: var(--el-color-primary);
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+  }
+
+  &.is-controls-right {
+    .el-input-number__decrease,
+    .el-input-number__increase {
+      border-left-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .el-input-number__increase {
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+}
+
+// ========================================================
+// 5. 晶体标签输入 (ElInputTag)
+// ========================================================
+.el-input-tag {
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  min-height: 32px;
+  padding: 2px 6px;
+  gap: 4px;
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+  }
+
+  &.is-focused {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  .el-tag {
+    border-radius: var(--el-border-radius-small, 4px);
+    font-size: 12px;
+    transition:
+      transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+html.dark .el-input-tag {
+  background-color: #121824;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &.is-focused {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+}
+
+// ========================================================
+// 6. 等宽验证码输入 (ElInputOtp)
+// ========================================================
+.el-input-otp {
+  column-gap: 8px;
+  font-variant-numeric: tabular-nums;
+
+  .el-input-otp__input-field {
+    background-color: var(--el-bg-color);
+    border: 1px solid var(--el-border-color);
+    border-radius: var(--el-border-radius-base, 6px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition:
+      border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      border-color: rgba(var(--el-color-primary-rgb), 0.4);
+    }
+
+    &:focus-within {
+      border-color: var(--el-color-primary);
+      box-shadow: var(--at-shadow-focus-ring);
+      transform: translateY(-1px);
+    }
+  }
+
+  .el-input-otp__input {
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--el-text-color-primary);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+html.dark .el-input-otp {
+  .el-input-otp__input-field {
+    background-color: #121824;
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &:focus-within {
+      border-color: var(--el-color-primary);
+      box-shadow: var(--at-shadow-focus-ring);
+    }
+  }
+}
+
+// ========================================================
+// 7. 联想与提及下拉浮窗 (ElAutocomplete & ElMention)
+// ========================================================
+.el-autocomplete__popper.el-popper,
+.el-mention__popper.el-popper {
+  border-radius: var(--at-radius-card, 8px);
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--el-border-color-light);
+
+  .el-autocomplete-suggestion li {
+    border-radius: var(--el-border-radius-small, 4px);
+    margin: 2px 6px;
+    padding: 0 12px;
+    line-height: 32px;
+    font-size: 13px;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+
+    &:hover,
+    &.highlighted {
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
+    }
+  }
+
+  .el-mention-dropdown__item {
+    border-radius: var(--el-border-radius-small, 4px);
+    margin: 2px 6px;
+    padding: 0 12px;
+    font-size: 13px;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+
+    &.is-hovering {
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+html.dark .el-autocomplete__popper.el-popper,
+html.dark .el-mention__popper.el-popper {
+  background-color: rgba(18, 24, 36, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  .el-autocomplete-suggestion li {
+    &:hover,
+    &.highlighted {
+      background-color: rgba(var(--el-color-primary-rgb), 0.18);
+      color: var(--el-color-primary-light-3);
+    }
+  }
+
+  .el-mention-dropdown__item {
+    &.is-hovering {
+      background-color: rgba(var(--el-color-primary-rgb), 0.18);
+      color: var(--el-color-primary-light-3);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary-light-3);
+    }
+  }
+}
+
+// ========================================================
+// 8. 表单必填指示与校验错误态联动 (ElForm & .is-error)
+// ========================================================
+
+// 8.1 必填星号与 Label 质感微调
+.el-form-item.is-required:not(.is-no-asterisk) {
+  &.asterisk-left > .el-form-item__label:before,
+  &.asterisk-left > .el-form-item__label-wrap > .el-form-item__label:before {
+    color: var(--el-color-danger);
+    font-weight: 600;
+    margin-right: 4px;
+    font-size: 13px;
+    vertical-align: baseline;
+  }
+
+  &.asterisk-right > .el-form-item__label:after,
+  &.asterisk-right > .el-form-item__label-wrap > .el-form-item__label:after {
+    color: var(--el-color-danger);
+    font-weight: 600;
+    margin-left: 4px;
+    font-size: 13px;
+    vertical-align: baseline;
+  }
+}
+
+.el-form-item__label {
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.el-form-item__error {
+  font-size: 12px;
+  color: var(--el-color-danger);
+  padding-top: 4px;
+  line-height: 1.3;
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// 8.2 .is-error 错误态双层红光报警聚焦联动
 .el-input.is-error .el-input__wrapper,
 .el-input__wrapper.is-error,
 .el-select.is-error .el-select__wrapper,
 .el-select__wrapper.is-error,
 .el-textarea.is-error .el-textarea__inner,
 .el-textarea__inner.is-error,
+.el-input-tag.is-error,
+.el-input-otp.is-error .el-input-otp__input-field,
 .el-form-item.is-error .el-input__wrapper,
 .el-form-item.is-error .el-select__wrapper,
-.el-form-item.is-error .el-textarea__inner {
+.el-form-item.is-error .el-textarea__inner,
+.el-form-item.is-error .el-input-tag,
+.el-form-item.is-error .el-input-otp__input-field,
+.el-form-item.is-error .el-input-number .el-input__wrapper {
   border-color: var(--el-color-danger);
   box-shadow: 0 0 0 1px var(--el-color-danger);
 
