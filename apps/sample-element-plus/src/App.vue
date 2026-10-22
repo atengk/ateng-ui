@@ -151,6 +151,7 @@ onMounted(() => {
               <template #title>
                 <span>🎨 现代多主题 (Pro Theme)</span>
               </template>
+              <ElMenuItem index="/theme-pro"> 🌟 旗舰全景大沙箱 (Panorama) </ElMenuItem>
               <ElMenuItem index="/theme/buttons-inputs">
                 按钮与表单控件 (Buttons & Inputs)
               </ElMenuItem>

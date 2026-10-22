@@ -175,6 +175,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '多格式文件预览 AtengFilePreview' },
   },
   {
+    path: '/theme-pro',
+    name: 'ThemeProPanorama',
+    component: () => import('../views/theme/ThemeProPanoramaView.vue'),
+    meta: { title: '旗舰全景实装大沙箱 (Theme Pro)' },
+  },
+  {
     path: '/theme/buttons-inputs',
     name: 'ThemeButtonsInputs',
     component: () => import('../views/theme/ButtonsInputsView.vue'),
