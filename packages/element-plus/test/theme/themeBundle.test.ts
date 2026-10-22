@@ -41,6 +41,14 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('.el-text');
   });
 
+  it('文件上传全家桶 (Upload & Dragger) 规则正确编译', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-upload-dragger');
+    expect(content).toContain('.el-upload--picture-card');
+    expect(content).toContain('.el-upload-list--picture-card');
+    expect(content).toContain('.el-upload-list__item-actions');
+  });
+
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {
     const content = fs.readFileSync(cssPath, 'utf-8');
     expect(content).toContain('[data-theme=indigo]');

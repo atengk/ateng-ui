@@ -65,6 +65,7 @@ import {
   ElLink,
   ElText,
   ElSpace,
+  ElUpload,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -256,6 +257,27 @@ const sliderVal = ref(54);
 const sliderRangeVal = ref([20, 80]);
 const rateVal = ref(4.5);
 const colorPickerHex = ref('#4f46e5');
+
+// 文件上传全家桶状态
+const uploadFileList = ref([
+  {
+    name: 'cluster-audit-report-2026.pdf',
+    percentage: 100,
+    status: 'success',
+  },
+  {
+    name: 'distributed-trace-metrics.parquet',
+    percentage: 68,
+    status: 'uploading',
+  },
+]);
+
+const pictureCardList = ref([
+  {
+    name: 'preview-thumb-1.png',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+  },
+]);
 
 // 6. Tab 3: 反馈与步骤状态
 const progressPercent = ref(76);
@@ -675,6 +697,46 @@ onUnmounted(() => {
               :titles="['可用基础设施实例', '已挂载生产网格']"
               filterable
             />
+          </div>
+        </AtengCard>
+
+        <!-- 文件上传全家桶 -->
+        <AtengCard title="📤 文件上传全家桶 (Upload / Tactile Dragger & Picture Card)" class="mb-3">
+          <div class="section-desc mb-3">
+            触感拖拽上传框（亚像素虚线描边 + 悬浮微浮动 -2px +
+            激光光晕联动）、照片墙卡片立体微阴影与 3px 极简主色微光进度条。
+          </div>
+          <div class="grid-two-col gap-4">
+            <!-- 触感拖拽上传与普通列表 -->
+            <div class="form-vertical-cluster">
+              <span class="text-xs text-muted mb-2 block"
+                >触感拖拽上传 (Tactile Dragger & 极简 3px 进度条)：</span
+              >
+              <ElUpload drag action="#" :auto-upload="false" :file-list="uploadFileList">
+                <div class="py-2 text-center">
+                  <div class="el-icon--upload text-3xl mb-1">☁️</div>
+                  <div class="el-upload__text text-xs">将文件拖至此处，或 <em>点击上传</em></div>
+                </div>
+              </ElUpload>
+            </div>
+
+            <!-- 照片墙与缩略图卡片 -->
+            <div class="form-vertical-cluster">
+              <span class="text-xs text-muted mb-2 block"
+                >照片墙与微缩胶囊操作卡片 (Picture Card)：</span
+              >
+              <ElUpload
+                action="#"
+                list-type="picture-card"
+                :auto-upload="false"
+                :file-list="pictureCardList"
+              >
+                <div class="text-center">
+                  <span class="text-xl leading-none">＋</span>
+                  <div class="text-xs text-muted mt-1">添加图片</div>
+                </div>
+              </ElUpload>
+            </div>
           </div>
         </AtengCard>
       </ElTabPane>
