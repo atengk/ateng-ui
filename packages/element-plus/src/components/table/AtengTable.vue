@@ -79,6 +79,8 @@ const props = withDefaults(defineProps<AtengTableProps>(), {
   density: 'default',
   tools: true,
   storageKey: undefined,
+  enableColumnResize: true,
+  minResizeWidth: 40,
   autoHeight: false,
   loading: false,
   total: undefined,
@@ -290,6 +292,7 @@ const columnSettings = ref<TableColumnConfig[]>([]);
 interface PersistedColumnConfig {
   order?: string[];
   visible?: Record<string, boolean>;
+  widths?: Record<string, number>;
 }
 
 const loadPersistedColumns = (): PersistedColumnConfig | null => {
@@ -299,7 +302,7 @@ const loadPersistedColumns = (): PersistedColumnConfig | null => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') {
-      if ('visible' in parsed) {
+      if ('visible' in parsed || 'widths' in parsed || 'order' in parsed) {
         return parsed as PersistedColumnConfig;
       }
       return { visible: parsed as Record<string, boolean> };
@@ -309,6 +312,8 @@ const loadPersistedColumns = (): PersistedColumnConfig | null => {
     return null;
   }
 };
+
+const customWidths = ref<Record<string, number>>({});
 
 const savePersistedColumns = () => {
   if (!props.storageKey || typeof window === 'undefined') return;
@@ -324,15 +329,30 @@ const savePersistedColumns = () => {
     }
     localStorage.setItem(
       props.storageKey,
-      JSON.stringify({ order: orderList, visible: visibleMap }),
+      JSON.stringify({ order: orderList, visible: visibleMap, widths: customWidths.value }),
     );
   } catch {
     // 弹性防御
   }
 };
 
+const resolveColumnProps = (
+  col: TableColumnConfig,
+  persisted: PersistedColumnConfig | null,
+): { visible: boolean; width: string | number | undefined } => {
+  const key = getColumnKey(col);
+  const visible =
+    persisted?.visible && key && key in persisted.visible
+      ? persisted.visible[key]
+      : col.visible !== false;
+  const width =
+    persisted?.widths && key && key in persisted.widths ? persisted.widths[key] : col.width;
+  return { visible, width };
+};
+
 const initColumnSettings = () => {
   const persisted = loadPersistedColumns();
+  customWidths.value = persisted?.widths ? { ...persisted.widths } : {};
   const rawList = rawColumns.value;
 
   if (persisted?.order && Array.isArray(persisted.order)) {
@@ -344,31 +364,20 @@ const initColumnSettings = () => {
     for (const key of persisted.order) {
       const col = rawMap.get(key);
       if (col) {
-        const visible =
-          persisted.visible && key in persisted.visible
-            ? persisted.visible[key]
-            : col.visible !== false;
-        sorted.push({ ...col, visible });
+        const { visible, width } = resolveColumnProps(col, persisted);
+        sorted.push({ ...col, visible, width });
         rawMap.delete(key);
       }
     }
     for (const col of rawMap.values()) {
-      const key = getColumnKey(col);
-      const visible =
-        persisted.visible && key in persisted.visible
-          ? persisted.visible[key]
-          : col.visible !== false;
-      sorted.push({ ...col, visible });
+      const { visible, width } = resolveColumnProps(col, persisted);
+      sorted.push({ ...col, visible, width });
     }
     columnSettings.value = sorted;
   } else {
     columnSettings.value = rawList.map(col => {
-      const key = getColumnKey(col);
-      const visible =
-        persisted?.visible && key in persisted.visible
-          ? persisted.visible[key]
-          : col.visible !== false;
-      return { ...col, visible };
+      const { visible, width } = resolveColumnProps(col, persisted);
+      return { ...col, visible, width };
     });
   }
 };
@@ -423,11 +432,50 @@ const handleResetColumns = () => {
       // 弹性防御
     }
   }
+  customWidths.value = {};
   columnSettings.value = rawColumns.value.map(col => ({
     ...col,
     visible: col.visible !== false,
+    width: col.width,
   }));
   emit('columns-change', columnSettings.value);
+};
+
+const onHeaderDragend = (
+  newWidth: number,
+  oldWidth: number,
+  column: {
+    property?: string;
+    label?: string;
+    type?: string;
+    width?: number;
+    [key: string]: unknown;
+  },
+  event: MouseEvent,
+) => {
+  if (props.enableColumnResize === false) return;
+  const key = column?.property || column?.label || column?.type;
+  if (!key) return;
+
+  const minWidth = props.minResizeWidth ?? 40;
+  const safeWidth = Math.max(minWidth, Math.round(newWidth));
+
+  // 1. 同步修正 ElTable 内部 column 实例的 width，防止 DOM/内部状态塌陷
+  if (column && typeof column === 'object') {
+    column.width = safeWidth;
+  }
+
+  // 2. 记录自定义列宽并更新本地列配置
+  customWidths.value[key] = safeWidth;
+  const targetCol = columnSettings.value.find(col => getColumnKey(col) === key);
+  if (targetCol) {
+    targetCol.width = safeWidth;
+  }
+
+  // 3. 本地存储持久化并触发专有 header-dragend 事件
+  savePersistedColumns();
+
+  emit('header-dragend', safeWidth, oldWidth, column, event);
 };
 
 const totalColumnCount = computed(() => columnSettings.value.length);
@@ -455,17 +503,27 @@ const handleToggleAllColumns = (val: string | number | boolean) => {
 const activeAttributeColumns = computed<TableColumnConfig[]>(() => {
   const stateMap = new Map<string, boolean>();
   const orderMap = new Map<string, number>();
+  const widthMap = new Map<string, string | number>();
   columnSettings.value.forEach((item, idx) => {
     const k = getColumnKey(item);
     if (k) {
       stateMap.set(k, item.visible !== false);
       orderMap.set(k, idx);
+      if (item.width !== undefined) {
+        widthMap.set(k, item.width);
+      }
     }
   });
   return (props.columns ?? [])
     .filter(col => {
       const k = getColumnKey(col);
       return !k || stateMap.get(k) !== false;
+    })
+    .map(col => {
+      const k = getColumnKey(col);
+      const width = k && widthMap.has(k) ? widthMap.get(k) : col.width;
+      const resizable = col.resizable ?? props.enableColumnResize;
+      return { ...col, width, resizable };
     })
     .sort((a, b) => {
       const kA = getColumnKey(a);
@@ -482,14 +540,23 @@ const renderFilteredSlotColumns = () => {
   const defaultNodes = slots.default();
   const stateMap = new Map<string, boolean>();
   const orderList: string[] = [];
+  const widthMap = new Map<string, string | number>();
   for (const item of columnSettings.value) {
     const k = getColumnKey(item);
     if (k) {
       stateMap.set(k, item.visible !== false);
       orderList.push(k);
+      if (item.width !== undefined) {
+        widthMap.set(k, item.width);
+      }
     }
   }
-  return filterAndSortColumnVNodes(defaultNodes, stateMap, orderList);
+  return filterAndSortColumnVNodes(defaultNodes, {
+    visibilityMap: stateMap,
+    orderList,
+    widthMap,
+    resizable: props.enableColumnResize,
+  });
 };
 
 // 视口高度自适应状态与监听器
@@ -800,6 +867,7 @@ defineExpose<AtengTableExpose>({
         class="at-table__inner"
         @selection-change="handleSelectionChange"
         @sort-change="handleSortChange"
+        @header-dragend="onHeaderDragend"
       >
         <!-- 属性列合并渲染 -->
         <template v-for="col in activeAttributeColumns" :key="col.prop || col.label">

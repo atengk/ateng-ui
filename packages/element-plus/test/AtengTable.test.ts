@@ -741,6 +741,213 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     expect(tableEl.props('height')).toBeUndefined();
 
     wrapper.unmount();
-    wrapper = null as any;
+    wrapper = null;
+  });
+
+  it('列宽拖拽调整与本地持久化记忆：拖拽列宽后写入 localStorage，重新挂载后正确回填列宽', async () => {
+    const storageKey = 'test_table_col_resize';
+    localStorage.removeItem(storageKey);
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+        columns: [
+          { prop: 'username', label: '用户名', width: 100 },
+          { prop: 'age', label: '年龄', width: 80 },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 1. 模拟 ElTable 触发 header-dragend
+    const elTable = wrapper.findComponent({ name: 'ElTable' });
+    expect(elTable.exists()).toBe(true);
+
+    elTable.vm.$emit(
+      'header-dragend',
+      160,
+      100,
+      { property: 'username', label: '用户名' },
+      new MouseEvent('mouseup'),
+    );
+
+    await doubleWait();
+
+    // 2. 验证 localStorage 持久化了 widths
+    const persistedRaw = localStorage.getItem(storageKey);
+    expect(persistedRaw).not.toBeNull();
+    const persisted = JSON.parse(persistedRaw!);
+    expect(persisted.widths).toBeDefined();
+    expect(persisted.widths['username']).toBe(160);
+
+    // 3. 验证 header-dragend 派发了最新列宽与原始列宽
+    const dragendEvents = wrapper.emitted('header-dragend');
+    expect(dragendEvents).toBeTruthy();
+    expect(dragendEvents![0][0]).toBe(160);
+    expect(dragendEvents![0][1]).toBe(100);
+
+    wrapper.unmount();
+    wrapper = null;
+
+    // 4. 重新挂载，验证列宽自动从 localStorage 回填
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+        columns: [
+          { prop: 'username', label: '用户名', width: 100 },
+          { prop: 'age', label: '年龄', width: 80 },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const vm = wrapper.vm as unknown as { columns: Array<{ prop?: string; width?: number }> };
+    const userCol = vm.columns.find(c => c.prop === 'username');
+    expect(userCol?.width).toBe(160);
+
+    localStorage.removeItem(storageKey);
+    wrapper.unmount();
+    wrapper = null;
+  });
+
+  it('列宽防塌陷安全阈值：拖拽宽度低于 minResizeWidth 时自动保底为最小阈值', async () => {
+    const storageKey = 'test_table_min_resize';
+    localStorage.removeItem(storageKey);
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+        minResizeWidth: 50,
+        columns: [{ prop: 'username', label: '用户名', width: 100 }],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const elTable = wrapper.findComponent({ name: 'ElTable' });
+    // 模拟用户误拖拽至 10px
+    elTable.vm.$emit(
+      'header-dragend',
+      10,
+      100,
+      { property: 'username', label: '用户名' },
+      new MouseEvent('mouseup'),
+    );
+
+    await doubleWait();
+
+    const persisted = JSON.parse(localStorage.getItem(storageKey)!);
+    // 自动被保底为 minResizeWidth (50px)
+    expect(persisted.widths['username']).toBe(50);
+
+    localStorage.removeItem(storageKey);
+    wrapper.unmount();
+    wrapper = null;
+  });
+
+  it('列配置重置联动：点击 Popover 重置按钮时清空持久化的 widths 并恢复初始列宽', async () => {
+    const storageKey = 'test_table_reset_widths';
+    localStorage.removeItem(storageKey);
+
+    // 预置已有自定义列宽
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        order: ['username', 'age'],
+        visible: { username: true, age: true },
+        widths: { username: 220, age: 140 },
+      }),
+    );
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+        columns: [
+          { prop: 'username', label: '用户名', width: 100 },
+          { prop: 'age', label: '年龄', width: 80 },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const vm = wrapper.vm as unknown as { columns: Array<{ prop?: string; width?: number }> };
+    expect(vm.columns.find(c => c.prop === 'username')?.width).toBe(220);
+
+    // 打开列设置 Popover 并点击重置按钮
+    const colBtn = wrapper.find('button[aria-label="列设置"]');
+    if (colBtn.exists()) {
+      await colBtn.trigger('click');
+      await doubleWait();
+    }
+
+    const resetBtn = (document.body.querySelector('.at-table-column-setting__header button') ||
+      wrapper.find('.at-table-column-setting__header button').element) as HTMLButtonElement | null;
+    expect(resetBtn).not.toBeNull();
+    resetBtn?.click();
+    await doubleWait();
+
+    // localStorage 中该 key 已被清除
+    expect(localStorage.getItem(storageKey)).toBeNull();
+
+    // 列宽恢复为初始定义的 100 与 80
+    expect(vm.columns.find(c => c.prop === 'username')?.width).toBe(100);
+    expect(vm.columns.find(c => c.prop === 'age')?.width).toBe(80);
+
+    wrapper.unmount();
+    wrapper = null;
+  });
+
+  it('禁用列宽拖拽：enableColumnResize 为 false 时向列注入 resizable=false 且拖拽事件被拦截', async () => {
+    const storageKey = 'test_table_disable_resize';
+    localStorage.removeItem(storageKey);
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: mockData,
+        storageKey,
+        enableColumnResize: false,
+        columns: [
+          { prop: 'username', label: '用户名', width: 100 },
+          { prop: 'age', label: '年龄', width: 80 },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 验证 ElTableColumn 接收到的 resizable 属性为 false
+    const columns = wrapper.findAllComponents({ name: 'ElTableColumn' });
+    const userColComponent = columns.find(c => c.props('prop') === 'username');
+    expect(userColComponent?.props('resizable')).toBe(false);
+
+    const elTable = wrapper.findComponent({ name: 'ElTable' });
+    elTable.vm.$emit(
+      'header-dragend',
+      180,
+      100,
+      { property: 'username', label: '用户名' },
+      new MouseEvent('mouseup'),
+    );
+
+    await doubleWait();
+
+    // 禁用时不应持久化存储
+    expect(localStorage.getItem(storageKey)).toBeNull();
+
+    localStorage.removeItem(storageKey);
+    wrapper.unmount();
+    wrapper = null;
   });
 });

@@ -131,6 +131,18 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   storageKey?: string;
 
   /**
+   * 是否启用表头拖拽调整列宽与本地持久化记忆。
+   * @default true
+   */
+  enableColumnResize?: boolean;
+
+  /**
+   * 列宽拖拽调整的最小安全宽度（px），防止列被意外折叠坍塌。
+   * @default 40
+   */
+  minResizeWidth?: number;
+
+  /**
    * 是否开启视口高度自适应，自动计算表格高度撑满屏幕剩余空间。
    * 若为 number 则表示自定义距离视口底部的预留像素。
    * @default false
@@ -246,6 +258,22 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
    * 列显隐或配置变动事件。
    */
   (e: 'columns-change', columns: TableColumnConfig[]): void;
+
+  /**
+   * 表头列宽拖拽变动事件。
+   *
+   * @param newWidth 调整后的列宽（px），已施加防塌陷安全阈值
+   * @param oldWidth 调整前的原始列宽（px）
+   * @param column Element Plus 表格内部列上下文对象
+   * @param event 原生鼠标事件对象
+   */
+  (
+    e: 'header-dragend',
+    newWidth: number,
+    oldWidth: number,
+    column: unknown,
+    event: MouseEvent,
+  ): void;
 
   /**
    * 页码更新事件（支持 v-model:pageNum）。
