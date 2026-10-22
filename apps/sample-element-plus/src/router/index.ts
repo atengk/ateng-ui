@@ -174,6 +174,12 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/business/FilePreviewView.vue'),
     meta: { title: '多格式文件预览 AtengFilePreview' },
   },
+  {
+    path: '/theme/buttons-inputs',
+    name: 'ThemeButtonsInputs',
+    component: () => import('../views/theme/ButtonsInputsView.vue'),
+    meta: { title: '主按钮与表单控件 (Theme Pro)' },
+  },
 ];
 
 export const router = createRouter({

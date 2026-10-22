@@ -1,0 +1,178 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 输入与表单控件规约。
+ *
+ * 核心特性：
+ * 1. 双层激光 Focus-Ring (4px 柔光扩散环，跟随当前主题色自洽联动)；
+ * 2. 统一重构 ElInput、ElSelect、ElDatePicker、ElTextarea 边框与光影；
+ * 3. 严格联动 .is-error 错误态红光报警光晕；
+ * 4. 深度适配深浅双模冷钛与黑曜石基底。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 输入框外包装层 (ElInput / ElRangeEditor)
+// ========================================================
+.el-input__wrapper,
+.el-range-editor.el-input__wrapper {
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+  }
+
+  // 聚焦态 (Laser Focus-Ring 双层激光光晕)
+  &.is-focus,
+  &:focus-within {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  // 禁用态
+  &.is-disabled {
+    background-color: var(--el-fill-color-light);
+    border-color: var(--el-border-color-light);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
+// 暗黑模式下输入框微调
+html.dark .el-input__wrapper,
+html.dark .el-range-editor.el-input__wrapper {
+  background-color: #121824;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &.is-focus,
+  &:focus-within {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  &.is-disabled {
+    background-color: #0f1522;
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+// ========================================================
+// 2. 选择器外包装层 (ElSelect)
+// ========================================================
+.el-select__wrapper {
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+  }
+
+  &.is-focused {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  &.is-disabled {
+    background-color: var(--el-fill-color-light);
+    border-color: var(--el-border-color-light);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
+html.dark .el-select__wrapper {
+  background-color: #121824;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &.is-focused {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  &.is-disabled {
+    background-color: #0f1522;
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+// ========================================================
+// 3. 文本域 (ElTextarea)
+// ========================================================
+.el-textarea__inner {
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+  }
+
+  &:focus {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+    outline: none;
+  }
+}
+
+html.dark .el-textarea__inner {
+  background-color: #121824;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &:focus {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+}
+
+// ========================================================
+// 4. 表单验证错误态联动 (.is-error)
+// ========================================================
+.el-input__wrapper.is-error,
+.el-form-item.is-error .el-input__wrapper,
+.el-form-item.is-error .el-select__wrapper,
+.el-form-item.is-error .el-textarea__inner {
+  border-color: var(--el-color-danger);
+
+  &.is-focus,
+  &.is-focused,
+  &:focus-within,
+  &:focus {
+    border-color: var(--el-color-danger);
+    box-shadow:
+      0 0 0 1px var(--el-color-danger),
+      0 0 0 4px rgba(var(--el-color-danger-rgb), 0.18);
+  }
+}

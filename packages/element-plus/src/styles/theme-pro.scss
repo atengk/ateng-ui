@@ -5,7 +5,9 @@
  * 1. 5 套经典极客科技预设 (Indigo / Emerald / Violet / Ocean / Rose)；
  * 2. Slate 深空冷灰暗黑模式；
  * 3. 规整等宽数字 tabular-nums 排版防抖；
- * 4. 独立纯净构建输出 dist/theme-pro.css。
+ * 4. 三轨现代按钮体系与阻尼微动；
+ * 5. 双层激光 Focus-Ring 输入与表单联动；
+ * 6. 独立纯净构建输出 dist/theme-pro.css。
  *
  * @author Ateng
  * @since 2026-10-22
@@ -13,3 +15,5 @@
 
 @use './theme-pro/tokens';
 @use './theme-pro/typography';
+@use './theme-pro/buttons';
+@use './theme-pro/inputs';

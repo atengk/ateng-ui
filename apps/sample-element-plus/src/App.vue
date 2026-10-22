@@ -146,6 +146,15 @@ onMounted(() => {
                 多格式文件预览 (AtengFilePreview)
               </ElMenuItem>
             </ElSubMenu>
+
+            <ElSubMenu index="theme">
+              <template #title>
+                <span>🎨 现代多主题 (Pro Theme)</span>
+              </template>
+              <ElMenuItem index="/theme/buttons-inputs">
+                按钮与表单控件 (Buttons & Inputs)
+              </ElMenuItem>
+            </ElSubMenu>
           </ElMenu>
         </ElAside>
 
