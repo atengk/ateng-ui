@@ -11,6 +11,12 @@
 export type AtengSplitDirection = 'horizontal' | 'vertical';
 
 /**
+ * 折叠把手面向的目标分栏。
+ * 'first'（默认，收起首栏左/上）| 'second'（收起次栏右/下）| 'both'（渲染双向把手）。
+ */
+export type AtengSplitCollapseTarget = 'first' | 'second' | 'both';
+
+/**
  * AtengSplitLayout 属性契约。
  */
 export interface AtengSplitLayoutProps {
@@ -49,7 +55,13 @@ export interface AtengSplitLayoutProps {
   collapsible?: boolean;
 
   /**
-   * 是否处于折叠状态（支持受控 v-model:collapsed）。
+   * 折叠把手面向的目标栏：'first'（首栏）| 'second'（次栏）| 'both'（双向把手）。
+   * 默认 'first'。
+   */
+  collapseTarget?: AtengSplitCollapseTarget;
+
+  /**
+   * 是否处于首栏折叠状态（支持受控 v-model:collapsed）。
    * 默认 false。
    */
   collapsed?: boolean;
@@ -59,6 +71,18 @@ export interface AtengSplitLayoutProps {
    * 默认 0。
    */
   collapseSize?: number | string;
+
+  /**
+   * 是否处于次栏折叠状态（支持受控 v-model:secondCollapsed）。
+   * 默认 false。
+   */
+  secondCollapsed?: boolean;
+
+  /**
+   * 折叠后的次栏尺寸。
+   * 默认 0。
+   */
+  secondCollapseSize?: number | string;
 
   /**
    * 本地存储持久化 Key。
@@ -83,9 +107,14 @@ export interface AtengSplitLayoutEmits {
   (e: 'update:modelValue', size: number | string): void;
 
   /**
-   * 折叠状态更新时触发（双向绑定）。
+   * 首栏折叠状态更新时触发（双向绑定）。
    */
   (e: 'update:collapsed', val: boolean): void;
+
+  /**
+   * 次栏折叠状态更新时触发（双向绑定）。
+   */
+  (e: 'update:secondCollapsed', val: boolean): void;
 
   /**
    * 拖拽调整大小时实时派发（单位 px）。
@@ -93,7 +122,12 @@ export interface AtengSplitLayoutEmits {
   (e: 'resize', size: number): void;
 
   /**
-   * 折叠状态发生切换时派发。
+   * 首栏折叠状态发生切换时派发。
    */
   (e: 'collapse', val: boolean): void;
+
+  /**
+   * 次栏折叠状态发生切换时派发。
+   */
+  (e: 'secondCollapse', val: boolean): void;
 }

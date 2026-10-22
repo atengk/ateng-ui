@@ -4,16 +4,16 @@
  *
  * 核心特性：
  * 1. 支持水平（左树右表）与垂直（上下排版）双向分栏；
- * 2. 纯原生 MouseEvent 拖拽调宽，零额外第三方依赖，带 min/max 阈值防御；
- * 3. 一键平滑折叠展开小触发器，支持折叠状态双向绑定；
- * 4. 标配 storageKey 本地持久化记忆，刷新自动还原用户偏好；
- * 5. 100% 确定性生命周期清理，防止离线鼠标监听器泄漏。
+ * 2. 现代 W3C PointerEvent + setPointerCapture 原生指针捕获拖拽，支持鼠标与触控平板；
+ * 3. 一键平滑折叠展开触发器，支持 collapseTarget（首栏/次栏/双向把手）与受控双向绑定；
+ * 4. 标配 storageKey 本地持久化记忆，刷新自动双向还原用户偏好；
+ * 5. 100% 确定性生命周期清理，防止离线指针监听器泄漏。
  *
  * @author Ateng
  * @since 2026-10-22
  */
 
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import type { AtengSplitLayoutProps, AtengSplitLayoutEmits } from './types';
 
 defineOptions({
@@ -27,8 +27,11 @@ const props = withDefaults(defineProps<AtengSplitLayoutProps>(), {
   min: '120px',
   max: '80%',
   collapsible: true,
+  collapseTarget: 'first',
   collapsed: undefined,
   collapseSize: 0,
+  secondCollapsed: undefined,
+  secondCollapseSize: 0,
   storageKey: '',
   disabled: false,
 });
@@ -39,35 +42,40 @@ const emit = defineEmits<AtengSplitLayoutEmits>();
 const containerRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 
-// 内部尺寸与折叠状态
+// 内部尺寸与双向折叠状态
 const internalSize = ref<string | number>(props.defaultSize);
 const internalCollapsed = ref(false);
+const internalSecondCollapsed = ref(false);
 
-// 2. 初始化持久化恢复
-onMounted(() => {
-  if (props.storageKey) {
-    try {
-      const saved = localStorage.getItem(`ateng_split_${props.storageKey}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.size !== undefined && props.modelValue === undefined) {
-          internalSize.value = parsed.size;
-        }
-        if (parsed.collapsed !== undefined && props.collapsed === undefined) {
-          internalCollapsed.value = Boolean(parsed.collapsed);
-        }
+// 2. 初始化持久化恢复（在 setup 顶层同步恢复，避免异步 tick 页面闪烁）
+if (typeof window !== 'undefined' && props.storageKey) {
+  try {
+    const saved = localStorage.getItem(`ateng_split_${props.storageKey}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.size !== undefined && props.modelValue === undefined) {
+        internalSize.value = parsed.size;
       }
-    } catch {
-      // 容错忽略 storage 异常
+      if (parsed.collapsed !== undefined && props.collapsed === undefined) {
+        internalCollapsed.value = Boolean(parsed.collapsed);
+      }
+      if (parsed.secondCollapsed !== undefined && props.secondCollapsed === undefined) {
+        internalSecondCollapsed.value = Boolean(parsed.secondCollapsed);
+      }
     }
+  } catch {
+    // 容错忽略 storage 异常
   }
-});
+}
 
 // 持久化保存
-const savePreference = (size: string | number, collapsed: boolean) => {
+const savePreference = (size: string | number, collapsed: boolean, secondCollapsed: boolean) => {
   if (!props.storageKey) return;
   try {
-    localStorage.setItem(`ateng_split_${props.storageKey}`, JSON.stringify({ size, collapsed }));
+    localStorage.setItem(
+      `ateng_split_${props.storageKey}`,
+      JSON.stringify({ size, collapsed, secondCollapsed }),
+    );
   } catch {
     // 忽略异常
   }
@@ -94,9 +102,25 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => props.secondCollapsed,
+  val => {
+    if (val !== undefined) {
+      internalSecondCollapsed.value = val;
+    }
+  },
+  { immediate: true },
+);
+
 // 计算当前实际生效的折叠态
 const isCollapsed = computed(() => {
   return props.collapsed !== undefined ? props.collapsed : internalCollapsed.value;
+});
+
+const isSecondCollapsed = computed(() => {
+  return props.secondCollapsed !== undefined
+    ? props.secondCollapsed
+    : internalSecondCollapsed.value;
 });
 
 // 3. 计算阈值工具函数（转换像素与百分比）
@@ -119,17 +143,37 @@ const firstPaneStyle = computed(() => {
     return props.direction === 'horizontal' ? { width: size } : { height: size };
   }
 
+  if (isSecondCollapsed.value) {
+    return { flex: '1 1 auto', width: 'auto', height: 'auto' };
+  }
+
   const currentSize = props.modelValue !== undefined ? props.modelValue : internalSize.value;
   const size = typeof currentSize === 'number' ? `${currentSize}px` : currentSize;
   return props.direction === 'horizontal' ? { width: size } : { height: size };
 });
 
-// 4. 原生鼠标拖拽调宽编排
+// 次栏实际显示尺寸样式
+const secondPaneStyle = computed(() => {
+  if (isSecondCollapsed.value) {
+    const size =
+      typeof props.secondCollapseSize === 'number'
+        ? `${props.secondCollapseSize}px`
+        : props.secondCollapseSize;
+    return props.direction === 'horizontal'
+      ? { width: size, flex: '0 0 auto', overflow: 'hidden' }
+      : { height: size, flex: '0 0 auto', overflow: 'hidden' };
+  }
+  return undefined;
+});
+
+// 4. 现代 W3C PointerEvent 拖拽调宽编排
 let startPos = 0;
 let startSize = 0;
+let activePointerId: number | null = null;
+let activePointerTarget: HTMLElement | null = null;
 
-const onMouseDown = (e: MouseEvent) => {
-  if (props.disabled || isCollapsed.value || !containerRef.value) return;
+const onPointerDown = (e: PointerEvent) => {
+  if (props.disabled || isCollapsed.value || isSecondCollapsed.value || !containerRef.value) return;
 
   isDragging.value = true;
   startPos = props.direction === 'horizontal' ? e.clientX : e.clientY;
@@ -140,14 +184,19 @@ const onMouseDown = (e: MouseEvent) => {
     startSize = props.direction === 'horizontal' ? firstEl.offsetWidth : firstEl.offsetHeight;
   }
 
+  activePointerId = e.pointerId;
+  activePointerTarget = e.currentTarget as HTMLElement;
+  activePointerTarget?.setPointerCapture?.(e.pointerId);
+
   document.body.style.userSelect = 'none';
   document.body.style.cursor = props.direction === 'horizontal' ? 'col-resize' : 'row-resize';
 
-  window.addEventListener('mousemove', onMouseMove);
-  window.addEventListener('mouseup', onMouseUp);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
 };
 
-const onMouseMove = (e: MouseEvent) => {
+const onPointerMove = (e: PointerEvent) => {
   if (!isDragging.value || !containerRef.value) return;
 
   const currentPos = props.direction === 'horizontal' ? e.clientX : e.clientY;
@@ -170,22 +219,34 @@ const onMouseMove = (e: MouseEvent) => {
   emit('resize', clamped);
 };
 
-const onMouseUp = () => {
+const onPointerUp = () => {
   if (!isDragging.value) return;
   isDragging.value = false;
 
   document.body.style.userSelect = '';
   document.body.style.cursor = '';
 
-  window.removeEventListener('mousemove', onMouseMove);
-  window.removeEventListener('mouseup', onMouseUp);
+  if (activePointerTarget && activePointerId !== null) {
+    try {
+      activePointerTarget.releasePointerCapture?.(activePointerId);
+    } catch {
+      // 容错忽略捕获释放异常
+    }
+    activePointerTarget = null;
+    activePointerId = null;
+  }
 
-  savePreference(internalSize.value, isCollapsed.value);
+  window.removeEventListener('pointermove', onPointerMove);
+  window.removeEventListener('pointerup', onPointerUp);
+  window.removeEventListener('pointercancel', onPointerUp);
+
+  savePreference(internalSize.value, isCollapsed.value, isSecondCollapsed.value);
 };
 
 onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', onMouseMove);
-  window.removeEventListener('mouseup', onMouseUp);
+  window.removeEventListener('pointermove', onPointerMove);
+  window.removeEventListener('pointerup', onPointerUp);
+  window.removeEventListener('pointercancel', onPointerUp);
   document.body.style.userSelect = '';
   document.body.style.cursor = '';
 });
@@ -194,26 +255,45 @@ onBeforeUnmount(() => {
 const toggleCollapse = (force?: boolean) => {
   const next = force !== undefined ? force : !isCollapsed.value;
   internalCollapsed.value = next;
+  if (next && isSecondCollapsed.value) {
+    internalSecondCollapsed.value = false;
+    emit('update:secondCollapsed', false);
+    emit('secondCollapse', false);
+  }
   emit('update:collapsed', next);
   emit('collapse', next);
-  savePreference(internalSize.value, next);
+  savePreference(internalSize.value, next, isSecondCollapsed.value);
+};
+
+const toggleSecondCollapse = (force?: boolean) => {
+  const next = force !== undefined ? force : !isSecondCollapsed.value;
+  internalSecondCollapsed.value = next;
+  if (next && isCollapsed.value) {
+    internalCollapsed.value = false;
+    emit('update:collapsed', false);
+    emit('collapse', false);
+  }
+  emit('update:secondCollapsed', next);
+  emit('secondCollapse', next);
+  savePreference(internalSize.value, isCollapsed.value, next);
 };
 
 const setSize = (size: number | string) => {
   internalSize.value = size;
   emit('update:modelValue', size);
-  savePreference(size, isCollapsed.value);
+  savePreference(size, isCollapsed.value, isSecondCollapsed.value);
 };
 
 const resetSize = () => {
   internalSize.value = props.defaultSize;
   emit('update:modelValue', props.defaultSize);
-  savePreference(props.defaultSize, isCollapsed.value);
+  savePreference(props.defaultSize, isCollapsed.value, isSecondCollapsed.value);
 };
 
 defineExpose({
   containerRef,
   toggleCollapse,
+  toggleSecondCollapse,
   setSize,
   resetSize,
 });
@@ -227,6 +307,7 @@ defineExpose({
       `is-${direction}`,
       {
         'is-collapsed': isCollapsed,
+        'is-second-collapsed': isSecondCollapsed,
         'is-dragging': isDragging,
       },
     ]"
@@ -242,46 +323,80 @@ defineExpose({
     <!-- 分割条与拖拽触发线 -->
     <div
       class="at-split-layout__splitter"
-      :class="{ 'is-disabled': disabled || isCollapsed }"
-      @mousedown="onMouseDown"
+      :class="{ 'is-disabled': disabled || isCollapsed || isSecondCollapsed }"
+      @pointerdown="onPointerDown"
     >
       <slot name="splitter">
         <div class="at-split-layout__splitter-line" />
-        <!-- 一键折叠把手按钮 -->
-        <button
-          v-if="collapsible"
-          type="button"
-          class="at-split-layout__collapse-btn"
-          :title="isCollapsed ? '展开分栏' : '收起分栏'"
-          @click.stop="toggleCollapse()"
-        >
-          <svg
-            viewBox="0 0 1024 1024"
-            width="10"
-            height="10"
-            fill="currentColor"
-            class="collapse-icon"
-            :class="{
-              'is-reversed':
-                (direction === 'horizontal' && isCollapsed) ||
-                (direction === 'vertical' && isCollapsed),
-            }"
+        <!-- 折叠把手容器 -->
+        <div v-if="collapsible" class="at-split-layout__collapse-triggers">
+          <!-- 首栏收起把手（向左/向上收起） -->
+          <button
+            v-if="collapseTarget === 'first' || collapseTarget === 'both'"
+            type="button"
+            class="at-split-layout__collapse-btn is-first"
+            :title="isCollapsed ? '展开首栏' : '收起首栏'"
+            @click.stop="toggleCollapse()"
           >
-            <path
-              v-if="direction === 'horizontal'"
-              d="M603.7 836.3a32 32 0 0 1-22.6-9.4l-288-288a32 32 0 0 1 0-45.3l288-288a32 32 0 1 1 45.3 45.3L360.6 512l265.8 261.4a32 32 0 0 1-22.7 62.9z"
-            />
-            <path
-              v-else
-              d="M836.3 603.7a32 32 0 0 1-45.3 0L512 360.6 233.1 639.6a32 32 0 0 1-45.3-45.3l288-288a32 32 0 0 1 45.3 0l288 288a32 32 0 0 1 0 45.3z"
-            />
-          </svg>
-        </button>
+            <svg
+              viewBox="0 0 1024 1024"
+              width="10"
+              height="10"
+              fill="currentColor"
+              class="collapse-icon"
+              :class="{
+                'is-reversed':
+                  (direction === 'horizontal' && isCollapsed) ||
+                  (direction === 'vertical' && isCollapsed),
+              }"
+            >
+              <path
+                v-if="direction === 'horizontal'"
+                d="M603.7 836.3a32 32 0 0 1-22.6-9.4l-288-288a32 32 0 0 1 0-45.3l288-288a32 32 0 1 1 45.3 45.3L360.6 512l265.8 261.4a32 32 0 0 1-22.7 62.9z"
+              />
+              <path
+                v-else
+                d="M836.3 603.7a32 32 0 0 1-45.3 0L512 360.6 233.1 639.6a32 32 0 0 1-45.3-45.3l288-288a32 32 0 0 1 45.3 0l288 288a32 32 0 0 1 0 45.3z"
+              />
+            </svg>
+          </button>
+
+          <!-- 次栏收起把手（向右/向下收起） -->
+          <button
+            v-if="collapseTarget === 'second' || collapseTarget === 'both'"
+            type="button"
+            class="at-split-layout__collapse-btn is-second"
+            :title="isSecondCollapsed ? '展开次栏' : '收起次栏'"
+            @click.stop="toggleSecondCollapse()"
+          >
+            <svg
+              viewBox="0 0 1024 1024"
+              width="10"
+              height="10"
+              fill="currentColor"
+              class="collapse-icon"
+              :class="{
+                'is-reversed':
+                  (direction === 'horizontal' && !isSecondCollapsed) ||
+                  (direction === 'vertical' && !isSecondCollapsed),
+              }"
+            >
+              <path
+                v-if="direction === 'horizontal'"
+                d="M603.7 836.3a32 32 0 0 1-22.6-9.4l-288-288a32 32 0 0 1 0-45.3l288-288a32 32 0 1 1 45.3 45.3L360.6 512l265.8 261.4a32 32 0 0 1-22.7 62.9z"
+              />
+              <path
+                v-else
+                d="M836.3 603.7a32 32 0 0 1-45.3 0L512 360.6 233.1 639.6a32 32 0 0 1-45.3-45.3l288-288a32 32 0 0 1 45.3 0l288 288a32 32 0 0 1 0 45.3z"
+              />
+            </svg>
+          </button>
+        </div>
       </slot>
     </div>
 
     <!-- 次栏（右/下 主体） -->
-    <main class="at-split-layout__second">
+    <main class="at-split-layout__second" :style="secondPaneStyle">
       <slot name="second">
         <slot v-if="direction === 'horizontal'" name="right">
           <slot />
@@ -336,6 +451,7 @@ defineExpose({
   background-color: var(--el-border-color-lighter);
   transition: background-color 0.2s;
   z-index: 2;
+  touch-action: none; /* 防止触控滚动冲突 */
 }
 
 .at-split-layout.is-horizontal .at-split-layout__splitter {
@@ -365,9 +481,31 @@ defineExpose({
   height: 100%;
 }
 
+/* 折叠把手容器 */
+.at-split-layout__collapse-triggers {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.at-split-layout.is-horizontal .at-split-layout__collapse-triggers {
+  flex-direction: column;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.at-split-layout.is-vertical .at-split-layout__collapse-triggers {
+  flex-direction: row;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 /* 折叠把手 */
 .at-split-layout__collapse-btn {
-  position: absolute;
   pointer-events: auto;
   border: 1px solid var(--el-border-color);
   background-color: var(--el-bg-color);
@@ -382,21 +520,16 @@ defineExpose({
   transition:
     background-color 0.2s,
     color 0.2s;
-  z-index: 3;
 }
 
 .at-split-layout.is-horizontal .at-split-layout__collapse-btn {
   width: 14px;
-  height: 40px;
-  top: 50%;
-  transform: translateY(-50%);
+  height: 36px;
 }
 
 .at-split-layout.is-vertical .at-split-layout__collapse-btn {
   height: 14px;
-  width: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  width: 36px;
 }
 
 .at-split-layout__collapse-btn:hover {
@@ -416,5 +549,12 @@ defineExpose({
   min-height: 0;
   box-sizing: border-box;
   overflow: auto;
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.at-split-layout.is-dragging .at-split-layout__second {
+  transition: none;
 }
 </style>

@@ -24,6 +24,8 @@ import { AtengSplitLayout } from '@atengk/element-plus';
 const splitDirection = ref<'horizontal' | 'vertical'>('horizontal');
 const splitSize = ref<string | number>('280px');
 const isCollapsed = ref(false);
+const isSecondCollapsed = ref(false);
+const collapseTarget = ref<'first' | 'second' | 'both'>('both');
 
 const deptTreeData = [
   {
@@ -76,9 +78,9 @@ const mockUsers = ref([
   <div class="split-view">
     <ElCard header="企业级弹性分栏容器 AtengSplitLayout">
       <ElAlert
-        title="左树右表经典场景"
+        title="左树右表与双向分栏场景"
         type="info"
-        description="纯原生鼠标拖拽调宽，支持 min/max 阈值防御；中间把手支持一键平滑收起展开；提供 storageKey 偏好持久化（拖拽或折叠后刷新页面自动还原）；支持水平（左树右表）与垂直（上下排版）双向切换。"
+        description="现代 W3C Pointer Events 原生拖拽调宽，完美支持鼠标、触屏平板与 iPad 手势；支持 collapseTarget（首栏、次栏或双向把手）；提供 storageKey 本地持久化（刷新自动还原尺寸与首尾双折叠状态）；支持水平与垂直双向切换。"
         show-icon
         :closable="false"
         style="margin-bottom: 16px"
@@ -90,9 +92,20 @@ const mockUsers = ref([
           <ElRadioButton value="horizontal">左右分栏 (Horizontal)</ElRadioButton>
           <ElRadioButton value="vertical">上下分栏 (Vertical)</ElRadioButton>
         </ElRadioGroup>
-        <span class="ctrl-label" style="margin-left: 20px">当前主栏尺寸：{{ splitSize }}</span>
+
+        <span class="ctrl-label" style="margin-left: 20px">折叠把手面向：</span>
+        <ElRadioGroup v-model="collapseTarget" size="small">
+          <ElRadioButton value="first">收起左/首栏</ElRadioButton>
+          <ElRadioButton value="second">收起右/次栏</ElRadioButton>
+          <ElRadioButton value="both">双向把手</ElRadioButton>
+        </ElRadioGroup>
+
+        <span class="ctrl-label" style="margin-left: 20px">当前尺寸：{{ splitSize }}</span>
         <span class="ctrl-label" style="margin-left: 20px"
-          >折叠状态：{{ isCollapsed ? '已折叠' : '展开' }}</span
+          >首栏状态：{{ isCollapsed ? '已收起' : '展开' }}</span
+        >
+        <span class="ctrl-label" style="margin-left: 20px"
+          >次栏状态：{{ isSecondCollapsed ? '已收起' : '展开' }}</span
         >
       </div>
 
@@ -100,6 +113,8 @@ const mockUsers = ref([
         <AtengSplitLayout
           v-model="splitSize"
           v-model:collapsed="isCollapsed"
+          v-model:second-collapsed="isSecondCollapsed"
+          :collapse-target="collapseTarget"
           :direction="splitDirection"
           default-size="280px"
           min="160px"

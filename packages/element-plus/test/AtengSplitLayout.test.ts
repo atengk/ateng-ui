@@ -102,4 +102,107 @@ describe('AtengSplitLayout 组件测试', () => {
     const parsed = JSON.parse(saved!);
     expect(parsed.size).toBe('350px');
   });
+
+  it('W3C Pointer Events 拖拽与指针捕获', async () => {
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        defaultSize: '200px',
+      },
+      attachTo: document.body,
+    });
+
+    const splitter = wrapper.find('.at-split-layout__splitter');
+    expect(splitter.exists()).toBe(true);
+
+    let captureId: number | null = null;
+    let releaseId: number | null = null;
+    splitter.element.setPointerCapture = (id: number) => {
+      captureId = id;
+    };
+    splitter.element.releasePointerCapture = (id: number) => {
+      releaseId = id;
+    };
+
+    // 触发 pointerdown
+    const downEvent = new PointerEvent('pointerdown', {
+      pointerId: 1,
+      clientX: 200,
+      clientY: 100,
+      bubbles: true,
+    });
+    splitter.element.dispatchEvent(downEvent);
+    expect(captureId).toBe(1);
+
+    // 触发 pointerup
+    const upEvent = new PointerEvent('pointerup', {
+      pointerId: 1,
+      clientX: 260,
+      clientY: 100,
+      bubbles: true,
+    });
+    window.dispatchEvent(upEvent);
+    expect(releaseId).toBe(1);
+  });
+
+  it('双向把手与次栏折叠 (collapseTarget="second" / "both")', async () => {
+    // 1. 测试次栏折叠 target="second"
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        collapseTarget: 'second',
+        defaultSize: '200px',
+      },
+      attachTo: document.body,
+    });
+
+    const secondBtn = wrapper.find('.at-split-layout__collapse-btn.is-second');
+    expect(secondBtn.exists()).toBe(true);
+    expect(wrapper.find('.at-split-layout__collapse-btn.is-first').exists()).toBe(false);
+
+    await secondBtn.trigger('click');
+    expect(wrapper.classes()).toContain('is-second-collapsed');
+    expect(wrapper.emitted('secondCollapse')).toBeTruthy();
+    expect(wrapper.emitted('update:secondCollapsed')![0]).toEqual([true]);
+
+    wrapper.unmount();
+
+    // 2. 测试双向把手 target="both"
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        collapseTarget: 'both',
+        defaultSize: '200px',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-split-layout__collapse-btn.is-first').exists()).toBe(true);
+    expect(wrapper.find('.at-split-layout__collapse-btn.is-second').exists()).toBe(true);
+  });
+
+  it('双向状态持久化恢复 (storageKey)', async () => {
+    const key = 'dual_collapse_storage';
+    localStorage.setItem(
+      `ateng_split_${key}`,
+      JSON.stringify({ size: '280px', collapsed: false, secondCollapsed: true }),
+    );
+
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        storageKey: key,
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.classes()).toContain('is-second-collapsed');
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+    // 次栏处于折叠态，尺寸为 0
+    expect(wrapper.find('.at-split-layout__second').attributes('style')).toContain('width: 0px');
+
+    // 展开次栏后，首栏还原为存储的 280px
+    const vm = wrapper.vm as unknown as { toggleSecondCollapse: () => void };
+    vm.toggleSecondCollapse();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).not.toContain('is-second-collapsed');
+    expect(wrapper.find('.at-split-layout__first').attributes('style')).toContain('width: 280px');
+  });
 });
