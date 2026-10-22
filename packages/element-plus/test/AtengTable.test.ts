@@ -8,9 +8,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { h, nextTick, ref } from 'vue';
-import { ElTableColumn } from 'element-plus';
+import { ElTableColumn, ElFormItem, ElInput } from 'element-plus';
 import type { UsePaginationResult } from '@atengk/vue';
 import { AtengTable, type AtengTableInstance } from '../src/components/table';
+import { AtengQueryForm } from '../src/components/query-form';
 
 const doubleWait = async () => {
   await nextTick();
@@ -337,6 +338,152 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     await doubleWait();
 
     expect(wrapper.find('.at-empty--empty').exists()).toBe(true);
+  });
+
+  it('多态缺省态：无筛选参数时渲染 status="empty"，存在活跃筛选参数时渲染 status="search" 并提供清空重置自愈按钮', async () => {
+    const listState = ref<Record<string, unknown>[]>([]);
+    const queryState = ref<Record<string, unknown>>({ keyword: '张三' });
+    const mockPagination = createMockPagination({
+      list: listState,
+      total: ref(0),
+      query: queryState,
+    });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        pagination: mockPagination,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 1. 存在活跃筛选参数且数据为空时，渲染 search 状态与“未找到符合条件的检索结果”
+    expect(wrapper.find('.at-empty--search').exists()).toBe(true);
+    expect(wrapper.text()).toContain('未找到符合条件的检索结果');
+
+    // 2. 渲染内置“清空筛选条件”按钮
+    const clearBtn = wrapper.find('.at-empty button');
+    expect(clearBtn.exists()).toBe(true);
+    expect(clearBtn.text()).toContain('清空筛选条件');
+
+    // 3. 点击“清空筛选条件”按钮，自动调度 tableContext.reset()
+    await clearBtn.trigger('click');
+    expect(mockPagination.reset).toHaveBeenCalled();
+
+    // 4. 重置后若查询参数已清空，回退为普通暂无数据状态
+    queryState.value = {};
+    await doubleWait();
+    expect(wrapper.find('.at-empty--empty').exists()).toBe(true);
+    expect(wrapper.find('.at-empty--search').exists()).toBe(false);
+  });
+
+  it('多态缺省态优先级：用户自定义 #empty 插槽 > 异常状态 (network-error) > 搜索空状态 (search) > 默认空状态 (empty)', async () => {
+    const errorState = ref<unknown>(new Error('Query timeout'));
+    const queryState = ref<Record<string, unknown>>({ status: 'active' });
+    const mockPagination = createMockPagination({
+      list: ref([]),
+      total: ref(0),
+      error: errorState,
+      query: queryState,
+    });
+
+    // 1. 同时存在 error 与 query 时，优先渲染 network-error 状态
+    wrapper = mount(AtengTable, {
+      props: {
+        pagination: mockPagination,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+    expect(wrapper.find('.at-empty--network-error').exists()).toBe(true);
+    expect(wrapper.find('.at-empty--search').exists()).toBe(false);
+
+    // 2. 异常清除后，退回展示 search 状态
+    errorState.value = null;
+    await doubleWait();
+    expect(wrapper.find('.at-empty--network-error').exists()).toBe(false);
+    expect(wrapper.find('.at-empty--search').exists()).toBe(true);
+
+    wrapper.unmount();
+
+    // 3. 显式提供 #empty 插槽时，即便存在 error 与 query，插槽保持最高优先级
+    wrapper = mount(AtengTable, {
+      props: {
+        pagination: mockPagination,
+      },
+      slots: {
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+        empty: () => h('div', { class: 'highest-priority-slot' }, '用户最高优先级空插槽'),
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+    expect(wrapper.find('.highest-priority-slot').exists()).toBe(true);
+    expect(wrapper.find('.at-empty').exists()).toBe(false);
+  });
+
+  it('检索与表格深度协同自愈：在嵌套 AtengQueryForm 场景下，点击表格搜索缺省态的清空按钮自动重置表单字段并触发重刷', async () => {
+    const formModel = ref({ keyword: '李四' });
+    const onResetSpy = vi.fn();
+    const mockPagination = createMockPagination({
+      list: ref([]),
+      total: ref(0),
+    });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        pagination: mockPagination,
+      },
+      slots: {
+        query: () =>
+          h(
+            AtengQueryForm,
+            {
+              model: formModel.value,
+              onReset: onResetSpy,
+            },
+            {
+              default: () => [
+                h(ElFormItem, { prop: 'keyword', label: '关键词' }, () => [
+                  h(ElInput, {
+                    modelValue: formModel.value.keyword,
+                    'onUpdate:modelValue': (val: string) => {
+                      formModel.value.keyword = val;
+                    },
+                  }),
+                ]),
+              ],
+            },
+          ),
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 1. 自动从注入的 AtengQueryForm 感知到筛选条件，并渲染 search 缺省态
+    expect(wrapper.find('.at-empty--search').exists()).toBe(true);
+    expect(wrapper.text()).toContain('未找到符合条件的检索结果');
+
+    // 2. 点击清空筛选条件按钮
+    const clearBtn = wrapper.find('.at-empty button');
+    expect(clearBtn.exists()).toBe(true);
+    expect(clearBtn.text()).toContain('清空筛选条件');
+    await clearBtn.trigger('click');
+
+    // 3. 验证触发了 pagination.reset() 与 AtengQueryForm 的 reset 回调
+    expect(mockPagination.reset).toHaveBeenCalled();
+    expect(onResetSpy).toHaveBeenCalled();
   });
 
   it('自定义 empty 插槽：优先渲染用户传入的 empty 插槽内容', async () => {

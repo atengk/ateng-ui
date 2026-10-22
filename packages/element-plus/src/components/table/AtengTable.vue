@@ -26,6 +26,7 @@ import {
   nextTick,
   useSlots,
   provide,
+  toValue,
   type ComputedRef,
   type ShallowRef,
 } from 'vue';
@@ -92,6 +93,7 @@ const props = withDefaults(defineProps<AtengTableProps>(), {
   showBatchBar: true,
   error: undefined,
   emptyDescription: undefined,
+  searchEmptyDescription: undefined,
   errorDescription: undefined,
   customClass: '',
 });
@@ -657,21 +659,142 @@ const handleRefresh = async () => {
   }
 };
 
-// 7. 上下文 Provide 注入（支持 AtengQueryForm 嵌套自动调度）
+// 7. 搜索感知多态缺省态与上下文 Provide 注入（支持 AtengQueryForm 嵌套自动调度）
+const internalQueryParams = ref<Record<string, unknown> | undefined>(undefined);
+const registeredResetHandlers = new Set<() => void>();
+const registeredQueryGetters = new Set<() => Record<string, unknown>>();
+const queryGetterVersion = ref(0);
+
+const PAGINATION_RESERVED_KEYS = ['pageNum', 'pageSize', 'sortField', 'sortAsc'] as const;
+
+/**
+ * 从参数字典中剔除分页保留键，提取纯净的业务检索筛选参数。
+ */
+function extractPureQueryParams(raw?: Record<string, unknown>): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object') return {};
+  const pure: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!(PAGINATION_RESERVED_KEYS as readonly string[]).includes(k)) {
+      pure[k] = v;
+    }
+  }
+  return pure;
+}
+
+/**
+ * 校验是否存在非空筛选条件。
+ * 排除 undefined、null、空字符串 '' 以及空数组 []，并排除标准分页/排序保留键。
+ */
+function hasActiveFilterParams(params?: Record<string, unknown>): boolean {
+  if (!params || typeof params !== 'object') {
+    return false;
+  }
+  return Object.entries(params).some(([key, value]) => {
+    if ((PAGINATION_RESERVED_KEYS as readonly string[]).includes(key)) {
+      return false;
+    }
+    if (value === undefined || value === null || value === '') {
+      return false;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      return false;
+    }
+    return true;
+  });
+}
+
+const currentQueryParams = computed<Record<string, unknown>>(() => {
+  // 建立表单注册钩子变更的响应式依赖追踪
+  void queryGetterVersion.value;
+
+  // 1. 若外部 pagination 显式挂载了 query（无论是 Ref、Getter 还是普通对象）且含有非空筛选条件
+  const paginationQuery = (props.pagination as Record<string, unknown> | undefined)?.query;
+  const rawQuery = toValue(paginationQuery);
+  if (rawQuery && typeof rawQuery === 'object') {
+    const pure = extractPureQueryParams(rawQuery as Record<string, unknown>);
+    if (hasActiveFilterParams(pure)) {
+      return pure;
+    }
+  }
+  // 2. 若内部记录了 search 调度的 params
+  if (internalQueryParams.value && typeof internalQueryParams.value === 'object') {
+    const pure = extractPureQueryParams(internalQueryParams.value);
+    if (hasActiveFilterParams(pure)) {
+      return pure;
+    }
+  }
+  // 3. 若有已注册的表单 queryGetter
+  for (const getter of registeredQueryGetters) {
+    try {
+      const formModel = getter();
+      if (formModel && typeof formModel === 'object') {
+        const pure = extractPureQueryParams(formModel);
+        if (hasActiveFilterParams(pure)) {
+          return pure;
+        }
+      }
+    } catch {
+      // 弹性防御
+    }
+  }
+  // 4. 若绑定的 pagination.params.value 包含额外参数（排除标准分页/排序保留键）
+  const rawParams = props.pagination?.params?.value?.[0];
+  if (rawParams && typeof rawParams === 'object') {
+    return extractPureQueryParams(rawParams as Record<string, unknown>);
+  }
+  return {};
+});
+
+const isSearchEmpty = computed<boolean>(() => {
+  if (hasError.value || isLoading.value || tableData.value.length > 0) {
+    return false;
+  }
+  return hasActiveFilterParams(currentQueryParams.value);
+});
+
+const handleResetFromEmpty = async () => {
+  await tableContext.reset();
+};
+
 const tableContext: AtengTableContext = {
   search: async params => {
+    internalQueryParams.value = params ? { ...params } : undefined;
     if (props.pagination) {
       await props.pagination.search(params);
     }
   },
   reset: async () => {
+    internalQueryParams.value = undefined;
+    for (const handler of registeredResetHandlers) {
+      try {
+        handler();
+      } catch {
+        // 弹性防御
+      }
+    }
     if (props.pagination) {
       await props.pagination.reset();
+    } else {
+      emit('refresh');
     }
   },
   loading: isLoading,
   getSelectedRows: () => selectedRows.value as Record<string, unknown>[],
-  getQueryParams: () => props.pagination?.query as Record<string, unknown> | undefined,
+  getQueryParams: () => currentQueryParams.value,
+  registerResetHandler: (handler: () => void) => {
+    registeredResetHandlers.add(handler);
+    return () => {
+      registeredResetHandlers.delete(handler);
+    };
+  },
+  registerQueryGetter: (getter: () => Record<string, unknown>) => {
+    registeredQueryGetters.add(getter);
+    queryGetterVersion.value++;
+    return () => {
+      registeredQueryGetters.delete(getter);
+      queryGetterVersion.value++;
+    };
+  },
 };
 
 provide(ATENG_TABLE_CONTEXT_KEY, tableContext);
@@ -889,6 +1012,22 @@ defineExpose<AtengTableExpose>({
             <AtengEmpty v-if="hasError" status="network-error" :description="errorDescription">
               <el-button type="primary" :loading="isLoading" @click="handleRefresh">
                 点击重试
+              </el-button>
+            </AtengEmpty>
+            <AtengEmpty
+              v-else-if="isSearchEmpty"
+              status="search"
+              :description="
+                searchEmptyDescription || emptyDescription || '未找到符合条件的检索结果'
+              "
+            >
+              <el-button
+                type="primary"
+                :loading="isLoading"
+                class="at-table__empty-reset-btn"
+                @click="handleResetFromEmpty"
+              >
+                清空筛选条件
               </el-button>
             </AtengEmpty>
             <AtengEmpty v-else status="empty" :description="emptyDescription" />

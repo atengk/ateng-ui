@@ -202,6 +202,33 @@ const actionGridStyle = computed(() => {
 
 // 5. 查询与重置交互调度
 const tableContext = inject<AtengTableContext | null>(ATENG_TABLE_CONTEXT_KEY, null);
+let unregisterResetHandler: (() => void) | undefined;
+let unregisterQueryGetter: (() => void) | undefined;
+
+onMounted(() => {
+  if (tableContext?.registerResetHandler) {
+    unregisterResetHandler = tableContext.registerResetHandler(() => {
+      formRef.value?.resetFields();
+      emit('reset');
+    });
+  }
+  if (tableContext?.registerQueryGetter) {
+    unregisterQueryGetter = tableContext.registerQueryGetter(() => {
+      return (props.model as Record<string, unknown>) || {};
+    });
+  }
+});
+
+onUnmounted(() => {
+  if (unregisterResetHandler) {
+    unregisterResetHandler();
+    unregisterResetHandler = undefined;
+  }
+  if (unregisterQueryGetter) {
+    unregisterQueryGetter();
+    unregisterQueryGetter = undefined;
+  }
+});
 
 const handleSearch = (overrideModel?: T) => {
   const targetModel = overrideModel || (props.model as T);

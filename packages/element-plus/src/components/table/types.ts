@@ -205,6 +205,11 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   emptyDescription?: string;
 
   /**
+   * 检索无结果时的自定义文案。
+   */
+  searchEmptyDescription?: string;
+
+  /**
    * 异常状态时的自定义文案。
    */
   errorDescription?: string;

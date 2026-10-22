@@ -36,6 +36,22 @@ export interface AtengTableContext {
    * 获取当前表格分页或检索入参模型。
    */
   getQueryParams?: () => Record<string, unknown> | undefined;
+
+  /**
+   * 注册关联的表单重置钩子（供 AtengQueryForm 挂载时接入协同自愈）。
+   *
+   * @param handler 表单重置回调
+   * @returns 注销函数
+   */
+  registerResetHandler?: (handler: () => void) => () => void;
+
+  /**
+   * 注册关联表单的查询参数获取器（供 AtengQueryForm 挂载时提供实时表单模型）。
+   *
+   * @param getter 表单参数获取函数
+   * @returns 注销函数
+   */
+  registerQueryGetter?: (getter: () => Record<string, unknown>) => () => void;
 }
 
 export const ATENG_TABLE_CONTEXT_KEY: InjectionKey<AtengTableContext> = Symbol('AtengTableContext');
