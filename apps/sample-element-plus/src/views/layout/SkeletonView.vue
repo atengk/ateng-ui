@@ -41,9 +41,9 @@ const mockTable = [
   <div class="skeleton-view">
     <ElCard header="页面骨架屏占位容器 AtengPageSkeleton">
       <ElAlert
-        title="4 大典型后台骨架模态"
+        title="5 大典型后台骨架模态与流式自适应网格"
         type="info"
-        description="开箱即用支持 table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（卡片网格）四大高频后台预设；数据加载完成时自带平滑淡入淡出（Fade Transition）过渡，消除突变与闪变。"
+        description="开箱即用支持 table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（流式卡片网格）、dashboard（4 指标卡+双图表看板）五大高频后台预设；卡片与仪表盘升级为现代 CSS Grid auto-fit + minmax 流式自适应网格，窄屏自然换行无溢出；数据加载完成时自带平滑淡入淡出（Fade Transition）过渡，消除突变闪变。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -56,6 +56,7 @@ const mockTable = [
           <ElRadioButton value="form">表单型 (form)</ElRadioButton>
           <ElRadioButton value="detail">详情型 (detail)</ElRadioButton>
           <ElRadioButton value="card">卡片型 (card)</ElRadioButton>
+          <ElRadioButton value="dashboard">看板型 (dashboard)</ElRadioButton>
         </ElRadioGroup>
 
         <span style="margin-left: 20px">加载状态 (loading)：</span>
@@ -118,6 +119,49 @@ const mockTable = [
                 </div>
               </div>
             </div>
+
+            <!-- 真实仪表盘展示 -->
+            <div v-else-if="currentType === 'dashboard'" class="real-dashboard-view">
+              <div class="dashboard-stats-grid">
+                <div class="dash-stat-item">
+                  <div class="stat-title">今日核心营收 (GMV)</div>
+                  <div class="stat-value">¥ 2,891,420.00</div>
+                  <div class="stat-sub">较昨日 +14.2% ↑</div>
+                </div>
+                <div class="dash-stat-item">
+                  <div class="stat-title">有效支付订单</div>
+                  <div class="stat-value">5,820 笔</div>
+                  <div class="stat-sub">履约率 99.4%</div>
+                </div>
+                <div class="dash-stat-item">
+                  <div class="stat-title">活跃企业租户</div>
+                  <div class="stat-value">1,248 家</div>
+                  <div class="stat-sub">新增 32 家</div>
+                </div>
+                <div class="dash-stat-item">
+                  <div class="stat-title">网关请求总数</div>
+                  <div class="stat-value">84.9 万次</div>
+                  <div class="stat-sub">平均延时 18ms</div>
+                </div>
+              </div>
+
+              <div class="dashboard-charts-grid">
+                <div class="dash-chart-card">
+                  <div class="dash-chart-header">
+                    <h4>📈 24 小时交易波动走势图</h4>
+                    <ElTag size="small">实时流</ElTag>
+                  </div>
+                  <div class="chart-content-box">[折线走势图真实渲染区域]</div>
+                </div>
+                <div class="dash-chart-card">
+                  <div class="dash-chart-header">
+                    <h4>🍩 业务线营收贡献分布</h4>
+                    <ElTag size="small" type="success">按自然月</ElTag>
+                  </div>
+                  <div class="chart-content-box">[环形占比图真实渲染区域]</div>
+                </div>
+              </div>
+            </div>
           </div>
         </AtengPageSkeleton>
       </div>
@@ -133,6 +177,7 @@ const mockTable = [
 .ctrl-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 20px;
   padding: 12px 16px;
@@ -166,7 +211,7 @@ const mockTable = [
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
 }
 
@@ -175,5 +220,68 @@ const mockTable = [
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   background-color: var(--el-fill-color-blank);
+}
+
+/* 真实仪表盘样式 */
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dash-stat-item {
+  padding: 16px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+}
+
+.stat-title {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+  margin-bottom: 6px;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: var(--el-color-success);
+}
+
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.dash-chart-card {
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  background-color: var(--el-bg-color);
+}
+
+.dash-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.chart-content-box {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--el-fill-color-light);
+  border-radius: 4px;
+  color: var(--el-text-color-placeholder);
+  font-size: 14px;
 }
 </style>

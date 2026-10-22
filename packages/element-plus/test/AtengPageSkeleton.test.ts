@@ -78,6 +78,37 @@ describe('AtengPageSkeleton 组件测试', () => {
     expect(wrapper.find('.at-skeleton-card-grid').exists()).toBe(true);
   });
 
+  it('仪表盘模态预设 (type=dashboard)：渲染 4 张指标卡与双图表区块骨架', () => {
+    wrapper = mount(AtengPageSkeleton, {
+      props: {
+        loading: true,
+        type: 'dashboard',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-skeleton-dashboard').exists()).toBe(true);
+    expect(wrapper.find('.at-skeleton-dashboard__stats').exists()).toBe(true);
+    expect(wrapper.findAll('.at-skeleton-stat-card').length).toBe(4);
+    expect(wrapper.find('.at-skeleton-dashboard__charts').exists()).toBe(true);
+    expect(wrapper.findAll('.at-skeleton-chart-card').length).toBe(2);
+  });
+
+  it('完全自定义骨架屏插槽 (slot: skeleton)：优先渲染自定义插槽内容', () => {
+    wrapper = mount(AtengPageSkeleton, {
+      props: {
+        loading: true,
+      },
+      slots: {
+        skeleton: '<div class="my-custom-skeleton">自定义波浪骨架</div>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.my-custom-skeleton').exists()).toBe(true);
+    expect(wrapper.find('.at-skeleton-table').exists()).toBe(false);
+  });
+
   it('加载完成态 (loading=false)：渲染真实业务视图', () => {
     wrapper = mount(AtengPageSkeleton, {
       props: {

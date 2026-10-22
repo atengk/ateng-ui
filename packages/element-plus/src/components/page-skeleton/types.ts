@@ -8,7 +8,7 @@
 /**
  * 预设骨架屏模态。
  */
-export type AtengSkeletonType = 'table' | 'form' | 'detail' | 'card' | 'custom';
+export type AtengSkeletonType = 'table' | 'form' | 'detail' | 'card' | 'dashboard' | 'custom';
 
 /**
  * AtengPageSkeleton 属性契约。
@@ -21,7 +21,7 @@ export interface AtengPageSkeletonProps {
   loading?: boolean;
 
   /**
-   * 预设骨架屏模态：'table'（搜索表单+表格）| 'form'（栅格表单）| 'detail'（详情键值）| 'card'（卡片网格）| 'custom'（纯自定义）。
+   * 预设骨架屏模态：'table'（搜索表单+表格）| 'form'（栅格表单）| 'detail'（详情键值）| 'card'（卡片网格）| 'dashboard'（指标看板+双图表）| 'custom'（纯自定义）。
    * 默认 'table'。
    */
   type?: AtengSkeletonType;

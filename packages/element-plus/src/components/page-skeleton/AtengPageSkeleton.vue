@@ -3,10 +3,11 @@
  * 页面骨架屏占位容器组件。
  *
  * 核心特性：
- * 1. 预设 4 大企业级高频模态：table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（卡片网格）；
- * 2. 深度集成 ElSkeleton，自带原生平滑呼吸动效；
- * 3. 真实内容切换时采用平滑 Fade Transition 淡入淡出过渡，彻底消除突兀闪变；
- * 4. 支持 #skeleton 完全自定义扩展。
+ * 1. 预设 5 大企业级高频模态：table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（流式卡片网格）、dashboard（4 指标卡+双图表看板）；
+ * 2. 现代 CSS Grid 流式自适应布局（repeat(auto-fit, minmax(220px, 1fr))），小屏幕优雅折行无溢出；
+ * 3. 深度集成 ElSkeleton，自带原生平滑呼吸动效；
+ * 4. 真实内容切换时采用平滑 Fade Transition 淡入淡出过渡，彻底消除突兀闪变；
+ * 5. 支持 #skeleton 完全自定义扩展。
  *
  * @author Ateng
  * @since 2026-10-22
@@ -114,11 +115,7 @@ defineExpose({
             </div>
 
             <!-- 模态 4: 卡片网格型 (card) -->
-            <div
-              v-else-if="type === 'card'"
-              class="at-skeleton-card-grid"
-              :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }"
-            >
+            <div v-else-if="type === 'card'" class="at-skeleton-card-grid">
               <div v-for="i in columns * 2" :key="i" class="at-skeleton-card-item">
                 <el-skeleton-item
                   variant="rect"
@@ -129,6 +126,35 @@ defineExpose({
                   style="width: 60%; height: 18px; margin-bottom: 8px"
                 />
                 <el-skeleton-item variant="text" style="width: 90%; height: 14px" />
+              </div>
+            </div>
+
+            <!-- 模态 5: 仪表盘看板型 (dashboard) -->
+            <div v-else-if="type === 'dashboard'" class="at-skeleton-dashboard">
+              <!-- 4 张指标卡骨架 -->
+              <div class="at-skeleton-dashboard__stats">
+                <div v-for="i in 4" :key="i" class="at-skeleton-stat-card">
+                  <el-skeleton-item
+                    variant="text"
+                    style="width: 45%; height: 16px; margin-bottom: 12px"
+                  />
+                  <el-skeleton-item
+                    variant="rect"
+                    style="width: 65%; height: 28px; margin-bottom: 10px; border-radius: 4px"
+                  />
+                  <el-skeleton-item variant="text" style="width: 80%; height: 14px" />
+                </div>
+              </div>
+
+              <!-- 双图表区块骨架 -->
+              <div class="at-skeleton-dashboard__charts">
+                <div v-for="i in 2" :key="i" class="at-skeleton-chart-card">
+                  <div class="at-skeleton-chart-card__header">
+                    <el-skeleton-item variant="text" style="width: 30%; height: 18px" />
+                    <el-skeleton-item variant="button" style="width: 64px; height: 24px" />
+                  </div>
+                  <el-skeleton-item variant="rect" class="at-skeleton-chart-card__body" />
+                </div>
               </div>
             </div>
           </template>
@@ -226,9 +252,10 @@ defineExpose({
   gap: 12px;
 }
 
-/* 模态 4: 卡片网格 */
+/* 模态 4: 卡片网格（流式自适应） */
 .at-skeleton-card-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
 }
 
@@ -237,6 +264,53 @@ defineExpose({
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   box-sizing: border-box;
+}
+
+/* 模态 5: 仪表盘看板（4 指标卡 + 双图表区块） */
+.at-skeleton-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.at-skeleton-dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.at-skeleton-stat-card {
+  padding: 16px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  box-sizing: border-box;
+}
+
+.at-skeleton-dashboard__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.at-skeleton-chart-card {
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  background-color: var(--el-bg-color);
+  box-sizing: border-box;
+}
+
+.at-skeleton-chart-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.at-skeleton-chart-card__body {
+  width: 100%;
+  height: 240px;
+  border-radius: 4px;
 }
 
 /* 淡入淡出过渡动效 */
