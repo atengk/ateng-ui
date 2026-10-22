@@ -10,7 +10,7 @@ import { mount, type VueWrapper } from '@vue/test-utils';
 import { h, nextTick, ref } from 'vue';
 import { ElTableColumn, ElFormItem, ElInput } from 'element-plus';
 import type { UsePaginationResult } from '@atengk/vue';
-import { AtengTable, type AtengTableInstance } from '../src/components/table';
+import { AtengTable, type AtengTableInstance, type AtengTableProps } from '../src/components/table';
 import { AtengQueryForm } from '../src/components/query-form';
 
 const doubleWait = async () => {
@@ -749,6 +749,80 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     const vm = wrapper.vm as unknown as AtengTableInstance;
     expect(vm.selectedCount).toBe(0);
     expect(vm.selectedRows.length).toBe(0);
+  });
+
+  it('Vue 3.5 SFC 原生泛型全链路打通：Props、Emits、Slots 与 Expose 强类型推导完整闭环', async () => {
+    interface MemberItem {
+      id: string;
+      username: string;
+      age: number;
+      role: string;
+    }
+
+    const members: MemberItem[] = [
+      { id: 'm1', username: '张三', age: 28, role: 'Tech Lead' },
+      { id: 'm2', username: '李四', age: 32, role: 'Architect' },
+    ];
+
+    let capturedSlotRows: MemberItem[] = [];
+    let capturedEmittedRows: MemberItem[] = [];
+
+    wrapper = mount(AtengTable as unknown as new () => { $props: AtengTableProps<MemberItem> }, {
+      props: {
+        data: members,
+        rowKey: 'id',
+      },
+      slots: {
+        default: () => [
+          h(ElTableColumn, { type: 'selection', width: 55 }),
+          h(ElTableColumn, { prop: 'username', label: '成员名称' }),
+        ],
+        'batch-actions': (scope: { selectedRows: MemberItem[]; clearSelection: () => void }) => {
+          capturedSlotRows = scope.selectedRows;
+          return h(
+            'button',
+            { class: 'custom-batch-btn', onClick: scope.clearSelection },
+            '批量操作',
+          );
+        },
+      },
+      attrs: {
+        onSelectionChange: (selection: MemberItem[]) => {
+          capturedEmittedRows = selection;
+        },
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    const tableEl = wrapper.findComponent({ name: 'ElTable' });
+    tableEl.vm.$emit('selection-change', [members[0]]);
+    await doubleWait();
+
+    // 1. 验证插槽作用域类型与运行态数据
+    expect(capturedSlotRows).toHaveLength(1);
+    expect(capturedSlotRows[0].username).toBe('张三');
+    expect(capturedSlotRows[0].role).toBe('Tech Lead');
+
+    // 2. 验证事件派发类型与运行态数据
+    expect(capturedEmittedRows).toHaveLength(1);
+    expect(capturedEmittedRows[0].id).toBe('m1');
+
+    // 3. 验证实例能力强类型推导与交互
+    const tableInstance = wrapper.vm as unknown as {
+      selectedRows: MemberItem[];
+      selectedCount: number;
+      getSelectionRows: () => MemberItem[];
+      clearSelection: () => void;
+    };
+    expect(tableInstance.selectedRows[0].age).toBe(28);
+    expect(tableInstance.getSelectionRows()[0].role).toBe('Tech Lead');
+
+    // 4. 清空选中
+    tableInstance.clearSelection();
+    await doubleWait();
+    expect(tableInstance.selectedCount).toBe(0);
   });
 
   it('批量悬浮条开关：支持通过 showBatchBar: false 显式关闭', async () => {

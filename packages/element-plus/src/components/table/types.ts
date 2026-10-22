@@ -76,6 +76,8 @@ export type TableToolItem = 'refresh' | 'density' | 'stripe' | 'column-setting' 
 
 /**
  * AtengTable 属性接口。
+ *
+ * @template T 表格行数据实体模型类型
  */
 export interface AtengTableProps<T = Record<string, unknown>> {
   /**
@@ -222,6 +224,8 @@ export interface AtengTableProps<T = Record<string, unknown>> {
 
 /**
  * AtengTable 事件接口。
+ *
+ * @template T 表格行数据实体模型类型
  */
 export interface AtengTableEmits<T = Record<string, unknown>> {
   /**
@@ -308,6 +312,8 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
 
 /**
  * AtengTable 插槽接口。
+ *
+ * @template T 表格行数据实体模型类型
  */
 export interface AtengTableSlots<T = Record<string, unknown>> {
   /**
@@ -353,6 +359,8 @@ export interface AtengTableSlots<T = Record<string, unknown>> {
 
 /**
  * AtengTable 暴露的实例能力接口。
+ *
+ * @template T 表格行数据实体模型类型
  */
 export interface AtengTableExpose<T = Record<string, unknown>> {
   /**
@@ -398,5 +406,7 @@ export interface AtengTableExpose<T = Record<string, unknown>> {
 
 /**
  * 专有组件实例类型。
+ *
+ * @template T 表格行数据实体模型类型
  */
-export type AtengTableInstance = AtengTableExpose;
+export type AtengTableInstance<T = Record<string, unknown>> = AtengTableExpose<T>;

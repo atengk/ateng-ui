@@ -20,8 +20,10 @@ export type DescriptionsFormatType = 'currency' | 'date';
 
 /**
  * 详情单项配置契约（Schema 模式）。
+ *
+ * @template T 宿主源数据实体模型类型
  */
-export interface DescriptionsItemConfig {
+export interface DescriptionsItemConfig<T = Record<string, unknown>> {
   /**
    * 对应 data 对象的字段名（如 'phone'、'username'）。
    */
@@ -89,21 +91,23 @@ export interface DescriptionsItemConfig {
   /**
    * 自定义格式化计算函数。
    */
-  formatter?: (value: unknown, data: Record<string, unknown>) => string;
+  formatter?: (value: unknown, data: T) => string;
 }
 
 /**
  * AtengDescriptions 容器组件属性契约。
+ *
+ * @template T 宿主源数据实体模型类型
  */
-export interface AtengDescriptionsProps {
+export interface AtengDescriptionsProps<T = Record<string, unknown>> {
   /**
    * 待展示的源数据对象。
    */
-  data?: Record<string, unknown>;
+  data?: T;
   /**
    * 纯数据驱动的项列表配置（Schema 模式）。
    */
-  items?: DescriptionsItemConfig[];
+  items?: DescriptionsItemConfig<T>[];
   /**
    * 详情标题。
    */
@@ -137,15 +141,23 @@ export interface AtengDescriptionsProps {
 /**
  * AtengDescriptionsItem 声明式子组件属性契约。
  */
-export type AtengDescriptionsItemProps = DescriptionsItemConfig;
+export type AtengDescriptionsItemProps<T = Record<string, unknown>> = DescriptionsItemConfig<T>;
 
 /**
  * AtengDescriptions 插槽契约。
+ *
+ * @template T 宿主源数据实体模型类型
  */
-export interface AtengDescriptionsSlots {
+export interface AtengDescriptionsSlots<T = Record<string, unknown>> {
   title?: () => VNode[];
   extra?: () => VNode[];
   default?: () => VNode[];
-  [itemSlotName: string]:
-    ((props: { value: unknown; data: Record<string, unknown> }) => VNode[]) | undefined;
+  [itemSlotName: string]: ((props: { value: unknown; data: T }) => VNode[]) | undefined;
 }
+
+/**
+ * AtengDescriptions 专有组件实例类型。
+ *
+ * @template _T 宿主源数据实体模型类型
+ */
+export type AtengDescriptionsInstance<_T = Record<string, unknown>> = Record<string, unknown>;

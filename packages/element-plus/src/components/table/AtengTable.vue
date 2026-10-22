@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
 /**
  * 企业级分页表格核心容器组件。
  *
@@ -10,7 +10,8 @@
  * 5. 深度双轨绑定 @atengk/vue 的 usePagination 状态机；
  * 6. 统一集成 AtengEmpty 缺省态与网络异常重试机制，保留用户 #empty 插槽逃生门；
  * 7. $attrs 与 $slots 100% 透明透传至底层 ElTable；
- * 8. 建立与 AtengQueryForm 的 Provide/Inject 上下文联动。
+ * 8. 建立与 AtengQueryForm 的 Provide/Inject 上下文联动；
+ * 9. Vue 3.5 SFC 原生泛型 <T> 强类型打通。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -70,8 +71,8 @@ defineOptions({
   inheritAttrs: false,
 });
 
-const props = withDefaults(defineProps<AtengTableProps>(), {
-  data: () => [],
+const props = withDefaults(defineProps<AtengTableProps<T>>(), {
+  data: () => [] as T[],
   pagination: undefined,
   columns: () => [],
   rowKey: 'id',
@@ -98,16 +99,16 @@ const props = withDefaults(defineProps<AtengTableProps>(), {
   customClass: '',
 });
 
-const emit = defineEmits<AtengTableEmits>();
+const emit = defineEmits<AtengTableEmits<T>>();
 const slots = useSlots();
-defineSlots<AtengTableSlots>();
+defineSlots<AtengTableSlots<T>>();
 
 // 1. 数据源、Loading 与异常状态解析
-const tableData = computed<Record<string, unknown>[]>(() => {
+const tableData = computed<T[]>(() => {
   if (props.pagination) {
-    return (props.pagination.list.value ?? []) as Record<string, unknown>[];
+    return (props.pagination.list.value ?? []) as T[];
   }
-  return (props.data ?? []) as Record<string, unknown>[];
+  return (props.data ?? []) as T[];
 });
 
 const isLoading = computed<boolean>(() => {
@@ -625,14 +626,14 @@ const effectiveTableHeight = computed(() => {
 // 6. 表格实例与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
 
-const selectedRows = ref<Record<string, unknown>[]>([]);
+const selectedRows = ref<T[]>([]);
 const selectedCount = computed<number>(() => selectedRows.value.length);
 const shouldShowBatchBar = computed<boolean>(() => {
   return props.showBatchBar !== false;
 });
 
 const handleSelectionChange = (selection: unknown[]) => {
-  selectedRows.value = selection as Record<string, unknown>[];
+  selectedRows.value = selection as T[];
   emit('selection-change', selectedRows.value);
   emit('update:selectedRows', selectedRows.value);
 };
@@ -644,12 +645,16 @@ const clearSelection = () => {
   emit('update:selectedRows', []);
 };
 
-const toggleRowSelection = (row: Record<string, unknown>, selected?: boolean) => {
+const toggleRowSelection = (row: T, selected?: boolean) => {
   tableRef.value?.toggleRowSelection(row, selected);
 };
 
-const getSelectionRows = (): Record<string, unknown>[] => {
-  return (tableRef.value?.getSelectionRows() ?? selectedRows.value) as Record<string, unknown>[];
+const getSelectionRows = (): T[] => {
+  const elRows = tableRef.value?.getSelectionRows();
+  if (Array.isArray(elRows) && elRows.length > 0) {
+    return elRows as T[];
+  }
+  return selectedRows.value;
 };
 
 const handleRefresh = async () => {
@@ -800,14 +805,14 @@ const tableContext: AtengTableContext = {
 provide(ATENG_TABLE_CONTEXT_KEY, tableContext);
 
 // 8. 显式暴露实例能力
-defineExpose<AtengTableExpose>({
+defineExpose<AtengTableExpose<T>>({
   tableRef,
   columns: columnSettings as ComputedRef<TableColumnConfig[]>,
   selectedRows: computed(() => selectedRows.value),
   selectedCount,
   clearSelection,
-  toggleRowSelection: toggleRowSelection as (row: unknown, selected?: boolean) => void,
-  getSelectionRows: getSelectionRows as () => unknown[],
+  toggleRowSelection,
+  getSelectionRows,
   refresh: handleRefresh,
 });
 </script>

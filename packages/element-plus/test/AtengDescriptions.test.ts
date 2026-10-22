@@ -12,6 +12,7 @@ import {
   AtengDescriptions,
   AtengDescriptionsItem,
   type DescriptionsItemConfig,
+  type AtengDescriptionsProps,
 } from '../src/components/descriptions';
 import { DictManager } from '../src/components/dict/DictManager';
 
@@ -222,5 +223,65 @@ describe('AtengDescriptions 组件规范与渲染测试', () => {
 
     expect(wrapper.text()).toContain('95 分 (优秀)');
     expect(wrapper.find('.custom-slot-text').text()).toBe('插槽: 自定义内容');
+  });
+
+  it('Vue 3.5 SFC 原生泛型全链路打通：支持强类型 Data 绑定、自定义格式化与插槽作用域参数推导', async () => {
+    interface AccountDetail {
+      id: string;
+      accountName: string;
+      balance: number;
+    }
+
+    const account: AccountDetail = {
+      id: 'acc_1001',
+      accountName: '财务专有账户',
+      balance: 8888.88,
+    };
+
+    let capturedSlotData: AccountDetail | undefined;
+
+    const items: DescriptionsItemConfig<AccountDetail>[] = [
+      {
+        prop: 'balance',
+        label: '账户余额',
+        formatter: (_val, data) => `${data.accountName}: ￥${data.balance.toFixed(2)}`,
+      },
+      {
+        prop: 'accountName',
+        label: '账户名称',
+      },
+    ];
+
+    const GenericRoot = defineComponent({
+      setup() {
+        return () =>
+          h(
+            AtengDescriptions as unknown as new () => {
+              $props: AtengDescriptionsProps<AccountDetail>;
+            },
+            {
+              data: account,
+              items,
+            },
+            {
+              accountName: ({ data }: { data: AccountDetail }) => {
+                capturedSlotData = data;
+                return h('span', { class: 'account-slot-text' }, data.accountName);
+              },
+            },
+          );
+      },
+    });
+
+    wrapper = mount(GenericRoot, { attachTo: document.body });
+    await flushPromises();
+
+    // 1. 验证自定义 formatter 中正确获取强类型 data
+    expect(wrapper.text()).toContain('财务专有账户: ￥8888.88');
+
+    // 2. 验证插槽作用域接收到强类型 data
+    expect(capturedSlotData).toBeDefined();
+    expect(capturedSlotData?.id).toBe('acc_1001');
+    expect(wrapper.find('.account-slot-text').text()).toBe('财务专有账户');
   });
 });

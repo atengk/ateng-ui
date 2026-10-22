@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
 /**
  * 企业级结构化数据详情展示组件。
  *
@@ -6,7 +6,8 @@
  * 1. 渐进混合架构：SFC 模板插槽（<AtengDescriptionsItem>）优先，兼顾 Schema（:items）配置驱动；
  * 2. 声明式脱敏管道：内置 phone、idCard、email、name、bankCard，复用 @atengk/core 纯函数；
  * 3. 格式化管道与字典内生：支持 currency（金额千分位）、date 格式化，支持 dictCode 自动转 AtengDictTag；
- * 4. 严格空安全防御不变量：null、undefined 或空值强制保底渲染为 '-'（可配置 emptyText）。
+ * 4. 严格空安全防御不变量：null、undefined 或空值强制保底渲染为 '-'（可配置 emptyText）；
+ * 5. Vue 3.5 SFC 原生泛型 <T> 强类型打通。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -33,8 +34,8 @@ defineOptions({
   name: 'AtengDescriptions',
 });
 
-const props = withDefaults(defineProps<AtengDescriptionsProps>(), {
-  data: () => ({}),
+const props = withDefaults(defineProps<AtengDescriptionsProps<T>>(), {
+  data: () => ({}) as T,
   items: undefined,
   title: '',
   extra: '',
@@ -45,14 +46,15 @@ const props = withDefaults(defineProps<AtengDescriptionsProps>(), {
   emptyText: '-',
 });
 
-const slots = useSlots() as AtengDescriptionsSlots;
+const slots = useSlots() as AtengDescriptionsSlots<T>;
+defineSlots<AtengDescriptionsSlots<T>>();
 const slotRenderers = new Map<string, Slot>();
 
 /**
  * 递归扁平化遍历默认插槽 VNode 节点树，提取 DescriptionsItem 元数据与作用域插槽。
  */
-function extractItemsFromVNodes(vnodes: VNode[]): DescriptionsItemConfig[] {
-  const result: DescriptionsItemConfig[] = [];
+function extractItemsFromVNodes(vnodes: VNode[]): DescriptionsItemConfig<T>[] {
+  const result: DescriptionsItemConfig<T>[] = [];
 
   for (const vnode of vnodes) {
     if (!vnode) {
@@ -69,24 +71,24 @@ function extractItemsFromVNodes(vnodes: VNode[]): DescriptionsItemConfig[] {
         const p = (vnode.props || {}) as Record<string, unknown>;
         const propKey = String(p.prop || '');
 
-        const config: DescriptionsItemConfig = {
+        const config: DescriptionsItemConfig<T> = {
           prop: propKey,
           label: typeof p.label === 'string' ? p.label : undefined,
           span: Number(p.span || 1),
           width: p.width as string | number | undefined,
           minWidth: (p.minWidth || p['min-width']) as string | number | undefined,
-          align: p.align as DescriptionsItemConfig['align'],
-          labelAlign: (p.labelAlign || p['label-align']) as DescriptionsItemConfig['labelAlign'],
+          align: p.align as DescriptionsItemConfig<T>['align'],
+          labelAlign: (p.labelAlign || p['label-align']) as DescriptionsItemConfig<T>['labelAlign'],
           className: String(p.className || p.class || ''),
           labelClassName: String(p.labelClassName || p['label-class-name'] || ''),
-          mask: p.mask as DescriptionsItemConfig['mask'],
+          mask: p.mask as DescriptionsItemConfig<T>['mask'],
           maskChar: String(p.maskChar || p['mask-char'] || '*'),
-          type: p.type as DescriptionsItemConfig['type'],
+          type: p.type as DescriptionsItemConfig<T>['type'],
           currencyPrecision: Number(p.currencyPrecision || p['currency-precision'] || 2),
           currencySymbol: String(p.currencySymbol || p['currency-symbol'] || '￥'),
           dictCode: (p.dictCode || p['dict-code']) as string | undefined,
           emptyText: (p.emptyText || p['empty-text']) as string | undefined,
-          formatter: p.formatter as DescriptionsItemConfig['formatter'],
+          formatter: p.formatter as DescriptionsItemConfig<T>['formatter'],
         };
 
         // 缓存子组件自身的内嵌插槽
@@ -113,7 +115,7 @@ function extractItemsFromVNodes(vnodes: VNode[]): DescriptionsItemConfig[] {
 /**
  * 综合解析出的最终展示项列表。
  */
-const resolvedItems = computed<DescriptionsItemConfig[]>(() => {
+const resolvedItems = computed<DescriptionsItemConfig<T>[]>(() => {
   slotRenderers.clear();
 
   // 1. 若外部显式配置了 items Schema 列表，优先结合 items
@@ -140,8 +142,8 @@ function getItemSlot(prop: string): Slot | undefined {
 /**
  * 格式化单项展示文本（内置脱敏、金额千分位、日期与空安全保底）。
  */
-function renderItemValue(item: DescriptionsItemConfig): string {
-  const rawVal = props.data?.[item.prop];
+function renderItemValue(item: DescriptionsItemConfig<T>): string {
+  const rawVal = props.data ? (props.data as Record<string, unknown>)[item.prop] : undefined;
 
   // 1. 空安全保底：null、undefined 或空字符串强制回退为 '-'
   if (rawVal === null || rawVal === undefined || rawVal === '') {
@@ -150,7 +152,7 @@ function renderItemValue(item: DescriptionsItemConfig): string {
 
   // 2. 自定义格式化计算函数
   if (typeof item.formatter === 'function') {
-    return item.formatter(rawVal, props.data || {});
+    return item.formatter(rawVal, (props.data || {}) as T);
   }
 
   // 3. 声明式脱敏管道处理
@@ -227,15 +229,15 @@ function renderItemValue(item: DescriptionsItemConfig): string {
       <slot
         v-if="$slots[item.prop]"
         :name="item.prop"
-        :value="data?.[item.prop]"
-        :data="data || {}"
+        :value="(data as Record<string, unknown>)?.[item.prop]"
+        :data="data || ({} as T)"
       />
       <!-- 2. 子组件内嵌插槽（如 <AtengDescriptionsItem>custom</AtengDescriptionsItem>） -->
       <component
         :is="getItemSlot(item.prop)"
         v-else-if="hasItemSlot(item.prop)"
-        :value="data?.[item.prop]"
-        :data="data || {}"
+        :value="(data as Record<string, unknown>)?.[item.prop]"
+        :data="data || ({} as T)"
       />
       <!-- 3. 字典联动模式（自动渲染为 AtengDictTag） -->
       <ateng-dict-tag
