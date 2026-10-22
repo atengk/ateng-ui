@@ -227,7 +227,7 @@ defineExpose<AtengDialogExpose>({
     <!-- 底部标准化操作栏 -->
     <template #footer>
       <div class="at-dialog__footer">
-        <slot name="footer">
+        <slot name="footer" :confirm="handleConfirm" :cancel="handleCancel" :loading="isLoading">
           <el-button
             v-if="showCancel"
             class="at-dialog__cancel-btn"

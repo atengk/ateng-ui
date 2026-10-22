@@ -81,15 +81,16 @@ html.dark .el-overlay {
   }
 
   .el-dialog__footer {
-    padding: 14px 24px;
+    padding: 12px 24px;
     margin: 0;
-    border-top: 1px solid var(--el-border-color-light);
-    background-color: rgba(248, 250, 252, 0.85);
+    border-top: 1px solid var(--el-border-color);
+    background-color: #f1f5f9;
     display: flex;
     justify-content: flex-end;
     align-items: center;
     gap: 12px;
-    text-align: right;
+    box-sizing: border-box;
+    width: 100%;
   }
 }
 
@@ -112,8 +113,8 @@ html.dark .el-dialog {
   }
 
   .el-dialog__footer {
-    border-top-color: rgba(255, 255, 255, 0.06);
-    background-color: rgba(9, 14, 23, 0.85);
+    border-top-color: rgba(255, 255, 255, 0.08);
+    background-color: #090e17;
   }
 }
 

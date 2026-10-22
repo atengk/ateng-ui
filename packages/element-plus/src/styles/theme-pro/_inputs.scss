@@ -160,11 +160,17 @@ html.dark .el-textarea__inner {
 // ========================================================
 // 4. 表单验证错误态联动 (.is-error)
 // ========================================================
+.el-input.is-error .el-input__wrapper,
 .el-input__wrapper.is-error,
+.el-select.is-error .el-select__wrapper,
+.el-select__wrapper.is-error,
+.el-textarea.is-error .el-textarea__inner,
+.el-textarea__inner.is-error,
 .el-form-item.is-error .el-input__wrapper,
 .el-form-item.is-error .el-select__wrapper,
 .el-form-item.is-error .el-textarea__inner {
   border-color: var(--el-color-danger);
+  box-shadow: 0 0 0 1px var(--el-color-danger);
 
   &.is-focus,
   &.is-focused,
@@ -173,6 +179,6 @@ html.dark .el-textarea__inner {
     border-color: var(--el-color-danger);
     box-shadow:
       0 0 0 1px var(--el-color-danger),
-      0 0 0 4px rgba(var(--el-color-danger-rgb), 0.18);
+      0 0 0 4px rgba(var(--el-color-danger-rgb), 0.22);
   }
 }

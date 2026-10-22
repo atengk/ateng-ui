@@ -27,7 +27,6 @@ import {
   ElOption,
   ElTag,
   ElSwitch,
-  ElDialog,
   ElTable,
   ElTableColumn,
   ElRadioGroup,
@@ -35,7 +34,7 @@ import {
   ElMessage,
   ElNotification,
 } from 'element-plus';
-import { AtengCard, setThemeColor } from '@atengk/element-plus';
+import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
 // 1. 暗黑模式监听与主动感知
 const isDark = ref(false);
@@ -187,8 +186,14 @@ onUnmounted(() => {
 const switchAudit = ref(true);
 const switchDebug = ref(false);
 
-// 6. 弹窗控制
+// 6. 弹窗控制与异步确认协议
 const dialogVisible = ref(false);
+
+const handlePublishConfirm = async () => {
+  // 模拟 1.5 秒异步网络发布请求，触发 AtengDialog Loading 锁协议
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  ElMessage.success('生产集群灰度发布成功，事务已全局对齐！');
+};
 
 // 7. Toast 反馈
 const triggerToast = (type: 'success' | 'warning' | 'error' | 'info') => {
@@ -459,7 +464,7 @@ const applyCustomBrand = () => {
     >
       <div class="feedback-btn-cluster mb-4">
         <ElButton type="primary" @click="dialogVisible = true">
-          打开现代毛玻璃弹窗 (ElDialog)
+          打开企业级毛玻璃弹窗 (AtengDialog)
         </ElButton>
         <ElButton @click="triggerToast('success')">触发 Success 药丸 Toast</ElButton>
         <ElButton @click="triggerToast('warning')">触发 Warning 药丸 Toast</ElButton>
@@ -468,8 +473,13 @@ const applyCustomBrand = () => {
         <ElButton @click="triggerNotify">弹出右侧通知 (ElNotification)</ElButton>
       </div>
 
-      <!-- 弹窗 -->
-      <ElDialog v-model="dialogVisible" title="🛡️ 生产集群全景灰度发布确认" width="520px">
+      <!-- 企业级弹窗 AtengDialog -->
+      <AtengDialog
+        v-model="dialogVisible"
+        title="🛡️ 生产集群全景灰度发布确认"
+        width="560px"
+        :before-confirm="handlePublishConfirm"
+      >
         <div class="dialog-body-text">
           <p class="mb-2">
             你正在预览
@@ -479,16 +489,24 @@ const applyCustomBrand = () => {
             <li>包含 5 款经典科技风预设，暗黑模式采用 Slate 深空冷灰基底；</li>
             <li>弹窗背景与遮罩层支持 <code>backdrop-filter: blur(8px)</code> 景深雾化；</li>
             <li>表单、按钮、表格、卡片、开关、标签全生命周期微交互增强；</li>
+            <li>原生支持双击标题栏全屏放大/还原、拖拽与 ESC 物理快捷键；</li>
             <li>全局零 <code>!important</code>，业务代码享有 100% 自由覆盖逃生门。</li>
           </ul>
         </div>
-        <template #footer>
-          <div class="dialog-footer-actions">
-            <ElButton @click="dialogVisible = false">取消放弃</ElButton>
-            <ElButton type="primary" @click="dialogVisible = false"> 确认并同步发布 </ElButton>
+        <template #footer="{ confirm, cancel, loading }">
+          <div class="dialog-footer-split">
+            <span class="dialog-footer-hint">
+              💡 支持双击全屏 · 确认后触发 1.5s 异步发布防重锁
+            </span>
+            <div class="dialog-footer-btns">
+              <ElButton :disabled="loading" @click="cancel">取消放弃</ElButton>
+              <ElButton type="primary" :loading="loading" @click="confirm">
+                确认并同步发布
+              </ElButton>
+            </div>
           </div>
         </template>
-      </ElDialog>
+      </AtengDialog>
     </AtengCard>
 
     <!-- 6. 运行时 setThemeColor 任意企业品牌色动态演算 -->
@@ -769,11 +787,26 @@ const applyCustomBrand = () => {
   flex-wrap: wrap;
 }
 
-.dialog-footer-actions {
+.dialog-footer-split {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
   width: 100%;
+  gap: 12px;
+}
+
+.dialog-footer-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.dialog-footer-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 </style>

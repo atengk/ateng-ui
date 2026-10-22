@@ -119,12 +119,30 @@ export interface AtengDialogEmits {
 }
 
 /**
+ * AtengDialog 底部插槽作用域契约。
+ */
+export interface AtengDialogFooterScope {
+  /**
+   * 触发异步确定提交。
+   */
+  confirm: () => Promise<void>;
+  /**
+   * 触发取消关闭。
+   */
+  cancel: () => void;
+  /**
+   * 当前是否处于异步确认 loading 锁定态。
+   */
+  loading: boolean;
+}
+
+/**
  * AtengDialog 插槽契约。
  */
 export interface AtengDialogSlots {
   default?: () => VNode[];
   header?: () => VNode[];
-  footer?: () => VNode[];
+  footer?: (scope: AtengDialogFooterScope) => VNode[];
   title?: () => VNode[];
 }
 
