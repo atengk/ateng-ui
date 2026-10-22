@@ -14,6 +14,8 @@ import {
   ElAlert,
   ElRadioGroup,
   ElRadioButton,
+  ElSelect,
+  ElOption,
   ElMessage,
 } from 'element-plus';
 import { AtengCard } from '@atengk/element-plus';
@@ -21,8 +23,11 @@ import { AtengCard } from '@atengk/element-plus';
 const isCollapsed = ref(false);
 const isFullscreen = ref(false);
 const isLoading = ref(false);
+const lockScroll = ref(true);
+const escExit = ref(true);
 const shadowType = ref<'never' | 'hover' | 'always'>('hover');
 const showBorder = ref(true);
+const selectedDimension = ref('hourly');
 
 const handleRefresh = () => {
   isLoading.value = true;
@@ -33,16 +38,16 @@ const handleRefresh = () => {
 };
 
 const handleFullscreen = (val: boolean) => {
-  ElMessage.info(val ? '已进入全屏模式，按 ESC 退出' : '已退出全屏模式');
+  ElMessage.info(val ? '已进入全屏模式 (防穿透锁定已生效，可按 ESC 退出)' : '已退出全屏模式');
 };
 </script>
 
 <template>
   <div class="card-view">
     <ElAlert
-      title="AtengCard 核心特性"
+      title="AtengCard 核心特性与全屏增强"
       type="info"
-      description="结构化头部：支持标准化标题、副标题、图标、Tooltip 气泡与 Extra 操作区；交互增强：右上角标配一键平滑折叠与视口全屏最大化（支持键盘 ESC 退出）；支持局部 loading 加载遮罩与阴影/边框令牌配置。"
+      description="结构化头部：支持标准化标题、副标题、图标、Tooltip 气泡与 Extra 操作区；全屏防穿透：基于模块级引用计数管理 lockScroll，防止底层背景滚动穿透并支持多卡片并发安全还原；防冲突 ESC：支持 escExit 受控开关并尊重 defaultPrevented，防止按 ESC 退出全屏时误关内嵌下拉菜单与弹窗。"
       show-icon
       :closable="false"
       style="margin-bottom: 20px"
@@ -61,6 +66,12 @@ const handleFullscreen = (val: boolean) => {
 
       <span style="margin-left: 20px">加载遮罩 (loading)：</span>
       <ElSwitch v-model="isLoading" />
+
+      <span style="margin-left: 20px">防穿透滚动锁 (lockScroll)：</span>
+      <ElSwitch v-model="lockScroll" />
+
+      <span style="margin-left: 20px">ESC 键退出 (escExit)：</span>
+      <ElSwitch v-model="escExit" />
     </div>
 
     <div class="card-grid">
@@ -73,6 +84,8 @@ const handleFullscreen = (val: boolean) => {
         tooltip="该指标由大数据中台实时聚合，延时低于 500ms"
         collapsible
         fullscreenable
+        :lock-scroll="lockScroll"
+        :esc-exit="escExit"
         :loading="isLoading"
         :shadow="shadowType"
         :bordered="showBorder"
@@ -98,6 +111,20 @@ const handleFullscreen = (val: boolean) => {
               <div class="stat-lbl">交易成功率</div>
             </div>
           </div>
+
+          <!-- ESC 冲突防护体验：内嵌下拉选择框 -->
+          <div class="embedded-controls">
+            <span>聚合统计粒度：</span>
+            <ElSelect v-model="selectedDimension" size="small" style="width: 180px">
+              <ElOption label="按每小时统计 (Hourly)" value="hourly" />
+              <ElOption label="按自然日统计 (Daily)" value="daily" />
+              <ElOption label="按自然周统计 (Weekly)" value="weekly" />
+            </ElSelect>
+            <span class="tip-text">
+              💡 提示：在全屏下展开下拉框并按 ESC，只会收起下拉选项，不会退出卡片全屏。
+            </span>
+          </div>
+
           <div class="chart-placeholder">
             <span>📊 [此处模拟高频可视化图表，在全屏模式下可铺满整个视口进行深度排查]</span>
           </div>
@@ -111,11 +138,14 @@ const handleFullscreen = (val: boolean) => {
         </template>
       </AtengCard>
 
-      <!-- 演示卡片 2：基础简易卡片 -->
+      <!-- 演示卡片 2：基础简易卡片 (同样支持全屏验证引用计数) -->
       <AtengCard
         title="快速配置引导"
-        sub-title="系统环境配置检查项"
+        sub-title="系统环境配置检查项 (支持独立全屏)"
         collapsible
+        fullscreenable
+        :lock-scroll="lockScroll"
+        :esc-exit="escExit"
         :bordered="showBorder"
         :shadow="shadowType"
       >
@@ -138,6 +168,7 @@ const handleFullscreen = (val: boolean) => {
 .ctrl-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 20px;
   padding: 12px 16px;
@@ -161,7 +192,23 @@ const handleFullscreen = (val: boolean) => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+}
+
+.embedded-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  font-size: 13px;
+}
+
+.tip-text {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .stat-card {

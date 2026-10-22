@@ -79,6 +79,19 @@ export interface AtengCardProps {
   fullscreen?: boolean;
 
   /**
+   * 全屏时是否锁定 body 滚动，防止底层背景穿透滚动。
+   * 采用模块级引用计数机制，多卡片并发或嵌套时安全还原。
+   * 默认 true。
+   */
+  lockScroll?: boolean;
+
+  /**
+   * 是否允许通过按 ESC 快捷键退出全屏。
+   * 默认 true。
+   */
+  escExit?: boolean;
+
+  /**
    * 是否处于加载遮罩状态。
    * 默认 false。
    */

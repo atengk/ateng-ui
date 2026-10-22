@@ -1,3 +1,29 @@
+<script lang="ts">
+/**
+ * 模块级全局引用计数器与滚动状态备份，保障多卡片并发全屏与嵌套场景下 100% 确定性安全还原。
+ */
+let fullscreenLockCount = 0;
+let originalBodyOverflow = '';
+
+const lockBodyScroll = () => {
+  if (typeof document === 'undefined') return;
+  if (fullscreenLockCount === 0) {
+    originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  fullscreenLockCount++;
+};
+
+const unlockBodyScroll = () => {
+  if (typeof document === 'undefined') return;
+  fullscreenLockCount = Math.max(0, fullscreenLockCount - 1);
+  if (fullscreenLockCount === 0) {
+    document.body.style.overflow = originalBodyOverflow;
+    originalBodyOverflow = '';
+  }
+};
+</script>
+
 <script setup lang="ts">
 /**
  * 企业级结构化卡片面板组件。
@@ -5,8 +31,9 @@
  * 核心特性：
  * 1. 结构化头部：标准化标题、副标题、图标、Tooltip 气泡与 Extra 操作区；
  * 2. 交互增强：支持一键平滑高度折叠展开与视口最大化全屏（ESC 退出）；
- * 3. 确定性事件解绑：全屏监听器随生命周期销毁确定性清理；
- * 4. 局部 Loading 遮罩与暗黑模式全自适应。
+ * 3. 确定性事件解绑与防穿透：模块级引用计数管理 lockScroll 防穿透锁，组件销毁确定性清理；
+ * 4. 防冲突 ESC 退出：支持 escExit 开关并尊重 defaultPrevented 防止误关内嵌下拉菜单与弹层；
+ * 5. 局部 Loading 遮罩与暗黑模式全自适应。
  *
  * @author Ateng
  * @since 2026-10-22
@@ -32,6 +59,8 @@ const props = withDefaults(defineProps<AtengCardProps>(), {
   collapsed: undefined,
   fullscreenable: false,
   fullscreen: undefined,
+  lockScroll: true,
+  escExit: true,
   loading: false,
   bodyPadding: '16px',
   bodyClass: '',
@@ -66,14 +95,31 @@ watch(
   { immediate: true },
 );
 
-// 2. 全屏状态机与 ESC 监听
+// 2. 全屏状态机、防穿透锁与 ESC 监听
 const internalFullscreen = ref(false);
+let hasAcquiredScrollLock = false;
 
 const isFullscreen = computed(() => {
   return props.fullscreen !== undefined ? props.fullscreen : internalFullscreen.value;
 });
 
+const applyScrollLock = (shouldLock: boolean) => {
+  if (shouldLock) {
+    if (!hasAcquiredScrollLock && props.lockScroll) {
+      lockBodyScroll();
+      hasAcquiredScrollLock = true;
+    }
+  } else {
+    if (hasAcquiredScrollLock) {
+      unlockBodyScroll();
+      hasAcquiredScrollLock = false;
+    }
+  }
+};
+
 const handleKeyDown = (e: KeyboardEvent) => {
+  if (!props.escExit) return;
+  if (e.defaultPrevented) return;
   if (e.key === 'Escape' && isFullscreen.value) {
     toggleFullscreen(false);
   }
@@ -83,8 +129,10 @@ const handleFullscreenEffect = (active: boolean) => {
   if (typeof window === 'undefined') return;
   if (active) {
     window.addEventListener('keydown', handleKeyDown);
+    applyScrollLock(true);
   } else {
     window.removeEventListener('keydown', handleKeyDown);
+    applyScrollLock(false);
   }
 };
 
@@ -107,10 +155,20 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => props.lockScroll,
+  val => {
+    if (isFullscreen.value) {
+      applyScrollLock(val);
+    }
+  },
+);
+
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeyDown);
   }
+  applyScrollLock(false);
 });
 
 // 3. 计算样式
