@@ -186,6 +186,12 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/theme/TablesView.vue'),
     meta: { title: '流体表格与防抖 (Theme Pro)' },
   },
+  {
+    path: '/theme/tags-overlays',
+    name: 'ThemeTagsOverlays',
+    component: () => import('../views/theme/TagsOverlaysView.vue'),
+    meta: { title: '标签开关与浮层 (Theme Pro)' },
+  },
 ];
 
 export const router = createRouter({

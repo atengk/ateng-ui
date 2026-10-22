@@ -1,0 +1,272 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 标签体系与黑曜石 LED 状态核规约。
+ *
+ * 核心特性：
+ * 1. 彻底根除刺眼生硬的交通灯实线塑料感大药丸；
+ * 2. 浅色模式采用高透软质 Soft Pill 底色 + 饱满清晰的主题状态文字；
+ * 3. 暗黑模式采用黑曜石暗晶体底色 (Obsidian) + 精密发光微描边；
+ * 4. 内置呼吸微发光 LED 状态核点缀扩展 (.is-dot / .el-tag--dot)；
+ * 5. 全面覆盖 Primary / Success / Warning / Danger / Info 五大语义色与尺寸阶梯；
+ * 6. 严格依从零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 基础标签形态与弹性微圆角
+// ========================================================
+.el-tag {
+  font-family: inherit;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--el-border-radius-base);
+  border-width: 1px;
+  border-style: solid;
+  transition:
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  // 圆角胶囊变体
+  &.is-round {
+    border-radius: var(--el-border-radius-round);
+  }
+
+  // 关闭图标交互优化
+  .el-tag__close {
+    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 50%;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.12);
+    }
+  }
+}
+
+// ========================================================
+// 2. 默认 Soft Pill 浅色模式五大语义变体
+// ========================================================
+.el-tag:not(.el-tag--dark):not(.el-tag--plain) {
+  // Primary (跟随当前预设动态换肤)
+  &,
+  &.el-tag--primary {
+    background-color: rgba(var(--el-color-primary-rgb), 0.08);
+    border-color: rgba(var(--el-color-primary-rgb), 0.22);
+    color: var(--el-color-primary-dark-2);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-primary);
+      color: #ffffff;
+    }
+  }
+
+  // Success (极客翠绿)
+  &.el-tag--success {
+    background-color: rgba(var(--el-color-success-rgb), 0.08);
+    border-color: rgba(var(--el-color-success-rgb), 0.24);
+    color: var(--el-color-success-dark-2);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-success);
+      color: #ffffff;
+    }
+  }
+
+  // Warning (琥珀金)
+  &.el-tag--warning {
+    background-color: rgba(var(--el-color-warning-rgb), 0.08);
+    border-color: rgba(var(--el-color-warning-rgb), 0.24);
+    color: var(--el-color-warning-dark-2);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-warning);
+      color: #ffffff;
+    }
+  }
+
+  // Danger (极光绯红)
+  &.el-tag--danger {
+    background-color: rgba(var(--el-color-danger-rgb), 0.08);
+    border-color: rgba(var(--el-color-danger-rgb), 0.24);
+    color: var(--el-color-danger-dark-2);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-danger);
+      color: #ffffff;
+    }
+  }
+
+  // Info (冷钛中性)
+  &.el-tag--info {
+    background-color: rgba(100, 116, 139, 0.08);
+    border-color: rgba(100, 116, 139, 0.2);
+    color: var(--el-text-color-regular);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-info);
+      color: #ffffff;
+    }
+  }
+}
+
+// ========================================================
+// 3. 暗黑模式黑曜石暗晶体底 (Dark Mode - Obsidian Pill)
+// ========================================================
+html.dark .el-tag:not(.el-tag--dark):not(.el-tag--plain) {
+  &,
+  &.el-tag--primary {
+    background-color: rgba(var(--el-color-primary-rgb), 0.12);
+    border-color: rgba(var(--el-color-primary-rgb), 0.32);
+    color: var(--el-color-primary-light-3);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-primary);
+      color: #ffffff;
+    }
+  }
+
+  &.el-tag--success {
+    background-color: rgba(var(--el-color-success-rgb), 0.12);
+    border-color: rgba(var(--el-color-success-rgb), 0.32);
+    color: var(--el-color-success-light-3);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-success);
+      color: #ffffff;
+    }
+  }
+
+  &.el-tag--warning {
+    background-color: rgba(var(--el-color-warning-rgb), 0.12);
+    border-color: rgba(var(--el-color-warning-rgb), 0.32);
+    color: var(--el-color-warning-light-3);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-warning);
+      color: #ffffff;
+    }
+  }
+
+  &.el-tag--danger {
+    background-color: rgba(var(--el-color-danger-rgb), 0.12);
+    border-color: rgba(var(--el-color-danger-rgb), 0.32);
+    color: var(--el-color-danger-light-3);
+
+    .el-tag__close:hover {
+      background-color: var(--el-color-danger);
+      color: #ffffff;
+    }
+  }
+
+  &.el-tag--info {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--el-text-color-regular);
+
+    .el-tag__close:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+    }
+  }
+}
+
+// ========================================================
+// 4. Dark 沉稳高对比变体与 Plain 纯净微描边变体
+// ========================================================
+.el-tag--dark {
+  border-color: transparent;
+  color: #ffffff;
+
+  &,
+  &.el-tag--primary {
+    background-color: var(--el-color-primary);
+    box-shadow: 0 1px 3px rgba(var(--el-color-primary-rgb), 0.3);
+  }
+
+  &.el-tag--success {
+    background-color: var(--el-color-success);
+    box-shadow: 0 1px 3px rgba(var(--el-color-success-rgb), 0.3);
+  }
+
+  &.el-tag--warning {
+    background-color: var(--el-color-warning);
+    box-shadow: 0 1px 3px rgba(var(--el-color-warning-rgb), 0.3);
+  }
+
+  &.el-tag--danger {
+    background-color: var(--el-color-danger);
+    box-shadow: 0 1px 3px rgba(var(--el-color-danger-rgb), 0.3);
+  }
+
+  &.el-tag--info {
+    background-color: var(--el-color-info);
+    box-shadow: 0 1px 3px rgba(var(--el-color-info-rgb), 0.3);
+  }
+}
+
+.el-tag--plain {
+  background-color: transparent;
+
+  &,
+  &.el-tag--primary {
+    border-color: rgba(var(--el-color-primary-rgb), 0.4);
+    color: var(--el-color-primary);
+  }
+
+  &.el-tag--success {
+    border-color: rgba(var(--el-color-success-rgb), 0.4);
+    color: var(--el-color-success);
+  }
+
+  &.el-tag--warning {
+    border-color: rgba(var(--el-color-warning-rgb), 0.4);
+    color: var(--el-color-warning);
+  }
+
+  &.el-tag--danger {
+    border-color: rgba(var(--el-color-danger-rgb), 0.4);
+    color: var(--el-color-danger);
+  }
+
+  &.el-tag--info {
+    border-color: var(--el-border-color);
+    color: var(--el-text-color-regular);
+  }
+}
+
+// ========================================================
+// 5. 呼吸发光 LED 状态核扩展 (.is-dot / .el-tag--dot)
+// ========================================================
+.el-tag.is-dot,
+.el-tag.el-tag--dot {
+  position: relative;
+  padding-left: 20px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: ledPulse 2.4s infinite ease-in-out;
+  }
+}
+
+@keyframes ledPulse {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: translateY(-50%) scale(0.85);
+  }
+}

@@ -155,6 +155,9 @@ onMounted(() => {
                 按钮与表单控件 (Buttons & Inputs)
               </ElMenuItem>
               <ElMenuItem index="/theme/tables"> 流体表格与防抖 (Tables & Anti-Jitter) </ElMenuItem>
+              <ElMenuItem index="/theme/tags-overlays">
+                标签、开关与毛玻璃浮层 (Tags & Overlays)
+              </ElMenuItem>
             </ElSubMenu>
           </ElMenu>
         </ElAside>

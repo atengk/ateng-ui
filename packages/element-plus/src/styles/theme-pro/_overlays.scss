@@ -1,0 +1,319 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 浮层与反馈组件 (Overlays & Feedback) 规约。
+ *
+ * 核心特性：
+ * 1. 遮罩层 (ElOverlay) 支持沉浸式景深毛玻璃滤镜 (backdrop-filter: blur(8px))；
+ * 2. 弹窗卡片 (ElDialog / AtengDialog) 拥有 16px 现代大圆角与分层冷灰底色；
+ * 3. 抽屉容器 (ElDrawer / AtengDrawer) 拥有柔和侧向景深与微描边；
+ * 4. 全局提示 (ElMessage) 重塑为浮动药丸卡片 (Pill Card, 9999px 圆角 + blur(16px))；
+ * 5. 全局通知 (ElNotification) 重塑为现代结构化浮岛；
+ * 6. 浮动气泡 (ElPopover / ElTooltip) 优化圆角与柔和微光；
+ * 7. 严格依从零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 遮罩层景深毛玻璃 (ElOverlay)
+// ========================================================
+.el-overlay {
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  background-color: rgba(15, 23, 42, 0.45);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.dark .el-overlay {
+  background-color: rgba(7, 9, 14, 0.72);
+}
+
+// ========================================================
+// 2. 弹窗卡片体系 (ElDialog)
+// ========================================================
+.el-dialog {
+  border-radius: var(--at-radius-dialog, 16px);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--at-shadow-floating);
+  overflow: hidden;
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s,
+    border-color 0.2s;
+
+  .el-dialog__header {
+    padding: 18px 24px 14px;
+    margin-right: 0;
+    border-bottom: 1px solid var(--el-border-color-light);
+
+    .el-dialog__title {
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      color: var(--el-text-color-primary);
+    }
+
+    .el-dialog__headerbtn {
+      top: 18px;
+      right: 20px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      transition: background-color 0.15s;
+
+      &:hover {
+        background-color: var(--el-fill-color);
+      }
+    }
+  }
+
+  .el-dialog__body {
+    padding: 24px;
+    color: var(--el-text-color-regular);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .el-dialog__footer {
+    padding: 14px 24px;
+    border-top: 1px solid var(--el-border-color-light);
+    background-color: var(--el-fill-color-light);
+  }
+}
+
+// 暗黑模式下弹窗微调
+html.dark .el-dialog {
+  background-color: #0c1017;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 24px 56px -12px rgba(0, 0, 0, 0.95),
+    0 0 24px -2px rgba(var(--el-color-primary-rgb), 0.12);
+
+  .el-dialog__header {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+
+    .el-dialog__headerbtn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .el-dialog__footer {
+    border-top-color: rgba(255, 255, 255, 0.06);
+    background-color: #090e17;
+  }
+}
+
+// ========================================================
+// 3. 抽屉容器体系 (ElDrawer)
+// ========================================================
+.el-drawer {
+  background-color: var(--el-bg-color);
+  box-shadow: var(--at-shadow-floating);
+
+  &.rtl {
+    border-left: 1px solid var(--el-border-color);
+  }
+
+  &.ltr {
+    border-right: 1px solid var(--el-border-color);
+  }
+
+  &.btt {
+    border-top: 1px solid var(--el-border-color);
+  }
+
+  &.ttb {
+    border-bottom: 1px solid var(--el-border-color);
+  }
+
+  .el-drawer__header {
+    padding: 18px 24px 14px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--el-border-color-light);
+    color: var(--el-text-color-primary);
+    font-weight: 600;
+    font-size: 15px;
+
+    .el-drawer__close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      transition: background-color 0.15s;
+
+      &:hover {
+        background-color: var(--el-fill-color);
+      }
+    }
+  }
+
+  .el-drawer__body {
+    padding: 24px;
+    color: var(--el-text-color-regular);
+  }
+
+  .el-drawer__footer {
+    padding: 14px 24px;
+    border-top: 1px solid var(--el-border-color-light);
+    background-color: var(--el-fill-color-light);
+  }
+}
+
+// 暗黑模式下抽屉
+html.dark .el-drawer {
+  background-color: #0c1017;
+  border-color: rgba(255, 255, 255, 0.08);
+
+  .el-drawer__header {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+
+    .el-drawer__close-btn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .el-drawer__footer {
+    border-top-color: rgba(255, 255, 255, 0.06);
+    background-color: #090e17;
+  }
+}
+
+// ========================================================
+// 4. 全局药丸浮岛提示 (ElMessage - Pill Card)
+// ========================================================
+.el-message {
+  min-width: unset;
+  border-radius: var(--el-border-radius-round);
+  padding: 8px 18px;
+  border: 1px solid var(--el-border-color);
+  box-shadow:
+    0 12px 32px -4px rgba(15, 23, 42, 0.12),
+    0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.92);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .el-message__content {
+    color: var(--el-text-color-primary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  // 成功态微光边框
+  &--success {
+    border-color: rgba(var(--el-color-success-rgb), 0.3);
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+
+  // 警告态微光边框
+  &--warning {
+    border-color: rgba(var(--el-color-warning-rgb), 0.3);
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+
+  // 错误态微光边框
+  &--error {
+    border-color: rgba(var(--el-color-danger-rgb), 0.3);
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+
+  // 信息态
+  &--info {
+    border-color: rgba(100, 116, 139, 0.25);
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+}
+
+// 暗黑模式下药丸 Message
+html.dark .el-message {
+  background-color: rgba(12, 16, 23, 0.9);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 16px 36px -4px rgba(0, 0, 0, 0.8),
+    0 0 20px -2px rgba(var(--el-color-primary-rgb), 0.3);
+
+  .el-message__content {
+    color: #f1f5f9;
+  }
+
+  &--success {
+    border-color: rgba(var(--el-color-success-rgb), 0.4);
+    box-shadow:
+      0 16px 36px -4px rgba(0, 0, 0, 0.8),
+      0 0 20px -2px rgba(var(--el-color-success-rgb), 0.3);
+  }
+
+  &--warning {
+    border-color: rgba(var(--el-color-warning-rgb), 0.4);
+    box-shadow:
+      0 16px 36px -4px rgba(0, 0, 0, 0.8),
+      0 0 20px -2px rgba(var(--el-color-warning-rgb), 0.3);
+  }
+
+  &--error {
+    border-color: rgba(var(--el-color-danger-rgb), 0.4);
+    box-shadow:
+      0 16px 36px -4px rgba(0, 0, 0, 0.8),
+      0 0 20px -2px rgba(var(--el-color-danger-rgb), 0.3);
+  }
+}
+
+// ========================================================
+// 5. 全局通知卡片 (ElNotification)
+// ========================================================
+.el-notification {
+  border-radius: var(--at-radius-card, 10px);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background-color: rgba(255, 255, 255, 0.94);
+  padding: 16px 20px;
+
+  .el-notification__title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--el-text-color-primary);
+  }
+
+  .el-notification__content {
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+    line-height: 1.6;
+  }
+}
+
+html.dark .el-notification {
+  background-color: rgba(12, 16, 23, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.85);
+
+  .el-notification__title {
+    color: #f1f5f9;
+  }
+
+  .el-notification__content {
+    color: #cbd5e1;
+  }
+}
+
+// ========================================================
+// 6. 浮动气泡与提示 (ElPopover / ElTooltip)
+// ========================================================
+.el-popover.el-popper {
+  border-radius: var(--el-border-radius-base);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.95);
+  color: var(--el-text-color-primary);
+  padding: 14px 18px;
+}
+
+html.dark .el-popover.el-popper {
+  background-color: rgba(18, 24, 36, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}

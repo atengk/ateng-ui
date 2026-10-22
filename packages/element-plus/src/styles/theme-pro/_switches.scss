@@ -1,0 +1,109 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 开关控件 (ElSwitch) 数控滑动仪器规约。
+ *
+ * 核心特性：
+ * 1. 废除生硬的纯灰色与突兀圆纽扣，呈现数控铣削精密仪器质感 (Precision Milled Switch)；
+ * 2. 关闭态采用冷钛中性底色 (浅色 #cbd5e1，暗黑 #334155)，与整体基座浑然一体；
+ * 3. 开启态沉稳天鹅绒主题色并自带 12px 柔光扩散光晕；
+ * 4. 滑块 (knob) 内置立体微内凹阴影与 0.25s 阻尼弹性过渡曲线；
+ * 5. 严格依从零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 开关轨道基础结构与阻尼过渡
+// ========================================================
+.el-switch {
+  font-family: inherit;
+  vertical-align: middle;
+
+  // 开关主体轨道
+  .el-switch__core {
+    border-radius: var(--el-border-radius-round);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background-color: #cbd5e1;
+    transition:
+      background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+    // 内部滑动圆钮 (knob)
+    .el-switch__action {
+      background-color: #ffffff;
+      border-radius: 50%;
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.28),
+        0 0 1px rgba(0, 0, 0, 0.2);
+      transition:
+        left 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
+  // ========================================================
+  // 2. 激活态 (Checked) - 沉稳主色与外发光柔晕
+  // ========================================================
+  &.is-checked {
+    .el-switch__core {
+      background-color: var(--el-color-primary);
+      border-color: transparent;
+      box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.35);
+
+      .el-switch__action {
+        color: var(--el-color-primary);
+      }
+    }
+  }
+
+  // ========================================================
+  // 3. 键盘聚集态 Focus-Ring 光晕环
+  // ========================================================
+  .el-switch__input:focus-visible ~ .el-switch__core {
+    outline: none;
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  // ========================================================
+  // 4. 禁用态 (Disabled)
+  // ========================================================
+  &.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+
+    .el-switch__core {
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// ========================================================
+// 5. 暗黑模式冷钛黑曜石基底 (Dark Mode - Slate Switch)
+// ========================================================
+html.dark .el-switch {
+  .el-switch__core {
+    background-color: #334155;
+    border-color: rgba(255, 255, 255, 0.1);
+
+    .el-switch__action {
+      background-color: #f1f5f9;
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.6),
+        0 0 1px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  &.is-checked {
+    .el-switch__core {
+      background-color: var(--el-color-primary);
+      border-color: transparent;
+      box-shadow: 0 0 16px rgba(var(--el-color-primary-rgb), 0.45);
+
+      .el-switch__action {
+        color: var(--el-color-primary-dark-2);
+      }
+    }
+  }
+}
