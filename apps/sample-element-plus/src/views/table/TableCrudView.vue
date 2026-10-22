@@ -132,6 +132,12 @@ const handleAddUser = () => {
   ElMessage.success('触发新建用户');
 };
 
+const handleMockEmptySearch = () => {
+  queryForm.username = '不存在的神秘用户XYZ';
+  pagination.search({ username: '不存在的神秘用户XYZ' });
+  ElMessage.warning('已模拟无匹配查询条件，表格展示搜索缺省态与自愈按钮');
+};
+
 const handleExportExcel = async (payload: Record<string, unknown>) => {
   await new Promise(r => setTimeout(r, 600));
   ElMessage.success(`模拟流式导出成功！入参：${JSON.stringify(payload)}`);
@@ -186,15 +192,21 @@ const enableAutoHeight = ref(false);
         </div>
         <div class="control-item">
           <ElButton size="small" @click="pagination.refresh"> 状态机刷新 (refresh) </ElButton>
+          <ElButton size="small" type="warning" plain @click="handleMockEmptySearch">
+            模拟无匹配搜索 (触发 search 缺省态)
+          </ElButton>
           <ElButton size="small" type="danger" plain @click="tableRef?.clearSelection">
             清空多选 (clearSelection)
           </ElButton>
         </div>
       </div>
       <div class="control-tip">
-        💡
-        提示：点击表格工具栏右侧<strong>「列设置」</strong>图标，可在此弹层中按住<strong>「⋮⋮」</strong>手柄进行纯原生
-        HTML5 拖拽列排序，且顺序刷新后持久化记忆。
+        💡 提示 1：直接在表头拖拽列边缘（如<strong>「分布式雪花 ID」</strong
+        >、<strong>「岗位角色」</strong>）可调整列宽（最小 40px
+        防塌陷），刷新浏览器后列宽自动恢复记忆；点击右上角<strong>「列设置」</strong>弹层可拖拽列排序或一键<strong>「重置列宽」</strong>。<br />
+        💡 提示 2：点击<strong>「模拟无匹配搜索」</strong>后，表格呈现
+        <code>status="search"</code>
+        多态缺省态与<strong>「清空筛选条件」</strong>按钮，点击后自动联动表单重置并恢复第一页数据。
       </div>
     </ElCard>
 
@@ -269,7 +281,7 @@ const enableAutoHeight = ref(false);
           <ElButton
             type="danger"
             size="small"
-            @click="handleBatchDelete(selectedRows as UserItem[], clearSelection)"
+            @click="handleBatchDelete(selectedRows, clearSelection)"
           >
             批量删除 ({{ selectedRows.length }})
           </ElButton>

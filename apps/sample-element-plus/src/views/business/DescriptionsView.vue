@@ -30,8 +30,22 @@ const size = ref<ComponentSize>('default');
 const column = ref(3);
 const direction = ref<'horizontal' | 'vertical'>('horizontal');
 
+interface UserDetailProfile {
+  userId: string;
+  username: string;
+  phone: string;
+  idCard: string;
+  email: string;
+  bankCard: string;
+  salary: number;
+  birthday: string;
+  status: string;
+  remark: string;
+  department: string | null;
+}
+
 // 模拟详情数据源（包含真实脱敏场景、空值保底、大数与字典状态）
-const detailData = ref<Record<string, unknown>>({
+const detailData = ref<UserDetailProfile>({
   userId: '1792384918237491230',
   username: 'Ateng Developer',
   phone: '13812345678',
