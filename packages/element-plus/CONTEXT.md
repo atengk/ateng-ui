@@ -167,3 +167,23 @@ _Avoid_: TopLight, HighLight, BorderGlow
 **Laser Focus-Ring (双层激光聚焦环)**:
 基于主品牌色 1px 锐利内环与 4px 半透明柔光外环的表单与拾取器无框激光聚焦高光反馈机制。
 _Avoid_: FocusBorder, Outline, GlowRing
+
+**Obsidian Glass Overlay (黑曜石毛玻璃浮层)**:
+遮罩层、全局/局部加载态（Loading）与全屏大图预览（ImageViewer）统一应用的 `backdrop-filter: blur(...)` 景深毛玻璃微质感模型。
+_Avoid_: BlurMask, GlassModal, FrostedOverlay
+
+**Tactile Dragger (触感拖拽上传)**:
+基于亚像素虚线描边、阻尼悬浮反馈与主色激光微光的现代文件上传拖拽容器交互规约。
+_Avoid_: UploadDropzone, DragArea, FilePickerBox
+
+**Compact Slate Scrollbar (极窄冷钛滚动条)**:
+基于 6px 极窄轨距、9999px 全圆角与冷钛半透悬浮过渡的全局与组件双轨规整滚动条视觉基线。
+_Avoid_: CustomScrollbar, ThinScrollbar, MiniBar
+
+**Pulse Wave Skeleton (深空脉冲波纹骨架屏)**:
+在浅色与 Slate 深空暗黑基底（`#121824` 到 `#1e293b`）下消除高光刺眼感的平滑呼吸波浪骨架屏视觉规范。
+_Avoid_: FlashSkeleton, DefaultSkeleton, ShimmerWhite
+
+**Ring-Cut Avatar Group (环切重叠头像组)**:
+基于 8px 负外边距与 2px 环形遮罩（`box-shadow: 0 0 0 2px var(--el-bg-color)`）物理重叠呈现立体景深的团队头像排版规约。
+_Avoid_: OverlapAvatars, StackedAvatars, MergedAvatars

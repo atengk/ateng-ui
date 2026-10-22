@@ -61,6 +61,10 @@ import {
   ElCarouselItem,
   ElSplitter,
   ElSplitterPanel,
+  ElScrollbar,
+  ElLink,
+  ElText,
+  ElSpace,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -906,6 +910,66 @@ onUnmounted(() => {
             </div>
             <div class="calendar-wrapper">
               <ElCalendar v-model="calendarValue" />
+            </div>
+          </AtengCard>
+
+          <!-- 极窄冷钛滚动条与文本排版 -->
+          <AtengCard title="🪟 极窄冷钛滚动条 (Scrollbar) & 文本与链接 (Link / Text / Space)">
+            <div class="section-desc mb-3">
+              6px 极窄冷钛轨距、9999px 全圆角、平滑半透与悬浮加深高亮；排版文本与高对比度文字链接。
+            </div>
+            <div class="form-vertical-cluster">
+              <!-- 滚动条容器 -->
+              <div
+                class="scroll-demo-box p-2 border rounded"
+                style="background: var(--el-fill-color-light); border-color: var(--el-border-color)"
+              >
+                <span class="text-xs text-muted mb-2 block"
+                  >ElScrollbar 容器内纵向/横向滚动自适应：</span
+                >
+                <ElScrollbar height="100px">
+                  <div style="width: 600px; padding: 4px">
+                    <p
+                      v-for="i in 6"
+                      :key="i"
+                      class="text-xs mb-1"
+                      style="color: var(--el-text-color-regular)"
+                    >
+                      [Trace-Stream-{{ i }}] 集群日志滚动行数据探测模拟 - 极窄冷钛 6px
+                      滚动条滑块阻尼顺滑滚动，支持横向视口平移。
+                    </p>
+                  </div>
+                </ElScrollbar>
+              </div>
+
+              <!-- 链接体系 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block">多类型排版链接 (ElLink)：</span>
+                <ElSpace wrap>
+                  <ElLink type="primary">主色链接</ElLink>
+                  <ElLink type="success">成功链接</ElLink>
+                  <ElLink type="warning">警告链接</ElLink>
+                  <ElLink type="danger">危险链接</ElLink>
+                  <ElLink type="info">信息链接</ElLink>
+                  <ElLink :underline="false">无下划线</ElLink>
+                  <ElLink disabled>禁用链接</ElLink>
+                </ElSpace>
+              </div>
+
+              <!-- 语义文本 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block">语义排版文本 (ElText)：</span>
+                <ElSpace wrap>
+                  <ElText type="primary">Primary 文本</ElText>
+                  <ElText type="success">Success 文本</ElText>
+                  <ElText type="warning">Warning 文本</ElText>
+                  <ElText type="danger">Danger 文本</ElText>
+                  <ElText type="info">Info 文本</ElText>
+                  <ElText truncated style="max-width: 120px"
+                    >这是一段会被自动省略的超长单行文本展示</ElText
+                  >
+                </ElSpace>
+              </div>
             </div>
           </AtengCard>
         </div>

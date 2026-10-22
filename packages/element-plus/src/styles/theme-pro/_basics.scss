@@ -1,0 +1,152 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 基础设施与全局滚动条基线规约。
+ *
+ * 核心特性：
+ * 1. 极窄冷钛滚动条 (Compact Slate Scrollbar, 6px 极简轨距 + 9999px 全圆角 + 悬浮半透)；
+ * 2. 双轨统一接管：同时优雅适配 ElScrollbar 组件与页面原生滚动条 (Webkit & Standard CSS)；
+ * 3. 文本链接 (ElLink) 优化 500 中字重、3px 悬浮下划线间距与平滑色彩过渡；
+ * 4. 语义排版文本 (ElText) 与间距容器 (ElSpace) 深度适配科技主题与深浅双模；
+ * 5. 全局恪守零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 极窄冷钛滚动条 (ElScrollbar & 全局原生滚动条双轨接管)
+// ========================================================
+
+:root {
+  // 组件级滚动条变量覆写
+  --el-scrollbar-opacity: 0.35;
+  --el-scrollbar-hover-opacity: 0.75;
+  --el-scrollbar-bg-color: var(--el-text-color-secondary);
+  --el-scrollbar-hover-bg-color: var(--el-text-color-regular);
+}
+
+// 1.1 ElScrollbar 组件样式增强
+.el-scrollbar {
+  .el-scrollbar__bar {
+    border-radius: var(--el-border-radius-round);
+
+    &.is-vertical {
+      width: 6px;
+      right: 2px;
+    }
+
+    &.is-horizontal {
+      height: 6px;
+      bottom: 2px;
+    }
+  }
+
+  .el-scrollbar__thumb {
+    border-radius: var(--el-border-radius-round);
+    transition:
+      background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+// 1.2 全局系统与原生容器滚动条双轨接管 (Webkit 核心)
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--el-border-color-dark);
+  border-radius: var(--el-border-radius-round);
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    background-color: var(--el-text-color-placeholder);
+  }
+}
+
+// 1.3 现代标准滚动条规约 (Firefox & Standard CSS)
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--el-border-color-dark) transparent;
+}
+
+// 1.4 暗黑模式下滚动条微质感
+html.dark {
+  .el-scrollbar {
+    --el-scrollbar-opacity: 0.3;
+    --el-scrollbar-hover-opacity: 0.8;
+    --el-scrollbar-bg-color: rgba(255, 255, 255, 0.22);
+    --el-scrollbar-hover-bg-color: rgba(255, 255, 255, 0.45);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.16);
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.35);
+    }
+  }
+
+  * {
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+}
+
+// ========================================================
+// 2. 文本链接体系 (ElLink)
+// ========================================================
+
+.el-link {
+  font-weight: 500;
+  transition:
+    color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+  // 下划线微调：距底部留有 2px 呼吸间距，粗细为 1.5px
+  &.is-underline:hover:after {
+    bottom: -1px;
+    border-bottom-width: 1.5px;
+    transition: border-color 0.15s;
+  }
+
+  // 禁用态
+  &.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+
+    &:hover:after {
+      border-bottom-color: transparent;
+    }
+  }
+}
+
+// ========================================================
+// 3. 语义排版文本 (ElText)
+// ========================================================
+
+.el-text {
+  letter-spacing: -0.01em;
+
+  // 主色文本在暗黑模式下的高反差微调
+  &.el-text--primary {
+    color: var(--el-color-primary);
+  }
+}
+
+html.dark .el-text {
+  &.el-text--primary {
+    color: var(--el-color-primary-light-3);
+  }
+}
+
+// ========================================================
+// 4. 间距布局容器 (ElSpace)
+// ========================================================
+
+.el-space {
+  vertical-align: middle;
+}
