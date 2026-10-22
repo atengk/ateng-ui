@@ -12,6 +12,7 @@ import 'element-plus/theme-chalk/dark/css-vars.css';
 
 import AtengElementPlus from '@atengk/element-plus';
 import '@atengk/element-plus/style.css';
+import '@atengk/element-plus/theme-pro.css';
 
 import App from './App.vue';
 import router from './router';

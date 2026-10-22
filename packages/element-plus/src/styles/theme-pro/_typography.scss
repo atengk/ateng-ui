@@ -1,0 +1,37 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 字体栈与等宽排版规约。
+ *
+ * 规范：
+ * 1. 声明优雅降级字体栈，优先对齐 Plus Jakarta Sans 与 Inter 现代字阶；
+ * 2. 对表格、统计指标、分页器、描述列表等数值密集型控件全量强制开启 tabular-nums，杜绝高频变动时水平抖动；
+ * 3. 声明工程级代码等宽字体栈 (--at-font-mono)。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+:root {
+  // 现代科技无衬线字体栈
+  --el-font-family:
+    'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+  // 代码与哈希/雪花主键等宽字体栈
+  --at-font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+// ========================================================
+// 全局强制开启 tabular-nums (等宽数字)，数值变动绝对零抖动
+// ========================================================
+.el-table,
+.el-statistic,
+.el-pagination,
+.el-tag,
+.el-descriptions,
+.at-table,
+.at-statistic,
+.at-descriptions {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}

@@ -1,0 +1,15 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎入口样式。
+ *
+ * 遵循现代 Dart Sass @use 模块化规范平铺组织，支持：
+ * 1. 5 套经典极客科技预设 (Indigo / Emerald / Violet / Ocean / Rose)；
+ * 2. Slate 深空冷灰暗黑模式；
+ * 3. 规整等宽数字 tabular-nums 排版防抖；
+ * 4. 独立纯净构建输出 dist/theme-pro.css。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+@use './theme-pro/tokens';
+@use './theme-pro/typography';

@@ -12,7 +12,8 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./style.css": "./dist/index.css"
+    "./style.css": "./dist/index.css",
+    "./theme-pro.css": "./dist/theme-pro.css"
   },
   "files": [
     "dist"
@@ -22,7 +23,8 @@
     "*.scss"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && pnpm run build:theme",
+    "build:theme": "sass src/styles/theme-pro.scss dist/theme-pro.css --no-source-map --style=compressed",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
