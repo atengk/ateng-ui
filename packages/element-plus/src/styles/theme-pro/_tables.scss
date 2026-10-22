@@ -1,0 +1,268 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 流体无框表格与排版防抖规约。
+ *
+ * 核心特性：
+ * 1. 彻底消除表格内部粗硬纵向边框，改用水平亚像素微米级分割基线；
+ * 2. 表头规整冷灰独立分层 (浅色 #f1f5f9，暗黑 #0f1522)，字重提升至 600，字阶紧凑精密；
+ * 3. 单元格内边距紧凑调优 (8px~10px)，强化呼吸感与数据密度平衡；
+ * 4. 数据行 Hover 浅淡主题微流光 (浅色 rgba(var(--el-color-primary-rgb), 0.04)，暗黑 0.06)，支持平滑过渡；
+ * 5. 全面强制 tabular-nums 等宽排版，翻页/刷新/数据高频变动绝对零水平抖动；
+ * 6. 批量操作条 (.at-table__batch-bar) 沉浸式毛玻璃悬浮 (backdrop-filter: blur(12px)) 与微透高光边框；
+ * 7. 表格外层边框与内边框圆润融合，消除双重重叠硬边；
+ * 8. 严格依从零 !important 铁律，保证下游业务随手可覆盖。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 表格通用设计令牌 (Light Mode Baseline)
+// ========================================================
+:root {
+  --el-table-border-color: rgba(15, 23, 42, 0.06);
+  --el-table-border: 1px solid var(--el-table-border-color);
+  --el-table-text-color: #334155;
+  --el-table-header-text-color: #475569;
+  --el-table-row-hover-bg-color: rgba(var(--el-color-primary-rgb), 0.04);
+  --el-table-current-row-bg-color: rgba(var(--el-color-primary-rgb), 0.08);
+  --el-table-header-bg-color: #f1f5f9;
+  --el-table-fixed-box-shadow: 0 0 10px rgba(0, 0, 0, 0.06);
+  --el-table-bg-color: #ffffff;
+  --el-table-tr-bg-color: #ffffff;
+  --el-table-expanded-cell-bg-color: #f8fafc;
+}
+
+// ========================================================
+// 2. 暗黑模式表格基底令牌 (Dark Mode - Slate 深空冷灰)
+// ========================================================
+html.dark {
+  --el-table-border-color: rgba(255, 255, 255, 0.06);
+  --el-table-border: 1px solid var(--el-table-border-color);
+  --el-table-text-color: #cbd5e1;
+  --el-table-header-text-color: #94a3b8;
+  --el-table-row-hover-bg-color: rgba(var(--el-color-primary-rgb), 0.06);
+  --el-table-current-row-bg-color: rgba(var(--el-color-primary-rgb), 0.12);
+  --el-table-header-bg-color: #0f1522;
+  --el-table-fixed-box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
+  --el-table-bg-color: #0c1017;
+  --el-table-tr-bg-color: #0c1017;
+  --el-table-expanded-cell-bg-color: #121824;
+}
+
+// ========================================================
+// 3. 表格主体容器、无框流体基线与等宽排版
+// ========================================================
+.el-table {
+  border-radius: var(--el-border-radius-base);
+  background-color: var(--el-table-bg-color);
+  color: var(--el-table-text-color);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+
+  // 单元格水平基线与微米分割
+  th.el-table__cell.is-leaf,
+  td.el-table__cell {
+    border-bottom: 1px solid var(--el-table-border-color);
+    transition:
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  // 内部包裹器伪边框融合
+  .el-table__inner-wrapper {
+    &::before {
+      background-color: var(--el-table-border-color);
+      height: 1px;
+    }
+  }
+
+  // 带 border 模式下的柔化：消除纵向硬粗线，改为微透亚像素线
+  &.el-table--border {
+    border: 1px solid var(--el-table-border-color);
+
+    &::before,
+    &::after,
+    .el-table__inner-wrapper::after {
+      background-color: var(--el-table-border-color);
+    }
+
+    .el-table__cell {
+      border-right: 1px solid var(--el-table-border-color);
+    }
+
+    th.el-table__cell.gutter:last-of-type {
+      border-bottom: 1px solid var(--el-table-border-color);
+    }
+  }
+
+  // ========================================================
+  // 4. 表头独立冷灰分层与紧凑精密排版
+  // ========================================================
+  thead {
+    color: var(--el-table-header-text-color);
+
+    th.el-table__cell {
+      background-color: var(--el-table-header-bg-color);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      font-size: 12.5px;
+      color: var(--el-table-header-text-color);
+      padding: 9px 0; // 紧凑精密内边距
+
+      .cell {
+        font-weight: 600;
+        line-height: 20px;
+      }
+    }
+  }
+
+  // 数据行单元格内边距紧凑调优
+  tbody {
+    td.el-table__cell {
+      padding: 9px 0; // 紧凑数据行 (8px~10px)
+      font-size: 13px;
+
+      .cell {
+        line-height: 22px;
+      }
+    }
+  }
+
+  // 尺寸梯度微调 (large | default | small)
+  &.el-table--large {
+    thead th.el-table__cell {
+      padding: 12px 0;
+      font-size: 13.5px;
+    }
+
+    tbody td.el-table__cell {
+      padding: 12px 0;
+      font-size: 14px;
+    }
+  }
+
+  &.el-table--small {
+    thead th.el-table__cell {
+      padding: 6px 0;
+      font-size: 11.5px;
+    }
+
+    tbody td.el-table__cell {
+      padding: 6px 0;
+      font-size: 12px;
+    }
+  }
+
+  // ========================================================
+  // 5. 数据行 Hover 浅淡主题微流光与选中行联动
+  // ========================================================
+  .el-table__body tr {
+    transition: background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &.hover-row > td.el-table__cell,
+    &:hover > td.el-table__cell {
+      background-color: var(--el-table-row-hover-bg-color);
+    }
+
+    &.current-row > td.el-table__cell {
+      background-color: var(--el-table-current-row-bg-color);
+    }
+  }
+
+  // 展开行区域柔化
+  .el-table__expanded-cell {
+    background-color: var(--el-table-expanded-cell-bg-color);
+  }
+
+  // 排序箭头现代微光
+  .caret-wrapper {
+    height: 20px;
+
+    .sort-caret.ascending {
+      border-bottom-color: var(--el-text-color-placeholder);
+
+      &:hover {
+        border-bottom-color: var(--el-color-primary);
+      }
+    }
+
+    .sort-caret.descending {
+      border-top-color: var(--el-text-color-placeholder);
+
+      &:hover {
+        border-top-color: var(--el-color-primary);
+      }
+    }
+  }
+
+  th.el-table__cell.ascending .sort-caret.ascending {
+    border-bottom-color: var(--el-color-primary);
+  }
+
+  th.el-table__cell.descending .sort-caret.descending {
+    border-top-color: var(--el-color-primary);
+  }
+
+  // 左右固定列阴影与平滑过渡
+  &.is-scrolling-left .el-table-fixed-column--right.is-first-column::before,
+  &.is-scrolling-middle .el-table-fixed-column--right.is-first-column::before {
+    box-shadow: inset -8px 0 10px -8px rgba(0, 0, 0, 0.12);
+  }
+
+  &.is-scrolling-right .el-table-fixed-column--left.is-last-column::before,
+  &.is-scrolling-middle .el-table-fixed-column--left.is-last-column::before {
+    box-shadow: inset 8px 0 10px -8px rgba(0, 0, 0, 0.12);
+  }
+}
+
+// 暗黑模式下固定列投影优化
+html.dark .el-table {
+  &.is-scrolling-left .el-table-fixed-column--right.is-first-column::before,
+  &.is-scrolling-middle .el-table-fixed-column--right.is-first-column::before {
+    box-shadow: inset -10px 0 12px -8px rgba(0, 0, 0, 0.7);
+  }
+
+  &.is-scrolling-right .el-table-fixed-column--left.is-last-column::before,
+  &.is-scrolling-middle .el-table-fixed-column--left.is-last-column::before {
+    box-shadow: inset 10px 0 12px -8px rgba(0, 0, 0, 0.7);
+  }
+}
+
+// ========================================================
+// 6. 企业级增强表格组件 (AtengTable) 现代质感
+// ========================================================
+.at-table {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+
+  // 沉浸式毛玻璃悬浮批量操作条
+  &__batch-bar {
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    background-color: rgba(var(--el-color-primary-rgb), 0.08);
+    border: 1px solid rgba(var(--el-color-primary-rgb), 0.24);
+    border-radius: var(--el-border-radius-base);
+    box-shadow:
+      0 8px 24px -4px rgba(0, 0, 0, 0.12),
+      0 0 16px -2px rgba(var(--el-color-primary-rgb), 0.15);
+    transition:
+      background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+    .at-table__batch-bar-count {
+      color: var(--el-color-primary);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+// 暗黑模式下批量操作条
+html.dark .at-table__batch-bar {
+  background-color: rgba(12, 16, 23, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 16px 36px -4px rgba(0, 0, 0, 0.8),
+    0 0 20px -2px rgba(var(--el-color-primary-rgb), 0.3);
+}

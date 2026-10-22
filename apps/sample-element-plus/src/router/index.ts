@@ -180,6 +180,12 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/theme/ButtonsInputsView.vue'),
     meta: { title: '主按钮与表单控件 (Theme Pro)' },
   },
+  {
+    path: '/theme/tables',
+    name: 'ThemeTables',
+    component: () => import('../views/theme/TablesView.vue'),
+    meta: { title: '流体表格与防抖 (Theme Pro)' },
+  },
 ];
 
 export const router = createRouter({

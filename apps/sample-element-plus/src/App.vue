@@ -154,6 +154,7 @@ onMounted(() => {
               <ElMenuItem index="/theme/buttons-inputs">
                 按钮与表单控件 (Buttons & Inputs)
               </ElMenuItem>
+              <ElMenuItem index="/theme/tables"> 流体表格与防抖 (Tables & Anti-Jitter) </ElMenuItem>
             </ElSubMenu>
           </ElMenu>
         </ElAside>
