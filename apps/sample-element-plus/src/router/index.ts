@@ -192,6 +192,12 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/theme/TagsOverlaysView.vue'),
     meta: { title: '标签开关与浮层 (Theme Pro)' },
   },
+  {
+    path: '/theme/tenant',
+    name: 'ThemeTenant',
+    component: () => import('../views/theme/TenantThemeView.vue'),
+    meta: { title: '租户换肤 API (Theme Pro)' },
+  },
 ];
 
 export const router = createRouter({

@@ -158,6 +158,9 @@ onMounted(() => {
               <ElMenuItem index="/theme/tags-overlays">
                 标签、开关与毛玻璃浮层 (Tags & Overlays)
               </ElMenuItem>
+              <ElMenuItem index="/theme/tenant">
+                动态租户换肤 API (Tenant Theme Engine)
+              </ElMenuItem>
             </ElSubMenu>
           </ElMenu>
         </ElAside>
