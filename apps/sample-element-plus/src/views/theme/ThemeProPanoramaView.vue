@@ -77,6 +77,14 @@ import {
   ElInputOtp,
   ElAutocomplete,
   ElMention,
+  ElSkeleton,
+  ElSkeletonItem,
+  ElPopconfirm,
+  ElBreadcrumb,
+  ElBreadcrumbItem,
+  ElAnchor,
+  ElAnchorLink,
+  ElLoading,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -330,6 +338,20 @@ const nextStep = () => {
 const prevStep = () => {
   if (activeStep.value-- <= 0) activeStep.value = 3;
 };
+
+// 状态反馈与导航新增状态
+const isLoadingDemo = ref(true);
+const triggerFullscreenLoading = () => {
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在执行全屏黑曜石毛玻璃同步校验 (2秒自动关闭)...',
+    background: isDark.value ? 'rgba(2, 6, 23, 0.82)' : 'rgba(15, 23, 42, 0.65)',
+  });
+  setTimeout(() => {
+    loading.close();
+  }, 2000);
+};
+const isSkeletonLoading = ref(true);
 
 // 7. Tab 4: 展示与排版状态
 const segmentedOption = ref('实时监控流');
@@ -1010,6 +1032,169 @@ onUnmounted(() => {
                     <ElButton size="small" type="primary">查看拓扑</ElButton>
                   </template>
                 </ElResult>
+              </div>
+            </div>
+          </AtengCard>
+
+          <!-- 毛玻璃加载遮罩与气泡确认 -->
+          <AtengCard title="⏳ 毛玻璃加载遮罩 (Loading) & 气泡确认 (Popconfirm)">
+            <template #extra>
+              <ElSpace>
+                <ElButton size="small" @click="isLoadingDemo = !isLoadingDemo">
+                  {{ isLoadingDemo ? '关闭局部 Loading' : '开启局部 Loading' }}
+                </ElButton>
+                <ElButton size="small" type="primary" plain @click="triggerFullscreenLoading">
+                  全屏黑曜石 Loading
+                </ElButton>
+              </ElSpace>
+            </template>
+            <div class="section-desc mb-3">
+              支持黑曜石景深毛玻璃遮罩（backdrop-filter: blur(6px)）与主题色
+              Spinner；紧凑气泡卡片确认。
+            </div>
+            <div class="form-vertical-cluster">
+              <!-- 局部毛玻璃 Loading 演示容器 -->
+              <div
+                v-loading="isLoadingDemo"
+                element-loading-text="正在校验分布式节点状态..."
+                class="p-4 border rounded relative overflow-hidden"
+                style="
+                  background: var(--el-bg-color);
+                  border-color: var(--el-border-color-light);
+                  min-height: 110px;
+                "
+              >
+                <div class="text-sm font-semibold mb-1" style="color: var(--el-text-color-primary)">
+                  Kubernetes Edge Cluster Status: Active
+                </div>
+                <div class="text-xs mb-3" style="color: var(--el-text-color-regular)">
+                  当前集群承载 64 个微服务微流任务，网络吞吐 12.8 Gbps，数据通道加密握手状态正常。
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs" style="color: var(--el-text-color-secondary)"
+                    >节点健康度:</span
+                  >
+                  <span class="text-xs font-semibold" style="color: var(--el-color-success)"
+                    >99.98% SLA</span
+                  >
+                </div>
+              </div>
+
+              <!-- 气泡确认交互 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block">紧凑气泡操作确认 (ElPopconfirm)：</span>
+                <ElSpace wrap>
+                  <ElPopconfirm
+                    title="确定下线该分布式边缘集群？此动作不可逆！"
+                    confirm-button-text="确认下线"
+                    cancel-button-text="取消"
+                    confirm-button-type="danger"
+                  >
+                    <template #reference>
+                      <ElButton size="small" type="danger">永久注销集群 (Popconfirm)</ElButton>
+                    </template>
+                  </ElPopconfirm>
+
+                  <ElPopconfirm
+                    title="确定立即重置全站多主题预设为默认值？"
+                    confirm-button-text="确定重置"
+                    cancel-button-text="保留"
+                  >
+                    <template #reference>
+                      <ElButton size="small" type="primary" plain>重置默认配置</ElButton>
+                    </template>
+                  </ElPopconfirm>
+                </ElSpace>
+              </div>
+            </div>
+          </AtengCard>
+
+          <!-- 深空呼吸骨架屏与导航锚点/面包屑 -->
+          <AtengCard title="💀 深空呼吸骨架屏 (Skeleton) & 导航锚点与面包屑 (Breadcrumb / Anchor)">
+            <template #extra>
+              <ElSpace>
+                <span class="text-xs text-muted">骨架屏加载中:</span>
+                <ElSwitch v-model="isSkeletonLoading" size="small" />
+              </ElSpace>
+            </template>
+            <div class="section-desc mb-3">
+              彻底消除暗黑模式白闪的深空冷灰平滑波纹（Pulse
+              Wave）；高反差层级面包屑与弹簧游标指示条。
+            </div>
+            <div class="form-vertical-cluster">
+              <!-- 骨架屏动态演示 -->
+              <div
+                class="p-3 border rounded"
+                style="
+                  background: var(--el-fill-color-blank);
+                  border-color: var(--el-border-color-light);
+                "
+              >
+                <ElSkeleton :loading="isSkeletonLoading" animated>
+                  <template #template>
+                    <div class="flex items-center gap-3 mb-3">
+                      <ElSkeletonItem variant="circle" style="width: 40px; height: 40px" />
+                      <div class="flex-1">
+                        <ElSkeletonItem
+                          variant="h3"
+                          style="width: 40%; height: 16px; margin-bottom: 6px"
+                        />
+                        <ElSkeletonItem variant="text" style="width: 70%; height: 12px" />
+                      </div>
+                    </div>
+                    <ElSkeletonItem
+                      variant="p"
+                      style="width: 100%; height: 14px; margin-bottom: 6px"
+                    />
+                    <ElSkeletonItem variant="p" style="width: 60%; height: 14px" />
+                  </template>
+                  <template #default>
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
+                        style="background: var(--el-color-primary)"
+                      >
+                        AT
+                      </div>
+                      <div>
+                        <div
+                          class="font-semibold text-sm"
+                          style="color: var(--el-text-color-primary)"
+                        >
+                          Ateng Infrastructure Suite
+                        </div>
+                        <div class="text-xs" style="color: var(--el-text-color-secondary)">
+                          已就绪全量 80+ 原生组件深度美化与暗黑模式适配。
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </ElSkeleton>
+              </div>
+
+              <!-- 面包屑体系 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block">高反差层级面包屑 (ElBreadcrumb)：</span>
+                <ElBreadcrumb separator="/">
+                  <ElBreadcrumbItem :to="{ path: '/' }">控制台首页</ElBreadcrumbItem>
+                  <ElBreadcrumbItem><a href="javascript:void(0)">微服务网关</a></ElBreadcrumbItem>
+                  <ElBreadcrumbItem>集群监控</ElBreadcrumbItem>
+                  <ElBreadcrumbItem>拓扑详情</ElBreadcrumbItem>
+                </ElBreadcrumb>
+              </div>
+
+              <!-- 锚点体系 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block"
+                  >水平/垂直弹簧游标锚点 (ElAnchor)：</span
+                >
+                <ElAnchor direction="horizontal">
+                  <ElAnchorLink href="#tab-base" title="🏆 基础与交互" />
+                  <ElAnchorLink href="#tab-pickers" title="📅 高级拾取" />
+                  <ElAnchorLink href="#tab-feedbacks" title="⚡ 状态反馈" />
+                  <ElAnchorLink href="#tab-displays" title="📑 数据展示" />
+                  <ElAnchorLink href="#tab-tables" title="📊 表格弹层" />
+                </ElAnchor>
               </div>
             </div>
           </AtengCard>

@@ -246,3 +246,126 @@ html.dark .el-dropdown-menu {
     }
   }
 }
+
+// ========================================================
+// 4. 层级排版面包屑 (ElBreadcrumb)
+// ========================================================
+.el-breadcrumb {
+  font-size: 13px;
+  line-height: 1.5;
+
+  .el-breadcrumb__separator {
+    margin: 0 8px;
+    color: var(--el-text-color-placeholder);
+    font-weight: 400;
+
+    &.el-icon {
+      margin: 0 6px;
+      vertical-align: middle;
+    }
+  }
+
+  .el-breadcrumb__item {
+    display: inline-flex;
+    align-items: center;
+
+    .el-breadcrumb__inner {
+      color: var(--el-text-color-secondary);
+      font-weight: 500;
+      transition: color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &.is-link,
+      a {
+        color: var(--el-text-color-regular);
+        font-weight: 500;
+        text-decoration: none;
+
+        &:hover {
+          color: var(--el-color-primary);
+        }
+      }
+    }
+
+    &:last-child {
+      .el-breadcrumb__inner {
+        color: var(--el-text-color-primary);
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// ========================================================
+// 5. 弹簧游标锚点 (ElAnchor)
+// ========================================================
+.el-anchor {
+  --el-anchor-bg-color: transparent;
+
+  .el-anchor__marker {
+    background-color: var(--el-color-primary);
+    border-radius: var(--el-border-radius-round);
+    box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb), 0.45);
+    transition:
+      top 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      left 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &.el-anchor--vertical {
+    .el-anchor__marker {
+      width: 3px;
+      border-radius: var(--el-border-radius-round);
+    }
+
+    &.el-anchor--underline {
+      &::before {
+        background-color: var(--el-border-color-lighter);
+        width: 1.5px;
+      }
+
+      .el-anchor__marker {
+        width: 2.5px;
+      }
+    }
+  }
+
+  &.el-anchor--horizontal {
+    .el-anchor__marker {
+      height: 3px;
+    }
+
+    &.el-anchor--underline {
+      &::before {
+        background-color: var(--el-border-color-lighter);
+        height: 1.5px;
+      }
+
+      .el-anchor__marker {
+        height: 2.5px;
+      }
+    }
+  }
+
+  .el-anchor__link {
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+    transition: color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+
+    &.is-active {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+html.dark .el-anchor {
+  &.el-anchor--vertical.el-anchor--underline::before,
+  &.el-anchor--horizontal.el-anchor--underline::before {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}

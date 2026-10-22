@@ -261,7 +261,115 @@
 }
 
 // ========================================================
-// 5. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// 5. 加载遮罩 (Loading - Obsidian Glass Overlay)
+// ========================================================
+.el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.is-fullscreen {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(15, 23, 42, 0.65);
+
+    .el-loading-text {
+      color: #ffffff;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .el-loading-spinner {
+    .path {
+      stroke: var(--el-color-primary);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+    }
+
+    .el-loading-text {
+      color: var(--el-color-primary);
+      font-size: 13.5px;
+      font-weight: 500;
+      margin-top: 8px;
+      letter-spacing: 0.3px;
+    }
+  }
+}
+
+// ========================================================
+// 6. 骨架屏平滑波纹 (Skeleton - Pulse Wave)
+// ========================================================
+.el-skeleton {
+  .el-skeleton__item {
+    border-radius: var(--el-border-radius-base, 6px);
+
+    &.el-skeleton__circle {
+      border-radius: 50%;
+    }
+  }
+
+  &.is-animated .el-skeleton__item {
+    background: linear-gradient(
+      90deg,
+      var(--el-skeleton-color) 25%,
+      var(--el-skeleton-to-color) 50%,
+      var(--el-skeleton-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: at-skeleton-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes at-skeleton-pulse {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+// ========================================================
+// 7. 气泡确认框 (Popconfirm)
+// ========================================================
+.el-popconfirm {
+  padding: 4px 2px;
+
+  .el-popconfirm__main {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--el-text-color-primary);
+    line-height: 1.5;
+
+    .el-popconfirm__icon {
+      margin-right: 0;
+      font-size: 16px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+  }
+
+  .el-popconfirm__action {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+
+    .el-button {
+      margin-left: 0;
+    }
+  }
+}
+
+// ========================================================
+// 8. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
 // ========================================================
 html.dark {
   .el-alert.is-light {
@@ -298,5 +406,18 @@ html.dark {
 
   .el-badge .el-badge__content {
     border-color: #0c1017;
+  }
+
+  .el-loading-mask {
+    background-color: rgba(15, 23, 42, 0.72);
+
+    &.is-fullscreen {
+      background-color: rgba(2, 6, 23, 0.82);
+    }
+  }
+
+  .el-skeleton {
+    --el-skeleton-color: #1e293b;
+    --el-skeleton-to-color: #334155;
   }
 }

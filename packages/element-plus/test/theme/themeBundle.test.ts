@@ -67,6 +67,15 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('.el-mention');
   });
 
+  it('反馈动效与导航锚点增强 (Feedbacks & Navigations) 规则正确编译', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-loading-mask');
+    expect(content).toContain('.el-skeleton');
+    expect(content).toContain('.el-popconfirm');
+    expect(content).toContain('.el-breadcrumb');
+    expect(content).toContain('.el-anchor');
+  });
+
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {
     const content = fs.readFileSync(cssPath, 'utf-8');
     expect(content).toContain('[data-theme=indigo]');
