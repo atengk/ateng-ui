@@ -27,11 +27,11 @@ export interface QueryFormResponsiveCols {
 /**
  * AtengQueryForm 属性接口。
  */
-export interface AtengQueryFormProps {
+export interface AtengQueryFormProps<T = Record<string, unknown>> {
   /**
    * 表单数据模型对象。
    */
-  model?: Record<string, unknown>;
+  model?: T;
 
   /**
    * 栅格列数。支持固定数值（1~4）或响应式断点对象。
@@ -49,6 +49,13 @@ export interface AtengQueryFormProps {
    * @default true
    */
   defaultCollapsed?: boolean;
+
+  /**
+   * 折叠状态下常驻展示的行数（每行容纳当前列数）。
+   * 展开操作区将吸附在常驻展示的最后一行末尾。
+   * @default 1
+   */
+  collapsedRows?: number;
 
   /**
    * 是否显示折叠/展开切换按钮。
@@ -105,6 +112,12 @@ export interface AtengQueryFormProps {
   showReset?: boolean;
 
   /**
+   * 点击重置按钮后是否自动触发表单查询与表格上下文重置。
+   * @default true
+   */
+  autoSearchOnReset?: boolean;
+
+  /**
    * 查询按钮 Loading 状态。
    * @default false
    */
@@ -131,7 +144,7 @@ export interface AtengQueryFormProps {
 /**
  * AtengQueryForm 事件接口。
  */
-export interface AtengQueryFormEmits {
+export interface AtengQueryFormEmits<T = Record<string, unknown>> {
   /**
    * 折叠状态双向绑定更新事件。
    */
@@ -145,7 +158,7 @@ export interface AtengQueryFormEmits {
   /**
    * 触发查询事件，携带当前表单数据模型。
    */
-  (e: 'search', model: Record<string, unknown>): void;
+  (e: 'search', model: T): void;
 
   /**
    * 触发重置事件。
@@ -156,7 +169,7 @@ export interface AtengQueryFormEmits {
 /**
  * AtengQueryForm 插槽接口。
  */
-export interface AtengQueryFormSlots {
+export interface AtengQueryFormSlots<T = Record<string, unknown>> {
   /**
    * 默认插槽：承载查询表单控件与 el-form-item 节点。
    */
@@ -170,6 +183,7 @@ export interface AtengQueryFormSlots {
     toggle: () => void;
     search: () => void;
     reset: () => void;
+    model?: T;
   }) => unknown;
 
   /**
@@ -181,7 +195,7 @@ export interface AtengQueryFormSlots {
 /**
  * AtengQueryForm 暴露的组件实例能力。
  */
-export interface AtengQueryFormExpose {
+export interface AtengQueryFormExpose<T = Record<string, unknown>> {
   /**
    * 底层 ElForm 原生实例引用。
    */
@@ -204,8 +218,9 @@ export interface AtengQueryFormExpose {
 
   /**
    * 手动触发表单查询。
+   * 支持传入覆盖或局部搜索参数。
    */
-  search: () => void;
+  search: (overrideModel?: T) => void;
 
   /**
    * 手动触发表单重置。
@@ -226,4 +241,4 @@ export interface AtengQueryFormExpose {
 /**
  * 专有组件实例类型。
  */
-export type AtengQueryFormInstance = AtengQueryFormExpose;
+export type AtengQueryFormInstance<T = Record<string, unknown>> = AtengQueryFormExpose<T>;

@@ -135,3 +135,21 @@ _Avoid_: v-clipboard, v-text-copy, v-click-copy
 **v-watermark**:
 基于 Canvas 渲染与 MutationObserver 动态防御篡改的防伪水印指令（支持局部容器与全屏双模）。
 _Avoid_: v-mask, v-water-mark, v-stamp
+
+## 表格与检索高级交互机制
+
+**列宽自适应持久化 (Column Width Persistence)**:
+在 AtengTable 中基于原生表头拖拽监听与 storageKey 联合存储列顺序、显隐与像素级宽度的生命周期持久化机制。
+_Avoid_: 动态列宽存储, 自定义拖拽列宽, ColumnWidthSaver
+
+**多态缺省态 (Polymorphic Empty State)**:
+AtengTable 依据网络异常、全局空数据与活跃筛选条件动态呈现 empty、search、network-error 状态插画与一键清空/重试的自愈感知机制。
+_Avoid_: 动态空状态, 搜索空状态, SmartEmpty
+
+**容器感知断点 (Container-Aware Breakpoints)**:
+AtengQueryForm 摆脱 window 视口大小限制，基于原生 ResizeObserver 动态探测自身容器宽度并流式计算 1~4 列响应式栅格的布局策略。
+_Avoid_: 媒体查询断点, 视口断点, WindowBreakpoints
+
+**多行折叠编排 (Multi-Row Collapse)**:
+AtengQueryForm 支持配置展示前 N 行表单项并在末行尾部吸附操作按钮的高级折叠交互编排能力。
+_Avoid_: 动态折叠, 多行展开, ExpandRows

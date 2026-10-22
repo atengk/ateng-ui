@@ -123,3 +123,4 @@ flowchart TD
 - [ADR-0017: DictManager 全局单例去重、AtengDescriptions 渐进脱敏与业务套件架构](./docs/adr/0017-dict-manager-and-stage-3-business-widgets-architecture.md)
 - [ADR-0018: Element Plus 企业级组件矩阵全景扩充与零臃肿工程深化架构](./docs/adr/0018-element-plus-enterprise-component-matrix-and-zero-bloat-expansion.md)
 - [ADR-0019: 系统页面骨架与容器套件架构设计与双模滚动治理](./docs/adr/0019-page-scaffold-and-container-architecture.md)
+- [ADR-0020: 核心表格与检索套件深度协同、列宽持久化与容器感知响应式增强架构](./docs/adr/0020-table-query-synergy-column-resize-and-container-responsive-enhancement.md)

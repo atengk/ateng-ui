@@ -1,12 +1,13 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
 /**
  * 企业级响应式高级搜索表单容器组件。
  *
  * 核心特性：
- * 1. 24 栅格响应式断点自适应（1~4 列）；
- * 2. 平滑折叠展开交互，折叠态保留首行前 N-1 项与末尾固定操作区；
- * 3. 查询与重置按钮内置 v-idempotent 防抖防刷；
- * 4. 支持独立事件驱动与 AtengTable 嵌套上下文自动联动双模。
+ * 1. 24 栅格响应式断点自适应（1~4 列），接入原生 ResizeObserver 容器感知断点；
+ * 2. 平滑折叠展开交互，支持 collapsedRows 配置常驻展示前 N 行；
+ * 3. 查询与重置按钮内置 v-idempotent 防抖防刷，支持 autoSearchOnReset 重置自触发；
+ * 4. 支持独立事件驱动与 AtengTable 嵌套上下文自动联动双模；
+ * 5. Vue 3.5 SFC 原生泛型 <T> 强类型支持。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -16,7 +17,7 @@ import {
   ref,
   computed,
   onMounted,
-  onBeforeUnmount,
+  onUnmounted,
   useSlots,
   inject,
   Comment,
@@ -37,11 +38,12 @@ defineOptions({
   name: 'AtengQueryForm',
 });
 
-const props = withDefaults(defineProps<AtengQueryFormProps>(), {
-  model: () => ({}),
+const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
+  model: () => ({}) as T,
   cols: undefined,
   collapsed: undefined,
   defaultCollapsed: true,
+  collapsedRows: 1,
   showCollapse: true,
   labelWidth: '',
   labelPosition: 'right',
@@ -51,33 +53,58 @@ const props = withDefaults(defineProps<AtengQueryFormProps>(), {
   expandText: '展开',
   showSearch: true,
   showReset: true,
+  autoSearchOnReset: true,
   searchLoading: false,
   disabled: false,
   gutter: 16,
   customClass: '',
 });
 
-const emit = defineEmits<AtengQueryFormEmits>();
-defineSlots<AtengQueryFormSlots>();
+const emit = defineEmits<AtengQueryFormEmits<T>>();
+defineSlots<AtengQueryFormSlots<T>>();
 
-// 1. 视口宽度监听与响应式列数计算
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280);
+// 1. 容器宽度监听与响应式列数计算 (ResizeObserver 容器感知断点)
+const formRef = ref<FormInstance>();
+const containerWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1280);
+let resizeObserver: ResizeObserver | null = null;
 
-const handleResize = () => {
+const handleWindowResize = () => {
   if (typeof window !== 'undefined') {
-    windowWidth.value = window.innerWidth;
+    containerWidth.value = window.innerWidth;
   }
 };
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
-    window.addEventListener('resize', handleResize);
+    const rootEl = formRef.value?.$el as HTMLElement | undefined;
+    if (typeof ResizeObserver !== 'undefined' && rootEl) {
+      const initialWidth = rootEl.clientWidth || window.innerWidth || 1280;
+      if (initialWidth > 0) {
+        containerWidth.value = initialWidth;
+      }
+      resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const width = entry.contentRect?.width || (entry.target as HTMLElement).clientWidth;
+          if (typeof width === 'number' && width > 0) {
+            containerWidth.value = width;
+          }
+        }
+      });
+      resizeObserver.observe(rootEl);
+    } else {
+      containerWidth.value = window.innerWidth || 1280;
+      window.addEventListener('resize', handleWindowResize);
+    }
   }
 });
 
-onBeforeUnmount(() => {
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('resize', handleWindowResize);
   }
 });
 
@@ -85,7 +112,7 @@ const currentCols = computed<number>(() => {
   if (typeof props.cols === 'number') {
     return Math.max(1, Math.min(props.cols, 24));
   }
-  const w = windowWidth.value;
+  const w = containerWidth.value;
   if (typeof props.cols === 'object' && props.cols !== null) {
     if (w < 768 && props.cols.xs !== undefined) return props.cols.xs;
     if (w >= 768 && w < 992 && props.cols.sm !== undefined) return props.cols.sm;
@@ -93,7 +120,7 @@ const currentCols = computed<number>(() => {
     if (w >= 1200 && w < 1920 && props.cols.lg !== undefined) return props.cols.lg;
     if (w >= 1920 && props.cols.xl !== undefined) return props.cols.xl;
   }
-  // 默认断点策略
+  // 默认断点策略（容器宽度）
   if (w < 768) return 1;
   if (w < 1200) return 2;
   if (w < 1920) return 3;
@@ -134,8 +161,9 @@ const isCollapsed = computed<boolean>(() => {
 
 const maxVisibleCount = computed<number>(() => {
   const cols = currentCols.value;
-  if (cols <= 1) return 1;
-  return cols - 1;
+  const rows = Math.max(1, props.collapsedRows ?? 1);
+  if (cols <= 1) return rows;
+  return rows * cols - 1;
 });
 
 const canCollapse = computed<boolean>(() => {
@@ -174,25 +202,36 @@ const actionGridStyle = computed(() => {
 
 // 5. 查询与重置交互调度
 const tableContext = inject<AtengTableContext | null>(ATENG_TABLE_CONTEXT_KEY, null);
-const formRef = ref<FormInstance>();
 
-const handleSearch = () => {
-  emit('search', props.model);
+const handleSearch = (overrideModel?: T) => {
+  const targetModel = overrideModel || (props.model as T);
+  emit('search', targetModel);
   if (tableContext) {
-    tableContext.search(props.model);
+    tableContext.search(targetModel);
   }
+};
+
+const onSearchClick = () => {
+  handleSearch();
 };
 
 const handleReset = () => {
   formRef.value?.resetFields();
   emit('reset');
-  if (tableContext) {
-    tableContext.reset();
+  if (props.autoSearchOnReset !== false) {
+    emit('search', props.model as T);
+    if (tableContext) {
+      tableContext.reset();
+    }
   }
 };
 
+const onResetClick = () => {
+  handleReset();
+};
+
 // 6. 实例能力显式暴露
-defineExpose<AtengQueryFormExpose>({
+defineExpose<AtengQueryFormExpose<T>>({
   formRef,
   validate: callback => {
     if (formRef.value) {
@@ -238,11 +277,12 @@ defineExpose<AtengQueryFormExpose>({
           :toggle="toggleCollapse"
           :search="handleSearch"
           :reset="handleReset"
+          :model="model as T"
         >
           <!-- 默认查询按钮 -->
           <el-button
             v-if="showSearch"
-            v-idempotent="handleSearch"
+            v-idempotent="onSearchClick"
             type="primary"
             :loading="searchLoading"
             class="at-query-form__search-btn"
@@ -258,7 +298,7 @@ defineExpose<AtengQueryFormExpose>({
           </el-button>
 
           <!-- 默认重置按钮 -->
-          <el-button v-if="showReset" v-idempotent="handleReset" class="at-query-form__reset-btn">
+          <el-button v-if="showReset" v-idempotent="onResetClick" class="at-query-form__reset-btn">
             <el-icon class="at-query-form__btn-icon">
               <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
                 <path

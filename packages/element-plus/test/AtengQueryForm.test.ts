@@ -119,6 +119,155 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
     expect(wrapper.emitted('reset')).toBeTruthy();
   });
 
+  it('多行折叠：通过 collapsedRows 配置常驻展示多行表单项', async () => {
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        cols: 3, // 每行 3 列
+        collapsedRows: 2, // 常驻展示 2 行: 2 * 3 - 1 = 5 项可见
+        defaultCollapsed: true,
+      },
+      slots: {
+        default: () => [
+          h(ElFormItem, { label: '项1' }),
+          h(ElFormItem, { label: '项2' }),
+          h(ElFormItem, { label: '项3' }),
+          h(ElFormItem, { label: '项4' }),
+          h(ElFormItem, { label: '项5' }),
+          h(ElFormItem, { label: '项6' }),
+          h(ElFormItem, { label: '项7' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    const items = wrapper.findAll('.at-query-form__item');
+    expect(items.length).toBe(7);
+    // 折叠态：前 5 项可见，第 6、7 项隐藏
+    expect(items[0].isVisible()).toBe(true);
+    expect(items[1].isVisible()).toBe(true);
+    expect(items[2].isVisible()).toBe(true);
+    expect(items[3].isVisible()).toBe(true);
+    expect(items[4].isVisible()).toBe(true);
+    expect(items[5].isVisible()).toBe(false);
+    expect(items[6].isVisible()).toBe(false);
+
+    // 展开后全部可见
+    const collapseBtn = wrapper.find('.at-query-form__collapse-btn');
+    expect(collapseBtn.exists()).toBe(true);
+    await collapseBtn.trigger('click');
+    expect(items[5].isVisible()).toBe(true);
+    expect(items[6].isVisible()).toBe(true);
+  });
+
+  it('重置自触发：autoSearchOnReset 开启时点击重置自动派发 @search 且携带 model', async () => {
+    const formData = reactive({ keyword: 'test-keyword' });
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        model: formData,
+        autoSearchOnReset: true,
+      },
+      attachTo: document.body,
+    });
+
+    const resetBtn = wrapper.find('.at-query-form__reset-btn');
+    await resetBtn.trigger('click');
+
+    expect(wrapper.emitted('reset')).toBeTruthy();
+    // 自动派发了 search
+    expect(wrapper.emitted('search')).toBeTruthy();
+  });
+
+  it('重置自触发受控：autoSearchOnReset 为 false 时点击重置不自动派发 @search', async () => {
+    const formData = reactive({ keyword: 'test' });
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        model: formData,
+        autoSearchOnReset: false,
+      },
+      attachTo: document.body,
+    });
+
+    const resetBtn = wrapper.find('.at-query-form__reset-btn');
+    await resetBtn.trigger('click');
+
+    expect(wrapper.emitted('reset')).toBeTruthy();
+    expect(wrapper.emitted('search')).toBeFalsy();
+  });
+
+  it('容器感知：基于 ResizeObserver 监听自身容器宽度并在卸载时安全断开', async () => {
+    let observerCallback: ResizeObserverCallback | null = null;
+    let observeTarget: Element | null = null;
+    let isDisconnected = false;
+
+    class MockResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        observerCallback = callback;
+      }
+      observe(target: Element) {
+        observeTarget = target;
+      }
+      disconnect() {
+        isDisconnected = true;
+      }
+      unobserve() {}
+    }
+
+    const originalRO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+
+    try {
+      wrapper = mount(AtengQueryForm, {
+        attachTo: document.body,
+      });
+
+      expect(observeTarget).not.toBeNull();
+
+      // 模拟容器宽度变化为 600px (< 768px: 1列)
+      if (observerCallback) {
+        observerCallback(
+          [
+            {
+              contentRect: { width: 600 } as DOMRectReadOnly,
+              target: observeTarget!,
+            } as ResizeObserverEntry,
+          ],
+          {} as ResizeObserver,
+        );
+      }
+      await wrapper.vm.$nextTick();
+
+      const gridEl = wrapper.find('.at-query-form__grid');
+      expect(gridEl.attributes('style')).toContain(
+        'grid-template-columns: repeat(1, minmax(0, 1fr))',
+      );
+
+      // 模拟容器宽度变化为 1400px (1200px ~ 1920px: 3列)
+      if (observerCallback) {
+        observerCallback(
+          [
+            {
+              contentRect: { width: 1400 } as DOMRectReadOnly,
+              target: observeTarget!,
+            } as ResizeObserverEntry,
+          ],
+          {} as ResizeObserver,
+        );
+      }
+      await wrapper.vm.$nextTick();
+
+      expect(gridEl.attributes('style')).toContain(
+        'grid-template-columns: repeat(3, minmax(0, 1fr))',
+      );
+
+      // 卸载组件，断言确定性断开 ResizeObserver
+      wrapper.unmount();
+      wrapper = null;
+      expect(isDisconnected).toBe(true);
+    } finally {
+      globalThis.ResizeObserver = originalRO;
+    }
+  });
+
   it('上下文感知：当存在 AtengTable 上下文时，自动调度 search 与 reset 门面', async () => {
     const mockSearch = vi.fn();
     const mockReset = vi.fn();
@@ -156,6 +305,102 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
 
     await resetBtn.trigger('click');
     expect(mockReset).toHaveBeenCalled();
+  });
+
+  it('上下文感知受控：autoSearchOnReset 为 false 时点击重置不调用 tableContext.reset', async () => {
+    const mockSearch = vi.fn();
+    const mockReset = vi.fn();
+    const tableContext: AtengTableContext = {
+      search: mockSearch,
+      reset: mockReset,
+    };
+
+    const HostComponent = defineComponent({
+      components: { AtengQueryForm },
+      setup() {
+        return {
+          model: { keyword: 'test' },
+        };
+      },
+      template: `
+        <AtengQueryForm :model="model" :auto-search-on-reset="false" />
+      `,
+    });
+
+    wrapper = mount(HostComponent, {
+      global: {
+        provide: {
+          [ATENG_TABLE_CONTEXT_KEY as symbol]: tableContext,
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const resetBtn = wrapper.find('.at-query-form__reset-btn');
+    await resetBtn.trigger('click');
+    expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  it('多行折叠边界：单列 cols=1 时正确支持 collapsedRows 展示', () => {
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        cols: 1,
+        collapsedRows: 2, // 期望展示前 2 项
+        defaultCollapsed: true,
+      },
+      slots: {
+        default: () => [
+          h(ElFormItem, { label: '项1' }),
+          h(ElFormItem, { label: '项2' }),
+          h(ElFormItem, { label: '项3' }),
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    const items = wrapper.findAll('.at-query-form__item');
+    expect(items.length).toBe(3);
+    expect(items[0].isVisible()).toBe(true);
+    expect(items[1].isVisible()).toBe(true);
+    expect(items[2].isVisible()).toBe(false);
+  });
+
+  it('插槽作用域：action 插槽正确接收 model, search, reset, toggle 参数', async () => {
+    let slotScope: { model?: unknown; collapsed: boolean; search: unknown } | null = null;
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        model: { role: 'admin' },
+      },
+      slots: {
+        action: scope => {
+          slotScope = scope;
+          return h('div', { class: 'custom-action' }, '自定义按钮');
+        },
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.custom-action').exists()).toBe(true);
+    expect(slotScope).not.toBeNull();
+    expect(slotScope?.model).toEqual({ role: 'admin' });
+    expect(slotScope?.collapsed).toBe(true);
+    expect(typeof slotScope?.search).toBe('function');
+  });
+
+  it('搜索传参：手动调用 search 支持传入 overrideModel 覆盖参数', async () => {
+    const formData = reactive({ keyword: 'original' });
+    wrapper = mount(AtengQueryForm, {
+      props: {
+        model: formData,
+      },
+      attachTo: document.body,
+    });
+
+    const vm = wrapper.vm as unknown as AtengQueryFormInstance<{ keyword: string; extra?: string }>;
+    vm.search({ keyword: 'override', extra: 'param' });
+
+    expect(wrapper.emitted('search')).toBeTruthy();
+    expect(wrapper.emitted('search')?.[0]).toEqual([{ keyword: 'override', extra: 'param' }]);
   });
 
   it('实例暴露：defineExpose 正确对外提供 formRef、validate、toggleCollapse 等能力', () => {
