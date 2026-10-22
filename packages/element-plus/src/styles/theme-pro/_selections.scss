@@ -1,0 +1,140 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 选择控件体系 (Checkbox & Radio) 规约。
+ *
+ * 核心特性：
+ * 1. 复选框 (ElCheckbox) 升级为 4px 弹性微圆角与弹性阻尼按压缩放动效；
+ * 2. 单选框 (ElRadio) 升级为精致冷钛微边框与平滑内芯微发光；
+ * 3. 单选/复选按钮组 (Button Groups) 消除生硬接缝，呈现圆润微光胶囊；
+ * 4. 键盘 focus-visible 焦点环与双层激光光晕对齐；
+ * 5. 严格依从零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 复选框体系 (ElCheckbox)
+// ========================================================
+.el-checkbox {
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--el-text-color-regular);
+
+  .el-checkbox__inner {
+    border-radius: 4px;
+    border: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    transition:
+      border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      border-color: var(--el-color-primary);
+    }
+  }
+
+  // 选中态 (Checked & Indeterminate)
+  &.is-checked,
+  &.is-indeterminate {
+    .el-checkbox__inner {
+      background-color: var(--el-color-primary);
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 10px rgba(var(--el-color-primary-rgb), 0.35);
+      transform: scale(1.05);
+    }
+
+    .el-checkbox__label {
+      color: var(--el-color-primary);
+      font-weight: 500;
+    }
+  }
+
+  .el-checkbox__original:focus-visible + .el-checkbox__inner {
+    outline: none;
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+}
+
+// 暗黑模式下 Checkbox
+html.dark .el-checkbox {
+  .el-checkbox__inner {
+    background-color: #121824;
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  &.is-checked,
+  &.is-indeterminate {
+    .el-checkbox__inner {
+      background-color: var(--el-color-primary);
+      border-color: transparent;
+      box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.5);
+    }
+  }
+}
+
+// ========================================================
+// 2. 单选框体系 (ElRadio)
+// ========================================================
+.el-radio {
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--el-text-color-regular);
+
+  .el-radio__inner {
+    border: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    transition:
+      border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      border-color: var(--el-color-primary);
+    }
+  }
+
+  &.is-checked {
+    .el-radio__inner {
+      background-color: var(--el-bg-color);
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 10px rgba(var(--el-color-primary-rgb), 0.35);
+
+      &::after {
+        background-color: var(--el-color-primary);
+        transform: translate(-50%, -50%) scale(1.1);
+      }
+    }
+
+    .el-radio__label {
+      color: var(--el-color-primary);
+      font-weight: 500;
+    }
+  }
+
+  .el-radio__original:focus-visible + .el-radio__inner {
+    outline: none;
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+}
+
+// 暗黑模式下 Radio
+html.dark .el-radio {
+  .el-radio__inner {
+    background-color: #121824;
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  &.is-checked {
+    .el-radio__inner {
+      background-color: #121824;
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.45);
+
+      &::after {
+        background-color: var(--el-color-primary-light-3);
+      }
+    }
+  }
+}

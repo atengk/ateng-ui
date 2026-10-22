@@ -161,6 +161,9 @@ onMounted(() => {
               <ElMenuItem index="/theme/tenant">
                 动态租户换肤 API (Tenant Theme Engine)
               </ElMenuItem>
+              <ElMenuItem index="/theme/cards-navigations">
+                卡片、导航与选择分页 (Cards & Navigations)
+              </ElMenuItem>
             </ElSubMenu>
           </ElMenu>
         </ElAside>

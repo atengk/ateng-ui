@@ -1,0 +1,248 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 导航与选项卡容器 (Tabs, Menu & Dropdown) 规约。
+ *
+ * 核心特性：
+ * 1. 选项卡 (ElTabs) 拥有现代平滑指示条 (2.5px 圆润微发光) 与卡片式无缝衔接；
+ * 2. 菜单体系 (ElMenu) 侧边激活项采用胶囊圆角底色与微亮左标，消除整行死蓝填充；
+ * 3. 下拉菜单 (ElDropdown) 优化圆角与景深微光；
+ * 4. 深度适配深浅双模与科技主题实时换肤；
+ * 5. 严格依从零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 选项卡容器体系 (ElTabs)
+// ========================================================
+.el-tabs {
+  // 下划线平滑指示条
+  .el-tabs__active-bar {
+    height: 2.5px;
+    border-radius: var(--el-border-radius-round);
+    background-color: var(--el-color-primary);
+    box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb), 0.45);
+    transition:
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  // 选项卡标题
+  .el-tabs__item {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--el-text-color-regular);
+    transition: color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+
+    &.is-active {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+  }
+
+  // 卡片变体 (type="card")
+  &--card {
+    > .el-tabs__header {
+      border-bottom: 1px solid var(--el-border-color);
+
+      .el-tabs__nav {
+        border: 1px solid var(--el-border-color);
+        border-radius: var(--el-border-radius-base);
+        background-color: var(--el-fill-color-light);
+        padding: 3px;
+        gap: 4px;
+        display: inline-flex;
+      }
+
+      .el-tabs__item {
+        border: none;
+        border-radius: calc(var(--el-border-radius-base) - 2px);
+        height: 30px;
+        line-height: 30px;
+        padding: 0 16px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+        &.is-active {
+          background-color: var(--el-bg-color);
+          color: var(--el-color-primary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+      }
+    }
+  }
+
+  // 边框卡片变体 (type="border-card")
+  &--border-card {
+    border-radius: var(--at-radius-card, 10px);
+    border: 1px solid var(--el-border-color);
+    box-shadow: var(--el-box-shadow);
+    overflow: hidden;
+
+    > .el-tabs__header {
+      background-color: var(--el-fill-color-light);
+      border-bottom: 1px solid var(--el-border-color);
+
+      .el-tabs__item {
+        border-right: 1px solid transparent;
+        border-left: 1px solid transparent;
+
+        &.is-active {
+          background-color: var(--el-bg-color);
+          border-right-color: var(--el-border-color);
+          border-left-color: var(--el-border-color);
+          color: var(--el-color-primary);
+        }
+      }
+    }
+  }
+}
+
+// 暗黑模式下选项卡微调
+html.dark .el-tabs {
+  &--card > .el-tabs__header {
+    border-bottom-color: rgba(255, 255, 255, 0.07);
+
+    .el-tabs__nav {
+      border-color: rgba(255, 255, 255, 0.08);
+      background-color: #090e17;
+    }
+
+    .el-tabs__item.is-active {
+      background-color: #0c1017;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  &--border-card {
+    border-color: rgba(255, 255, 255, 0.08);
+
+    > .el-tabs__header {
+      background-color: #0f1522;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+
+      .el-tabs__item.is-active {
+        background-color: #0c1017;
+        border-right-color: rgba(255, 255, 255, 0.08);
+        border-left-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+  }
+}
+
+// ========================================================
+// 2. 菜单容器体系 (ElMenu)
+// ========================================================
+.el-menu {
+  border-right: 1px solid var(--el-border-color-light);
+  background-color: transparent;
+
+  .el-menu-item,
+  .el-sub-menu__title {
+    height: 40px;
+    line-height: 40px;
+    border-radius: var(--el-border-radius-base);
+    margin: 3px 8px;
+    font-size: 13.5px;
+    color: var(--el-text-color-regular);
+    transition:
+      background-color 0.15s,
+      color 0.15s;
+
+    &:hover {
+      background-color: var(--el-fill-color);
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  // 侧边菜单胶囊激活态
+  .el-menu-item.is-active {
+    background-color: rgba(var(--el-color-primary-rgb), 0.08);
+    color: var(--el-color-primary);
+    font-weight: 600;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 16px;
+      border-radius: var(--el-border-radius-round);
+      background-color: var(--el-color-primary);
+      box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb), 0.5);
+    }
+  }
+}
+
+// 暗黑模式下菜单
+html.dark .el-menu {
+  border-right-color: rgba(255, 255, 255, 0.06);
+
+  .el-menu-item,
+  .el-sub-menu__title {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  .el-menu-item.is-active {
+    background-color: rgba(var(--el-color-primary-rgb), 0.15);
+    color: var(--el-color-primary-light-3);
+
+    &::before {
+      background-color: var(--el-color-primary-light-3);
+    }
+  }
+}
+
+// ========================================================
+// 3. 下拉菜单与浮动项 (ElDropdown)
+// ========================================================
+.el-dropdown-menu {
+  border-radius: var(--el-border-radius-base);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.96);
+  padding: 4px;
+
+  .el-dropdown-menu__item {
+    border-radius: calc(var(--el-border-radius-base) - 2px);
+    margin: 2px 0;
+    font-size: 13px;
+    padding: 7px 14px;
+    color: var(--el-text-color-regular);
+    transition:
+      background-color 0.15s,
+      color 0.15s;
+
+    &:hover,
+    &:focus {
+      background-color: rgba(var(--el-color-primary-rgb), 0.08);
+      color: var(--el-color-primary);
+    }
+  }
+}
+
+html.dark .el-dropdown-menu {
+  background-color: rgba(12, 16, 23, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+
+  .el-dropdown-menu__item {
+    color: #cbd5e1;
+
+    &:hover,
+    &:focus {
+      background-color: rgba(var(--el-color-primary-rgb), 0.16);
+      color: #f1f5f9;
+    }
+  }
+}
