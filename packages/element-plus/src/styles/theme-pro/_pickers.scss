@@ -258,7 +258,9 @@
   }
 }
 
-// 时间微滚轮 (Time Spinner)
+// 时间微滚轮与选择面板 (Time Picker & Time Spinner)
+.el-time-picker,
+.el-time-panel,
 .el-time-spinner {
   .el-time-spinner__item {
     font-variant-numeric: tabular-nums;

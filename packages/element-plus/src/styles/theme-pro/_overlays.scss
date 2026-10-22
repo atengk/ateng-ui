@@ -326,8 +326,53 @@ html.dark .el-notification {
   padding: 14px 18px;
 }
 
+// 7. 工具提示 (ElTooltip)
+.el-popper.is-dark {
+  background-color: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--el-border-radius-small, 4px);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+  line-height: 1.4;
+
+  .el-popper__arrow::before {
+    background-color: rgba(15, 23, 42, 0.9);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.el-popper.is-light {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-small, 4px);
+  color: var(--el-text-color-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-size: 12px;
+  line-height: 1.4;
+
+  .el-popper__arrow::before {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: var(--el-border-color-light);
+  }
+}
+
 html.dark .el-popover.el-popper {
   background-color: rgba(18, 24, 36, 0.95);
   border-color: rgba(255, 255, 255, 0.12);
   color: #f1f5f9;
+}
+
+html.dark .el-popper.is-dark {
+  background-color: rgba(2, 6, 23, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+
+  .el-popper__arrow::before {
+    background-color: rgba(2, 6, 23, 0.92);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
 }

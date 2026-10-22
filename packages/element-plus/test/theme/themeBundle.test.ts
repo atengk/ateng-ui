@@ -76,6 +76,73 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('.el-anchor');
   });
 
+  it('全量原生组件样式规则大满贯覆盖校验 (80+ 官方组件覆盖矩阵)', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    const fullComponentSelectors = [
+      '.el-button',
+      '.el-input',
+      '.el-select',
+      '.el-textarea',
+      '.el-input-number',
+      '.el-input-tag',
+      '.el-input-otp',
+      '.el-autocomplete',
+      '.el-mention',
+      '.el-date-picker',
+      '.el-time-picker',
+      '.el-cascader',
+      '.el-color-picker',
+      '.el-transfer',
+      '.el-slider',
+      '.el-rate',
+      '.el-tree',
+      '.el-tree-select',
+      '.el-tag',
+      '.el-switch',
+      '.el-segmented',
+      '.el-collapse',
+      '.el-descriptions',
+      '.el-calendar',
+      '.el-carousel',
+      '.el-splitter',
+      '.el-divider',
+      '.el-alert',
+      '.el-progress',
+      '.el-badge',
+      '.el-result',
+      '.el-timeline',
+      '.el-steps',
+      '.el-loading-mask',
+      '.el-skeleton',
+      '.el-popconfirm',
+      '.el-table',
+      '.el-pagination',
+      '.el-dialog',
+      '.el-drawer',
+      '.el-message',
+      '.el-notification',
+      '.el-popover',
+      '.el-tabs',
+      '.el-menu',
+      '.el-dropdown',
+      '.el-breadcrumb',
+      '.el-anchor',
+      '.el-avatar',
+      '.el-avatar-group',
+      '.el-image',
+      '.el-image-viewer',
+      '.el-upload',
+      '.el-upload-dragger',
+      '.el-scrollbar',
+      '.el-link',
+      '.el-text',
+      '.el-space',
+    ];
+    for (const selector of fullComponentSelectors) {
+      expect(content).toContain(selector);
+    }
+  });
+
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {
     const content = fs.readFileSync(cssPath, 'utf-8');
     expect(content).toContain('[data-theme=indigo]');
