@@ -60,6 +60,26 @@ _Avoid_: AtengModal, BaseDialog, DragDialog, FullscreenDialog
 企业级响应式尺寸与异步提交 Loading 锁抽屉交互容器组件。
 _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 
+**AtengPageContainer**:
+具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签）、吸顶毛玻璃与滚动阴影、双模自适应滚动与沉浸式卡片包装的企业级标准页面容器组件。
+_Avoid_: PageLayout, LayoutPage, PageView, AdminPage, PageWrapper
+
+**AtengSplitLayout**:
+具备现代 Pointer Events 原生拖拽调宽、双向折叠收起把手与尺寸持久化记忆的企业级弹性左右/上下分栏布局容器组件。
+_Avoid_: SplitPane, TreeTableLayout, TwoColumn, SplitView, Splitter
+
+**AtengFooterBar**:
+具备自动安全边距占位、ResizeObserver 容器智能锚定自适应避让与双向操作排版的企业级吸底悬浮操作栏容器组件。
+_Avoid_: BottomBar, ActionBar, StickyFooter, SubmitBar, FootToolbar
+
+**AtengCard**:
+具备自定义标题区、操作插槽、一键平滑折叠、视口全屏展开与防穿透栈式滚动锁定的企业级结构化卡片面板组件。
+_Avoid_: Panel, BoxCard, ContentBox, AtengPanel
+
+**AtengPageSkeleton**:
+具备列表、表单、详情、卡片网格与仪表盘看板等多模态预设及弹性自适应栅格的页面骨架屏占位容器组件。
+_Avoid_: PageLoading, SkeletonView, LayoutSkeleton, ContentSkeleton
+
 **AtengEmpty**:
 统一多语义状态（空数据、403、网络异常、搜索无结果、500）与暗黑自适应插画的缺省态占位组件。
 _Avoid_: EmptyState, Placeholder, NoData, ErrorPlaceholder

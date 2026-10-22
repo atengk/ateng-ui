@@ -61,6 +61,36 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '统一缺省态占位 AtengEmpty' },
   },
   {
+    path: '/layout/page-container',
+    name: 'LayoutPageContainer',
+    component: () => import('../views/layout/PageContainerView.vue'),
+    meta: { title: '页面主体容器 AtengPageContainer' },
+  },
+  {
+    path: '/layout/split-layout',
+    name: 'LayoutSplitLayout',
+    component: () => import('../views/layout/SplitLayoutView.vue'),
+    meta: { title: '弹性分栏容器 AtengSplitLayout' },
+  },
+  {
+    path: '/layout/footer-bar',
+    name: 'LayoutFooterBar',
+    component: () => import('../views/layout/FooterBarView.vue'),
+    meta: { title: '吸底操作栏 AtengFooterBar' },
+  },
+  {
+    path: '/layout/card',
+    name: 'LayoutCard',
+    component: () => import('../views/layout/CardView.vue'),
+    meta: { title: '结构化卡片 AtengCard' },
+  },
+  {
+    path: '/layout/skeleton',
+    name: 'LayoutSkeleton',
+    component: () => import('../views/layout/SkeletonView.vue'),
+    meta: { title: '页面骨架屏 AtengPageSkeleton' },
+  },
+  {
     path: '/table/query-form',
     name: 'TableQueryForm',
     component: () => import('../views/table/QueryFormView.vue'),

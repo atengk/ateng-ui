@@ -28,7 +28,7 @@
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
 
 - **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`，当前活跃）：
-  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty` 以及 5 大权限防重与安全指令。
+  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengPageContainer`（双模滚动页面容器）、`AtengSplitLayout`（拖拽分栏容器）、`AtengFooterBar`（吸底操作栏）、`AtengCard`（折叠全屏面板）、`AtengPageSkeleton`（多模态骨架屏）、`AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty` 以及 5 大权限防重与安全指令。
 - **React 企业级组件套件**（如 `@atengk/antd` 等，架构预留规划）：
   未来面向 React 生态的高阶组件套件，组装下层 L0 及 `@atengk/react` 能力。
 
@@ -113,3 +113,13 @@ flowchart TD
 - [ADR-0007: 代码规范与静态代码分析治理策略](./docs/adr/0007-code-specification-and-static-analysis-governance.md)
 - [ADR-0008: 单元测试引擎与轻量 DOM 运行环境选型](./docs/adr/0008-unit-testing-engine-and-lightweight-dom-environment.md)
 - [ADR-0009: Monorepo 多模块四层洋葱拓扑与单向依赖治理架构](./docs/adr/0009-monorepo-four-layer-onion-topology-and-dependency-governance.md)
+- [ADR-0010: HTTP 客户端分层架构、响应解包与因果异常转译契约](./docs/adr/0010-http-client-architecture-and-response-unwrapping.md)
+- [ADR-0011: L0 核心底座高可用韧性、流式通信与数据安全增强架构](./docs/adr/0011-l0-core-resilience-and-capability-enhancement-architecture.md)
+- [ADR-0012: WebSocket 全双工长连接客户端架构与 L0 最终收敛决策](./docs/adr/0012-websocket-client-architecture-and-l0-convergence.md)
+- [ADR-0013: Vue 3.5 无头响应式基础设施架构与状态单向契约](./docs/adr/0013-vue-headless-architecture-and-reactivity-contracts.md)
+- [ADR-0014: 项目定位松绑与广义 Web 基础设施范畴演进决策](./docs/adr/0014-project-positioning-and-scope-generalization.md)
+- [ADR-0015: @atengk/element-plus 构建管线选型与单一样式产物分发策略](./docs/adr/0015-element-plus-vite-build-pipeline-and-single-css-strategy.md)
+- [ADR-0016: AtengTable 渐进混合列架构、双轨分页状态绑定与查询表单联动策略](./docs/adr/0016-ateng-table-hybrid-columns-and-query-synergy-architecture.md)
+- [ADR-0017: DictManager 全局单例去重、AtengDescriptions 渐进脱敏与业务套件架构](./docs/adr/0017-dict-manager-and-stage-3-business-widgets-architecture.md)
+- [ADR-0018: Element Plus 企业级组件矩阵全景扩充与零臃肿工程深化架构](./docs/adr/0018-element-plus-enterprise-component-matrix-and-zero-bloat-expansion.md)
+- [ADR-0019: 系统页面骨架与容器套件架构设计与双模滚动治理](./docs/adr/0019-page-scaffold-and-container-architecture.md)

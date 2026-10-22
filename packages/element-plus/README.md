@@ -18,6 +18,11 @@
 | **交互容器** | 企业级弹窗容器      | `AtengDialog`                                                  | `v-model`, `title`, `draggable`, `beforeConfirm`, `@confirm`, `@success`                                      | 默认可拖拽；右上角全屏切换与双击 Header 全屏；el-scrollbar 限制视口高度防撑破；异步确认 Loading 锁协议                                                                                                                                                     | [`AtengDialog.test.ts`](./test/AtengDialog.test.ts)<br>`/containers/dialog`                     |
 | **交互容器** | 企业级抽屉容器      | `AtengDrawer`                                                  | `v-model`, `title`, `size: 'small' \| 'default' \| 'large'`, `beforeConfirm`                                  | 响应式语义尺寸断点；移动端视口（< 768px）自适应 100% 全宽；统一的异步确认 Loading 锁协议                                                                                                                                                                   | [`AtengDrawer.test.ts`](./test/AtengDrawer.test.ts)<br>`/containers/drawer`                     |
 | **交互容器** | 统一缺省态占位      | `AtengEmpty`                                                   | `status: 'empty' \| 'search' \| '403' \| 'network-error' \| '500'`, `description`, `imageSize`                | 聚合 5 大语义状态；内置纯矢量 SVG 插画深度绑定 Element Plus 设计令牌，天然完美自适应暗黑模式                                                                                                                                                               | [`AtengEmpty.test.ts`](./test/AtengEmpty.test.ts)<br>`/containers/empty`                        |
+| **页面骨架** | 标准页面承载容器    | `AtengPageContainer`                                           | `title`, `subTitle`, `breadcrumb`, `showBack`, `ghost`, `fitViewport`, `fixedHeader`, `tabs`                  | 标准化页头（面包屑/返回/标题/操作区/页签）；流动与 fitViewport 视口 100% 撑满双模滚动切换；ghost 沉浸式透明模式                                                                                                                                            | [`AtengPageContainer.test.ts`](./test/AtengPageContainer.test.ts)<br>`/layout/page-container`   |
+| **页面骨架** | 弹性拖拽分栏布局    | `AtengSplitLayout`                                             | `direction: 'horizontal' \| 'vertical'`, `v-model`, `defaultSize`, `min`, `max`, `collapsible`, `storageKey`  | 纯原生鼠标拖拽调宽，min/max 边界阈值防越界；居中一键平滑收起展开把手；storageKey 本地持久化用户宽度偏好；左树右表与上下分栏双向自适应                                                                                                                      | [`AtengSplitLayout.test.ts`](./test/AtengSplitLayout.test.ts)<br>`/layout/split-layout`         |
+| **页面骨架** | 悬浮吸底操作栏      | `AtengFooterBar`                                               | `position: 'sticky' \| 'fixed'`, `placeholder`, `height`, `zIndex`, `leftOffset`, `bordered`                  | 规范右侧操作区与左侧额外状态；支持 sticky 局部粘滞与 fixed 全局悬浮；fixed 模式自动注入等高占位垫块防遮挡底端数据；leftOffset 侧边栏避让                                                                                                                   | [`AtengFooterBar.test.ts`](./test/AtengFooterBar.test.ts)<br>`/layout/footer-bar`               |
+| **页面骨架** | 结构化卡片面板      | `AtengCard`                                                    | `title`, `subTitle`, `icon`, `tooltip`, `collapsible`, `fullscreenable`, `loading`, `shadow`, `bordered`      | 结构化标题、副标题、图标与 Tooltip；一键平滑折叠展开；整卡视口全屏最大化（支持 ESC 快捷键退出并销毁监听）；局部 loading 遮罩                                                                                                                               | [`AtengCard.test.ts`](./test/AtengCard.test.ts)<br>`/layout/card`                               |
+| **页面骨架** | 页面骨架屏占位容器  | `AtengPageSkeleton`                                            | `loading`, `type: 'table' \| 'form' \| 'detail' \| 'card' \| 'custom'`, `rows`, `columns`, `animated`         | 内置 table（查询表单+表格）、form（表单栅格）、detail（详情结构）、card（卡片网格）4 大后台模态预设；数据加载完成通过 Fade Transition 平滑淡出过渡，消除白屏闪烁                                                                                           | [`AtengPageSkeleton.test.ts`](./test/AtengPageSkeleton.test.ts)<br>`/layout/skeleton`           |
 | **查询套件** | 响应式搜索表单容器  | `AtengQueryForm`                                               | `model`, `cols`, `collapsed`, `defaultCollapsed`, `showCollapse`, `@search`, `@reset`                         | 24 栅格自适应布局（1~4 列自适应）；平滑展开/收起过渡动画；查询与重置按钮内置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                      | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`                |
 | **表格套件** | 企业级核心表格容器  | `AtengTable`                                                   | `:pagination`, `:columns`, `rowKey`, `tools`, `storageKey`, `density`, `stripe`, `autoHeight`                 | 渐进混合列架构（SFC 插槽为主，兼顾属性列）；双轨深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏（刷新、密度、斑马纹、全屏、列配置 Popover、纯原生 HTML5 拖拽列排序与本地持久化）；`autoHeight` 视口高度自适应；跨页多选保持与底部粘滞批量操作条 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
 | **表格协同** | 表格表单协同上下文  | `ATENG_TABLE_CONTEXT_KEY`                                      | `InjectionKey<AtengTableContext>`                                                                             | `AtengTable` 与 `AtengQueryForm` 跨组件层级的 Provide/Inject 自动化联动通道，消灭业务胶水代码                                                                                                                                                              | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
@@ -141,6 +146,49 @@ const searchForm = reactive({
       <el-table-column prop="createTime" label="创建时间" sortable="custom" min-width="160" />
     </AtengTable>
   </div>
+</template>
+```
+
+### 4. 开箱即用体验：页面骨架容器、弹性拖拽分栏与吸底操作栏
+
+在中后台典型页面中，组装 `AtengPageContainer`、`AtengSplitLayout` 与 `AtengFooterBar` 构建标准化架构：
+
+```vue
+<template>
+  <AtengPageContainer
+    title="部门与员工协同中枢"
+    sub-title="支持左树右表拖拽调宽与偏好记忆"
+    :breadcrumb="[{ label: '首页', path: '/' }, { label: '组织架构' }]"
+    fit-viewport
+    show-back
+  >
+    <AtengSplitLayout
+      v-model="splitWidth"
+      storage-key="org_user_split"
+      default-size="280px"
+      min="180px"
+      max="480px"
+    >
+      <!-- 左栏：组织架构树 -->
+      <template #first>
+        <el-tree :data="deptTree" default-expand-all />
+      </template>
+
+      <!-- 右栏：业务表格与吸底提交栏 -->
+      <template #second>
+        <AtengTable :data="userList" border>
+          <el-table-column prop="name" label="姓名" />
+          <el-table-column prop="role" label="岗位" />
+        </AtengTable>
+
+        <AtengFooterBar position="sticky">
+          <template #extra>已选择 12 位员工</template>
+          <el-button>重置</el-button>
+          <el-button type="primary">确认分配</el-button>
+        </AtengFooterBar>
+      </template>
+    </AtengSplitLayout>
+  </AtengPageContainer>
 </template>
 ```
 

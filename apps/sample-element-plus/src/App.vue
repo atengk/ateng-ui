@@ -87,6 +87,21 @@ onMounted(() => {
               <ElMenuItem index="/directives/watermark"> 动态防篡改水印 (v-watermark) </ElMenuItem>
             </ElSubMenu>
 
+            <ElSubMenu index="layout">
+              <template #title>
+                <span>🏛️ 页面骨架与容器 (Layout & Containers)</span>
+              </template>
+              <ElMenuItem index="/layout/page-container">
+                页面主体容器 (AtengPageContainer)
+              </ElMenuItem>
+              <ElMenuItem index="/layout/split-layout">
+                弹性分栏容器 (AtengSplitLayout)
+              </ElMenuItem>
+              <ElMenuItem index="/layout/footer-bar"> 吸底操作栏 (AtengFooterBar) </ElMenuItem>
+              <ElMenuItem index="/layout/card"> 结构化卡片 (AtengCard) </ElMenuItem>
+              <ElMenuItem index="/layout/skeleton"> 页面骨架屏 (AtengPageSkeleton) </ElMenuItem>
+            </ElSubMenu>
+
             <ElSubMenu index="containers">
               <template #title>
                 <span>📦 交互容器 (Containers)</span>
