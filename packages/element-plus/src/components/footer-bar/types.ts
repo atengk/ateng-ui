@@ -48,4 +48,17 @@ export interface AtengFooterBarProps {
    * 默认 'auto'。
    */
   leftOffset?: number | string;
+
+  /**
+   * 是否开启父级/目标容器智能对齐与尺寸避让。
+   * 开启后在 fixed 模式下基于 ResizeObserver 动态计算 left 与 width，自适应侧边栏折叠与容器尺寸变化。
+   * 默认 false。
+   */
+  autoOffset?: boolean;
+
+  /**
+   * 智能对齐的目标容器选择器（CSS Selector）或 DOM 节点。
+   * 未显式指定时，默认向上寻找最近的 '.at-page-container' 容器，或 fallback 至父容器。
+   */
+  target?: string | HTMLElement;
 }
