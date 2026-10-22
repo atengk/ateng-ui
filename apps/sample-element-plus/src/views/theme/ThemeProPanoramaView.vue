@@ -483,12 +483,10 @@ const applyCustomBrand = () => {
           </ul>
         </div>
         <template #footer>
-          <span class="dialog-footer-actions">
+          <div class="dialog-footer-actions">
             <ElButton @click="dialogVisible = false">取消放弃</ElButton>
-            <ElButton type="primary" class="is-contrast" @click="dialogVisible = false">
-              确认并同步发布
-            </ElButton>
-          </span>
+            <ElButton type="primary" @click="dialogVisible = false"> 确认并同步发布 </ElButton>
+          </div>
         </template>
       </ElDialog>
     </AtengCard>
@@ -769,5 +767,13 @@ const applyCustomBrand = () => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.dialog-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 </style>
