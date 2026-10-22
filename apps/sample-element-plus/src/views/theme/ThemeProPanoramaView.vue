@@ -66,6 +66,10 @@ import {
   ElText,
   ElSpace,
   ElUpload,
+  ElAvatar,
+  ElAvatarGroup,
+  ElImage,
+  ElImageViewer,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -293,6 +297,32 @@ const prevStep = () => {
 const segmentedOption = ref('实时监控流');
 const collapseActiveNames = ref(['1']);
 const calendarValue = ref(new Date('2026-10-22'));
+
+// 富媒体、头像组与大图预览状态
+const avatarTeam = [
+  {
+    name: 'Linear',
+    src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Vercel',
+    src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Docker',
+    src: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Ateng',
+    src: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+  },
+];
+const mediaPreviewList = [
+  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80',
+];
+const showImageViewer = ref(false);
 
 // 8. Tab 5: 表格与弹层
 interface ServerItem {
@@ -1034,6 +1064,87 @@ onUnmounted(() => {
               </div>
             </div>
           </AtengCard>
+
+          <!-- 富媒体、头像组与黑曜石全屏大图灯箱 -->
+          <AtengCard title="🖼️ 富媒体与全屏灯箱 (Avatar / AvatarGroup & Image / ImageViewer)">
+            <div class="section-desc mb-3">
+              环切重叠头像组（8px 负外边距 + 2px 背景色立体环切遮罩 +
+              悬浮立体景深微动）；图片优雅卡片占位与错误缺省；黑曜石毛玻璃全屏大图灯箱（16px
+              深空景深遮罩 + 悬浮胶囊工具栏）。
+            </div>
+            <div class="form-vertical-cluster">
+              <!-- 环切重叠头像组 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block"
+                  >环切重叠头像组 (Ring-Cut Avatar Group & 悬浮位移 -2px)：</span
+                >
+                <div class="flex items-center gap-4 flex-wrap">
+                  <!-- 圆形环切头像组 -->
+                  <ElAvatarGroup>
+                    <ElAvatar
+                      v-for="(member, idx) in avatarTeam"
+                      :key="idx"
+                      :src="member.src"
+                      :alt="member.name"
+                      size="default"
+                    />
+                    <ElAvatar class="el-avatar-group__collapse-avatars">+3</ElAvatar>
+                  </ElAvatarGroup>
+
+                  <!-- 方形头像组 -->
+                  <ElAvatarGroup>
+                    <ElAvatar shape="square" size="small">OP</ElAvatar>
+                    <ElAvatar shape="square" size="small">AI</ElAvatar>
+                    <ElAvatar shape="square" size="small">GO</ElAvatar>
+                    <ElAvatar shape="square" size="small">+5</ElAvatar>
+                  </ElAvatarGroup>
+
+                  <!-- 独立尺寸对比 -->
+                  <div class="flex items-center gap-2">
+                    <ElAvatar size="small">S</ElAvatar>
+                    <ElAvatar size="default">M</ElAvatar>
+                    <ElAvatar size="large">L</ElAvatar>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 图片优雅卡片与占位/错误态 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block"
+                  >防破损图片卡片 (ElImage 优雅占位 / 错误缺省 / 点击缩略图全屏预览)：</span
+                >
+                <div class="flex items-center gap-3 flex-wrap">
+                  <!-- 可点击预览的图片 -->
+                  <ElImage
+                    style="width: 120px; height: 80px; border-radius: 6px"
+                    src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&auto=format&fit=crop&q=80"
+                    :preview-src-list="mediaPreviewList"
+                    fit="cover"
+                    :preview-teleported="true"
+                  />
+
+                  <!-- 错误缺省卡片化图片 -->
+                  <ElImage
+                    style="width: 120px; height: 80px; border-radius: 6px"
+                    src="https://invalid-non-existent-domain.internal/error.png"
+                    fit="cover"
+                  >
+                    <template #error>
+                      <div class="el-image__error">
+                        <span style="font-size: 16px">🖼️</span>
+                        <span style="font-size: 11px">资源异常</span>
+                      </div>
+                    </template>
+                  </ElImage>
+
+                  <!-- 触发独立大图灯箱 -->
+                  <ElButton size="small" type="primary" plain @click="showImageViewer = true">
+                    🖥️ 打开黑曜石大图灯箱 (ImageViewer)
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+          </AtengCard>
         </div>
       </ElTabPane>
 
@@ -1177,6 +1288,13 @@ onUnmounted(() => {
         </AtengCard>
       </ElTabPane>
     </ElTabs>
+
+    <!-- 黑曜石全屏大图独立灯箱 -->
+    <ElImageViewer
+      v-if="showImageViewer"
+      :url-list="mediaPreviewList"
+      @close="showImageViewer = false"
+    />
   </div>
 </template>
 

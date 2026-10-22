@@ -49,6 +49,14 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('.el-upload-list__item-actions');
   });
 
+  it('富媒体、头像组与黑曜石全屏大图灯箱 (Media & Lightbox) 规则正确编译', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-avatar-group');
+    expect(content).toContain('.el-image');
+    expect(content).toContain('.el-image-viewer__mask');
+    expect(content).toContain('.el-image-viewer__actions');
+  });
+
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {
     const content = fs.readFileSync(cssPath, 'utf-8');
     expect(content).toContain('[data-theme=indigo]');
