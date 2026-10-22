@@ -24,3 +24,4 @@
 | [ADR-0018](./0018-element-plus-enterprise-component-matrix-and-zero-bloat-expansion.md)      | Element Plus 企业级组件矩阵全景扩充与零臃肿工程深化架构            | Accepted | 扩充至 17 大组件与 5 大指令，闭环 AI 流式打字机与 WebSocket 日志终端，纯原生列拖拽与视口自适应               |
 | [ADR-0019](./0019-page-scaffold-and-container-architecture.md)                               | 系统页面骨架与容器套件架构设计与双模滚动治理                       | Accepted | 确立 5 大页面骨架容器（PageContainer/SplitLayout/FooterBar/Card/PageSkeleton），双模视口滚动与解耦全局 Shell |
 | [ADR-0020](./0020-table-query-synergy-column-resize-and-container-responsive-enhancement.md) | 核心表格与检索套件深度协同、列宽持久化与容器感知响应式增强架构     | Proposed | 确立原生列宽拖拽持久化、搜索感知多态缺省态、ResizeObserver 容器断点、多行折叠与 SFC 原生泛型闭环             |
+| [ADR-0021](./0021-element-plus-global-style-engine-and-comprehensive-component-coverage.md)  | Element Plus 全局样式引擎体系化拓展与全量组件覆盖架构              | Accepted | 确立双轨独立分发、6 大领域高内聚 SCSS 拓扑、纯 CSS 变量级联驱动、零 !important 铁律与多 Tab 全景展厅实装     |

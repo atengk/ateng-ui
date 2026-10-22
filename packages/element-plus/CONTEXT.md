@@ -153,3 +153,17 @@ _Avoid_: 媒体查询断点, 视口断点, WindowBreakpoints
 **多行折叠编排 (Multi-Row Collapse)**:
 AtengQueryForm 支持配置展示前 N 行表单项并在末行尾部吸附操作按钮的高级折叠交互编排能力。
 _Avoid_: 动态折叠, 多行展开, ExpandRows
+
+## 现代多主题设计引擎 (Theme Engine)
+
+**ThemePro**:
+基于 Element Plus 原生二级 CSS 变量与现代 Dart Sass 模块化构建的现代极客多主题套件（`theme-pro.css`），集成 5 款高反差科技预设与 Slate 深空暗黑基底。
+_Avoid_: ElementTheme, CustomTheme, DarkTheme, ProSkin
+
+**Specular Hairline (定向微光线)**:
+模拟现代工业级金属/黑曜石数控光泽的顶部亚像素半透明高光渐变微亮线物理视觉模型。
+_Avoid_: TopLight, HighLight, BorderGlow
+
+**Laser Focus-Ring (双层激光聚焦环)**:
+基于主品牌色 1px 锐利内环与 4px 半透明柔光外环的表单与拾取器无框激光聚焦高光反馈机制。
+_Avoid_: FocusBorder, Outline, GlowRing

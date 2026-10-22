@@ -1,0 +1,148 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 滑块与评分微动 (Slider & Rate) 规约。
+ *
+ * 核心特性：
+ * 1. 滑块轨道主色微光渐变，手柄双层环弹性阻尼提升与外环光晕；
+ * 2. 刻度停靠点 (Stops) 与标记点 (Marks) 规整高反差排版；
+ * 3. 评分星星微放大与呼吸过渡动画；
+ * 4. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
+ * 5. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 滑块 (Slider)
+// ========================================================
+.el-slider {
+  // 底层导轨 (Runway)
+  .el-slider__runway {
+    background-color: var(--el-fill-color-dark);
+    border-radius: 9999px;
+    height: 6px;
+    transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background-color: var(--el-border-color-dark);
+    }
+  }
+
+  // 激活进度条 (Bar)
+  .el-slider__bar {
+    background: linear-gradient(90deg, var(--el-color-primary-light-2), var(--el-color-primary));
+    border-radius: 9999px;
+    height: 6px;
+    box-shadow: 0 1px 4px -1px var(--at-ambient-glow);
+  }
+
+  // 手柄与外包装 (Slider Button)
+  .el-slider__button-wrapper {
+    top: -15px;
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    .el-slider__button {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--el-color-primary);
+      background-color: var(--el-bg-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      border-radius: 50%;
+      transition:
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover,
+      &.hover {
+        transform: scale(1.15);
+        box-shadow: var(--at-shadow-focus-ring);
+      }
+
+      &.dragging {
+        transform: scale(1.25);
+        box-shadow: var(--at-shadow-focus-ring);
+      }
+    }
+  }
+
+  // 刻度停靠点 (Stops)
+  .el-slider__stop {
+    background-color: var(--el-bg-color);
+    box-shadow: 0 0 0 1px var(--el-border-color);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  // 刻度文本 (Marks Text)
+  .el-slider__marks-text {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  // 垂直模式 (Vertical)
+  &.is-vertical {
+    .el-slider__runway {
+      width: 6px;
+    }
+
+    .el-slider__bar {
+      width: 6px;
+      background: linear-gradient(180deg, var(--el-color-primary), var(--el-color-primary-light-2));
+    }
+  }
+}
+
+// ========================================================
+// 2. 评分 (Rate)
+// ========================================================
+.el-rate {
+  height: 24px;
+  line-height: 24px;
+
+  .el-rate__item {
+    cursor: pointer;
+
+    .el-rate__icon {
+      font-size: 18px;
+      margin-right: 6px;
+      transition:
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+  }
+
+  .el-rate__text {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--el-text-color-primary);
+    margin-left: 8px;
+  }
+}
+
+// ========================================================
+// 3. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-slider {
+    .el-slider__runway {
+      background-color: #1e293b;
+    }
+
+    .el-slider__button {
+      background-color: #0c1017;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .el-slider__stop {
+      background-color: #0c1017;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+  }
+}

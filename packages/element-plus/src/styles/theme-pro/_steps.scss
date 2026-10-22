@@ -1,0 +1,292 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 步骤导引与时间流 (Steps & Timeline) 规约。
+ *
+ * 核心特性：
+ * 1. 步骤条 (Steps) 节点发光微阴影与进行态激光呼吸光晕；
+ * 2. 时间线 (Timeline) 高反差中心微标与等宽时间戳排版；
+ * 3. 漫游引导 (Tour) 毛玻璃景深浮层卡片；
+ * 4. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
+ * 5. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 步骤条 (Steps)
+// ========================================================
+.el-steps {
+  .el-step {
+    .el-step__head {
+      // 步骤连接轨道
+      .el-step__line {
+        background-color: var(--el-border-color);
+        height: 2px;
+        top: 15px;
+
+        .el-step__line-inner {
+          border-color: var(--el-color-primary);
+          transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+      }
+
+      // 步骤节点图标/数字
+      .el-step__icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        border-radius: 50%;
+        transition:
+          background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+          border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+          color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+          box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+        &.is-text {
+          border-width: 2px;
+        }
+      }
+
+      // 状态 1: 进行态 (process)
+      &.is-process {
+        color: var(--el-color-primary);
+        border-color: var(--el-color-primary);
+
+        .el-step__icon.is-text {
+          background-color: var(--el-bg-color);
+          border-color: var(--el-color-primary);
+          color: var(--el-color-primary);
+          box-shadow: 0 0 0 4px var(--at-ambient-glow);
+        }
+      }
+
+      // 状态 2: 完成态 (finish)
+      &.is-finish {
+        color: var(--el-color-primary);
+        border-color: var(--el-color-primary);
+
+        .el-step__icon.is-text {
+          background-color: var(--el-color-primary);
+          border-color: var(--el-color-primary);
+          color: #ffffff;
+          box-shadow: 0 2px 6px -1px var(--at-ambient-glow);
+        }
+      }
+
+      // 状态 3: 等待态 (wait)
+      &.is-wait {
+        color: var(--el-text-color-placeholder);
+        border-color: var(--el-border-color);
+
+        .el-step__icon.is-text {
+          background-color: var(--el-fill-color-light);
+          border-color: var(--el-border-color);
+          color: var(--el-text-color-placeholder);
+        }
+      }
+
+      // 状态 4: 成功态 (success)
+      &.is-success {
+        color: var(--el-color-success);
+        border-color: var(--el-color-success);
+
+        .el-step__icon.is-text {
+          background-color: var(--el-color-success);
+          border-color: var(--el-color-success);
+          color: #ffffff;
+          box-shadow: 0 2px 6px -1px rgba(16, 185, 129, 0.25);
+        }
+      }
+
+      // 状态 5: 错误态 (error)
+      &.is-error {
+        color: var(--el-color-danger);
+        border-color: var(--el-color-danger);
+
+        .el-step__icon.is-text {
+          background-color: var(--el-color-danger);
+          border-color: var(--el-color-danger);
+          color: #ffffff;
+          box-shadow: 0 2px 6px -1px rgba(244, 63, 94, 0.25);
+        }
+      }
+    }
+
+    // 步骤标题与说明
+    .el-step__main {
+      .el-step__title {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 22px;
+
+        &.is-process {
+          color: var(--el-text-color-primary);
+        }
+
+        &.is-finish {
+          color: var(--el-text-color-primary);
+        }
+
+        &.is-wait {
+          color: var(--el-text-color-placeholder);
+        }
+      }
+
+      .el-step__description {
+        font-size: 12px;
+        line-height: 18px;
+        margin-top: 4px;
+
+        &.is-process {
+          color: var(--el-text-color-secondary);
+        }
+
+        &.is-finish {
+          color: var(--el-text-color-secondary);
+        }
+
+        &.is-wait {
+          color: var(--el-text-color-placeholder);
+        }
+      }
+    }
+  }
+
+  // 简单模式 (Simple Steps)
+  &.el-steps--simple {
+    background-color: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-light);
+    border-radius: var(--el-border-radius-base, 8px);
+    padding: 12px 20px;
+
+    .el-step.is-simple .el-step__title {
+      font-size: 13px;
+    }
+  }
+}
+
+// ========================================================
+// 2. 时间线 (Timeline)
+// ========================================================
+.el-timeline {
+  padding-left: 0;
+
+  .el-timeline-item {
+    .el-timeline-item__tail {
+      border-left: 2px solid var(--el-border-color-light);
+    }
+
+    .el-timeline-item__node {
+      box-shadow: 0 0 0 2px var(--el-bg-color);
+
+      &.el-timeline-item__node--primary {
+        background-color: var(--el-color-primary);
+        box-shadow: 0 0 0 3px var(--at-ambient-glow);
+      }
+
+      &.el-timeline-item__node--success {
+        background-color: var(--el-color-success);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+      }
+
+      &.el-timeline-item__node--warning {
+        background-color: var(--el-color-warning);
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+      }
+
+      &.el-timeline-item__node--danger {
+        background-color: var(--el-color-danger);
+        box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2);
+      }
+
+      &.el-timeline-item__node--info {
+        background-color: var(--el-color-info);
+      }
+    }
+
+    .el-timeline-item__wrapper {
+      .el-timeline-item__timestamp {
+        font-size: 12px;
+        color: var(--el-text-color-secondary);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.5;
+        margin-bottom: 6px;
+      }
+
+      .el-timeline-item__content {
+        color: var(--el-text-color-primary);
+        font-size: 13px;
+        line-height: 20px;
+      }
+    }
+  }
+}
+
+// ========================================================
+// 3. 漫游引导 (Tour)
+// ========================================================
+.el-tour {
+  .el-tour__content {
+    border-radius: var(--at-radius-card, 10px);
+    background: var(--el-bg-color-overlay);
+    box-shadow: var(--at-shadow-floating);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--el-border-color);
+    padding: 16px;
+
+    .el-tour__header {
+      .el-tour__title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    .el-tour__body {
+      font-size: 13px;
+      color: var(--el-text-color-regular);
+      line-height: 20px;
+      padding: 8px 0 12px;
+    }
+  }
+}
+
+// ========================================================
+// 4. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-steps {
+    .el-step__head {
+      .el-step__line {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.is-wait .el-step__icon.is-text {
+        background-color: #162032;
+        border-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+
+    &.el-steps--simple {
+      background-color: rgba(18, 24, 36, 0.7);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .el-timeline .el-timeline-item {
+    .el-timeline-item__tail {
+      border-left-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .el-timeline-item__node {
+      box-shadow: 0 0 0 2px #0c1017;
+    }
+  }
+
+  .el-tour .el-tour__content {
+    background: rgba(18, 24, 36, 0.9);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}

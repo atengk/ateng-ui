@@ -13,10 +13,12 @@
       "require": "./dist/index.cjs"
     },
     "./style.css": "./dist/index.css",
-    "./theme-pro.css": "./dist/theme-pro.css"
+    "./theme-pro.css": "./dist/theme-pro.css",
+    "./styles/*": "./src/styles/*"
   },
   "files": [
-    "dist"
+    "dist",
+    "src/styles"
   ],
   "sideEffects": [
     "*.css",

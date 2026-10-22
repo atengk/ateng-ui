@@ -1,0 +1,321 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 展示与分段排版 (Displays & Typography) 规约。
+ *
+ * 核心特性：
+ * 1. 分段控制器 (Segmented) 数控立体微滑块背景与亚像素轻拟物反馈；
+ * 2. 折叠面板 (Collapse) 卡片化微描边与 Header 平滑阻尼展开；
+ * 3. 描述列表 (Descriptions) 冷灰分隔表头与等宽排版；
+ * 4. 日历 (Calendar) 规整单元格微光选区；
+ * 5. 分栏器 (Splitter) 弹性悬浮微光手柄；
+ * 6. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
+ * 7. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 分段控制器 (Segmented)
+// ========================================================
+.el-segmented {
+  background-color: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base, 8px);
+  padding: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  gap: 2px;
+
+  .el-segmented__item {
+    border-radius: var(--el-border-radius-small, 6px);
+    color: var(--el-text-color-regular);
+    font-size: 13px;
+    font-weight: 500;
+    transition:
+      color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover:not(.is-disabled):not(.is-selected) {
+      color: var(--el-text-color-primary);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+  }
+
+  // 选中的滑块背景
+  .el-segmented__item-selected {
+    background-color: var(--el-bg-color);
+    border-radius: var(--el-border-radius-small, 6px);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+}
+
+// ========================================================
+// 2. 折叠面板 (Collapse)
+// ========================================================
+.el-collapse {
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--at-radius-card, 10px);
+  overflow: hidden;
+  background-color: var(--el-bg-color);
+
+  .el-collapse-item {
+    &:last-child {
+      .el-collapse-item__header {
+        border-bottom: none;
+      }
+    }
+
+    .el-collapse-item__header {
+      background-color: var(--el-fill-color-light);
+      border-bottom: 1px solid var(--el-border-color-light);
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+      transition:
+        background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        background-color: var(--el-fill-color);
+      }
+
+      &.is-active {
+        color: var(--el-color-primary);
+      }
+
+      .el-collapse-item__arrow {
+        color: var(--el-text-color-placeholder);
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+    }
+
+    .el-collapse-item__wrap {
+      background-color: var(--el-bg-color);
+      border-bottom: 1px solid var(--el-border-color-light);
+
+      .el-collapse-item__content {
+        padding: 16px;
+        font-size: 13px;
+        line-height: 22px;
+        color: var(--el-text-color-regular);
+      }
+    }
+  }
+}
+
+// ========================================================
+// 3. 分割线 (Divider)
+// ========================================================
+.el-divider {
+  border-color: var(--el-border-color-light);
+  margin: 20px 0;
+
+  .el-divider__text {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0 16px;
+  }
+}
+
+// ========================================================
+// 4. 描述列表 (Descriptions 原生补充)
+// ========================================================
+.el-descriptions {
+  .el-descriptions__header {
+    margin-bottom: 12px;
+
+    .el-descriptions__title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  .el-descriptions__body {
+    background-color: var(--el-bg-color);
+    border-radius: var(--el-border-radius-base, 8px);
+
+    .el-descriptions__table {
+      border-color: var(--el-border-color-light);
+
+      .el-descriptions__cell {
+        font-size: 13px;
+        line-height: 20px;
+        padding: 10px 14px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .el-descriptions__label {
+        background-color: var(--el-fill-color-light);
+        color: var(--el-text-color-secondary);
+        font-weight: 500;
+      }
+
+      .el-descriptions__content {
+        color: var(--el-text-color-primary);
+      }
+    }
+  }
+}
+
+// ========================================================
+// 5. 日历 (Calendar)
+// ========================================================
+.el-calendar {
+  background-color: var(--el-bg-color);
+  border-radius: var(--at-radius-card, 10px);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--el-box-shadow-light);
+
+  .el-calendar__header {
+    border-bottom: 1px solid var(--el-border-color-light);
+    padding: 12px 20px;
+
+    .el-calendar__title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  .el-calendar-table {
+    th {
+      color: var(--el-text-color-secondary);
+      font-weight: 500;
+      padding: 12px 0;
+    }
+
+    td {
+      border-bottom: 1px solid var(--el-border-color-light);
+      border-right: 1px solid var(--el-border-color-light);
+      transition: background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+      }
+
+      &.is-selected {
+        background-color: var(--el-color-primary-light-9);
+
+        .el-calendar-day {
+          color: var(--el-color-primary);
+          font-weight: 600;
+        }
+      }
+
+      &.is-today {
+        color: var(--el-color-primary);
+        font-weight: 700;
+      }
+
+      .el-calendar-day {
+        padding: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+}
+
+// ========================================================
+// 6. 分栏器 (Splitter)
+// ========================================================
+.el-splitter {
+  .el-splitter__split-bar {
+    background-color: var(--el-border-color-light);
+    transition:
+      background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background-color: var(--el-color-primary);
+      box-shadow: 0 0 6px var(--at-ambient-glow);
+    }
+  }
+}
+
+// ========================================================
+// 7. 走马灯 (Carousel)
+// ========================================================
+.el-carousel {
+  border-radius: var(--at-radius-card, 10px);
+  overflow: hidden;
+
+  .el-carousel__arrow {
+    background-color: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(8px);
+    transition:
+      background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background-color: var(--el-color-primary);
+      transform: scale(1.1);
+    }
+  }
+
+  .el-carousel__indicators {
+    .el-carousel__indicator {
+      .el-carousel__button {
+        border-radius: 9999px;
+        height: 3px;
+        transition:
+          width 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+          background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      &.is-active .el-carousel__button {
+        background-color: var(--el-color-primary);
+        width: 24px;
+      }
+    }
+  }
+}
+
+// ========================================================
+// 8. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-segmented {
+    background-color: #162032;
+    border-color: rgba(255, 255, 255, 0.08);
+
+    .el-segmented__item-selected {
+      background-color: #0c1017;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .el-collapse {
+    border-color: rgba(255, 255, 255, 0.08);
+
+    .el-collapse-item .el-collapse-item__header {
+      background-color: rgba(18, 24, 36, 0.7);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  .el-calendar {
+    border-color: rgba(255, 255, 255, 0.08);
+
+    .el-calendar__header {
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .el-calendar-table td {
+      border-color: rgba(255, 255, 255, 0.06);
+
+      &.is-selected {
+        background-color: var(--el-color-primary-light-9);
+      }
+    }
+  }
+}

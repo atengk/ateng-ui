@@ -1,0 +1,302 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 状态反馈与结果体系 (Feedbacks & Results) 规约。
+ *
+ * 核心特性：
+ * 1. 警告提示 (Alert) 黑曜石亚像素微透底色与左侧 Specular 微光色条；
+ * 2. 进度条 (Progress) 槽位发光渐变条与等宽数字平滑排版；
+ * 3. 徽标 (Badge) 无边框胶囊药丸微标与高反差字形；
+ * 4. 结果页 (Result) 沉浸式图文排版与 Slate 暗黑适配；
+ * 5. 全面适配 5 套科技预设与暗黑基底；
+ * 6. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 警告提示 (Alert)
+// ========================================================
+.el-alert {
+  border-radius: var(--el-border-radius-base, 8px);
+  padding: 12px 16px;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition:
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  // 左侧 Specular 垂直高光色条
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: currentColor;
+    border-top-left-radius: inherit;
+    border-bottom-left-radius: inherit;
+  }
+
+  .el-alert__icon {
+    font-size: 16px;
+    width: 16px;
+    margin-right: 12px;
+
+    &.is-big {
+      font-size: 24px;
+      width: 24px;
+    }
+  }
+
+  .el-alert__content {
+    padding: 0;
+
+    .el-alert__title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 20px;
+    }
+
+    .el-alert__description {
+      font-size: 13px;
+      line-height: 18px;
+      margin-top: 4px;
+      color: var(--el-text-color-regular);
+    }
+  }
+
+  .el-alert__close-btn {
+    top: 12px;
+    right: 14px;
+    font-size: 14px;
+    color: var(--el-text-color-placeholder);
+    transition: color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  // 浅色模式各类型精修 (is-light)
+  &.is-light {
+    border: 1px solid var(--el-border-color-light);
+
+    &.el-alert--primary {
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
+    }
+
+    &.el-alert--success {
+      background-color: var(--el-color-success-light-9);
+      color: var(--el-color-success);
+    }
+
+    &.el-alert--warning {
+      background-color: var(--el-color-warning-light-9);
+      color: var(--el-color-warning);
+    }
+
+    &.el-alert--error {
+      background-color: var(--el-color-danger-light-9);
+      color: var(--el-color-danger);
+    }
+
+    &.el-alert--info {
+      background-color: var(--el-fill-color);
+      color: var(--el-text-color-primary);
+
+      &::before {
+        background-color: var(--el-text-color-secondary);
+      }
+    }
+  }
+
+  // 深色实心各类型精修 (is-dark)
+  &.is-dark {
+    border: none;
+    box-shadow: var(--el-box-shadow-light);
+
+    .el-alert__title,
+    .el-alert__description,
+    .el-alert__close-btn {
+      color: #ffffff;
+    }
+
+    &.el-alert--primary {
+      background-color: var(--el-color-primary);
+    }
+
+    &.el-alert--success {
+      background-color: var(--el-color-success);
+    }
+
+    &.el-alert--warning {
+      background-color: var(--el-color-warning);
+    }
+
+    &.el-alert--error {
+      background-color: var(--el-color-danger);
+    }
+
+    &.el-alert--info {
+      background-color: var(--el-color-info-dark-2);
+    }
+  }
+}
+
+// ========================================================
+// 2. 进度条 (Progress)
+// ========================================================
+.el-progress {
+  line-height: 1;
+
+  .el-progress-bar {
+    .el-progress-bar__outer {
+      background-color: var(--el-fill-color-dark);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .el-progress-bar__inner {
+      border-radius: 9999px;
+      transition:
+        width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+        background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
+  .el-progress__text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 10px;
+  }
+}
+
+// ========================================================
+// 3. 徽标 (Badge)
+// ========================================================
+.el-badge {
+  .el-badge__content {
+    border-radius: 9999px;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    border: 1.5px solid var(--el-bg-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    transition:
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &.is-dot {
+      height: 8px;
+      width: 8px;
+      padding: 0;
+    }
+
+    &.el-badge__content--primary {
+      background-color: var(--el-color-primary);
+    }
+
+    &.el-badge__content--success {
+      background-color: var(--el-color-success);
+    }
+
+    &.el-badge__content--warning {
+      background-color: var(--el-color-warning);
+    }
+
+    &.el-badge__content--danger {
+      background-color: var(--el-color-danger);
+    }
+
+    &.el-badge__content--info {
+      background-color: var(--el-color-info);
+    }
+  }
+}
+
+// ========================================================
+// 4. 结果页 (Result)
+// ========================================================
+.el-result {
+  padding: 40px 30px;
+
+  .el-result__icon {
+    svg {
+      width: 64px;
+      height: 64px;
+    }
+  }
+
+  .el-result__title {
+    margin-top: 16px;
+
+    p {
+      color: var(--el-text-color-primary);
+      font-size: 20px;
+      font-weight: 700;
+    }
+  }
+
+  .el-result__subtitle {
+    margin-top: 8px;
+
+    p {
+      color: var(--el-text-color-secondary);
+      font-size: 14px;
+    }
+  }
+
+  .el-result__extra {
+    margin-top: 24px;
+  }
+}
+
+// ========================================================
+// 5. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-alert.is-light {
+    border-color: rgba(255, 255, 255, 0.08);
+
+    .el-alert__description {
+      color: var(--el-text-color-regular);
+    }
+
+    &.el-alert--primary {
+      background-color: rgba(99, 102, 241, 0.14);
+    }
+
+    &.el-alert--success {
+      background-color: rgba(16, 185, 129, 0.14);
+    }
+
+    &.el-alert--warning {
+      background-color: rgba(245, 158, 11, 0.14);
+    }
+
+    &.el-alert--error {
+      background-color: rgba(244, 63, 94, 0.14);
+    }
+
+    &.el-alert--info {
+      background-color: rgba(30, 41, 59, 0.6);
+    }
+  }
+
+  .el-progress .el-progress-bar .el-progress-bar__outer {
+    background-color: #1e293b;
+  }
+
+  .el-badge .el-badge__content {
+    border-color: #0c1017;
+  }
+}

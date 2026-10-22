@@ -1,0 +1,372 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 高级拾取器与级联选择 (Pickers & Cascader) 规约。
+ *
+ * 核心特性：
+ * 1. 深度对齐 Element Plus 原生二级变量 (--el-datepicker-*, --el-cascader-*)；
+ * 2. 下拉面板引入亚像素半透明微描边与毛玻璃景深效果 (backdrop-filter: blur)；
+ * 3. 范围拾取器 (RangePicker) 范围波段平滑过渡并联动品牌主色浅阶；
+ * 4. 级联选择器菜单与节点黑曜石微光悬浮与选中态；
+ * 5. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
+ * 6. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 全局拾取器与级联选择变量基线 (Light Baseline)
+// ========================================================
+:root {
+  // 日期拾取器变量映射
+  --el-datepicker-text-color: var(--el-text-color-regular);
+  --el-datepicker-off-text-color: var(--el-text-color-placeholder);
+  --el-datepicker-header-text-color: var(--el-text-color-primary);
+  --el-datepicker-icon-color: var(--el-text-color-secondary);
+  --el-datepicker-border-color: var(--el-border-color);
+  --el-datepicker-inner-border-color: var(--el-border-color-light);
+  --el-datepicker-inrange-bg-color: var(--el-color-primary-light-9);
+  --el-datepicker-inrange-hover-bg-color: var(--el-color-primary-light-8);
+  --el-datepicker-active-color: var(--el-color-primary);
+  --el-datepicker-hover-text-color: var(--el-color-primary);
+  --el-datepicker-bg-color: var(--el-bg-color-overlay);
+
+  // 级联选择器变量映射
+  --el-cascader-menu-text-color: var(--el-text-color-regular);
+  --el-cascader-menu-selected-text-color: var(--el-color-primary);
+  --el-cascader-menu-fill: var(--el-color-primary-light-9);
+  --el-cascader-menu-radius: var(--el-border-radius-base, 8px);
+}
+
+// ========================================================
+// 2. 日期/时间范围输入框外壳微光 (Range Editor Input Wrapper)
+// ========================================================
+.el-range-editor.el-input__wrapper {
+  background-color: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base, 6px);
+  box-shadow: none;
+  transition:
+    border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: var(--el-border-color-dark);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  &.is-active,
+  &:focus-within {
+    border-color: var(--el-color-primary);
+    box-shadow: var(--at-shadow-focus-ring);
+  }
+
+  .el-range-input {
+    color: var(--el-text-color-primary);
+    font-variant-numeric: tabular-nums;
+
+    &::placeholder {
+      color: var(--el-text-color-placeholder);
+    }
+  }
+
+  .el-range-separator {
+    color: var(--el-text-color-secondary);
+  }
+}
+
+// ========================================================
+// 3. 拾取器下拉面板 (Picker Panel & Tables)
+// ========================================================
+.el-picker-panel {
+  border-radius: var(--at-radius-card, 10px);
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+
+  // 顶部导航与切换按钮
+  .el-date-picker__header {
+    margin: 12px 14px;
+
+    .el-date-picker__header-label {
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+      transition: color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        color: var(--el-color-primary);
+      }
+    }
+
+    .el-picker-panel__icon-btn {
+      color: var(--el-text-color-secondary);
+      border-radius: var(--el-border-radius-small, 4px);
+      transition:
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        color: var(--el-color-primary);
+        background-color: var(--el-fill-color-light);
+      }
+    }
+  }
+
+  // 侧边快捷栏
+  .el-picker-panel__sidebar {
+    background-color: var(--el-fill-color-light);
+    border-right: 1px solid var(--el-border-color-light);
+    padding: 8px 0;
+
+    .el-picker-panel__shortcut {
+      color: var(--el-text-color-regular);
+      font-size: 13px;
+      padding: 0 16px;
+      height: 32px;
+      line-height: 32px;
+      transition:
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        color: var(--el-color-primary);
+        background-color: var(--el-fill-color);
+      }
+    }
+  }
+
+  // 底部操作栏
+  .el-picker-panel__footer {
+    border-top: 1px solid var(--el-border-color-light);
+    background-color: var(--el-fill-color-lighter);
+    padding: 8px 14px;
+  }
+}
+
+// 日期单元格与范围连贯波段 (Date Table Cells)
+.el-date-table {
+  font-variant-numeric: tabular-nums;
+
+  th {
+    color: var(--el-text-color-secondary);
+    font-weight: 500;
+    border-bottom: 1px solid var(--el-border-color-light);
+    padding: 6px 0;
+  }
+
+  td {
+    padding: 3px 0;
+
+    .el-date-table-cell {
+      height: 32px;
+
+      .el-date-table-cell__text {
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        border-radius: var(--el-border-radius-small, 6px);
+        transition:
+          background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+          color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+    }
+
+    &.available:hover {
+      .el-date-table-cell__text {
+        background-color: var(--el-fill-color-dark);
+        color: var(--el-color-primary);
+      }
+    }
+
+    &.today .el-date-table-cell__text {
+      color: var(--el-color-primary);
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--el-color-primary);
+    }
+
+    &.current:not(.disabled) .el-date-table-cell__text {
+      background-color: var(--el-color-primary);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 2px 6px -1px var(--at-ambient-glow);
+    }
+
+    // 范围选择区间连贯波段
+    &.in-range .el-date-table-cell {
+      background-color: var(--el-datepicker-inrange-bg-color);
+    }
+
+    &.start-date .el-date-table-cell {
+      margin-left: 4px;
+      border-top-left-radius: var(--el-border-radius-base, 6px);
+      border-bottom-left-radius: var(--el-border-radius-base, 6px);
+
+      .el-date-table-cell__text {
+        background-color: var(--el-color-primary);
+        color: #ffffff;
+        font-weight: 600;
+      }
+    }
+
+    &.end-date .el-date-table-cell {
+      margin-right: 4px;
+      border-top-right-radius: var(--el-border-radius-base, 6px);
+      border-bottom-right-radius: var(--el-border-radius-base, 6px);
+
+      .el-date-table-cell__text {
+        background-color: var(--el-color-primary);
+        color: #ffffff;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// 月份/年份网格单元格 (Month & Year Table)
+.el-month-table,
+.el-year-table {
+  font-variant-numeric: tabular-nums;
+
+  td {
+    padding: 8px 4px;
+
+    .cell {
+      border-radius: var(--el-border-radius-base, 6px);
+      transition:
+        background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        background-color: var(--el-fill-color);
+        color: var(--el-color-primary);
+      }
+    }
+
+    &.current:not(.disabled) .cell {
+      background-color: var(--el-color-primary);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    &.today .cell {
+      color: var(--el-color-primary);
+      font-weight: 700;
+    }
+  }
+}
+
+// 时间微滚轮 (Time Spinner)
+.el-time-spinner {
+  .el-time-spinner__item {
+    font-variant-numeric: tabular-nums;
+    transition:
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover:not(.is-disabled):not(.is-active) {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-color-primary);
+    }
+
+    &.is-active:not(.is-disabled) {
+      color: var(--el-color-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+// ========================================================
+// 4. 级联选择器 (Cascader & Cascader Panel)
+// ========================================================
+.el-cascader__dropdown {
+  border-radius: var(--at-radius-card, 10px);
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.el-cascader-menu {
+  border-right: 1px solid var(--el-border-color-light);
+  min-width: 180px;
+
+  .el-cascader-node {
+    margin: 2px 4px;
+    border-radius: var(--el-border-radius-small, 4px);
+    transition:
+      background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover:not(.is-disabled) {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-color-primary);
+    }
+
+    &.is-active {
+      color: var(--el-color-primary);
+      font-weight: 600;
+      background-color: var(--el-color-primary-light-9);
+    }
+  }
+}
+
+// ========================================================
+// 5. 颜色拾取器 (Color Picker)
+// ========================================================
+.el-color-picker {
+  .el-color-picker__trigger {
+    border-radius: var(--el-border-radius-base, 6px);
+    border: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    transition:
+      border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      border-color: var(--el-border-color-dark);
+    }
+
+    &.is-focused {
+      border-color: var(--el-color-primary);
+      box-shadow: var(--at-shadow-focus-ring);
+    }
+  }
+}
+
+.el-color-dropdown {
+  border-radius: var(--at-radius-card, 10px);
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--at-shadow-floating);
+  backdrop-filter: blur(16px);
+}
+
+// ========================================================
+// 6. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-picker-panel,
+  .el-cascader__dropdown,
+  .el-color-dropdown {
+    background: rgba(18, 24, 36, 0.88);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .el-picker-panel__sidebar {
+    background-color: rgba(15, 21, 34, 0.8);
+    border-right-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .el-picker-panel__footer {
+    background-color: rgba(15, 21, 34, 0.8);
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .el-date-table td.in-range .el-date-table-cell {
+    background-color: var(--el-color-primary-light-9);
+  }
+}

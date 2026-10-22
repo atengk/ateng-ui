@@ -1,0 +1,187 @@
+/**
+ * @atengk/element-plus 工业级现代多主题引擎 - 树形结构与穿梭框 (Trees & Transfer) 规约。
+ *
+ * 核心特性：
+ * 1. 树节点亚像素微光悬浮与 is-current 激活节点品牌色高光条；
+ * 2. 穿梭框面板卡片化与顶部 Header 冷灰自然过渡；
+ * 3. 展开折叠图标微动阻尼旋转动画；
+ * 4. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
+ * 5. 严格恪守全局零 !important 铁律。
+ *
+ * @author Ateng
+ * @since 2026-10-22
+ */
+
+// ========================================================
+// 1. 树形结构 (ElTree & TreeSelect)
+// ========================================================
+.el-tree {
+  background: transparent;
+  color: var(--el-text-color-primary);
+
+  .el-tree-node {
+    white-space: nowrap;
+    outline: none;
+
+    &:focus > .el-tree-node__content {
+      background-color: var(--el-fill-color-light);
+    }
+
+    .el-tree-node__content {
+      height: 32px;
+      padding: 0 8px;
+      margin: 1px 4px;
+      border-radius: var(--el-border-radius-base, 6px);
+      transition:
+        background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+        color: var(--el-color-primary);
+      }
+
+      .el-tree-node__expand-icon {
+        color: var(--el-text-color-placeholder);
+        font-size: 13px;
+        transition:
+          transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+          color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+        &.is-leaf {
+          color: transparent;
+          cursor: default;
+        }
+
+        &.expanded {
+          transform: rotate(90deg);
+          color: var(--el-color-primary);
+        }
+      }
+
+      .el-tree-node__label {
+        font-size: 13px;
+      }
+    }
+
+    // 当前选中的激活节点高亮与主色边线
+    &.is-current > .el-tree-node__content {
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
+      font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--el-color-primary);
+    }
+  }
+
+  // 拖拽指示线高亮
+  .el-tree__drop-indicator {
+    background-color: var(--el-color-primary);
+    box-shadow: 0 0 4px var(--at-ambient-glow);
+  }
+}
+
+// 树选择弹窗 (TreeSelect Dropdown)
+.el-tree-select__popper {
+  .el-select-dropdown__wrap {
+    padding: 6px;
+  }
+}
+
+// ========================================================
+// 2. 穿梭框 (Transfer)
+// ========================================================
+.el-transfer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  // 穿梭框左右面板
+  .el-transfer-panel {
+    border-radius: var(--at-radius-card, 10px);
+    border: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    box-shadow: var(--el-box-shadow-light);
+    width: 240px;
+    transition:
+      border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      border-color: var(--el-border-color-dark);
+    }
+
+    .el-transfer-panel__header {
+      background-color: var(--el-fill-color-light);
+      border-bottom: 1px solid var(--el-border-color-light);
+      height: 42px;
+      line-height: 42px;
+      padding: 0 16px;
+
+      .el-checkbox .el-checkbox__label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    .el-transfer-panel__body {
+      .el-transfer-panel__filter {
+        padding: 10px 12px;
+      }
+
+      .el-transfer-panel__list {
+        padding: 6px 0;
+
+        .el-transfer-panel__item {
+          height: 32px;
+          line-height: 32px;
+          padding: 0 16px;
+          margin: 1px 6px;
+          border-radius: var(--el-border-radius-base, 6px);
+          transition:
+            background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+            color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+          &:hover {
+            background-color: var(--el-fill-color-light);
+            color: var(--el-color-primary);
+          }
+        }
+      }
+    }
+
+    .el-transfer-panel__footer {
+      border-top: 1px solid var(--el-border-color-light);
+      background-color: var(--el-fill-color-lighter);
+    }
+  }
+
+  // 中间穿梭操作按钮组
+  .el-transfer__buttons {
+    padding: 0;
+
+    .el-transfer__button {
+      border-radius: var(--el-border-radius-base, 6px);
+      margin: 0 0 10px;
+    }
+  }
+}
+
+// ========================================================
+// 3. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+html.dark {
+  .el-transfer-panel {
+    background-color: var(--el-bg-color);
+    border-color: rgba(255, 255, 255, 0.08);
+
+    .el-transfer-panel__header {
+      background-color: rgba(15, 21, 34, 0.7);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  .el-tree .el-tree-node.is-current > .el-tree-node__content {
+    background-color: var(--el-color-primary-light-9);
+  }
+}
