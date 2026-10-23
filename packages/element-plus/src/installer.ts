@@ -40,6 +40,7 @@ import { AtengIconSelect } from './components/icon-select';
 import { AtengCaptcha } from './components/captcha';
 import { AtengFilePreview } from './components/file-preview';
 import { AtengWatermark } from './components/watermark';
+import { AtengGrid } from './components/grid';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
@@ -90,6 +91,7 @@ const components: Record<string, Component> = {
   AtengCaptcha,
   AtengFilePreview,
   AtengWatermark,
+  AtengGrid,
 };
 
 /**

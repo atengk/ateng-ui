@@ -97,6 +97,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '安全防篡改水印容器 AtengWatermark' },
   },
   {
+    path: '/layout/grid',
+    name: 'LayoutGrid',
+    component: () => import('../views/layout/GridView.vue'),
+    meta: { title: '容器自适应流式网格 AtengGrid' },
+  },
+  {
     path: '/table/query-form',
     name: 'TableQueryForm',
     component: () => import('../views/table/QueryFormView.vue'),
