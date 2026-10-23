@@ -267,4 +267,106 @@ describe('AtengPageContainer 组件测试', () => {
     expect(wrapper.classes()).toContain('at-page-container');
     expect(wrapper.find('.at-page-container__breadcrumb').exists()).toBe(false);
   });
+
+  it('脱壳全屏交互 (showFullscreen=true) 与 ESC 快捷键退出', async () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '脱壳全屏页面',
+        showFullscreen: true,
+      },
+      attachTo: document.body,
+    });
+
+    const fullscreenBtn = wrapper.find('.at-page-container__fullscreen-btn');
+    expect(fullscreenBtn.exists()).toBe(true);
+    expect(fullscreenBtn.attributes('title')).toBe('视口脱壳全屏');
+
+    // 触发全屏
+    await fullscreenBtn.trigger('click');
+    expect(wrapper.classes()).toContain('is-fullscreen');
+    expect(wrapper.emitted('fullscreen')).toBeTruthy();
+    expect(fullscreenBtn.attributes('title')).toBe('退出全屏 (ESC)');
+
+    // 验证脱壳瞬移到 document.body 顶层
+    const innerFullscreen = document.body.querySelector('.at-page-container__inner.is-fullscreen');
+    expect(innerFullscreen).not.toBeNull();
+
+    // 按下 ESC 键退出全屏
+    const escEvent = new KeyboardEvent('keydown', { key: 'Escape' });
+    window.dispatchEvent(escEvent);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).not.toContain('is-fullscreen');
+  });
+
+  it('全屏防穿透滚动锁 (lockScroll=true)：全屏锁定 body，退出全屏与卸载时确定性还原', async () => {
+    document.body.style.overflow = 'auto';
+
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '滚动锁页面',
+        showFullscreen: true,
+        lockScroll: true,
+      },
+      attachTo: document.body,
+    });
+
+    const fullscreenBtn = wrapper.find('.at-page-container__fullscreen-btn');
+    await fullscreenBtn.trigger('click');
+    expect(document.body.style.overflow).toBe('hidden');
+
+    // 再次点击还原
+    await fullscreenBtn.trigger('click');
+    expect(document.body.style.overflow).toBe('auto');
+
+    // 再次进入全屏后直接卸载组件，验证确定性清理
+    await fullscreenBtn.trigger('click');
+    expect(document.body.style.overflow).toBe('hidden');
+
+    wrapper.unmount();
+    wrapper = null;
+    expect(document.body.style.overflow).toBe('auto');
+  });
+
+  it('沉浸式滚动折叠页头 (collapseHeaderOnScroll=true)：向下滚动收起，回滚展开', async () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '折叠页头页面',
+        fitViewport: true,
+        collapseHeaderOnScroll: true,
+      },
+      slots: {
+        default: '<div style="height: 1200px">长文档内容</div>',
+      },
+      attachTo: document.body,
+    });
+
+    const header = wrapper.find('.at-page-container__header');
+    const content = wrapper.find('.at-page-container__content');
+
+    expect(header.classes()).not.toContain('is-scroll-collapsed');
+
+    // 模拟向下大幅滚动（超过页头默认高度 60px）
+    Object.defineProperty(content.element, 'scrollTop', {
+      value: 120,
+      writable: true,
+      configurable: true,
+    });
+    await content.trigger('scroll');
+
+    expect(header.classes()).toContain('is-scroll-collapsed');
+    expect(wrapper.emitted('header-collapse')).toBeTruthy();
+    expect(wrapper.emitted('header-collapse')![0]).toEqual([true]);
+
+    // 模拟向上回滚
+    Object.defineProperty(content.element, 'scrollTop', {
+      value: 50,
+      writable: true,
+      configurable: true,
+    });
+    await content.trigger('scroll');
+
+    expect(header.classes()).not.toContain('is-scroll-collapsed');
+    expect(wrapper.emitted('header-collapse')![1]).toEqual([false]);
+  });
 });

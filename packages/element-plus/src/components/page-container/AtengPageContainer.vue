@@ -1,18 +1,45 @@
+<script lang="ts">
+/**
+ * 模块级全局引用计数器与滚动状态备份，保障多页面容器并发全屏或卡片并发全屏下 100% 确定性安全还原。
+ */
+let pageContainerLockCount = 0;
+let originalBodyOverflow = '';
+
+const lockBodyScroll = () => {
+  if (typeof document === 'undefined') return;
+  if (pageContainerLockCount === 0) {
+    originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  pageContainerLockCount++;
+};
+
+const unlockBodyScroll = () => {
+  if (typeof document === 'undefined') return;
+  pageContainerLockCount = Math.max(0, pageContainerLockCount - 1);
+  if (pageContainerLockCount === 0) {
+    document.body.style.overflow = originalBodyOverflow;
+    originalBodyOverflow = '';
+  }
+};
+</script>
+
 <script setup lang="ts">
 /**
  * 企业级标准页面容器组件。
  *
  * 核心特性：
  * 1. 结构化页头：支持面包屑、返回键、主副标题、状态 Tag、右上角 Extra 操作区及 Tabs 页签；
- * 2. 双模滚动治理：支持自然整页流动与 fitViewport 视口 100% 撑满局部滚动双模；
- * 3. 沉浸式风格：支持 ghost 模式（透明无背景）与默认白底卡片容器包裹；
- * 4. 样式隔离与设计令牌：100% 对齐 Element Plus CSS 变量与 at- 命名空间。
+ * 2. 视口脱壳全屏：支持 <Teleport to="body"> 全屏瞬移至全局顶层，彻底绕过祖先 transform 包含块样式限制；
+ * 3. 沉浸式滚动折叠：支持 collapseHeaderOnScroll，向下滚动自动平滑收起页头，回滚平滑复原；
+ * 4. 防穿透锁与 ESC 退出：模块级引用计数 lockScroll，支持 escExit 快捷键退出；
+ * 5. 双模滚动治理：支持自然整页流动与 fitViewport 视口 100% 撑满局部滚动双模。
  *
  * @author Ateng
  * @since 2026-10-22
  */
 
-import { ref, computed, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue';
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
 import type {
   AtengPageContainerProps,
@@ -39,38 +66,129 @@ const props = withDefaults(defineProps<AtengPageContainerProps>(), {
   contentPadding: '16px',
   headerBackground: '',
   contentBackground: '',
+  fullscreen: undefined,
+  showFullscreen: false,
+  lockScroll: true,
+  escExit: true,
+  collapseHeaderOnScroll: false,
 });
 
 const emit = defineEmits<AtengPageContainerEmits>();
 
-// 1. 节点引用与滚动暴露
+// 1. 节点引用
+const containerRef = ref<HTMLElement | null>(null);
 const headerRef = ref<HTMLElement | null>(null);
 const contentRef = ref<HTMLElement | null>(null);
 const isElevated = ref(false);
 
-const scrollTo = (options?: { left?: number; top?: number; behavior?: 'auto' | 'smooth' }) => {
-  if (contentRef.value && options) {
-    contentRef.value.scrollTo(options);
+// 2. 视口脱壳全屏状态机
+const internalFullscreen = ref(false);
+let hasAcquiredScrollLock = false;
+
+const isFullscreen = computed(() => {
+  return props.fullscreen !== undefined ? props.fullscreen : internalFullscreen.value;
+});
+
+const applyScrollLock = (shouldLock: boolean) => {
+  if (shouldLock) {
+    if (!hasAcquiredScrollLock && props.lockScroll) {
+      lockBodyScroll();
+      hasAcquiredScrollLock = true;
+    }
+  } else {
+    if (hasAcquiredScrollLock) {
+      unlockBodyScroll();
+      hasAcquiredScrollLock = false;
+    }
   }
 };
 
-defineExpose({
-  headerRef,
-  contentRef,
-  scrollTo,
-});
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (!props.escExit) return;
+  if (e.defaultPrevented) return;
+  if (e.key === 'Escape' && isFullscreen.value) {
+    toggleFullscreen(false);
+  }
+};
 
-// 2. 滚动感知处理（局部容器滚动 + 窗口滚动）
+const handleFullscreenEffect = (active: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (active) {
+    window.addEventListener('keydown', handleKeyDown);
+    applyScrollLock(true);
+  } else {
+    window.removeEventListener('keydown', handleKeyDown);
+    applyScrollLock(false);
+  }
+};
+
+const toggleFullscreen = (force?: boolean) => {
+  const next = force !== undefined ? force : !isFullscreen.value;
+  internalFullscreen.value = next;
+  handleFullscreenEffect(next);
+  emit('update:fullscreen', next);
+  emit('fullscreen', next);
+};
+
+watch(
+  () => props.fullscreen,
+  val => {
+    if (val !== undefined) {
+      internalFullscreen.value = val;
+      handleFullscreenEffect(val);
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.lockScroll,
+  val => {
+    if (isFullscreen.value) {
+      applyScrollLock(val);
+    }
+  },
+);
+
+// 3. 沉浸式滚动折叠页头与滚动感知
+const isHeaderCollapsed = ref(false);
+let lastScrollTop = 0;
+
+const checkScrollCollapse = (currentTop: number) => {
+  if (!props.collapseHeaderOnScroll) return;
+
+  const delta = currentTop - lastScrollTop;
+  if (Math.abs(delta) < 6) return;
+
+  const headerHeight = headerRef.value?.offsetHeight || 60;
+
+  if (delta > 0 && currentTop > headerHeight) {
+    if (!isHeaderCollapsed.value) {
+      isHeaderCollapsed.value = true;
+      emit('header-collapse', true);
+    }
+  } else if (delta < 0 || currentTop <= 10) {
+    if (isHeaderCollapsed.value) {
+      isHeaderCollapsed.value = false;
+      emit('header-collapse', false);
+    }
+  }
+
+  lastScrollTop = Math.max(0, currentTop);
+};
+
 const handleScroll = (e?: Event) => {
   const target = (e?.target as HTMLElement) || contentRef.value;
   const top = target?.scrollTop ?? 0;
   isElevated.value = top > 0;
+  checkScrollCollapse(top);
 };
 
 const handleWindowScroll = () => {
-  if (!props.fitViewport) {
+  if (!props.fitViewport && !isFullscreen.value) {
     const top = window.scrollY || document.documentElement.scrollTop || 0;
     isElevated.value = top > 0;
+    checkScrollCollapse(top);
   }
 };
 
@@ -83,10 +201,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('scroll', handleWindowScroll);
+    window.removeEventListener('keydown', handleKeyDown);
   }
+  applyScrollLock(false);
 });
 
-// 3. 安全弱感应路由与面包屑自动推导
+// 4. 路由面包屑自动提取
 const instance = getCurrentInstance();
 
 const getDeepValue = (obj: unknown, path: string): unknown => {
@@ -104,17 +224,14 @@ const getDeepValue = (obj: unknown, path: string): unknown => {
 };
 
 const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
-  // 1. 若显式声明了 breadcrumb，优先级最高
   if (props.breadcrumb && props.breadcrumb.length > 0) {
     return props.breadcrumb;
   }
 
-  // 2. 若未开启 autoBreadcrumb，直接保底返回空数组，杜绝探测 $route 产生冗余警告
   if (!props.autoBreadcrumb) {
     return [];
   }
 
-  // 3. 开启了 autoBreadcrumb，且有路由 matched 列表
   const gp = instance?.appContext?.config?.globalProperties as Record<string, unknown> | undefined;
   const proxy = instance?.proxy as Record<string, unknown> | undefined;
   const route = (gp?.$route || proxy?.$route) as
@@ -130,12 +247,10 @@ const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
   if (route?.matched && route.matched.length > 0) {
     const matched = route.matched;
 
-    // 2.1 若提供了自定义 resolver 逃生舱，直接交由外部接管
     if (props.breadcrumbResolver) {
       return props.breadcrumbResolver(matched);
     }
 
-    // 2.2 默认提取逻辑：过滤掉没有有效 title 的路由层级
     const titleKey = props.breadcrumbTitleKey || 'meta.title';
     const result: AtengPageBreadcrumbItem[] = [];
 
@@ -150,7 +265,6 @@ const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
       }
     }
 
-    // 最后一项作为当前激活页面，默认不配置跳转链接
     if (result.length > 0) {
       const lastIndex = result.length - 1;
       result[lastIndex] = {
@@ -164,7 +278,7 @@ const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
   return [];
 });
 
-// 4. 计算内边距样式
+// 5. 样式与对外暴露
 const normalizedPadding = computed(() => {
   if (typeof props.contentPadding === 'number') {
     return `${props.contentPadding}px`;
@@ -172,10 +286,25 @@ const normalizedPadding = computed(() => {
   return props.contentPadding;
 });
 
-// 5. 返回上一页处理
+const scrollTo = (options?: { left?: number; top?: number; behavior?: 'auto' | 'smooth' }) => {
+  if (contentRef.value && options) {
+    contentRef.value.scrollTo(options);
+  }
+};
+
 const handleBack = () => {
   emit('back');
 };
+
+defineExpose({
+  containerRef,
+  headerRef,
+  contentRef,
+  scrollTo,
+  toggleFullscreen,
+  isFullscreen,
+  isHeaderCollapsed,
+});
 </script>
 
 <template>
@@ -184,108 +313,152 @@ const handleBack = () => {
     :class="{
       'is-fit-viewport': fitViewport,
       'is-ghost': ghost,
+      'is-fullscreen': isFullscreen,
     }"
   >
-    <!-- 页头区域 -->
-    <header
-      ref="headerRef"
-      class="at-page-container__header"
-      :class="{
-        'is-fixed': fixedHeader,
-        'has-blur': headerBlur,
-        'is-elevated': isElevated,
-      }"
-      :style="{ backgroundColor: headerBackground || undefined }"
-    >
-      <slot name="header">
-        <!-- 顶部面包屑 -->
-        <div
-          v-if="$slots.breadcrumb || (computedBreadcrumbs && computedBreadcrumbs.length > 0)"
-          class="at-page-container__breadcrumb"
+    <Teleport to="body" :disabled="!isFullscreen">
+      <div
+        ref="containerRef"
+        class="at-page-container__inner"
+        :class="{
+          'is-fit-viewport': fitViewport || isFullscreen,
+          'is-ghost': ghost && !isFullscreen,
+          'is-fullscreen': isFullscreen,
+        }"
+      >
+        <!-- 页头区域 -->
+        <header
+          ref="headerRef"
+          class="at-page-container__header"
+          :class="{
+            'is-fixed': fixedHeader,
+            'has-blur': headerBlur,
+            'is-elevated': isElevated,
+            'is-scroll-collapsed': isHeaderCollapsed,
+          }"
+          :style="{ backgroundColor: headerBackground || undefined }"
         >
-          <slot name="breadcrumb">
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item
-                v-for="(item, index) in computedBreadcrumbs"
-                :key="index"
-                :to="item.to || item.path"
-              >
-                {{ item.label }}
-              </el-breadcrumb-item>
-            </el-breadcrumb>
-          </slot>
-        </div>
-
-        <!-- 页头主行：返回键、标题、副标题、Tags、Extra 操作区 -->
-        <div class="at-page-container__main-row">
-          <div class="at-page-container__title-area">
-            <!-- 返回按钮 -->
+          <slot name="header">
+            <!-- 顶部面包屑 -->
             <div
-              v-if="showBack || $slots.back"
-              class="at-page-container__back-btn"
-              title="返回上一页"
-              @click="handleBack"
+              v-if="$slots.breadcrumb || (computedBreadcrumbs && computedBreadcrumbs.length > 0)"
+              class="at-page-container__breadcrumb"
             >
-              <slot name="back">
-                <svg viewBox="0 0 1024 1024" width="18" height="18" fill="currentColor">
-                  <path
-                    d="M603.7 836.3a32 32 0 0 1-22.6-9.4l-288-288a32 32 0 0 1 0-45.3l288-288a32 32 0 1 1 45.3 45.3L360.6 512l265.8 261.4a32 32 0 0 1-22.7 62.9z"
-                  />
-                </svg>
+              <slot name="breadcrumb">
+                <el-breadcrumb separator="/">
+                  <el-breadcrumb-item
+                    v-for="(item, index) in computedBreadcrumbs"
+                    :key="index"
+                    :to="item.to || item.path"
+                  >
+                    {{ item.label }}
+                  </el-breadcrumb-item>
+                </el-breadcrumb>
               </slot>
             </div>
 
-            <!-- 主标题 -->
-            <div class="at-page-container__title">
-              <slot name="title">{{ title }}</slot>
+            <!-- 页头主行：返回键、标题、副标题、Tags、Extra 操作区 -->
+            <div class="at-page-container__main-row">
+              <div class="at-page-container__title-area">
+                <!-- 返回按钮 -->
+                <div
+                  v-if="showBack || $slots.back"
+                  class="at-page-container__back-btn"
+                  title="返回上一页"
+                  @click="handleBack"
+                >
+                  <slot name="back">
+                    <svg viewBox="0 0 1024 1024" width="18" height="18" fill="currentColor">
+                      <path
+                        d="M603.7 836.3a32 32 0 0 1-22.6-9.4l-288-288a32 32 0 0 1 0-45.3l288-288a32 32 0 1 1 45.3 45.3L360.6 512l265.8 261.4a32 32 0 0 1-22.7 62.9z"
+                      />
+                    </svg>
+                  </slot>
+                </div>
+
+                <!-- 主标题 -->
+                <div class="at-page-container__title">
+                  <slot name="title">{{ title }}</slot>
+                </div>
+
+                <!-- 副标题 -->
+                <div v-if="subTitle || $slots.subTitle" class="at-page-container__sub-title">
+                  <slot name="subTitle">{{ subTitle }}</slot>
+                </div>
+
+                <!-- 状态标签插槽 -->
+                <div v-if="$slots.tags" class="at-page-container__tags">
+                  <slot name="tags" />
+                </div>
+              </div>
+
+              <!-- 右侧操作区与全屏切换按钮 -->
+              <div class="at-page-container__extra-wrapper">
+                <div v-if="$slots.extra" class="at-page-container__extra">
+                  <slot name="extra" />
+                </div>
+
+                <!-- 全屏脱壳切换按钮 -->
+                <button
+                  v-if="showFullscreen"
+                  type="button"
+                  class="at-page-container__action-btn at-page-container__fullscreen-btn"
+                  :title="isFullscreen ? '退出全屏 (ESC)' : '视口脱壳全屏'"
+                  @click="toggleFullscreen()"
+                >
+                  <!-- 全屏图标 -->
+                  <svg
+                    v-if="!isFullscreen"
+                    viewBox="0 0 1024 1024"
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M160 352V160h192v64H224v128h-64zm0 320v192h192v-64H224V672h-64zm704-320V160H672v64h128v128h64zm0 320v192H672v-64h128V672h64z"
+                    />
+                  </svg>
+                  <!-- 还原图标 -->
+                  <svg v-else viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor">
+                    <path
+                      d="M384 192v192H192v-64h128V192h64zm0 640V640H192v64h128v128h64zm256-640v128h128v64H640V192h-64zm0 640v-128h128v-64H640v192h-64z"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <!-- 副标题 -->
-            <div v-if="subTitle || $slots.subTitle" class="at-page-container__sub-title">
-              <slot name="subTitle">{{ subTitle }}</slot>
+            <!-- 底部页签区 -->
+            <div v-if="$slots.tabs" class="at-page-container__tabs">
+              <slot name="tabs" />
             </div>
+          </slot>
+        </header>
 
-            <!-- 状态标签插槽 -->
-            <div v-if="$slots.tags" class="at-page-container__tags">
-              <slot name="tags" />
-            </div>
+        <!-- 主体内容区 -->
+        <main
+          ref="contentRef"
+          class="at-page-container__content"
+          :style="{
+            padding: ghost && !isFullscreen ? undefined : normalizedPadding,
+            backgroundColor: contentBackground || undefined,
+          }"
+          @scroll="handleScroll"
+        >
+          <div v-if="!ghost || isFullscreen" class="at-page-container__card">
+            <slot />
           </div>
+          <template v-else>
+            <slot />
+          </template>
+        </main>
 
-          <!-- 右侧操作区 -->
-          <div v-if="$slots.extra" class="at-page-container__extra">
-            <slot name="extra" />
-          </div>
+        <!-- 底部固定/悬浮插槽 -->
+        <div v-if="$slots.footer" class="at-page-container__footer">
+          <slot name="footer" />
         </div>
-
-        <!-- 底部页签区 -->
-        <div v-if="$slots.tabs" class="at-page-container__tabs">
-          <slot name="tabs" />
-        </div>
-      </slot>
-    </header>
-
-    <!-- 主体内容区 -->
-    <main
-      ref="contentRef"
-      class="at-page-container__content"
-      :style="{
-        padding: ghost ? undefined : normalizedPadding,
-        backgroundColor: contentBackground || undefined,
-      }"
-      @scroll="handleScroll"
-    >
-      <div v-if="!ghost" class="at-page-container__card">
-        <slot />
       </div>
-      <template v-else>
-        <slot />
-      </template>
-    </main>
-
-    <!-- 底部固定/悬浮插槽 -->
-    <div v-if="$slots.footer" class="at-page-container__footer">
-      <slot name="footer" />
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -295,13 +468,38 @@ const handleBack = () => {
   flex-direction: column;
   width: 100%;
   box-sizing: border-box;
-  background-color: var(--el-bg-color-page);
-  color: var(--el-text-color-primary);
 }
 
 .at-page-container.is-fit-viewport {
   height: 100%;
   overflow: hidden;
+}
+
+.at-page-container__inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  background-color: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+}
+
+.at-page-container__inner.is-fit-viewport {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 视口脱壳全屏状态 */
+.at-page-container__inner.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
 }
 
 /* 页头样式 */
@@ -312,7 +510,11 @@ const handleBack = () => {
   box-sizing: border-box;
   transition:
     background-color 0.25s,
-    border-color 0.25s;
+    border-color 0.25s,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s;
 }
 
 .at-page-container__header.is-fixed {
@@ -334,6 +536,18 @@ const handleBack = () => {
 .at-page-container__header.is-elevated {
   box-shadow: var(--el-box-shadow-light);
   z-index: 10;
+}
+
+/* 沉浸式滚动折叠页头 */
+.at-page-container__header.is-scroll-collapsed {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+  border-bottom: none !important;
 }
 
 .at-page-container__breadcrumb {
@@ -391,11 +605,39 @@ const handleBack = () => {
   gap: 8px;
 }
 
-.at-page-container__extra {
+.at-page-container__extra-wrapper {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-left: auto;
+}
+
+.at-page-container__extra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.at-page-container__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  border-radius: 4px;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+  padding: 0;
+}
+
+.at-page-container__action-btn:hover {
+  color: var(--el-color-primary);
+  background-color: var(--el-fill-color-light);
 }
 
 .at-page-container__tabs {
@@ -409,7 +651,8 @@ const handleBack = () => {
   flex: 1 1 auto;
 }
 
-.at-page-container.is-fit-viewport .at-page-container__content {
+.at-page-container.is-fit-viewport .at-page-container__content,
+.at-page-container__inner.is-fit-viewport .at-page-container__content {
   min-height: 0;
   overflow: auto;
 }
@@ -423,7 +666,8 @@ const handleBack = () => {
   min-height: 100%;
 }
 
-.at-page-container.is-fit-viewport .at-page-container__card {
+.at-page-container.is-fit-viewport .at-page-container__card,
+.at-page-container__inner.is-fit-viewport .at-page-container__card {
   height: 100%;
   display: flex;
   flex-direction: column;

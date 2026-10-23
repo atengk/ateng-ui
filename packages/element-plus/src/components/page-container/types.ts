@@ -110,6 +110,39 @@ export interface AtengPageContainerProps {
    * 自定义内容区背景色。
    */
   contentBackground?: string;
+
+  /**
+   * 是否处于视口脱壳全屏状态（支持双向绑定 v-model:fullscreen）。
+   * 全屏时通过 Teleport 瞬移至全局 body 顶层，彻底绕过父级包含块 transform 限制。
+   * 默认 false。
+   */
+  fullscreen?: boolean;
+
+  /**
+   * 是否在页头操作区显示全屏切换按钮。
+   * 默认 false。
+   */
+  showFullscreen?: boolean;
+
+  /**
+   * 全屏时是否锁定 body 滚动，防止底层背景穿透滚动。
+   * 采用模块级引用计数机制，多组件并发时安全归零还原。
+   * 默认 true。
+   */
+  lockScroll?: boolean;
+
+  /**
+   * 是否允许通过按 ESC 快捷键退出全屏。
+   * 默认 true。
+   */
+  escExit?: boolean;
+
+  /**
+   * 是否开启沉浸式滚动折叠页头特性。
+   * 开启后在向下滚动时平滑收起页头、向上滚动或回滚至顶部时平滑复原。
+   * 默认 false。
+   */
+  collapseHeaderOnScroll?: boolean;
 }
 
 /**
@@ -120,4 +153,19 @@ export interface AtengPageContainerEmits {
    * 点击返回箭头按钮时触发。
    */
   (e: 'back'): void;
+
+  /**
+   * 全屏状态更新（v-model:fullscreen）。
+   */
+  (e: 'update:fullscreen', val: boolean): void;
+
+  /**
+   * 全屏切换时派发。
+   */
+  (e: 'fullscreen', val: boolean): void;
+
+  /**
+   * 滚动导致页头折叠或展开状态发生变化时派发。
+   */
+  (e: 'header-collapse', collapsed: boolean): void;
 }
