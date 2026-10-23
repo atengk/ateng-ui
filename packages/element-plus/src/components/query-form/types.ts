@@ -7,6 +7,7 @@
 
 import type { Ref } from 'vue';
 import type { FormInstance } from 'element-plus';
+import type { UsePaginationResult } from '@atengk/vue';
 
 /**
  * 响应式列数断点配置。
@@ -32,6 +33,19 @@ export interface AtengQueryFormProps<T = Record<string, unknown>> {
    * 表单数据模型对象。
    */
   model?: T;
+
+  /**
+   * 绑定的 @atengk/vue usePagination 异步分页状态机实例。
+   * 传入后表单数据模型自动绑定 pagination.query，点击查询调用 pagination.search()，重置调用 pagination.reset()，查询 loading 自动联动。
+   */
+  pagination?: UsePaginationResult<T>;
+
+  /**
+   * 是否在输入框按下 Enter 键时自动触发搜索。
+   * 内置输入法 IME 组合态防御（中文拼音输入按回车不触发）。
+   * @default true
+   */
+  enterSearch?: boolean;
 
   /**
    * 栅格列数。支持固定数值（1~4）或响应式断点对象。

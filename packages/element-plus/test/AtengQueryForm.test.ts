@@ -7,8 +7,9 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { h, defineComponent, reactive } from 'vue';
+import { h, defineComponent, reactive, ref } from 'vue';
 import { ElFormItem, ElInput } from 'element-plus';
+import type { UsePaginationResult } from '@atengk/vue';
 import { AtengQueryForm, type AtengQueryFormInstance } from '../src/components/query-form';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../src/components/shared/context';
 
@@ -418,5 +419,97 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
     expect(typeof vm.toggleCollapse).toBe('function');
     expect(typeof vm.search).toBe('function');
     expect(typeof vm.reset).toBe('function');
+  });
+
+  describe('AtengQueryForm 零胶水直连与回车即搜增强测试', () => {
+    it('pagination 实例直连：自动绑定 query、点击查询触发 search、重置触发 reset 且联动 loading', async () => {
+      const mockQuery = reactive({ keyword: 'test-keyword', status: 'active' });
+      const mockLoading = ref(false);
+      const mockSearch = vi.fn();
+      const mockReset = vi.fn();
+
+      const pagination = {
+        query: mockQuery,
+        loading: mockLoading,
+        search: mockSearch,
+        reset: mockReset,
+      } as unknown as UsePaginationResult<Record<string, unknown>>;
+
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          pagination,
+        },
+        slots: {
+          default: () => [
+            h(ElFormItem, { label: '关键字', prop: 'keyword' }, () =>
+              h(ElInput, { modelValue: mockQuery.keyword }),
+            ),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      // 1. 点击查询按钮
+      const searchBtn = wrapper.find('.at-query-form__search-btn');
+      await searchBtn.trigger('click');
+
+      expect(mockSearch).toHaveBeenCalledWith(mockQuery);
+      expect(wrapper.emitted('search')).toBeTruthy();
+      expect(wrapper.emitted('search')?.[0]?.[0]).toEqual(mockQuery);
+
+      // 2. 点击重置按钮
+      const resetBtn = wrapper.find('.at-query-form__reset-btn');
+      await resetBtn.trigger('click');
+
+      expect(mockReset).toHaveBeenCalled();
+      expect(wrapper.emitted('reset')).toBeTruthy();
+
+      // 3. loading 联动
+      mockLoading.value = true;
+      await wrapper.vm.$nextTick();
+      expect(wrapper.find('.at-query-form__search-btn').classes()).toContain('is-loading');
+    });
+
+    it('回车即搜 (Enter Trigger)：输入框回车自动触发查询，并具备中文 IME 组合态防御', async () => {
+      const mockQuery = reactive({ keyword: 'enter-test' });
+      const mockSearch = vi.fn();
+
+      const pagination = {
+        query: mockQuery,
+        loading: ref(false),
+        search: mockSearch,
+        reset: vi.fn(),
+      } as unknown as UsePaginationResult<Record<string, unknown>>;
+
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          pagination,
+        },
+        slots: {
+          default: () => [
+            h(ElFormItem, { label: '关键字', prop: 'keyword' }, () =>
+              h('input', { class: 'test-native-input', value: mockQuery.keyword }),
+            ),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      const input = wrapper.find('.test-native-input');
+
+      // 1. IME 中文输入法处于组合态时按下 Enter，不触发搜索
+      await input.trigger('keydown', { key: 'Enter', isComposing: true });
+      expect(mockSearch).not.toHaveBeenCalled();
+
+      // 2. 正常输入状态按下 Enter，自动触发搜索
+      await input.trigger('keydown', { key: 'Enter', isComposing: false });
+      expect(mockSearch).toHaveBeenCalledTimes(1);
+      expect(mockSearch).toHaveBeenCalledWith(mockQuery);
+
+      // 3. 当配置 enterSearch: false 时，按 Enter 键不应触发搜索
+      await wrapper.setProps({ enterSearch: false });
+      await input.trigger('keydown', { key: 'Enter', isComposing: false });
+      expect(mockSearch).toHaveBeenCalledTimes(1); // 仍为 1 次
+    });
   });
 });

@@ -16,6 +16,7 @@
 import {
   ref,
   computed,
+  toValue,
   onMounted,
   onUnmounted,
   useSlots,
@@ -39,7 +40,9 @@ defineOptions({
 });
 
 const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
-  model: () => ({}) as T,
+  model: undefined,
+  pagination: undefined,
+  enterSearch: true,
   cols: undefined,
   collapsed: undefined,
   defaultCollapsed: true,
@@ -200,7 +203,26 @@ const actionGridStyle = computed(() => {
   };
 });
 
-// 5. 查询与重置交互调度
+// 5. 模型解析与加载态计算（支持 usePagination 零胶水直连）
+const effectiveModel = computed<T>(() => {
+  if (props.model !== undefined) {
+    return props.model as T;
+  }
+  if (props.pagination?.query) {
+    return props.pagination.query as unknown as T;
+  }
+  return {} as T;
+});
+
+const effectiveSearchLoading = computed<boolean>(() => {
+  if (props.searchLoading) return true;
+  if (props.pagination?.loading) {
+    return Boolean(toValue(props.pagination.loading));
+  }
+  return false;
+});
+
+// 6. 查询与重置交互调度
 const tableContext = inject<AtengTableContext | null>(ATENG_TABLE_CONTEXT_KEY, null);
 let unregisterResetHandler: (() => void) | undefined;
 let unregisterQueryGetter: (() => void) | undefined;
@@ -214,7 +236,7 @@ onMounted(() => {
   }
   if (tableContext?.registerQueryGetter) {
     unregisterQueryGetter = tableContext.registerQueryGetter(() => {
-      return (props.model as Record<string, unknown>) || {};
+      return (effectiveModel.value as Record<string, unknown>) || {};
     });
   }
 });
@@ -231,8 +253,11 @@ onUnmounted(() => {
 });
 
 const handleSearch = (overrideModel?: T) => {
-  const targetModel = overrideModel || (props.model as T);
+  const targetModel = overrideModel || effectiveModel.value;
   emit('search', targetModel);
+  if (props.pagination) {
+    props.pagination.search(targetModel as unknown as Record<string, unknown>);
+  }
   if (tableContext) {
     tableContext.search(targetModel);
   }
@@ -245,8 +270,11 @@ const onSearchClick = () => {
 const handleReset = () => {
   formRef.value?.resetFields();
   emit('reset');
+  if (props.pagination) {
+    props.pagination.reset();
+  }
   if (props.autoSearchOnReset !== false) {
-    emit('search', props.model as T);
+    emit('search', effectiveModel.value);
     if (tableContext) {
       tableContext.reset();
     }
@@ -257,7 +285,18 @@ const onResetClick = () => {
   handleReset();
 };
 
-// 6. 实例能力显式暴露
+const handleFormKeyDown = (event: KeyboardEvent) => {
+  if (props.enterSearch === false) return;
+  // 防御中文输入法 IME 组合态 (event.isComposing 为 true 或 keyCode 为 229)
+  if (event.isComposing || event.keyCode === 229) return;
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    handleSearch();
+  }
+};
+
+// 7. 实例能力显式暴露
 defineExpose<AtengQueryFormExpose<T>>({
   formRef,
   validate: callback => {
@@ -279,11 +318,12 @@ defineExpose<AtengQueryFormExpose<T>>({
 <template>
   <el-form
     ref="formRef"
-    :model="model"
+    :model="effectiveModel"
     :label-width="labelWidth"
     :label-position="labelPosition"
     :disabled="disabled"
     :class="['at-query-form', customClass]"
+    @keydown="handleFormKeyDown"
   >
     <div class="at-query-form__grid" :style="gridStyle">
       <!-- 渲染扁平化表单项，通过 v-show 保留表单控件 DOM 状态与校验信息 -->
@@ -304,14 +344,14 @@ defineExpose<AtengQueryFormExpose<T>>({
           :toggle="toggleCollapse"
           :search="handleSearch"
           :reset="handleReset"
-          :model="model as T"
+          :model="effectiveModel"
         >
           <!-- 默认查询按钮 -->
           <el-button
             v-if="showSearch"
             v-idempotent="onSearchClick"
             type="primary"
-            :loading="searchLoading"
+            :loading="effectiveSearchLoading"
             class="at-query-form__search-btn"
           >
             <el-icon class="at-query-form__btn-icon">

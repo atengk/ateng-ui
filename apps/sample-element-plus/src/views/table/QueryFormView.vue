@@ -28,6 +28,35 @@ import {
   ElAlert,
 } from 'element-plus';
 import { AtengQueryForm, AtengSplitLayout } from '@atengk/element-plus';
+import { usePagination } from '@atengk/vue';
+import type { PageQuery, PageResult } from '@atengk/core';
+
+// 0. 零胶水 usePagination 直连与回车即搜演示状态
+interface DemoQuery extends PageQuery {
+  userCode?: string;
+  nickname?: string;
+  department?: string;
+}
+
+const mockSearchApi = async (
+  params: DemoQuery,
+): Promise<PageResult<{ id: string; name: string }>> => {
+  await new Promise(r => setTimeout(r, 400));
+  submitLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] [pagination直连] 触发搜索：${JSON.stringify(params)}`,
+  );
+  ElMessage.success('pagination 异步请求完成');
+  return { list: [], total: 0 };
+};
+
+const demoPagination = usePagination(mockSearchApi, {
+  defaultParams: {
+    userCode: '',
+    nickname: '',
+    department: '',
+  },
+  manual: true,
+});
 
 // 1. 查询表单响应式状态
 const queryModel = reactive({
@@ -171,6 +200,44 @@ const handleReset = () => {
 
         <ElFormItem label="备注文档" prop="remark">
           <ElInput v-model="queryModel.remark" placeholder="输入搜索备注" clearable />
+        </ElFormItem>
+      </AtengQueryForm>
+    </ElCard>
+
+    <!-- 零胶水 usePagination 直连与回车即搜演示 -->
+    <ElCard shadow="hover" class="demo-card" style="margin-top: 16px">
+      <template #header>
+        <div class="card-header">
+          <span>⚡ usePagination 零胶水直连模式与回车即搜 (Enter Trigger)</span>
+          <ElTag size="small" type="primary">零胶水绑定</ElTag>
+        </div>
+      </template>
+      <div class="split-tip" style="margin-bottom: 16px">
+        💡 提示：本区域表单直接传入 <code>:pagination="demoPagination"</code>，无需手动传递
+        <code>:model</code>、<code>@search</code> 或 <code>@reset</code>。在任意输入框内直接按
+        <strong>Enter 回车键</strong> 即自动触发搜索，并在查询按钮上呈现 loading 联动。
+      </div>
+      <AtengQueryForm :pagination="demoPagination" label-width="80px">
+        <ElFormItem label="用户工号" prop="userCode">
+          <ElInput
+            v-model="demoPagination.query.userCode"
+            placeholder="按回车即搜 (Enter)"
+            clearable
+          />
+        </ElFormItem>
+        <ElFormItem label="用户昵称" prop="nickname">
+          <ElInput
+            v-model="demoPagination.query.nickname"
+            placeholder="按回车即搜 (Enter)"
+            clearable
+          />
+        </ElFormItem>
+        <ElFormItem label="所属部门" prop="department">
+          <ElSelect v-model="demoPagination.query.department" placeholder="选择部门" clearable>
+            <ElOption label="研发部" value="dev" />
+            <ElOption label="产品部" value="pm" />
+            <ElOption label="运营部" value="ops" />
+          </ElSelect>
         </ElFormItem>
       </AtengQueryForm>
     </ElCard>
