@@ -15,6 +15,7 @@ export const VERSION: string = '0.1.0';
 export * from './installer';
 export * from './directives';
 export * from './components';
+export * from './loading';
 export * from './theme';
 
 // 便捷别名导出（与 Ateng* 形成双轨具名导出支持）
@@ -51,5 +52,6 @@ export {
   AtengGrid as AtGrid,
   AtengAnchor as AtAnchor,
 } from './components';
+export { AtengLoading as AtLoading } from './loading';
 
 export default installer;

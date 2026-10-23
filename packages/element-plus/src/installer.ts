@@ -42,6 +42,7 @@ import { AtengFilePreview } from './components/file-preview';
 import { AtengWatermark } from './components/watermark';
 import { AtengGrid } from './components/grid';
 import { AtengAnchor } from './components/anchor';
+import { AtengLoading } from './loading';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
@@ -95,6 +96,7 @@ const components: Record<string, Component> = {
   AtengWatermark,
   AtengGrid,
   AtengAnchor,
+  AtengLoading,
 };
 
 /**

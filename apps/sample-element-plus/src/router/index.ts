@@ -6,6 +6,7 @@
  */
 
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
+import { installLoadingBar } from '@atengk/element-plus';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -59,6 +60,12 @@ export const routes: RouteRecordRaw[] = [
     name: 'ContainerEmpty',
     component: () => import('../views/containers/EmptyView.vue'),
     meta: { title: '统一缺省态占位 AtengEmpty' },
+  },
+  {
+    path: '/containers/loading',
+    name: 'ContainerLoading',
+    component: () => import('../views/containers/LoadingView.vue'),
+    meta: { title: '现代轻量加载与防闪烁 AtengLoading' },
   },
   {
     path: '/layout/page-container',
@@ -240,5 +247,8 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes,
 });
+
+// 挂载全局 2px 顶栏纳米科技流光线 (0 遮罩 · 0 模态 · 自动路由守卫接管)
+installLoadingBar(router);
 
 export default router;

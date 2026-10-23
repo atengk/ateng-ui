@@ -171,6 +171,9 @@ onMounted(() => {
                   <ElMenuItem index="/containers/empty" title="缺省占位 (AtengEmpty)">
                     缺省占位 (AtengEmpty)
                   </ElMenuItem>
+                  <ElMenuItem index="/containers/loading" title="现代轻量加载 (AtengLoading)">
+                    现代轻量加载 (AtengLoading)
+                  </ElMenuItem>
                 </ElSubMenu>
 
                 <!-- 4. 表格与检索 -->

@@ -219,3 +219,19 @@ _Avoid_: PhysicalBorder, OuterBorder, BorderHack
 **Integrated Stepper Focus-Ring (步进器一体化焦点环)**:
 `ElInputNumber` 减号、加号与中间输入区共享精密清晰的边框分割线，且聚焦时外沿激光聚焦环完整包裹整体组件，消除线条残缺与两端裁切。
 _Avoid_: BrokenStepper, CutRing, SplitNumberInput
+
+**AtengLoadingBar**:
+基于 2px 顶栏纳米流光线、0 全屏遮罩、0 模糊滤镜且独立提升至 GPU 硬件加速层的企业级非侵入式全局路由与网络加载指示器门面。
+_Avoid_: TopProgressBar, NProgress, GlobalSpinner, FullscreenMask
+
+**AtengLoading**:
+支持顶沿 2px 极光流线（Zero-Overlay）、三点弹性微波浪与骨架屏多态切换的企业级轻量容器包裹组件。
+_Avoid_: LoadingWrapper, SpinnerContainer, OverlayBox
+
+**Anti-Flicker State Machine (防闪烁状态机)**:
+内置 150ms 静默延迟保护与 300ms 最小展示时长的工业级时序状态机，彻底杜绝极速网络下的 1 帧闪现“鬼影”。
+_Avoid_: FlickerHack, DelayTimer, TimeoutWrapper
+
+**Zero-Overlay Top Shimmer (顶沿零遮罩极光条)**:
+卡片或表格顶沿仅流动 2px 极光流线、内容利用纯 GPU 合成层微虚化的现代无遮罩局部加载交互范式。
+_Avoid_: GrayOverlay, HeavyMask, BlurBackdrop
