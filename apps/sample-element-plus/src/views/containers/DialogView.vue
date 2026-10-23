@@ -7,7 +7,18 @@
  */
 
 import { ref } from 'vue';
-import { ElCard, ElButton, ElInput, ElForm, ElFormItem, ElAlert, ElMessage } from 'element-plus';
+import {
+  ElCard,
+  ElButton,
+  ElInput,
+  ElForm,
+  ElFormItem,
+  ElSelect,
+  ElOption,
+  ElAlert,
+  ElMessage,
+  type FormInstance,
+} from 'element-plus';
 import { AtengDialog } from '@atengk/element-plus';
 
 // 弹窗可见性
@@ -16,6 +27,7 @@ const asyncDialogVisible = ref(false);
 const failDialogVisible = ref(false);
 const scrollDialogVisible = ref(false);
 const lazyDialogVisible = ref(false);
+const validatedDialogVisible = ref(false);
 
 // 表单数据
 const form = ref({
@@ -23,6 +35,26 @@ const form = ref({
   email: 'ateng@example.com',
   remark: '企业级弹窗交互测试',
 });
+
+// 自动校验表单引用与数据
+const validatedFormRef = ref<FormInstance>();
+const validatedForm = ref({
+  username: '',
+  role: '',
+  phone: '',
+});
+
+const validatedFormRules = {
+  username: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
+  role: [{ required: true, message: '请选择所属角色', trigger: 'change' }],
+  phone: [{ required: true, message: '请输入手机号码', trigger: 'blur' }],
+};
+
+// 自动校验提交 Hook
+const handleValidatedConfirm = async () => {
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  ElMessage.success('表单校验通过，管理员资料保存成功！');
+};
 
 // 异步提交 Hook
 const handleAsyncConfirm = async () => {
@@ -47,7 +79,7 @@ const handleFailingConfirm = async () => {
       <ElAlert
         title="组件特性说明"
         type="info"
-        description="基于 el-dialog 强化封装：默认支持原生拖拽 draggable；右上角集成全屏放大/还原按钮，支持双击 Header 快速全屏切换；内容区由 el-scrollbar 承载并严格限制视口高度；异步确认 Loading 锁协议：确定时进入 loading，同步禁用取消/关闭/ESC，成功自动关闭，失败保持开启保护现场；支持分帧延迟挂载（lazy-render）与独立硬件合成图层加速，杜绝大页面掉帧卡顿。"
+        description="基于 el-dialog 强化封装：默认支持原生拖拽 draggable；右上角集成全屏放大/还原按钮，支持双击 Header 快速全屏切换；内容区由 el-scrollbar 承载并严格限制视口高度；异步确认 Loading 锁协议：确定时进入 loading，同步禁用取消/关闭/ESC，成功自动关闭，失败保持开启保护现场；支持 :form-ref 表单自动校验流转（校验未通过立即就地阻断，通过后自动开启 loading）；支持 :confirm-on-close 二次防误关确认；支持分帧延迟挂载（lazy-render）与独立硬件合成图层加速，杜绝大页面掉帧卡顿。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -68,6 +100,9 @@ const handleFailingConfirm = async () => {
         </ElButton>
         <ElButton type="info" @click="lazyDialogVisible = true">
           分帧延迟挂载弹窗 (lazy-render 防掉帧)
+        </ElButton>
+        <ElButton type="primary" plain @click="validatedDialogVisible = true">
+          表单自动校验与防误关弹窗 (formRef + 防误关)
         </ElButton>
       </div>
 
@@ -145,6 +180,45 @@ const handleFailingConfirm = async () => {
             </ElFormItem>
           </ElForm>
         </div>
+      </AtengDialog>
+
+      <!-- 6. 表单自动校验与防误关弹窗 (formRef + confirmOnClose) -->
+      <AtengDialog
+        v-model="validatedDialogVisible"
+        title="新建系统管理员（自动校验与二次防误关）"
+        width="560px"
+        :form-ref="validatedFormRef"
+        :confirm-on-close="true"
+        :before-confirm="handleValidatedConfirm"
+      >
+        <ElAlert
+          title="表单自动校验流转"
+          type="success"
+          description="无需在 beforeConfirm 中手写 validate() 胶水代码，只需传入 :form-ref。点击确定自动校验：校验未通过时就地阻断并保留错误高亮；通过后自动开启 loading 锁。若在未保存时关闭弹窗，将弹出二次确认。"
+          show-icon
+          :closable="false"
+          style="margin-bottom: 16px"
+        />
+        <ElForm
+          ref="validatedFormRef"
+          :model="validatedForm"
+          :rules="validatedFormRules"
+          label-width="110px"
+        >
+          <ElFormItem label="管理员账号" prop="username">
+            <ElInput v-model="validatedForm.username" placeholder="请输入管理员登录账号" />
+          </ElFormItem>
+          <ElFormItem label="所属角色" prop="role">
+            <ElSelect v-model="validatedForm.role" placeholder="请选择角色" style="width: 100%">
+              <ElOption label="超级管理员" value="admin" />
+              <ElOption label="运维主管" value="ops" />
+              <ElOption label="审计专员" value="auditor" />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="手机号码" prop="phone">
+            <ElInput v-model="validatedForm.phone" placeholder="请输入管理员联系电话" />
+          </ElFormItem>
+        </ElForm>
       </AtengDialog>
     </ElCard>
   </div>

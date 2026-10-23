@@ -7,13 +7,20 @@
  * @since 2026-10-21
  */
 
-import { ref, computed, type Ref, type ComputedRef } from 'vue';
+import { ref, computed, toValue, type Ref, type ComputedRef, type MaybeRefOrGetter } from 'vue';
+import type { FormInstance } from 'element-plus';
 
 export interface UseAsyncConfirmOptions {
   /**
    * 外部受控 loading。
    */
   controlledLoading?: Ref<boolean | undefined>;
+
+  /**
+   * 内嵌表单实例（支持 Ref 或 Getter 传入）。
+   * 若配置，点击确定将自动优先执行 form.validate() 进行合法性校验。
+   */
+  formRef?: MaybeRefOrGetter<FormInstance | undefined | null>;
 
   /**
    * 确认前置钩子函数，支持异步 Promise。
@@ -57,10 +64,29 @@ export function useAsyncConfirm(options: UseAsyncConfirmOptions): UseAsyncConfir
       return;
     }
 
-    // 1. 触发外部 confirm 事件
+    // 1. 若配置了 formRef，优先执行表单合法性校验
+    if (options.formRef) {
+      const rawForm =
+        typeof options.formRef === 'function' ? options.formRef() : toValue(options.formRef);
+      const form = rawForm ? toValue(rawForm) : (rawForm as FormInstance | undefined | null);
+      if (form && typeof form.validate === 'function') {
+        try {
+          const valid = await form.validate();
+          if (valid === false) {
+            return;
+          }
+        } catch {
+          // Element Plus 在校验不通过时会 reject 失败字段对象，此处就地阻断
+          // 绝不开启 loading，绝不调用 beforeConfirm，绝不关闭容器，保留现场错误提示
+          return;
+        }
+      }
+    }
+
+    // 2. 表单校验通过（或未配置 formRef），触发外部 confirm 事件
     options.onConfirmEmit();
 
-    // 2. 若无 beforeConfirm 钩子，直接关闭并触发成功
+    // 3. 若无 beforeConfirm 钩子，直接关闭并触发成功
     if (!options.beforeConfirm) {
       options.onClose();
       options.onSuccess();
@@ -70,7 +96,7 @@ export function useAsyncConfirm(options: UseAsyncConfirmOptions): UseAsyncConfir
     try {
       const result = options.beforeConfirm();
 
-      // 3. 判断是否为 Promise
+      // 4. 判断是否为 Promise
       if (
         result !== null &&
         typeof result === 'object' &&
@@ -90,7 +116,7 @@ export function useAsyncConfirm(options: UseAsyncConfirmOptions): UseAsyncConfir
         options.onSuccess();
       }
     } catch {
-      // 4. 异步抛错时保持开启，杜绝表单数据丢失
+      // 5. 异步抛错时保持开启，杜绝表单数据丢失
     } finally {
       internalLoading.value = false;
     }

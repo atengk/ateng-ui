@@ -12,7 +12,7 @@
  */
 
 import { ref, computed, watch, onMounted, toRef } from 'vue';
-import { ElDrawer, ElButton, ElSkeleton } from 'element-plus';
+import { ElDrawer, ElButton, ElSkeleton, ElMessageBox } from 'element-plus';
 import type {
   AtengDrawerProps,
   AtengDrawerEmits,
@@ -36,6 +36,10 @@ const props = withDefaults(defineProps<AtengDrawerProps>(), {
   showCancel: true,
   confirmLoading: undefined,
   beforeConfirm: undefined,
+  formRef: undefined,
+  confirmOnClose: false,
+  confirmOnCloseText: '确定要放弃未保存的修改并关闭吗？',
+  beforeClose: undefined,
   closeOnClickModal: false,
   closeOnPressEscape: true,
   destroyOnClose: false,
@@ -81,6 +85,7 @@ const resolvedSize = computed(() => {
 // 2. 异步确认状态机
 const { isLoading, handleConfirm } = useAsyncConfirm({
   controlledLoading: toRef(props, 'confirmLoading'),
+  formRef: () => props.formRef,
   beforeConfirm: props.beforeConfirm,
   onClose: () => {
     emit('update:modelValue', false);
@@ -94,13 +99,53 @@ const { isLoading, handleConfirm } = useAsyncConfirm({
   },
 });
 
-const handleCancel = () => {
+/**
+ * 统一关闭前拦截流转，支持 beforeClose 钩子与 confirmOnClose 二次防误关确认。
+ */
+const handleCloseRequest = (done: () => void, fromCancel = false) => {
   if (isLoading.value) {
     return;
   }
-  emit('cancel');
-  emit('update:modelValue', false);
-  emit('close');
+
+  const executeClose = () => {
+    if (fromCancel) {
+      emit('cancel');
+    }
+    done();
+  };
+
+  if (props.beforeClose) {
+    props.beforeClose(executeClose);
+    return;
+  }
+
+  if (props.confirmOnClose) {
+    ElMessageBox.confirm(props.confirmOnCloseText || '确定要放弃未保存的修改并关闭吗？', '提示', {
+      type: 'warning',
+      confirmButtonText: '确定关闭',
+      cancelButtonText: '继续编辑',
+    })
+      .then(() => {
+        executeClose();
+      })
+      .catch(() => {
+        // 用户取消关闭，保留抽屉现场
+      });
+    return;
+  }
+
+  executeClose();
+};
+
+const handleCancel = () => {
+  handleCloseRequest(() => {
+    emit('update:modelValue', false);
+    emit('close');
+  }, true);
+};
+
+const handleBeforeClose = (done: () => void) => {
+  handleCloseRequest(done, false);
 };
 
 // 3. 分帧延迟挂载 (lazy-render) 状态机编排
@@ -143,6 +188,7 @@ defineExpose<AtengDrawerExpose>({
     :size="resolvedSize"
     :direction="direction"
     :with-header="withHeader"
+    :before-close="handleBeforeClose"
     :close-on-click-modal="isLoading ? false : closeOnClickModal"
     :close-on-press-escape="isLoading ? false : closeOnPressEscape"
     :destroy-on-close="destroyOnClose"

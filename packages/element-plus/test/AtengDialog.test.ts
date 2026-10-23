@@ -274,4 +274,247 @@ describe('AtengDialog 组件规范与交互测试', () => {
     expect(wrapper.find('#custom-placeholder').exists()).toBe(false);
     expect(wrapper.find('#heavy-content').exists()).toBe(true);
   });
+
+  it('表单自动校验流转：formRef 校验失败时立即终止流转，不进入 loading，不调用 beforeConfirm，保持弹窗开启', async () => {
+    const visible = ref(true);
+    const mockForm = {
+      validate: vi.fn().mockRejectedValue({ username: [{ message: '请输入用户名' }] }),
+    };
+    const formRef = ref(mockForm);
+    const beforeConfirm = vi.fn();
+    const onConfirm = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, formRef, beforeConfirm, onConfirm };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="表单校验弹窗"
+          :form-ref="formRef"
+          :before-confirm="beforeConfirm"
+          :append-to-body="false"
+          @confirm="onConfirm"
+        >
+          <p>测试表单内容</p>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const confirmBtn = wrapper.find('.at-dialog__confirm-btn');
+    await confirmBtn.trigger('click');
+    await nextTick();
+
+    // 验证 form.validate 被调用且校验失败就地阻断
+    expect(mockForm.validate).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(beforeConfirm).not.toHaveBeenCalled();
+    expect(confirmBtn.classes()).not.toContain('is-loading');
+    expect(visible.value).toBe(true);
+  });
+
+  it('表单自动校验流转：formRef 校验成功后放行，开启 loading 并执行 beforeConfirm，决议后成功关闭', async () => {
+    const visible = ref(true);
+    const mockForm = {
+      validate: vi.fn().mockResolvedValue(true),
+    };
+    const formRef = ref(mockForm);
+    let resolveConfirm: () => void = () => {};
+    const beforeConfirm = vi.fn(() => {
+      return new Promise<void>(resolve => {
+        resolveConfirm = resolve;
+      });
+    });
+    const onConfirm = vi.fn();
+    const onSuccess = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, formRef, beforeConfirm, onConfirm, onSuccess };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="表单校验通过弹窗"
+          :form-ref="formRef"
+          :before-confirm="beforeConfirm"
+          :append-to-body="false"
+          @confirm="onConfirm"
+          @success="onSuccess"
+        >
+          <p>测试表单内容</p>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const confirmBtn = wrapper.find('.at-dialog__confirm-btn');
+    await confirmBtn.trigger('click');
+    await nextTick();
+
+    // 1. 验证校验成功放行：触发 confirm 事件，进入 loading 并调用 beforeConfirm
+    expect(mockForm.validate).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(beforeConfirm).toHaveBeenCalledTimes(1);
+    expect(confirmBtn.classes()).toContain('is-loading');
+    expect(visible.value).toBe(true);
+
+    // 2. 异步决议完成
+    resolveConfirm();
+    await Promise.resolve();
+    await nextTick();
+
+    // 3. 成功关闭并派发 success
+    expect(visible.value).toBe(false);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('防误关二次确认：开启 confirmOnClose 时点击取消弹出确认框，确认后关闭', async () => {
+    const { ElMessageBox } = await import('element-plus');
+    type MessageBoxAction = Parameters<
+      NonNullable<Parameters<ReturnType<typeof ElMessageBox.confirm>['then']>[0]>
+    >[0];
+    const confirmSpy = vi
+      .spyOn(ElMessageBox, 'confirm')
+      .mockResolvedValue('confirm' as MessageBoxAction);
+
+    const visible = ref(true);
+    const onCancel = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, onCancel };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="防误关测试弹窗"
+          :confirm-on-close="true"
+          :append-to-body="false"
+          @cancel="onCancel"
+        >
+          <p>重要表单草稿</p>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const cancelBtn = wrapper.find('.at-dialog__cancel-btn');
+    await cancelBtn.trigger('click');
+    await nextTick();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // 等待 Promise.resolve
+    await Promise.resolve();
+    await nextTick();
+
+    expect(visible.value).toBe(false);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    confirmSpy.mockRestore();
+  });
+
+  it('防误关二次确认：开启 confirmOnClose 时点击继续编辑保持弹窗开启', async () => {
+    const { ElMessageBox } = await import('element-plus');
+    const confirmSpy = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel');
+
+    const visible = ref(true);
+    const onCancel = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, onCancel };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="防误关测试弹窗"
+          :confirm-on-close="true"
+          :append-to-body="false"
+          @cancel="onCancel"
+        >
+          <p>重要表单草稿</p>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const cancelBtn = wrapper.find('.at-dialog__cancel-btn');
+    await cancelBtn.trigger('click');
+    await nextTick();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await nextTick();
+
+    // 验证弹窗依然保持开启，未触发 cancel
+    expect(visible.value).toBe(true);
+    expect(onCancel).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it('自定义 beforeClose 拦截：点击取消触发 beforeClose，由外部控制关闭', async () => {
+    const visible = ref(true);
+    let capturedDone: (() => void) | null = null;
+    const beforeClose = vi.fn((done: () => void) => {
+      capturedDone = done;
+    });
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, beforeClose };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="自定义拦截弹窗"
+          :before-close="beforeClose"
+          :append-to-body="false"
+        >
+          <p>内容</p>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const cancelBtn = wrapper.find('.at-dialog__cancel-btn');
+    await cancelBtn.trigger('click');
+    await nextTick();
+
+    expect(beforeClose).toHaveBeenCalledTimes(1);
+    expect(visible.value).toBe(true);
+
+    // 外部调用 done 执行关闭
+    capturedDone!();
+    await nextTick();
+    expect(visible.value).toBe(false);
+  });
 });

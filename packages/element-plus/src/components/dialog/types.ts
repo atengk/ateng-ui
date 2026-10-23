@@ -5,7 +5,8 @@
  * @since 2026-10-21
  */
 
-import type { VNode } from 'vue';
+import type { VNode, MaybeRefOrGetter } from 'vue';
+import type { FormInstance } from 'element-plus';
 
 /**
  * AtengDialog 属性契约。
@@ -75,6 +76,30 @@ export interface AtengDialogProps {
    * 确认前置钩子函数。若返回 Promise，将自动锁定确定按钮并进入 loading 态。
    */
   beforeConfirm?: () => Promise<boolean | void> | boolean | void;
+
+  /**
+   * 内嵌表单实例引用（支持 Ref 或 Getter 传入）。
+   * 配置后，确定操作将自动优先执行 form.validate() 进行合法性校验：
+   * 校验未通过时就地阻断，不进入 loading 状态、不触发 beforeConfirm、不关闭弹窗，保留错误高亮现场；
+   * 校验通过后自动进入 loading 态并放行 beforeConfirm 提交流转。
+   */
+  formRef?: MaybeRefOrGetter<FormInstance | undefined | null>;
+
+  /**
+   * 是否在关闭前弹出二次确认框防止误触，默认 false。
+   * 开启后，点击右上角关闭、遮罩层、ESC 键或取消按钮时将弹出确认框。
+   */
+  confirmOnClose?: boolean;
+
+  /**
+   * 开启 confirmOnClose 时的确认提示文案，默认 '确定要放弃未保存的修改并关闭吗？'。
+   */
+  confirmOnCloseText?: string;
+
+  /**
+   * 关闭前的自定义拦截钩子。若提供，将接管原生关闭流程并由开发者显式调用 done() 执行关闭。
+   */
+  beforeClose?: (done: () => void) => void;
 
   /**
    * 是否在点击遮罩层时关闭，默认 false（防止误触丢失表单）。
