@@ -27,6 +27,8 @@ import {
   getThisWeekRange,
   getLastWeekRange,
   getThisMonthRange,
+  getThisQuarterRange,
+  getThisYearRange,
   getDefaultDateRangeShortcuts,
 } from '../src/components/date-range';
 
@@ -257,11 +259,91 @@ describe('AtengDateRange 快捷时间范围选择器交互测试', () => {
     expect(thisMonthStart.getDate()).toBe(1);
     expect(thisMonthEnd.getDate()).toBe(31);
 
-    // 8. 默认快捷配置项包含全部 7 种预置跨度
+    // 8. 本季度（第四季度：10-01 至 12-31）
+    const [quarterStart, quarterEnd] = getThisQuarterRange(baseDate);
+    expect(quarterStart.getMonth()).toBe(9);
+    expect(quarterStart.getDate()).toBe(1);
+    expect(quarterEnd.getMonth()).toBe(11);
+    expect(quarterEnd.getDate()).toBe(31);
+
+    // 9. 本年（2026-01-01 至 2026-12-31）
+    const [yearStart, yearEnd] = getThisYearRange(baseDate);
+    expect(yearStart.getMonth()).toBe(0);
+    expect(yearStart.getDate()).toBe(1);
+    expect(yearEnd.getMonth()).toBe(11);
+    expect(yearEnd.getDate()).toBe(31);
+
+    // 10. 默认快捷配置项包含全部 9 种预置自然周期
     const defaultShortcuts = getDefaultDateRangeShortcuts();
-    expect(defaultShortcuts.length).toBe(7);
+    expect(defaultShortcuts.length).toBe(9);
     const texts = defaultShortcuts.map(s => s.text);
-    expect(texts).toEqual(['今天', '昨天', '近7天', '近30天', '本周', '上周', '本月']);
+    expect(texts).toEqual([
+      '今天',
+      '昨天',
+      '近7天',
+      '近30天',
+      '本周',
+      '上周',
+      '本月',
+      '本季度',
+      '本年',
+    ]);
+  });
+
+  it('表单清空联动：外部将 start 与 end 置为 null 时内部选择框瞬时同步清空', async () => {
+    const TestComponent = defineComponent({
+      components: { AtengDateRange },
+      setup() {
+        const startTime = ref<string | null>('2026-10-01');
+        const endTime = ref<string | null>('2026-10-07');
+        return { startTime, endTime };
+      },
+      template:
+        '<AtengDateRange v-model:start="startTime" v-model:end="endTime" value-format="YYYY-MM-DD" />',
+    });
+
+    wrapper = mount(TestComponent);
+    const picker = wrapper.findComponent(ElDatePicker);
+    expect(picker.props('modelValue')).toEqual(['2026-10-01', '2026-10-07']);
+
+    // 模拟表单 resetFields() 将双字段清空
+    wrapper.vm.startTime = null;
+    wrapper.vm.endTime = null;
+    await wrapper.vm.$nextTick();
+
+    expect(picker.props('modelValue')).toBeNull();
+  });
+
+  it('禁用日期策略：支持 disableFuture、disablePast 与自定义 disabledDate', () => {
+    // 1. 禁用未来日期测试
+    wrapper = mount(AtengDateRange, {
+      props: {
+        disableFuture: true,
+      },
+    });
+    const picker = wrapper.findComponent(ElDatePicker);
+    const disabledDateFn = picker.props('disabledDate') as (date: Date) => boolean;
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    expect(disabledDateFn(tomorrow)).toBe(true);
+    expect(disabledDateFn(yesterday)).toBe(false);
+    wrapper.unmount();
+
+    // 2. 禁用过去日期测试
+    wrapper = mount(AtengDateRange, {
+      props: {
+        disablePast: true,
+      },
+    });
+    const picker2 = wrapper.findComponent(ElDatePicker);
+    const disabledDateFn2 = picker2.props('disabledDate') as (date: Date) => boolean;
+
+    expect(disabledDateFn2(yesterday)).toBe(true);
+    expect(disabledDateFn2(tomorrow)).toBe(false);
   });
 
   it('快捷预置禁用与自定义配置：支持 :shortcuts="false" 关闭或传入自定义项', () => {

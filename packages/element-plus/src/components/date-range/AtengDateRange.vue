@@ -4,9 +4,11 @@
  *
  * 核心特性：
  * 1. 双模数据绑定：同时支持标准数组 v-model="range" 与 v-model:start="s" / v-model:end="e" 双字段解构绑定；
- * 2. 预置快捷自然时间跨度：内置今天、昨天、本周、上周、本月、近7天、近30天快捷筛选；
- * 3. 智能时刻边界对齐：daterange 模式下起始自动补全 00:00:00，结束自动补全 23:59:59；
- * 4. 深度原生透传：100% 继承 ElDatePicker 的全部属性、插槽与事件派发。
+ * 2. 联动表单重置：深度支持外部 resetFields() 或外部字段置空时瞬时清空内部状态，杜绝脏值回弹；
+ * 3. 预置快捷自然时间跨度：内置今天、昨天、近7天、近30天、本周、上周、本月、本季度、本年 9 大自然业务周期；
+ * 4. 智能时刻边界对齐：daterange 模式下起始自动补全 00:00:00，结束自动补全 23:59:59；datetimerange 模式下尊重手动微调；
+ * 5. 禁用策略开箱预置：支持 disableFuture 禁用未来、disablePast 禁用过去、maxRangeDays 动态跨度天数限制；
+ * 6. 深度原生透传：100% 继承 ElDatePicker 的全部属性、插槽与事件派发。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -45,6 +47,9 @@ const props = withDefaults(defineProps<AtengDateRangeProps>(), {
   clearable: true,
   size: undefined,
   defaultTime: undefined,
+  disableFuture: false,
+  disablePast: false,
+  maxRangeDays: undefined,
   disabledDate: undefined,
 });
 
@@ -58,7 +63,13 @@ const datePickerRef = shallowRef<InstanceType<typeof ElDatePicker> | null>(null)
 const internalValue = ref<[DateRangeValue, DateRangeValue] | null>(null);
 
 /**
+ * 当前选择面板中已选中的第一基准日期（用于 maxRangeDays 动态限制跨度）。
+ */
+const selectedBaseDate = ref<Date | null>(null);
+
+/**
  * 监听外部传入的 modelValue 或解构的 start/end，并同步至内部选择器状态。
+ * 针对表单重置（resetFields）与置空动作实现确定性清空联动。
  */
 watch(
   () => [props.modelValue, props.start, props.end] as const,
@@ -68,7 +79,9 @@ watch(
       Array.isArray(newModel) &&
       newModel.length === 2 &&
       newModel[0] != null &&
-      newModel[1] != null
+      newModel[1] != null &&
+      newModel[0] !== '' &&
+      newModel[1] !== ''
     ) {
       internalValue.value = [newModel[0], newModel[1]];
       return;
@@ -80,8 +93,15 @@ watch(
       return;
     }
 
-    // 3. 当 modelValue 为 null，或者 start 与 end 同时为空时，清空内部状态
-    if (newModel === null || (newStart == null && newEnd == null)) {
+    // 3. 当外部字段被重置（置空、null 或 undefined）时，确定性清空内部状态
+    const isStartEmpty = newStart == null || newStart === '';
+    const isEndEmpty = newEnd == null || newEnd === '';
+    const isModelEmpty =
+      newModel == null ||
+      (Array.isArray(newModel) &&
+        (newModel.length === 0 || newModel[0] == null || newModel[0] === ''));
+
+    if (isModelEmpty && (isStartEmpty || isEndEmpty)) {
       internalValue.value = null;
     }
   },
@@ -116,6 +136,55 @@ const resolvedDefaultTime = computed<[Date, Date] | undefined>(() => {
     return [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)];
   }
   return undefined;
+});
+
+/**
+ * 综合禁用日期判定逻辑（整合用户自定义、禁用未来、禁用过去与最大跨度限制）。
+ */
+const effectiveDisabledDate = computed(() => {
+  return (time: Date) => {
+    // 1. 用户自定义 disabledDate 判定最高优先级
+    if (typeof props.disabledDate === 'function' && props.disabledDate(time)) {
+      return true;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 2. 禁用未来日期（大于今天 23:59:59 的时刻置灰）
+    if (props.disableFuture) {
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+      if (time.getTime() > endOfToday.getTime()) {
+        return true;
+      }
+    }
+
+    // 3. 禁用过去日期（小于今天 00:00:00 的时刻置灰）
+    if (props.disablePast) {
+      if (time.getTime() < today.getTime()) {
+        return true;
+      }
+    }
+
+    // 4. 最大跨度天数限制 (选定第一天后动态限制)
+    if (
+      typeof props.maxRangeDays === 'number' &&
+      props.maxRangeDays > 0 &&
+      selectedBaseDate.value
+    ) {
+      const baseTime = selectedBaseDate.value.getTime();
+      const oneDayMs = 24 * 3600 * 1000;
+      const allowedSpanMs = (props.maxRangeDays - 1) * oneDayMs;
+      const minAllowed = baseTime - allowedSpanMs;
+      const maxAllowed = baseTime + allowedSpanMs;
+      if (time.getTime() < minAllowed || time.getTime() > maxAllowed) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 });
 
 /**
@@ -182,6 +251,7 @@ function alignRange(
 function handlePickerUpdate(val: [DateRangeValue, DateRangeValue] | null | undefined): void {
   if (!val || !Array.isArray(val) || val.length < 2 || val[0] == null || val[1] == null) {
     internalValue.value = null;
+    selectedBaseDate.value = null;
     const emptyFallback = props.clearValue !== undefined ? props.clearValue : null;
     emit('update:modelValue', null);
     emit('update:start', emptyFallback);
@@ -209,6 +279,8 @@ function handleChange(val: [DateRangeValue, DateRangeValue] | null): void {
 }
 
 function handleClear(): void {
+  internalValue.value = null;
+  selectedBaseDate.value = null;
   emit('clear');
 }
 
@@ -221,6 +293,11 @@ function handleFocus(event: FocusEvent): void {
 }
 
 function handleCalendarChange(dates: [Date, Date | null]): void {
+  if (dates && dates[0] && !dates[1]) {
+    selectedBaseDate.value = dates[0];
+  } else {
+    selectedBaseDate.value = null;
+  }
   emit('calendar-change', dates);
 }
 
@@ -229,6 +306,9 @@ function handlePanelChange(dates: [Date, Date], mode: string, view: string): voi
 }
 
 function handleVisibleChange(visibility: boolean): void {
+  if (!visibility) {
+    selectedBaseDate.value = null;
+  }
   emit('visible-change', visibility);
 }
 
@@ -275,7 +355,7 @@ defineExpose<AtengDateRangeExpose>({
     :disabled="disabled"
     :clearable="clearable"
     :size="size"
-    :disabled-date="disabledDate"
+    :disabled-date="effectiveDisabledDate"
     v-bind="$attrs"
     @update:model-value="handlePickerUpdate"
     @change="handleChange"

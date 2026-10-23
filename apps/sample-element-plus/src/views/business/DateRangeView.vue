@@ -58,10 +58,10 @@ const customShortcuts: DateRangeShortcut[] = [
 ];
 const customRange = ref<[DateRangeValue, DateRangeValue] | null>(null);
 
-// 仅允许选择过去 90 天内且不大于今天
-const disabledFutureDate = (time: Date) => {
-  return time.getTime() > Date.now();
-};
+// 5. 禁用策略状态 (Ticket #116 新增)
+const disableFutureRange = ref<[DateRangeValue, DateRangeValue] | null>(null);
+const disablePastRange = ref<[DateRangeValue, DateRangeValue] | null>(null);
+const maxRangeDaysValue = ref<[DateRangeValue, DateRangeValue] | null>(null);
 
 const handleResetQuery = () => {
   queryParams.startTime = '';
@@ -71,11 +71,11 @@ const handleResetQuery = () => {
 
 <template>
   <div class="date-range-view">
-    <ElCard header="快捷时间范围选择器 AtengDateRange">
+    <ElCard header="快捷时间范围选择器 AtengDateRange (Ticket #116 增强)">
       <ElAlert
         title="组件核心能力"
         type="info"
-        description="基于 el-date-picker 增强封装：预置今天、昨天、近7天、近30天、本周、上周、本月等常用自然时间跨度；双字段解构绑定协议（v-model:start 与 v-model:end），彻底告别手动拆解数组；默认开启智能时刻对齐（autoTime: true），起始时间对齐 00:00:00，截止时间对齐 23:59:59，杜绝边界丢失。"
+        description="基于 el-date-picker 增强封装：开箱内置今天、昨天、近7天、近30天、本周、上周、本月、本季度、本年 9 大常用自然业务周期；双字段解构绑定协议（v-model:start 与 v-model:end）与表单重置深度联动；默认开启智能时刻对齐（autoTime: true），起始时间对齐 00:00:00，截止时间对齐 23:59:59；开箱支持 disableFuture 禁用未来、disablePast 禁用过去以及 maxRangeDays 最大跨度天数限制。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -84,8 +84,10 @@ const handleResetQuery = () => {
       <!-- 1. 双字段解构绑定演示 -->
       <div class="demo-section">
         <div class="section-title">
-          <span>1. 双字段解构绑定协议 (v-model:start / v-model:end)</span>
-          <ElButton size="small" @click="handleResetQuery"> 重置表单时间 </ElButton>
+          <span>1. 双字段解构绑定协议 (v-model:start / v-model:end 与表单重置联动)</span>
+          <ElButton type="warning" size="small" @click="handleResetQuery">
+            一键清空重置表单
+          </ElButton>
         </div>
         <ElForm :model="queryParams" label-width="140px" class="demo-form">
           <ElFormItem label="统计时间范围">
@@ -143,27 +145,71 @@ const handleResetQuery = () => {
 
       <!-- 3. 预置与自定义自然时间快捷跨度 -->
       <div class="demo-section">
-        <div class="section-title">3. 基础自然跨度与自定义快捷项扩展</div>
+        <div class="section-title">3. 9 大预置自然周期与自定义快捷项扩展 (Ticket #116)</div>
         <ElForm label-width="140px" class="demo-form">
-          <ElFormItem label="预置自然跨度">
+          <ElFormItem label="预置 9 大自然跨度">
             <AtengDateRange
               v-model="basicRange"
               value-format="YYYY-MM-DD"
               format="YYYY-MM-DD"
               style="width: 380px"
             />
-            <span class="value-hint">点击输入框查看内置 7 大自然时间选项</span>
+            <span class="value-hint"
+              >点击查看内置 9 大自然周期：今天/昨天/近7天/近30天/本周/上周/本月/本季度/本年</span
+            >
           </ElFormItem>
 
           <ElFormItem label="自定义快捷项">
             <AtengDateRange
               v-model="customRange"
               :shortcuts="customShortcuts"
-              :disabled-date="disabledFutureDate"
               value-format="YYYY-MM-DD"
               style="width: 380px"
             />
-            <span class="value-hint">自定义「近 60 天」「本季度」且未来日期禁用</span>
+            <span class="value-hint">自定义「近 60 天」「本季度」扩展</span>
+          </ElFormItem>
+        </ElForm>
+      </div>
+
+      <ElDivider />
+
+      <!-- 4. 禁用策略开箱预置 (Ticket #116 新增) -->
+      <div class="demo-section">
+        <div class="section-title">
+          4. 禁用策略开箱预置 (disableFuture / disablePast / maxRangeDays)
+        </div>
+        <ElForm label-width="180px" class="demo-form">
+          <ElFormItem label="禁用未来 (disableFuture)">
+            <AtengDateRange
+              v-model="disableFutureRange"
+              disable-future
+              value-format="YYYY-MM-DD"
+              placeholder="大于今天的日期置灰"
+              style="width: 380px"
+            />
+            <span class="value-hint">业务日志、历史回溯场景常用</span>
+          </ElFormItem>
+
+          <ElFormItem label="禁用过去 (disablePast)">
+            <AtengDateRange
+              v-model="disablePastRange"
+              disable-past
+              value-format="YYYY-MM-DD"
+              placeholder="小于今天的日期置灰"
+              style="width: 380px"
+            />
+            <span class="value-hint">活动规划、未来排期场景常用</span>
+          </ElFormItem>
+
+          <ElFormItem label="最大跨度 30 天 (maxRangeDays)">
+            <AtengDateRange
+              v-model="maxRangeDaysValue"
+              :max-range-days="30"
+              value-format="YYYY-MM-DD"
+              placeholder="选定第一天后前后限30天"
+              style="width: 380px"
+            />
+            <span class="value-hint">选定起始日后自动动态置灰超出 30 天的日期</span>
           </ElFormItem>
         </ElForm>
       </div>

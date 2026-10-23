@@ -161,7 +161,31 @@ export function getThisMonthRange(baseDate: Date = new Date()): [Date, Date] {
 }
 
 /**
- * 生成默认的高频快捷时间跨度配置项列表。
+ * 获取本季度的时间跨度（当季度首月 1 日 00:00:00 至 当季度最后一天 23:59:59）。
+ *
+ * @param baseDate 基准时间（默认为当前实时时间）
+ */
+export function getThisQuarterRange(baseDate: Date = new Date()): [Date, Date] {
+  const quarterMonth = Math.floor(baseDate.getMonth() / 3) * 3;
+  const start = new Date(baseDate.getFullYear(), quarterMonth, 1, 0, 0, 0, 0);
+  // 季度最后一月即 quarterMonth + 3 的第 0 天
+  const end = new Date(baseDate.getFullYear(), quarterMonth + 3, 0, 23, 59, 59, 0);
+  return [start, end];
+}
+
+/**
+ * 获取本年的时间跨度（当年 1 月 1 日 00:00:00 至 12 月 31 日 23:59:59）。
+ *
+ * @param baseDate 基准时间（默认为当前实时时间）
+ */
+export function getThisYearRange(baseDate: Date = new Date()): [Date, Date] {
+  const start = new Date(baseDate.getFullYear(), 0, 1, 0, 0, 0, 0);
+  const end = new Date(baseDate.getFullYear(), 11, 31, 23, 59, 59, 0);
+  return [start, end];
+}
+
+/**
+ * 生成默认的高频快捷自然时间跨度配置项列表。
  */
 export function getDefaultDateRangeShortcuts(): DateRangeShortcut[] {
   return [
@@ -172,5 +196,7 @@ export function getDefaultDateRangeShortcuts(): DateRangeShortcut[] {
     { text: '本周', value: () => getThisWeekRange() },
     { text: '上周', value: () => getLastWeekRange() },
     { text: '本月', value: () => getThisMonthRange() },
+    { text: '本季度', value: () => getThisQuarterRange() },
+    { text: '本年', value: () => getThisYearRange() },
   ];
 }

@@ -106,6 +106,18 @@ export interface AtengDateRangeProps {
    */
   defaultTime?: [Date, Date];
   /**
+   * 是否禁用未来日期（大于今天 23:59:59 的日期置灰），默认为 false。
+   */
+  disableFuture?: boolean;
+  /**
+   * 是否禁用过去日期（小于今天 00:00:00 的日期置灰），默认为 false。
+   */
+  disablePast?: boolean;
+  /**
+   * 最大允许选择的时间跨度天数（例如 90 天）。选定起始日期后自动动态置灰超出范围的日期。
+   */
+  maxRangeDays?: number;
+  /**
    * 禁用日期函数。
    */
   disabledDate?: (date: Date) => boolean;
