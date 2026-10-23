@@ -27,7 +27,7 @@ import {
 } from 'element-plus';
 import { useUpload, type UploadStatus, type UploadChunkStatus } from '@atengk/vue';
 import type { AtengUploadProps, AtengUploadEmits, AtengUploadExpose } from './types';
-import AtengDialog from '../dialog/AtengDialog.vue';
+import AtengFilePreview from '../file-preview/AtengFilePreview.vue';
 
 defineOptions({
   name: 'AtengUpload',
@@ -44,7 +44,11 @@ const props = withDefaults(defineProps<AtengUploadProps>(), {
   maxSize: undefined,
   accept: undefined,
   showPreview: true,
-  previewTitle: '图片预览',
+  previewTitle: '',
+  previewDialogWidth: '80%',
+  previewHeight: '520px',
+  previewDownloadable: true,
+  beforePreview: undefined,
   showChunkList: true,
   action: '#',
   headers: () => ({}),
@@ -205,49 +209,98 @@ async function handleCustomHttpRequest(options: UploadRequestOptions): Promise<u
   }
 }
 
-// 6. 图片缩略图大图弹窗预览交互
+// 6. 文件多格式在线预览交互 (AtengFilePreview 灯箱集成)
 const previewVisible = ref(false);
-const previewImageUrl = ref('');
-let createdBlobUrl = '';
+const previewUrl = ref('');
+const previewFileName = ref('');
+const previewRawFile = ref<File | Blob | undefined>(undefined);
 
-function handlePreview(uploadFile: UploadFile): void {
+const previewTitleComputed = computed(() => {
+  return props.previewTitle || previewFileName.value || '文件预览';
+});
+
+// 跟踪本地生成的 ObjectURL 映射与当前预览的 ObjectURL
+const createdBlobUrls = new Map<number | string, string>();
+let currentPreviewBlobUrl = '';
+
+function revokeCurrentPreviewBlobUrl(): void {
+  if (currentPreviewBlobUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+    URL.revokeObjectURL(currentPreviewBlobUrl);
+    currentPreviewBlobUrl = '';
+  }
+}
+
+function revokeAllBlobUrls(): void {
+  revokeCurrentPreviewBlobUrl();
+  if (typeof URL !== 'undefined' && URL.revokeObjectURL) {
+    for (const url of createdBlobUrls.values()) {
+      URL.revokeObjectURL(url);
+    }
+  }
+  createdBlobUrls.clear();
+}
+
+async function handlePreview(uploadFile: UploadFile): Promise<void> {
   emit('preview', uploadFile);
 
-  if (!props.showPreview) return;
-
-  const isImage =
-    uploadFile.raw?.type?.startsWith('image/') ||
-    /\.(png|jpe?g|gif|webp|svg)$/i.test(uploadFile.name || '');
-
-  if (isImage) {
-    if (createdBlobUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-      URL.revokeObjectURL(createdBlobUrl);
-      createdBlobUrl = '';
-    }
-
-    if (uploadFile.url) {
-      previewImageUrl.value = uploadFile.url;
-    } else if (uploadFile.raw && typeof URL !== 'undefined' && URL.createObjectURL) {
-      createdBlobUrl = URL.createObjectURL(uploadFile.raw);
-      previewImageUrl.value = createdBlobUrl;
-    }
-    previewVisible.value = true;
+  // 上传中防误触保护守卫
+  if (uploadFile.status === 'uploading' || (props.chunk && uploading.value)) {
+    ElMessage.warning('文件正在上传中，请稍候预览');
+    return;
   }
+
+  // 业务前置拦截钩子
+  if (typeof props.beforePreview === 'function') {
+    const res = props.beforePreview(uploadFile);
+    const shouldContinue = res instanceof Promise ? await res : res;
+    if (shouldContinue === false) {
+      return;
+    }
+  }
+
+  if (!props.showPreview) {
+    return;
+  }
+
+  // 回收上一次预览生成的临时 ObjectURL
+  revokeCurrentPreviewBlobUrl();
+
+  const fileName = uploadFile.name || (uploadFile.raw as File)?.name || 'unknown_file';
+  previewFileName.value = fileName;
+
+  if (uploadFile.url && !uploadFile.url.startsWith('blob:')) {
+    previewUrl.value = uploadFile.url;
+    previewRawFile.value = undefined;
+  } else if (uploadFile.raw && typeof URL !== 'undefined' && URL.createObjectURL) {
+    const blobUrl = URL.createObjectURL(uploadFile.raw);
+    currentPreviewBlobUrl = blobUrl;
+    if (uploadFile.uid != null) {
+      createdBlobUrls.set(uploadFile.uid, blobUrl);
+    }
+    previewUrl.value = blobUrl;
+    previewRawFile.value = uploadFile.raw;
+  } else if (uploadFile.url) {
+    if (uploadFile.uid != null) {
+      createdBlobUrls.set(uploadFile.uid, uploadFile.url);
+    }
+    previewUrl.value = uploadFile.url;
+    previewRawFile.value = undefined;
+  } else {
+    previewUrl.value = '';
+    previewRawFile.value = undefined;
+  }
+
+  previewVisible.value = true;
 }
 
 function handlePreviewClose(): void {
   previewVisible.value = false;
-  if (createdBlobUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-    URL.revokeObjectURL(createdBlobUrl);
-    createdBlobUrl = '';
-  }
+  revokeCurrentPreviewBlobUrl();
+  emit('preview-close');
 }
 
 onUnmounted(() => {
-  if (createdBlobUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-    URL.revokeObjectURL(createdBlobUrl);
-    createdBlobUrl = '';
-  }
+  revokeAllBlobUrls();
 });
 
 // 7. 进度条状态文本转换
@@ -296,6 +349,30 @@ function handleChange(file: UploadFile, fileList: UploadFiles): void {
 }
 
 function handleRemove(file: UploadFile, fileList: UploadFiles): void {
+  if (
+    previewVisible.value &&
+    (previewFileName.value === file.name || (file.uid != null && createdBlobUrls.has(file.uid)))
+  ) {
+    previewVisible.value = false;
+    revokeCurrentPreviewBlobUrl();
+  }
+
+  if (file.uid != null && createdBlobUrls.has(file.uid)) {
+    const url = createdBlobUrls.get(file.uid);
+    if (url && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+      URL.revokeObjectURL(url);
+    }
+    createdBlobUrls.delete(file.uid);
+  }
+  if (
+    file.url &&
+    file.url.startsWith('blob:') &&
+    typeof URL !== 'undefined' &&
+    URL.revokeObjectURL
+  ) {
+    URL.revokeObjectURL(file.url);
+  }
+
   emit('remove', file, fileList);
 }
 
@@ -321,6 +398,10 @@ function handleUpdateFileList(fileList: UploadUserFile[]): void {
 
 // 9. 控制门面方法
 function clearFiles(): void {
+  if (previewVisible.value) {
+    previewVisible.value = false;
+  }
+  revokeAllBlobUrls();
   uploadRef.value?.clearFiles();
 }
 
@@ -341,6 +422,8 @@ defineExpose<AtengUploadExpose>({
   reset: resetChunkUpload,
   clearFiles,
   submit,
+  previewFile: handlePreview,
+  closePreview: handlePreviewClose,
 });
 </script>
 
@@ -482,20 +565,25 @@ defineExpose<AtengUploadExpose>({
       </div>
     </div>
 
-    <!-- 图片大图缩略图预览弹窗 -->
-    <ateng-dialog
-      v-model="previewVisible"
-      :title="previewTitle"
-      width="600px"
-      :show-confirm="false"
-      cancel-text="关闭"
-      :append-to-body="false"
+    <!-- 多格式文件在线预览灯箱 (集成 AtengFilePreview) -->
+    <ateng-file-preview
+      v-if="showPreview"
+      mode="dialog"
+      :visible="previewVisible"
+      :title="previewTitleComputed"
+      :url="previewUrl"
+      :file="previewRawFile"
+      :name="previewFileName"
+      :dialog-width="previewDialogWidth"
+      :height="previewHeight"
+      :downloadable="previewDownloadable"
+      @update:visible="val => (previewVisible = val)"
       @close="handlePreviewClose"
     >
-      <div class="at-upload__preview-body">
-        <img :src="previewImageUrl" class="at-upload__preview-img" alt="预览图" />
-      </div>
-    </ateng-dialog>
+      <template v-if="$slots['preview-unsupported']" #unsupported="slotScope">
+        <slot name="preview-unsupported" v-bind="slotScope" />
+      </template>
+    </ateng-file-preview>
   </div>
 </template>
 
@@ -610,18 +698,11 @@ defineExpose<AtengUploadExpose>({
     }
   }
 
-  &__preview-body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-  }
-
-  &__preview-img {
-    max-width: 100%;
-    max-height: 500px;
-    object-fit: contain;
-    border-radius: var(--el-border-radius-base, 4px);
+  :deep(.el-upload-list__item.is-uploading .el-upload-list__item-name),
+  :deep(.el-upload-list__item.is-uploading .el-upload-list__item-preview),
+  :deep(.el-upload-list__item.is-uploading .el-icon--zoom-in) {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 </style>

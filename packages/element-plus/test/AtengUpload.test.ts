@@ -4,11 +4,12 @@
  * 核心验证维度：
  * 1. 基础渲染与样式隔离（.at-upload）；
  * 2. 文件大小与格式前置拦截（maxSize 与 accept 校验）；
- * 3. 图片缩略图大图弹窗预览交互与 DOM 生命周期清理；
- * 4. 分片切片模式（:chunk="true"）与 useUpload 状态机无缝集成；
- * 5. 切片上传全流程联动（customUploadChunk、customMerge、进度调度与完成回调）；
- * 6. 暂停、继续、取消与状态控制操作；
- * 7. defineExpose 暴露能力完整性。
+ * 3. 多格式多媒体文件在线预览灯箱装配（AtengFilePreview 深度集成）；
+ * 4. beforePreview 业务层显式前置拦截与放行契约；
+ * 5. 上传中（uploading）过渡态预览防误触守卫；
+ * 6. 确定性生命周期与内存回收：本地 Blob 临时 ObjectURL 在关闭弹窗、移除文件与组件卸载时确定性释放；
+ * 7. 分片切片模式（:chunk="true"）与 useUpload 状态机无缝集成（暂停、继续、取消）；
+ * 8. defineExpose 暴露能力完整性。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -17,9 +18,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick, unref } from 'vue';
-import { ElUpload } from 'element-plus';
+import { ElUpload, ElMessage, type UploadFile, type UploadRawFile } from 'element-plus';
 import { AtengUpload } from '../src/components/upload';
-import type { UploadRawFile } from 'element-plus';
+import { AtengFilePreview } from '../src/components/file-preview';
 
 describe('AtengUpload 上传套件交互与切片状态机测试', () => {
   let wrapper: VueWrapper | null = null;
@@ -99,33 +100,268 @@ describe('AtengUpload 上传套件交互与切片状态机测试', () => {
     expect(acceptPdfResult).toBe(true);
   });
 
-  it('图片预览弹窗：点击图片预览时打开预览弹窗并展示图片', async () => {
+  it('多格式在线预览集成：点击列表项呼出 AtengFilePreview 全屏灯箱并装配多媒体格式推导', async () => {
     wrapper = mount(AtengUpload, {
       props: {
         showPreview: true,
-        previewTitle: '测试预览大图',
+        previewTitle: '统一文件预览',
       },
     });
 
-    const mockImageFile = {
+    const uploader = wrapper.findComponent(ElUpload);
+
+    // 1. 测试图片格式文件预览
+    const mockImageFile: UploadFile = {
       name: 'banner.jpg',
       url: 'https://example.com/banner.jpg',
-      raw: new File([''], 'banner.jpg', { type: 'image/jpeg' }) as UploadRawFile,
-      uid: 1,
-      status: 'success' as const,
+      uid: 101,
+      status: 'success',
     };
-
-    // 模拟触发 preview 事件
-    const uploader = wrapper.findComponent(ElUpload);
     uploader.vm.$emit('preview', mockImageFile);
     await nextTick();
 
     expect(wrapper.emitted('preview')).toBeTruthy();
+    let filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.exists()).toBe(true);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('url')).toBe('https://example.com/banner.jpg');
+    expect(filePreview.props('name')).toBe('banner.jpg');
+    expect(filePreview.props('title')).toBe('统一文件预览');
 
-    // 检查预览图片与弹窗可见
-    const previewImg = wrapper.find('.at-upload__preview-img');
-    expect(previewImg.exists()).toBe(true);
-    expect(previewImg.attributes('src')).toBe('https://example.com/banner.jpg');
+    // 2. 测试 PDF 格式文件预览
+    const mockPdfFile: UploadFile = {
+      name: 'annual_report.pdf',
+      url: 'https://example.com/annual_report.pdf',
+      uid: 102,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', mockPdfFile);
+    await nextTick();
+
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('url')).toBe('https://example.com/annual_report.pdf');
+    expect(filePreview.props('name')).toBe('annual_report.pdf');
+
+    // 3. 测试音视频媒体文件预览
+    const mockVideoFile: UploadFile = {
+      name: 'demo.mp4',
+      url: 'https://example.com/demo.mp4',
+      uid: 103,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', mockVideoFile);
+    await nextTick();
+
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('url')).toBe('https://example.com/demo.mp4');
+
+    // 4. 测试代码文件格式预览
+    const mockCodeFile: UploadFile = {
+      name: 'config.json',
+      url: 'https://example.com/config.json',
+      uid: 104,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', mockCodeFile);
+    await nextTick();
+
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('name')).toBe('config.json');
+
+    // 5. 测试未知类型文件降级
+    const mockUnknownFile: UploadFile = {
+      name: 'archive.tar.gz',
+      url: 'https://example.com/archive.tar.gz',
+      uid: 105,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', mockUnknownFile);
+    await nextTick();
+
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('name')).toBe('archive.tar.gz');
+  });
+
+  it('beforePreview 前置拦截守卫：配置 beforePreview 返回 false 时成功阻断预览弹窗呼出', async () => {
+    const beforePreviewMock = vi.fn().mockImplementation((file: UploadFile) => {
+      // 拦截含有 secret 的文件
+      return !file.name.includes('secret');
+    });
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        showPreview: true,
+        beforePreview: beforePreviewMock,
+      },
+    });
+
+    const uploader = wrapper.findComponent(ElUpload);
+
+    // 1. 尝试预览机密文件 -> 应被阻断
+    const secretFile: UploadFile = {
+      name: 'secret-contract.pdf',
+      url: 'https://example.com/secret.pdf',
+      uid: 201,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', secretFile);
+    await nextTick();
+
+    expect(beforePreviewMock).toHaveBeenCalledWith(secretFile);
+    let filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(false);
+
+    // 2. 尝试预览公开普通文件 -> 正常放行呼出
+    const publicFile: UploadFile = {
+      name: 'public-guide.png',
+      url: 'https://example.com/guide.png',
+      uid: 202,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', publicFile);
+    await nextTick();
+
+    expect(beforePreviewMock).toHaveBeenCalledWith(publicFile);
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+  });
+
+  it('beforePreview 异步前置拦截守卫：支持返回 Promise<boolean> 阻断或放行', async () => {
+    const asyncBeforePreview = vi.fn().mockImplementation(async (file: UploadFile) => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      return file.name.endsWith('.png');
+    });
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        showPreview: true,
+        beforePreview: asyncBeforePreview,
+      },
+    });
+
+    const uploader = wrapper.findComponent(ElUpload);
+
+    // 1. 异步阻断
+    const rejectedFile: UploadFile = {
+      name: 'archive.zip',
+      url: 'https://example.com/archive.zip',
+      uid: 203,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', rejectedFile);
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await nextTick();
+
+    let filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(false);
+
+    // 2. 异步放行
+    const allowedFile: UploadFile = {
+      name: 'photo.png',
+      url: 'https://example.com/photo.png',
+      uid: 204,
+      status: 'success',
+    };
+    uploader.vm.$emit('preview', allowedFile);
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await nextTick();
+
+    filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+  });
+
+  it('上传中状态受控防误触：处于 uploading 状态的文件点击预览被前置拦截并弹出提示', async () => {
+    const warningSpy = vi.spyOn(ElMessage, 'warning');
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        showPreview: true,
+      },
+    });
+
+    const uploadingFile: UploadFile = {
+      name: 'large-data.zip',
+      url: '',
+      uid: 301,
+      status: 'uploading',
+    };
+
+    const uploader = wrapper.findComponent(ElUpload);
+    uploader.vm.$emit('preview', uploadingFile);
+    await nextTick();
+
+    expect(warningSpy).toHaveBeenCalledWith('文件正在上传中，请稍候预览');
+    const filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(false);
+  });
+
+  it('确定性生命周期与内存回收：本地 Blob 临时 ObjectURL 在关闭弹窗、移除文件与组件卸载时确定性释放', async () => {
+    const createObjectURLMock = vi.fn().mockReturnValue('blob:http://localhost:3000/mock-uuid-1');
+    const revokeObjectURLMock = vi.fn();
+    vi.stubGlobal('URL', {
+      createObjectURL: createObjectURLMock,
+      revokeObjectURL: revokeObjectURLMock,
+    });
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        showPreview: true,
+      },
+    });
+
+    const rawFile = new File(['local binary data'], 'local-sheet.png', {
+      type: 'image/png',
+    });
+    const localUploadFile: UploadFile = {
+      name: 'local-sheet.png',
+      raw: rawFile as UploadRawFile,
+      uid: 401,
+      status: 'ready',
+    };
+
+    const uploader = wrapper.findComponent(ElUpload);
+
+    // 1. 点击预览本地选取的文件 -> 应调用 createObjectURL 生成临时地址
+    uploader.vm.$emit('preview', localUploadFile);
+    await nextTick();
+
+    expect(createObjectURLMock).toHaveBeenCalledWith(rawFile);
+    const filePreview = wrapper.findComponent(AtengFilePreview);
+    expect(filePreview.props('visible')).toBe(true);
+    expect(filePreview.props('url')).toBe('blob:http://localhost:3000/mock-uuid-1');
+
+    // 2. 场景 A：关闭预览弹窗 -> 必须且只能确定性调用 revokeObjectURL 释放句柄
+    filePreview.vm.$emit('close');
+    await nextTick();
+
+    expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:http://localhost:3000/mock-uuid-1');
+    expect(wrapper.emitted('preview-close')).toBeTruthy();
+
+    // 3. 场景 B：再次打开后通过从列表中移除文件（handleRemove）触发回收
+    uploader.vm.$emit('preview', localUploadFile);
+    await nextTick();
+    expect(filePreview.props('visible')).toBe(true);
+
+    uploader.vm.$emit('remove', localUploadFile, []);
+    await nextTick();
+
+    expect(revokeObjectURLMock).toHaveBeenCalled();
+    expect(filePreview.props('visible')).toBe(false);
+
+    // 4. 场景 C：重新预览并触发组件卸载 -> 确定性释放所有在管句柄
+    uploader.vm.$emit('preview', localUploadFile);
+    await nextTick();
+
+    wrapper.unmount();
+    wrapper = null;
+
+    expect(revokeObjectURLMock).toHaveBeenCalled();
   });
 
   it('分片模式集成：支持开启 :chunk="true"，调度 customUploadChunk 与 customMerge 完成切片上传', async () => {
@@ -223,7 +459,7 @@ describe('AtengUpload 上传套件交互与切片状态机测试', () => {
     expect(unref(exposed.uploadStatus)).toBe('canceled');
   });
 
-  it('对外暴露能力：defineExpose 完整暴露原生 uploadRef 与状态机控制句柄', () => {
+  it('对外暴露能力：defineExpose 完整暴露原生 uploadRef、控制句柄与编程式预览门面', () => {
     wrapper = mount(AtengUpload, {
       props: {
         chunk: true,
@@ -243,6 +479,8 @@ describe('AtengUpload 上传套件交互与切片状态机测试', () => {
       reset: unknown;
       clearFiles: unknown;
       submit: unknown;
+      previewFile: unknown;
+      closePreview: unknown;
     };
 
     expect(exposed.uploadRef).toBeDefined();
@@ -257,5 +495,7 @@ describe('AtengUpload 上传套件交互与切片状态机测试', () => {
     expect(typeof exposed.reset).toBe('function');
     expect(typeof exposed.clearFiles).toBe('function');
     expect(typeof exposed.submit).toBe('function');
+    expect(typeof exposed.previewFile).toBe('function');
+    expect(typeof exposed.closePreview).toBe('function');
   });
 });

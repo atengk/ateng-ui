@@ -1,6 +1,13 @@
 <script setup lang="ts">
 /**
- * 多源大文件切片上传器 AtengUpload 自验页面。
+ * 多源大文件切片上传器与多媒体文件在线预览套件 AtengUpload 自验页面。
+ *
+ * 核心验证维度：
+ * 1. 深度组装 AtengFilePreview 灯箱：支持图片、PDF、音视频、代码文本在线预览及未知格式降级下载；
+ * 2. beforePreview 业务前置守卫：显式拦截机密文件或异步阻断；
+ * 3. 上传中（uploading）过渡态预览防误触保护；
+ * 4. 确定性内存回收：本地 Blob 临时 ObjectURL 句柄随弹窗关闭或移除确定性销毁；
+ * 5. 大文件分片切片模式（:chunk="true"）与断点续传/暂停/取消控制。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -15,7 +22,9 @@ import {
   ElMessage,
   ElTag,
   ElProgress,
+  ElSwitch,
   type UploadUserFile,
+  type UploadFile,
 } from 'element-plus';
 import {
   AtengUpload,
@@ -24,15 +33,83 @@ import {
 } from '@atengk/element-plus';
 import type { UploadChunkItem } from '@atengk/vue';
 
-// 1. 基础图片直传文件列表与预览
-const imageFileList = ref<UploadUserFile[]>([
+// 1. 多格式文件列表（涵盖图片、PDF、音视频、代码与未知格式）
+const multiFormatFileList = ref<UploadUserFile[]>([
   {
     name: 'logo-avatar.png',
     url: 'https://fuss10.elemecdn.com/e/5d/4a731a90594a4af544c0c25941171jpeg.jpeg',
   },
+  {
+    name: 'enterprise-agreement.pdf',
+    url: 'https://cdn.atengk.com/storage/sample-agreement.pdf',
+  },
+  {
+    name: 'system-overview.mp4',
+    url: 'https://cdn.atengk.com/storage/sample-video.mp4',
+  },
+  {
+    name: 'welcome-podcast.mp3',
+    url: 'https://cdn.atengk.com/storage/sample-audio.mp3',
+  },
+  {
+    name: 'gateway-config.json',
+    url: 'https://cdn.atengk.com/storage/sample-config.json',
+  },
+  {
+    name: 'secret-audit-report.pdf',
+    url: 'https://cdn.atengk.com/storage/secret-audit.pdf',
+  },
+  {
+    name: 'database-backup.dump',
+    url: 'https://cdn.atengk.com/storage/db-backup.dump',
+  },
 ]);
 
-// 2. 切片上传实例引用与模拟状态
+// 2. beforePreview 守卫配置开关与日志
+const enableSecretGuard = ref(true);
+const previewLogs = ref<string[]>([]);
+
+const handleBeforePreview = (file: UploadFile): boolean => {
+  previewLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] 触发 beforePreview 钩子校验：${file.name}`,
+  );
+  if (enableSecretGuard.value && file.name.includes('secret')) {
+    ElMessage.error(`【前置守卫拦截】文件 "${file.name}" 属于绝密档案，禁止在当前终端调阅预览！`);
+    previewLogs.value.unshift(
+      `[${new Date().toLocaleTimeString()}] 拦截成功：阻止预览 "${file.name}"`,
+    );
+    return false;
+  }
+  previewLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] 放行预览：呼出 AtengFilePreview 灯箱`,
+  );
+  return true;
+};
+
+const handlePreviewClose = () => {
+  previewLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] 预览灯箱已关闭，执行 ObjectURL 确定性回收`,
+  );
+};
+
+// 添加模拟刚选取的本地 Blob 文件（测试确定性内存释放）
+const handleAddLocalBlobFile = () => {
+  const fakeBlob = new Blob(['console.log("local blob test");'], { type: 'text/javascript' });
+  const rawFile = new File([fakeBlob], `local-script-${Date.now().toString().slice(-4)}.js`, {
+    type: 'text/javascript',
+  });
+  multiFormatFileList.value.push({
+    name: rawFile.name,
+    raw: rawFile as unknown as File,
+    status: 'ready',
+    uid: Date.now(),
+  });
+  ElMessage.success(
+    `已添加本地待上传文件 "${rawFile.name}"，点击列表项即可调起本地 ObjectURL 预览并在关闭后自动释放`,
+  );
+};
+
+// 3. 切片上传实例引用与模拟状态
 const uploadRef = ref<AtengUploadInstance | null>(null);
 const chunkLogs = ref<string[]>([]);
 const isChunkCompleted = ref(false);
@@ -64,7 +141,6 @@ const handleCustomMerge = async (params: UploadMergeParams): Promise<{ fileUrl: 
   chunkLogs.value.unshift(
     `[${new Date().toLocaleTimeString()}] 触发服务端合并请求：总分片数 ${params.totalChunks}，文件 ${(params.file.size / 1024 / 1024).toFixed(2)} MB ...`,
   );
-  // 模拟合并延迟 800ms
   await new Promise(resolve => setTimeout(resolve, 800));
   isChunkCompleted.value = true;
   chunkLogs.value.unshift(`[${new Date().toLocaleTimeString()}] 服务端合并完成！`);
@@ -79,7 +155,6 @@ const handleSimulateChunkFile = async () => {
     `[${new Date().toLocaleTimeString()}] 构造 15MB 模拟大文件并启动分片上传状态机 ...`,
   );
 
-  // 构造一个 15MB 的模拟 Blob 假文件
   const buffer = new Uint8Array(15 * 1024 * 1024);
   const fakeFile = new File([buffer], 'enterprise-large-asset.zip', {
     type: 'application/zip',
@@ -127,41 +202,66 @@ const handleReset = () => {
 
 <template>
   <div class="upload-view">
-    <ElCard header="多源大文件切片上传器 AtengUpload">
+    <ElCard header="多源大文件切片上传与多媒体预览套件 AtengUpload">
       <ElAlert
-        title="组件核心能力"
+        title="次核心基石套件深度集成"
         type="info"
-        description="双模合一上传套件：原生直传模式下内置文件类型拦截（accept）与文件体积前置防御（maxSize）；内置图片缩略图大图弹窗预览；开启 chunk 模式时，自动深度绑定 @atengk/vue 的 useUpload 核心状态机，支持大文件自动分片、并发控制、切片重试、暂停、恢复、秒级取消及自定义合并闭环。"
+        description="AtengUpload 深度组装 AtengFilePreview 全屏灯箱，点击已上传或待上传列表中的图片、PDF、音视频、代码文本或未知格式，即可自动根据 MIME 或扩展名推导展示，未知格式优雅降级为本地下载；支持 beforePreview 显式前置拦截；针对本地 Blob 临时 ObjectURL 句柄提供 100% 确定性内存回收；集成 useUpload 状态机支持超大文件分片、并发与断点续传。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
       />
 
-      <!-- 1. 基础图片直传与大图弹窗预览 -->
+      <!-- 1. 多格式多媒体预览与前置守卫 -->
       <div class="demo-section">
-        <div class="section-title">1. 基础图片直传增强（缩略图、大图弹窗预览、格式与体积拦截）</div>
+        <div class="section-title">
+          <span>1. 多格式文件在线预览灯箱与 beforePreview 守卫演示</span>
+          <div class="action-buttons">
+            <span class="guard-label">机密拦截守卫 (含 'secret')：</span>
+            <ElSwitch
+              v-model="enableSecretGuard"
+              inline-prompt
+              active-text="开"
+              inactive-text="关"
+            />
+            <ElButton size="small" type="primary" plain @click="handleAddLocalBlobFile">
+              + 添加本地待上传文件 (测试 ObjectURL 回收)
+            </ElButton>
+          </div>
+        </div>
+
         <div class="upload-box">
           <AtengUpload
-            v-model:file-list="imageFileList"
-            list-type="picture-card"
+            v-model:file-list="multiFormatFileList"
+            list-type="text"
             :show-preview="true"
-            preview-title="用户营业执照预览"
-            accept="image/png,image/jpeg"
-            :max-size="5 * 1024 * 1024"
+            preview-title="AtengFilePreview 深度集成预览"
+            :max-size="10 * 1024 * 1024"
             action="/api/mock/upload"
             :auto-upload="false"
+            :before-preview="handleBeforePreview"
+            @preview-close="handlePreviewClose"
             @size-exceed="(file, max) => ElMessage.error(`文件超出 ${max / 1024 / 1024}MB 限制`)"
             @type-reject="file => ElMessage.error(`非法文件格式: ${file.name}`)"
           >
-            <div class="upload-trigger">
-              <span class="trigger-icon">+</span>
-              <span class="trigger-text">选择图片</span>
-            </div>
+            <ElButton type="primary">选择文件上传</ElButton>
+            <template #tip>
+              <div class="sub-hint">
+                💡 提示：点击列表中的各项文件可呼出 AtengFilePreview
+                全屏灯箱（支持图片/PDF/视频/音频/代码/未知降级），点击 "secret-audit-report.pdf"
+                可体验前置拦截。
+              </div>
+            </template>
           </AtengUpload>
         </div>
-        <span class="sub-hint"
-          >提示：点击图片缩略图上的放大镜即可调起内置 AtengDialog 高清预览大图。</span
-        >
+
+        <!-- 预览日志流水 -->
+        <div v-if="previewLogs.length > 0" class="log-box" style="margin-top: 14px">
+          <div class="log-title">预览交互与前置拦截日志：</div>
+          <div v-for="(log, idx) in previewLogs" :key="idx" class="log-line">
+            {{ log }}
+          </div>
+        </div>
       </div>
 
       <ElDivider />
@@ -280,37 +380,33 @@ const handleReset = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .action-buttons {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.upload-trigger {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.trigger-icon {
-  font-size: 24px;
-  color: var(--el-text-color-secondary);
-}
-
-.trigger-text {
-  font-size: 12px;
+.guard-label {
+  font-size: 13px;
   color: var(--el-text-color-regular);
-  margin-top: 4px;
+}
+
+.upload-box {
+  background-color: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 16px;
 }
 
 .sub-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 8px;
-  display: inline-block;
+  line-height: 1.5;
 }
 
 .dashboard-panel {
@@ -348,6 +444,8 @@ const handleReset = () => {
   font-size: 12px;
   padding: 12px 16px;
   border-radius: 4px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .log-title {

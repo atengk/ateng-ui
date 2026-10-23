@@ -99,8 +99,16 @@ function resolveResourceUrl(): void {
 }
 
 watch(
-  () => [props.url, props.file, props.content],
+  () => [props.url, props.file, props.content, props.visible],
   () => {
+    if (props.mode === 'dialog' && !props.visible) {
+      if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
+        URL.revokeObjectURL(objectUrl.value);
+        objectUrl.value = '';
+        isLocalBlob.value = false;
+      }
+      return;
+    }
     resolveResourceUrl();
   },
   { immediate: true },
@@ -150,6 +158,16 @@ function download(): void {
 
 // 弹窗关闭
 function handleDialogClose(): void {
+  if (
+    props.mode === 'dialog' &&
+    objectUrl.value &&
+    isLocalBlob.value &&
+    typeof URL !== 'undefined'
+  ) {
+    URL.revokeObjectURL(objectUrl.value);
+    objectUrl.value = '';
+    isLocalBlob.value = false;
+  }
   emit('update:visible', false);
   emit('close');
 }
@@ -252,21 +270,26 @@ defineExpose<AtengFilePreviewExpose>({
         :title="title || computedFileName || '文件在线预览'"
         :width="dialogWidth"
         append-to-body
+        destroy-on-close
         class="at-file-preview__dialog"
         @close="handleDialogClose"
       >
         <div class="at-file-preview__dialog-body">
-          <!-- 递归复用自身内嵌视图，直接传递用户配置的高度 -->
+          <!-- 递归复用自身内嵌视图，直接传递用户配置的高度与解析后的地址 -->
           <AtengFilePreview
+            v-if="visible"
             mode="inline"
-            :url="url"
-            :file="file"
+            :url="currentUrl"
             :content="content"
-            :name="name"
+            :name="computedFileName"
             :file-type="fileType"
             :downloadable="false"
             :height="height"
-          />
+          >
+            <template v-if="$slots.unsupported" #unsupported="slotScope">
+              <slot name="unsupported" v-bind="slotScope" />
+            </template>
+          </AtengFilePreview>
         </div>
 
         <template #footer>

@@ -76,13 +76,29 @@ export interface AtengUploadProps<T = unknown> {
    */
   accept?: string;
   /**
-   * 是否开启图片缩略图大图弹窗预览，默认为 true。
+   * 是否开启文件在线预览灯箱（集成 AtengFilePreview），默认为 true。
    */
   showPreview?: boolean;
   /**
-   * 图片预览弹窗标题，默认为 "图片预览"。
+   * 文件预览弹窗标题，默认为 "文件预览"（未指定时优先取文件名）。
    */
   previewTitle?: string;
+  /**
+   * 文件预览弹窗宽度，默认为 '80%'。
+   */
+  previewDialogWidth?: string | number;
+  /**
+   * 文件预览视口高度，默认为 '520px'。
+   */
+  previewHeight?: string | number;
+  /**
+   * 文件预览弹窗中是否展示一键下载按钮，默认为 true。
+   */
+  previewDownloadable?: boolean;
+  /**
+   * 点击预览文件之前的钩子。若返回 false 则阻断默认预览弹窗弹出。
+   */
+  beforePreview?: (file: UploadFile) => boolean | void | Promise<boolean | void>;
   /**
    * 分片模式下是否展示各个分片的进度明细列表，默认为 true。
    */
@@ -164,6 +180,7 @@ export interface AtengUploadEmits<T = unknown> {
   (e: 'update:fileList', fileList: UploadUserFile[]): void;
   (e: 'change', uploadFile: UploadFile, uploadFiles: UploadFiles): void;
   (e: 'preview', uploadFile: UploadFile): void;
+  (e: 'preview-close'): void;
   (e: 'remove', uploadFile: UploadFile, uploadFiles: UploadFiles): void;
   (e: 'success', response: unknown, uploadFile: UploadFile, uploadFiles: UploadFiles): void;
   (e: 'error', error: Error, uploadFile: UploadFile, uploadFiles: UploadFiles): void;
@@ -229,4 +246,12 @@ export interface AtengUploadExpose<T = unknown> {
    * 手动提交上传。
    */
   submit: () => void;
+  /**
+   * 手动呼出预览灯箱预览指定文件。
+   */
+  previewFile: (file: UploadFile) => Promise<void>;
+  /**
+   * 关闭当前展示的文件预览灯箱。
+   */
+  closePreview: () => void;
 }
