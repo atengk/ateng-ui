@@ -29,8 +29,8 @@
 | **页面容器** | 容器自适应流式网格   | `AtengGrid`                                                                                           | `minItemWidth`, `gap`, `rowGap`, `columnGap`, `cols`                                                                                                                                                                                                                                                    | 纯 CSS 原生驱动；采用 `grid-template-columns: repeat(auto-fill, minmax(minItemWidth, 1fr))` 实现无断点完美流式自适应；内置 `container-type: inline-size` 现代容器查询，完美适配 SplitLayout 拖拽调宽与抽屉/弹窗等变宽容器，零 JS ResizeObserver 性能损耗与抖动                                                                                                                                                                                                                                                              | [`AtengGrid.test.ts`](./test/AtengGrid.test.ts)<br>`/layout/grid`                               |
 | **页面容器** | 安全防篡改水印容器   | `AtengWatermark`                                                                                      | `text`, `image`, `width`, `height`, `rotate`, `gap`, `zIndex`, `font`, `opacity`                                                                                                                                                                                                                        | 采用纯原生 Canvas 离屏离线生成高清 Base64 Data URL 注入背景层，高 DPI 视网膜抗锯齿；标配 MutationObserver 监听水印节点样式篡改与 DOM 物理删除，微任务队列强制重绘自愈主动防御                                                                                                                                                                                                                                                                                                                                               | [`AtengWatermark.test.ts`](./test/AtengWatermark.test.ts)<br>`/layout/watermark`                |
 | **页面骨架** | 页面骨架屏占位容器   | `AtengPageSkeleton`                                                                                   | `loading`, `type: 'table' \| 'form' \| 'detail' \| 'card' \| 'dashboard' \| 'custom'`, `rows`, `columns`, `animated`                                                                                                                                                                                    | 内置 table/form/detail/card/dashboard 5 大后台形态预设（dashboard 包含 4 张指标卡与双图表区块）；现代 CSS Grid auto-fit + minmax 流式自适应布局；平滑淡入淡出过渡消除突变                                                                                                                                                                                                                                                                                                                                                   | [`AtengPageSkeleton.test.ts`](./test/AtengPageSkeleton.test.ts)<br>`/layout/skeleton`           |
-| **查询套件** | 响应式搜索表单容器   | `AtengQueryForm`                                                                                      | `model`, `cols`, `collapsedRows`, `collapsed`, `defaultCollapsed`, `showCollapse`, `autoSearchOnReset`, `@search`, `@reset`                                                                                                                                                                             | 24 栅格自适应布局与基于容器 `ResizeObserver` 的 1~4 列自适应断点（<768px 单列 / <1200px 双列 / <1920px 三列 / ≥1920px 四列）；支持 `collapsedRows` 自定义折叠常驻行数；`autoSearchOnReset` 控制重置时是否自动触发查询；展开/收起平滑过渡与查询/重置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                                                                                                                | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`                |
-| **表格套件** | 企业级核心表格容器   | `<AtengTable<T>>`                                                                                     | `:pagination`, `:data`, `:columns`, `rowKey`, `tools`, `storageKey`, `density`, `stripe`, `autoHeight`, `enableColumnResize`, `minResizeWidth`, `searchEmptyDescription`                                                                                                                                | Vue 3.5 SFC 原生泛型组件；渐进混合列架构；深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏；原生表头列宽拖拽调整、40px 最小防塌陷与 storageKey 本地持久化记忆还原/Popover 重置；搜索感知多态缺省态与一键清空自愈联动；纯原生 HTML5 拖拽列排序；`autoHeight` 视口高度自适应；跨页多选保持与底部粘滞批量操作条                                                                                                                                                                                                      | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
+| **查询套件** | 响应式搜索表单容器   | `AtengQueryForm`                                                                                      | `:pagination`, `:enter-search`, `model`, `cols`, `collapsedRows`, `collapsed`, `defaultCollapsed`, `showCollapse`, `autoSearchOnReset`, `@search`, `@reset`                                                                                                                                             | 24 栅格自适应布局与基于容器 `ResizeObserver` 的 1~4 列自适应断点（<768px 单列 / <1200px 双列 / <1920px 三列 / ≥1920px 四列）；支持 `:pagination` 零胶水直连分页状态机；内置 `:enter-search` 默认回车即搜；支持 `collapsedRows` 自定义折叠常驻行数；`autoSearchOnReset` 控制重置时是否自动触发查询；展开/收起平滑过渡与查询/重置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                                    | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`                |
+| **表格套件** | 企业级核心表格容器   | `<AtengTable<T>>`                                                                                     | `:pagination`, `:reserve-selection`, `selection`, `v-model:selectedKeys`, `v-model:selectedRows`, `:data`, `:columns`, `rowKey`, `tools`, `storageKey`, `density`, `stripe`, `autoHeight`, `enableColumnResize`, `minResizeWidth`, `searchEmptyDescription`                                             | Vue 3.5 SFC 原生泛型组件；渐进混合列架构；深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏；原生表头列宽拖拽调整、40px 最小防塌陷与 storageKey 本地持久化记忆还原/Popover 重置；搜索感知多态缺省态与一键清空自愈联动；纯原生 HTML5 拖拽列排序；`autoHeight` 视口高度自适应；支持 `:reserve-selection` 跨页多选记忆保持与底部粘滞批量操作条，支持 `v-model:selectedKeys` / `v-model:selectedRows` 双向受控绑定                                                                                                     | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
 | **表格协同** | 表格表单协同上下文   | `ATENG_TABLE_CONTEXT_KEY`                                                                             | `InjectionKey<AtengTableContext>`                                                                                                                                                                                                                                                                       | `AtengTable` 与 `AtengQueryForm` 跨组件层级的 Provide/Inject 自动化双向联动通道（查询传递、重置联动与多态缺省态清空自愈），消灭业务胶水代码                                                                                                                                                                                                                                                                                                                                                                                 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                              |
 | **字典底座** | 字典门面管理器       | `DictManager`                                                                                         | `setProvider`, `loadDict`, `hasCache`, `getCache`, `clearCache`                                                                                                                                                                                                                                         | 纯内存常驻映射、飞行中未决 Promise 毫秒级并发请求合并去重、三级回退加载协议与空安全保底返回 `[]`                                                                                                                                                                                                                                                                                                                                                                                                                            | [`DictManager.test.ts`](./test/dict/DictManager.test.ts)<br>`/business/dict`                    |
 | **字典控件** | 字典下拉选择器       | `AtengDictSelect`                                                                                     | `dictCode`, `loader`, `options`, `v-model`, `multiple`, `filterable`, `clearable`                                                                                                                                                                                                                       | 自动联动 `DictManager` 异步加载字典；支持单选/多选/输入筛选；支持局部 Loader 或静态 options 覆盖                                                                                                                                                                                                                                                                                                                                                                                                                            | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                             |
@@ -625,6 +625,160 @@ if (savedColor) {
 }
 ```
 
+### 19. AtengTable 跨页多选记忆与批量操作 (`reserveSelection` & `useSelection`)
+
+`AtengTable` 原生支持跨页勾选记忆。配置 `:reserve-selection="true"` 时，翻页与切换每页条数将持续保持已选中的数据行，配合 `v-model:selected-keys` 双向受控，彻底告别传统表格翻页即丢失勾选状态的痛点：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengTable } from '@atengk/element-plus';
+import { usePagination } from '@atengk/vue';
+
+interface UserItem {
+  id: string; // 64 位雪花大数 ID
+  name: string;
+}
+
+const pagination = usePagination(fetchUsers);
+const selectedKeys = ref<string[]>([]);
+
+const handleBatchDelete = (users: UserItem[], clear: () => void) => {
+  console.log('批量处理选中的项:', users);
+  clear();
+};
+</script>
+
+<template>
+  <AtengTable
+    :pagination="pagination"
+    row-key="id"
+    :reserve-selection="true"
+    v-model:selected-keys="selectedKeys"
+  >
+    <el-table-column type="selection" width="55" />
+    <el-table-column prop="id" label="ID" />
+    <el-table-column prop="name" label="姓名" />
+
+    <template #batch-actions="{ selectedRows, clearSelection }">
+      <span>已跨页选中 {{ selectedRows.length }} 项</span>
+      <el-button
+        type="danger"
+        size="small"
+        @click="handleBatchDelete(selectedRows, clearSelection)"
+      >
+        批量删除
+      </el-button>
+    </template>
+  </AtengTable>
+</template>
+```
+
+### 20. AtengQueryForm 零胶水直连分页状态机与默认回车即搜 (`pagination` & `enterSearch`)
+
+`AtengQueryForm` 原生支持直接直连 `@atengk/vue` 的 `usePagination` 分页调度状态机。无需在业务层手动编写 `@search="params => pagination.search(params)"` 与 `@reset="pagination.reset()"` 样板代码；同时内置 `enterSearch: true`，在表单内任何输入框敲击回车键即可自动触发查询：
+
+```vue
+<script setup lang="ts">
+import { reactive } from 'vue';
+import { AtengQueryForm } from '@atengk/element-plus';
+import { usePagination } from '@atengk/vue';
+
+const queryModel = reactive({
+  keyword: '',
+  departmentId: '',
+});
+
+const pagination = usePagination(fetchUsers);
+</script>
+
+<template>
+  <!-- 零胶水直连 pagination：搜索与重置全自动由状态机接管，默认回车即搜 -->
+  <AtengQueryForm
+    :model="queryModel"
+    :pagination="pagination"
+    :enter-search="true"
+    :collapsed-rows="1"
+  >
+    <el-form-item label="关键字" prop="keyword">
+      <el-input v-model="queryModel.keyword" placeholder="回车即搜..." clearable />
+    </el-form-item>
+    <el-form-item label="部门" prop="departmentId">
+      <el-input v-model="queryModel.departmentId" placeholder="部门编号" clearable />
+    </el-form-item>
+  </AtengQueryForm>
+</template>
+```
+
+### 21. AtengDialog 与 AtengDrawer 表单自动校验流转与优雅防误关 (`formRef` & `confirmOnClose`)
+
+面向复杂表单弹窗/抽屉场景，`AtengDialog` 与 `AtengDrawer` 原生支持通过 `:form-ref` 绑定内嵌表单实例，确定性在触发确认动作前自动执行前置校验。校验失败时就地阻断并保留错误现场；支持 `:confirm-on-close="true"` 二次防误关确认，杜绝用户误触丢失编辑中内容：
+
+```vue
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import { AtengDialog } from '@atengk/element-plus';
+import type { FormInstance } from 'element-plus';
+
+const visible = ref(false);
+const formRef = ref<FormInstance>();
+const formData = reactive({ name: '', email: '' });
+const rules = {
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+};
+
+const handleConfirm = async () => {
+  // 仅在 formRef 前置校验 100% 通过后才会执行到此处，并自动开启 loading
+  await apiSubmit(formData);
+};
+</script>
+
+<template>
+  <AtengDialog
+    v-model="visible"
+    title="新建项目"
+    :form-ref="formRef"
+    :confirm-on-close="true"
+    :before-confirm="handleConfirm"
+  >
+    <el-form ref="formRef" :model="formData" :rules="rules" label-width="80px">
+      <el-form-item label="名称" prop="name">
+        <el-input v-model="formData.name" />
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="formData.email" />
+      </el-form-item>
+    </el-form>
+  </AtengDialog>
+</template>
+```
+
+### 22. AtengDescriptions 声明式一键复制与统一空安全保底 (`copyable` & `emptyText`)
+
+`AtengDescriptions` 深度践行“内存真明文契约”，配置 `:copyable="true"` 可在容器级或单项级一键开启剪贴板复制。复制时严格提取脱敏前的原始明文数据；空值统一保底对齐企业规范 `'--'`，且空值项绝不呈现复制按钮：
+
+```vue
+<script setup lang="ts">
+import { AtengDescriptions, AtengDescriptionsItem } from '@atengk/element-plus';
+
+const userDetail = {
+  username: 'ateng_admin',
+  phone: '13812345678',
+  email: '', // 空值将自动保底显示 '--' 且不展示复制图标
+};
+</script>
+
+<template>
+  <!-- copyable 容器级开启，空值自动统一保底显示 '--' -->
+  <AtengDescriptions :data="userDetail" :column="3" border copyable>
+    <AtengDescriptionsItem prop="username" label="登录账号" />
+    <!-- 视图脱敏显示为 138****5678，点击复制按钮真实复制明文 13812345678 -->
+    <AtengDescriptionsItem prop="phone" label="手机号码" mask="phone" />
+    <AtengDescriptionsItem prop="email" label="企业邮箱" />
+  </AtengDescriptions>
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -692,7 +846,11 @@ if (savedColor) {
 26. **现代等宽数字 Tabular Nums 防抖与微动效平衡不变量 (Tabular Nums & Anti-Jitter Invariant)**：
     - 主题引擎在表格单元格、统计指标及卡片中全局强制开启 `font-variant-numeric: tabular-nums`，确保数字列在动态递增或高频刷新时绝对等宽，根除表格列宽微幅左右跳动的视觉抖动缺陷；同时表格 Hover 状态统一采用 150ms 优雅淡入缓动，兼顾极致流畅度与科技品质感；
 27. **弹窗/抽屉 GPU 硬件合成图层与分帧挂载防掉帧防线 (Modal Layer Promotion & Deferred Mount Invariant)**：
-    - 遮罩层彻底剥离全屏 `backdrop-filter` 避免动效期间 100vw*100vh 动态高斯模糊吞噬显存与 GPU 算力；弹窗与抽屉提升为独立 GPU 合成图层（`will-change`, `transform: translateZ(0)`）；支持开箱即用的 `:lazy-render="true"`，在 250ms 展开动效完成后（`@opened`）再平滑挂载重型业务节点，首帧 100% 独占主线程，彻底消除大页面打开弹窗时的掉帧卡顿。
+    - 遮罩层彻底剥离全屏 `backdrop-filter` 避免动效期间 100vw*100vh 动态高斯模糊吞噬显存与 GPU 算力；弹窗与抽屉提升为独立 GPU 合成图层（`will-change`, `transform: translateZ(0)`）；支持开箱即用的 `:lazy-render="true"`，在 250ms 展开动效完成后（`@opened`）再平滑挂载重型业务节点，首帧 100% 独占主线程，彻底消除大页面打开弹窗时的掉帧卡顿；
+28. **表单自动前置校验流转与防误关二次确认不变量 (Form Validation & Safe Close Invariant)**：
+    - `AtengDialog` 与 `AtengDrawer` 支持 `:form-ref` 绑定内嵌表单，在点击确定时自动触发 `validate()`，若校验不通过确定性阻断并保留错误高亮，不触发 `beforeConfirm` 亦不开启 loading；若开启 `:confirm-on-close`，在用户点击右上角关闭、遮罩层或按 ESC 时弹出 `ElMessageBox.confirm` 二次确认弹窗，用户确认关闭才关闭，取消则安全留在当前编辑态；
+29. **详情内存真明文一键复制与统一空安全保底不变量 (In-Memory Plaintext Copy & Descriptions Invariant)**：
+    - `AtengDescriptions` 开启 `:copyable` 时，复制内容严格提取原始未脱敏明文数据，绝不复制脱敏掩码脏数据；空值（`null`、`undefined`、`''`）统一保底对齐企业规范 `'--'`，且空值字段绝对不展示复制图标，避免复制无意义的占位符。
 
 ---
 
