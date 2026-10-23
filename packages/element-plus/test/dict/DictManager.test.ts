@@ -154,4 +154,62 @@ describe('DictManager 架构契约与并发控制测试', () => {
     const res3 = await isolated.loadDict('error_code');
     expect(res3).toEqual([]);
   });
+
+  it('批量预取：setBatchProvider 注册与 preload 批量拉取', async () => {
+    const mockBatchMap: Record<string, DictItem[]> = {
+      gender: [{ label: '男', value: 1 }],
+      status: [{ label: '开启', value: 1 }],
+    };
+    const mockBatchProvider = vi.fn().mockResolvedValue(mockBatchMap);
+    DictManager.setBatchProvider(mockBatchProvider);
+    expect(DictManager.getBatchProvider()).toBe(mockBatchProvider);
+
+    const res = await DictManager.preload(['gender', 'status']);
+    expect(res).toEqual(mockBatchMap);
+    expect(mockBatchProvider).toHaveBeenCalledWith(['gender', 'status']);
+    expect(DictManager.hasCache('gender')).toBe(true);
+    expect(DictManager.hasCache('status')).toBe(true);
+
+    // 再次调用 preload 包含已缓存项：差异增量过滤，仅拉取未缓存的 notice
+    mockBatchProvider.mockClear();
+    mockBatchProvider.mockResolvedValueOnce({
+      notice: [{ label: '公告', value: '1' }],
+    });
+    const res2 = await DictManager.preload(['gender', 'notice']);
+    expect(mockBatchProvider).toHaveBeenCalledWith(['notice']);
+    expect(res2.gender).toEqual(mockBatchMap.gender);
+    expect(res2.notice).toEqual([{ label: '公告', value: '1' }]);
+  });
+
+  it('批量预取自动降级：未配置 batchProvider 时，preload 自动并发回退至 loadDict', async () => {
+    const isolated = new DictManagerClass();
+    const mockProvider = vi
+      .fn()
+      .mockImplementation(async code => [{ label: `${code}-label`, value: `${code}-val` }]);
+    isolated.setProvider(mockProvider);
+
+    const res = await isolated.preload(['code_1', 'code_2']);
+    expect(res.code_1).toEqual([{ label: 'code_1-label', value: 'code_1-val' }]);
+    expect(res.code_2).toEqual([{ label: 'code_2-label', value: 'code_2-val' }]);
+    expect(isolated.hasCache('code_1')).toBe(true);
+    expect(isolated.hasCache('code_2')).toBe(true);
+
+    // 再次 preload 已全部缓存的编码：零网络请求
+    mockProvider.mockClear();
+    const resCached = await isolated.preload(['code_1', 'code_2']);
+    expect(mockProvider).not.toHaveBeenCalled();
+    expect(resCached.code_1).toEqual([{ label: 'code_1-label', value: 'code_1-val' }]);
+  });
+
+  it('批量预取边界容错：空数组或异常时保底返回 {}，绝不崩溃', async () => {
+    const isolated = new DictManagerClass();
+    const res1 = await isolated.preload([]);
+    expect(res1).toEqual({});
+
+    isolated.setBatchProvider(async () => {
+      throw new Error('批量接口挂了');
+    });
+    const res2 = await isolated.preload(['err_1', 'err_2']);
+    expect(res2).toEqual({ err_1: [], err_2: [] });
+  });
 });

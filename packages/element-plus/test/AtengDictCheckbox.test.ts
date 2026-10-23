@@ -272,4 +272,32 @@ describe('AtengDictCheckbox 字典多选框组组件交互与契约测试', () =
 
     wrapper.unmount();
   });
+
+  it('AtengDictCheckbox 自定义字段映射与 border 边框选项支持', async () => {
+    const rawOptions = [
+      { roleName: '管理员', roleKey: 'admin' },
+      { roleName: '审计员', roleKey: 'auditor' },
+    ];
+
+    const wrapper = mount(AtengDictCheckbox, {
+      props: {
+        options: rawOptions,
+        fieldNames: { label: 'roleName', value: 'roleKey' },
+        border: true,
+        modelValue: ['admin'],
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.el-checkbox').length).toBe(2);
+    });
+
+    const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+    expect(checkboxes[0].props('border')).toBe(true);
+    expect(checkboxes[1].props('border')).toBe(true);
+    expect(checkboxes[0].text()).toBe('管理员');
+    expect(checkboxes[1].text()).toBe('审计员');
+
+    wrapper.unmount();
+  });
 });

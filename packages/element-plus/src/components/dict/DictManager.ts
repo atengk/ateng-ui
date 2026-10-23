@@ -7,7 +7,7 @@
  * @since 2026-10-21
  */
 
-import type { DictItem, DictProvider, DictLoader } from './types';
+import type { DictItem, DictProvider, DictLoader, DictBatchProvider } from './types';
 
 /**
  * 字典管理器核心实现类。
@@ -29,6 +29,11 @@ export class DictManagerClass {
   private globalProvider: DictProvider | null = null;
 
   /**
+   * 全局批量字典数据源提供者接口。
+   */
+  private batchProvider: DictBatchProvider | null = null;
+
+  /**
    * 注入全局字典提供者函数。
    *
    * @param provider 接收 dictCode 并返回 DictItem 列表的异步提供者
@@ -42,6 +47,22 @@ export class DictManagerClass {
    */
   public getProvider(): DictProvider | null {
     return this.globalProvider;
+  }
+
+  /**
+   * 注入全局批量字典提供者函数。
+   *
+   * @param provider 接收多个 dictCode 数组并返回对应字典映射的异步提供者
+   */
+  public setBatchProvider(provider: DictBatchProvider): void {
+    this.batchProvider = provider;
+  }
+
+  /**
+   * 获取当前配置的全局批量字典提供者函数。
+   */
+  public getBatchProvider(): DictBatchProvider | null {
+    return this.batchProvider;
   }
 
   /**
@@ -60,6 +81,85 @@ export class DictManagerClass {
    */
   public getCache(code: string): DictItem[] | undefined {
     return this.cache.get(code);
+  }
+
+  /**
+   * 批量预加载字典项。
+   *
+   * 核心特性：
+   * 1. 增量差异拉取：自动过滤并剔除已命中内存缓存的编码，杜绝重复网络请求；
+   * 2. 双轨数据源调度：优先使用 batchProvider 批量拉取；未配置时平滑降级为并发 loadDict；
+   * 3. 确定性空安全保底：无数据或异常时保证返回各编码的有效字典列表，绝不抛错阻断业务。
+   *
+   * @param codes 字典业务编码列表
+   * @returns 字典编码对应 DictItem 数组的字典映射字典
+   */
+  public async preload(codes: string[]): Promise<Record<string, DictItem[]>> {
+    const result: Record<string, DictItem[]> = {};
+    if (!Array.isArray(codes) || codes.length === 0) {
+      return result;
+    }
+
+    // 1. 差异增量过滤：提取内存缓存中尚未命中的 codes
+    const missingCodes: string[] = [];
+    for (const code of codes) {
+      if (!code) continue;
+      if (this.cache.has(code)) {
+        result[code] = this.cache.get(code) ?? [];
+      } else {
+        missingCodes.push(code);
+      }
+    }
+
+    // 全部已命中，秒级返回纯内存缓存
+    if (missingCodes.length === 0) {
+      return result;
+    }
+
+    // 2. 若配置了 batchProvider，一次性发起批量请求
+    if (typeof this.batchProvider === 'function') {
+      try {
+        const batchMap = await this.batchProvider(missingCodes);
+        if (batchMap && typeof batchMap === 'object') {
+          for (const code of missingCodes) {
+            const rawItems = batchMap[code];
+            const safeItems = Array.isArray(rawItems) ? rawItems : [];
+            this.cache.set(code, safeItems);
+            result[code] = safeItems;
+          }
+        } else {
+          for (const code of missingCodes) {
+            this.cache.set(code, []);
+            result[code] = [];
+          }
+        }
+        return result;
+      } catch {
+        // 批量拉取异常时降级保底
+        for (const code of missingCodes) {
+          result[code] = [];
+        }
+        return result;
+      }
+    }
+
+    // 3. 未配置 batchProvider 时，自动降级并发调用 loadDict 并去重
+    try {
+      const promises = missingCodes.map(async code => {
+        const items = await this.loadDict(code);
+        return { code, items };
+      });
+      const entries = await Promise.all(promises);
+      for (const { code, items } of entries) {
+        result[code] = items;
+      }
+      return result;
+    } catch {
+      for (const code of missingCodes) {
+        result[code] = [];
+      }
+      return result;
+    }
   }
 
   /**

@@ -13,3 +13,4 @@ import AtengDictTag from './AtengDictTag.vue';
 export { AtengDictSelect, AtengDictRadio, AtengDictCheckbox, AtengDictTag };
 export * from './DictManager';
 export * from './types';
+export * from './utils';

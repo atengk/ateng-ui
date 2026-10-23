@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 字典管理套件 (DictManager / AtengDictSelect / AtengDictRadio / AtengDictTag) 自验页面。
+ * 字典管理套件 (DictManager / AtengDictSelect / AtengDictRadio / AtengDictCheckbox / AtengDictTag) 自验页面。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -47,16 +47,16 @@ const mockServerData: Record<string, DictItem[]> = {
     { label: '致命故障', value: 'critical', tagType: 'danger' },
   ],
   sys_user_status: [
-    { label: '正常启用', value: '1', tagType: 'success' },
-    { label: '冻结停用', value: '0', tagType: 'danger' },
-    { label: '审核中', value: '2', tagType: 'warning' },
+    { label: '正常启用', value: 1, tagType: 'success' },
+    { label: '冻结停用', value: 0, tagType: 'danger' },
+    { label: '审核中', value: 2, tagType: 'warning' },
   ],
 };
 
-// 注入模拟全局 Provider，附带 500ms 模拟网络延迟
+// 注入模拟全局 Provider，附带 300ms 模拟网络延迟
 DictManager.setProvider(async (code: string) => {
   serverRequestCount++;
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 300));
   return mockServerData[code] ?? [];
 });
 
@@ -67,10 +67,29 @@ const staticValue = ref<string>('beijing');
 const loaderValue = ref<string>('finance');
 const noticeLevel = ref<string>('medium');
 const buttonNoticeLevel = ref<string>('high');
+const radioBorderLevel = ref<string>('low');
 const checkboxHobbyArray = ref<string[]>(['low', 'high']);
 const checkboxHobbyString = ref<string>('low,critical');
 const statusTagValue = ref<string>('1');
 const multiStatusString = ref<string>('1,0,2');
+
+// Ticket #115 新增：非标字段映射绑定状态
+const mappedSelectValue = ref<number>(901);
+const mappedRadioValue = ref<string>('ali');
+const weakCoerceValue = ref<string>('1'); // 字符串 "1" 对应选项数字 1
+
+// 非标字典选项
+const nonStandardDeptOptions = [
+  { deptName: '架构组', deptId: 901, deptTag: 'success' },
+  { deptName: '基础运维组', deptId: 902, deptTag: 'primary' },
+  { deptName: '大数据智能组', deptId: 903, deptTag: 'warning' },
+];
+
+const nonStandardPayOptions = [
+  { payTitle: '微信支付', payCode: 'wx' },
+  { payTitle: '支付宝', payCode: 'ali' },
+  { payTitle: '银联云闪付', payCode: 'union' },
+];
 
 // 静态字典选项覆盖
 const staticOptions: DictItem[] = [
@@ -103,7 +122,6 @@ const handleTestConcurrency = async () => {
     `[${new Date().toLocaleTimeString()}] 触发 10 次并发请求拉取 sys_user_gender ...`,
   );
 
-  // 10 次并发请求同一字典编码
   const promises = Array.from({ length: 10 }).map(() => DictManager.loadDict('sys_user_gender'));
   await Promise.all(promises);
 
@@ -113,6 +131,18 @@ const handleTestConcurrency = async () => {
   );
   updateCachedCodes();
   ElMessage.success(`并发 10 次成功！实际真实后端请求：${realNetworkCalls} 次`);
+};
+
+const handlePreloadBatch = async () => {
+  requestLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] 触发 DictManager.preload(['sys_notice_level', 'sys_user_status']) ...`,
+  );
+  const res = await DictManager.preload(['sys_notice_level', 'sys_user_status']);
+  requestLogs.value.unshift(
+    `[${new Date().toLocaleTimeString()}] preload 批量预取成功！预热了: ${Object.keys(res).join(', ')}`,
+  );
+  updateCachedCodes();
+  ElMessage.success('preload 批量预加载成功！已存入纯内存缓存');
 };
 
 const handleForceRefresh = async () => {
@@ -141,9 +171,9 @@ onMounted(() => {
   <div class="dict-view">
     <ElCard header="字典基础设施套件 (Dict Suite)">
       <ElAlert
-        title="套件核心能力"
+        title="套件核心能力 (Ticket #115 全维增强)"
         type="info"
-        description="全链路打通企业级字典管理：DictManager 单例具备飞行中并发请求合并去重与纯内存常驻缓存；AtengDictSelect 支持单选/多选/搜索/静态或Loader覆盖；AtengDictRadio 支持传统单选与按钮模式；AtengDictTag 支持单值、多值数组、逗号分隔字符串彩色映射与 '-' 空安全保底。"
+        description="全链路打通企业级字典管理：DictManager 单例具备并发去重、preload 批量增量拉取与纯内存常驻缓存；AtengDictSelect / AtengDictRadio / AtengDictCheckbox / AtengDictTag 全面支持 fieldNames 自定义字段映射与 labelField/valueField 快捷属性，支持 valueType='auto' 弱比对防呆，支持按钮模式与边框样式。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -156,6 +186,9 @@ onMounted(() => {
           <div class="action-buttons">
             <ElButton type="primary" size="small" @click="handleTestConcurrency">
               模拟 10 次高并发请求 (去重验证)
+            </ElButton>
+            <ElButton type="success" size="small" @click="handlePreloadBatch">
+              preload 批量预取 (Ticket #115)
             </ElButton>
             <ElButton type="warning" size="small" @click="handleForceRefresh">
               穿透缓存强制刷新
@@ -186,7 +219,7 @@ onMounted(() => {
       <!-- 2. AtengDictSelect 下拉选择器 -->
       <div class="demo-section">
         <div class="section-title">2. AtengDictSelect 下拉选择器（单选 / 多选 / 筛选）</div>
-        <ElForm label-width="140px" class="demo-form">
+        <ElForm label-width="160px" class="demo-form">
           <ElFormItem label="用户性别 (单选)">
             <AtengDictSelect
               v-model="genderValue"
@@ -239,10 +272,56 @@ onMounted(() => {
 
       <ElDivider />
 
-      <!-- 3. AtengDictRadio 单选组 -->
+      <!-- 3. Ticket #115 新增：自定义字段映射与弱比对自适应 -->
       <div class="demo-section">
-        <div class="section-title">3. AtengDictRadio 单选框组（普通 / 按钮模式）</div>
-        <ElForm label-width="140px" class="demo-form">
+        <div class="section-title">3. 自定义字段映射与类型自适应弱比对 (Ticket #115 核心增强)</div>
+        <ElForm label-width="160px" class="demo-form">
+          <ElFormItem label="字段映射 (fieldNames)">
+            <AtengDictSelect
+              v-model="mappedSelectValue"
+              :options="nonStandardDeptOptions"
+              :field-names="{ label: 'deptName', value: 'deptId', tagType: 'deptTag' }"
+              placeholder="请选择非标部门"
+              style="width: 280px"
+            />
+            <span class="value-hint">绑定值 (deptId): {{ mappedSelectValue }}</span>
+          </ElFormItem>
+
+          <ElFormItem label="快捷属性 (labelField/valueField)">
+            <AtengDictRadio
+              v-model="mappedRadioValue"
+              :options="nonStandardPayOptions"
+              label-field="payTitle"
+              value-field="payCode"
+              border
+            />
+            <span class="value-hint" style="margin-left: 16px"
+              >当前值 (payCode): {{ mappedRadioValue }}</span
+            >
+          </ElFormItem>
+
+          <ElFormItem label="弱比对防呆 (valueType='auto')">
+            <AtengDictSelect
+              v-model="weakCoerceValue"
+              dict-code="sys_user_status"
+              value-type="auto"
+              placeholder="选项数值1与字符'1'自适应"
+              style="width: 280px"
+            />
+            <span class="value-hint">
+              绑定的为字符串 '{{ weakCoerceValue }}' (类型:
+              {{ typeof weakCoerceValue }})，选项真实值为数字 1，完美高亮回显！
+            </span>
+          </ElFormItem>
+        </ElForm>
+      </div>
+
+      <ElDivider />
+
+      <!-- 4. AtengDictRadio 单选组 -->
+      <div class="demo-section">
+        <div class="section-title">4. AtengDictRadio 单选框组（普通 / 按钮 / 边框模式）</div>
+        <ElForm label-width="160px" class="demo-form">
           <ElFormItem label="普通单选框风格">
             <AtengDictRadio v-model="noticeLevel" dict-code="sys_notice_level" />
             <span class="value-hint" style="margin-left: 16px">当前值: {{ noticeLevel }}</span>
@@ -254,22 +333,28 @@ onMounted(() => {
               >当前值: {{ buttonNoticeLevel }}</span
             >
           </ElFormItem>
+
+          <ElFormItem label="边框单选风格 (border)">
+            <AtengDictRadio v-model="radioBorderLevel" dict-code="sys_notice_level" border />
+            <span class="value-hint" style="margin-left: 16px">当前值: {{ radioBorderLevel }}</span>
+          </ElFormItem>
         </ElForm>
       </div>
 
       <ElDivider />
 
-      <!-- 4. AtengDictCheckbox 多选框组 -->
+      <!-- 5. AtengDictCheckbox 多选框组 -->
       <div class="demo-section">
         <div class="section-title">
-          4. AtengDictCheckbox 多选框组（全选 / 按钮风格 / separator解构）
+          5. AtengDictCheckbox 多选框组（全选 / 按钮风格 / separator解构 / border边框）
         </div>
-        <ElForm label-width="140px" class="demo-form">
-          <ElFormItem label="普通多选 (带全选)">
+        <ElForm label-width="160px" class="demo-form">
+          <ElFormItem label="普通多选 (带全选与border)">
             <AtengDictCheckbox
               v-model="checkboxHobbyArray"
               dict-code="sys_notice_level"
               show-check-all
+              border
             />
             <span class="value-hint" style="margin-left: 16px"
               >当前数组: {{ checkboxHobbyArray }}</span
@@ -300,9 +385,11 @@ onMounted(() => {
 
       <ElDivider />
 
-      <!-- 5. AtengDictTag 彩色状态标签 -->
+      <!-- 6. AtengDictTag 彩色状态标签 -->
       <div class="demo-section">
-        <div class="section-title">5. AtengDictTag 彩色状态标签（单值 / 多值 / 空安全保底）</div>
+        <div class="section-title">
+          6. AtengDictTag 彩色状态标签（单值 / 多值 / 字段映射 / 空安全保底）
+        </div>
         <div class="tag-row">
           <span class="row-label">单值展示 (value="1"):</span>
           <AtengDictTag dict-code="sys_user_status" :value="statusTagValue" />
@@ -320,6 +407,15 @@ onMounted(() => {
         <div class="tag-row" style="margin-top: 12px">
           <span class="row-label">多值数组 (value="['admin', 'auditor']"):</span>
           <AtengDictTag dict-code="sys_user_role" :value="['admin', 'auditor']" />
+        </div>
+
+        <div class="tag-row" style="margin-top: 12px">
+          <span class="row-label">非标字段映射 (fieldNames):</span>
+          <AtengDictTag
+            :options="nonStandardDeptOptions"
+            :field-names="{ label: 'deptName', value: 'deptId', tagType: 'deptTag' }"
+            :value="901"
+          />
         </div>
 
         <div class="tag-row" style="margin-top: 12px">

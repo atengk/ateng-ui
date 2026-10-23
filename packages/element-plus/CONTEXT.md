@@ -17,39 +17,39 @@ _Avoid_: SearchForm, FilterBar, QueryBox, AtengSearch, SearchPanel
 _Avoid_: DetailView, InfoDescriptions, ProDescriptions
 
 **AtengDictSelect**:
-接入全局 DictManager 单例去重与常驻缓存的下拉字典选择组件。
+接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射与 valueType 弱比对自适应的下拉字典选择组件。
 _Avoid_: DictSelect, EnumSelect, CodeSelect
 
 **AtengDictRadio**:
-接入全局 DictManager 单例去重与常驻缓存的单选框组字典组件。
+接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射与 button 按钮形态的单选框组字典组件。
 _Avoid_: DictRadio, EnumRadio
 
 **AtengDictCheckbox**:
-接入全局 DictManager 单例去重与常驻缓存的多选框组字典组件。
+接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射、button 按钮形态与全选联动的多选框组字典组件。
 _Avoid_: DictCheckbox, EnumCheckbox, DictCheckGroup
 
 **AtengDictTag**:
-基于全局 DictManager 字典项自动映射显示样式与标签的企业级彩色 Tag 组件。
+基于全局 DictManager 字典项自动映射显示样式、支持多值数组/逗号分隔解析与空安全保底的企业级彩色 Tag 组件。
 _Avoid_: DictTag, EnumTag, StatusTag
 
 **DictManager**:
-负责全局字典异步请求并发合并去重与内存常驻缓存的无状态/单例门面管理器。
+负责全局字典异步请求并发合并去重、批量预取（preload/batchProvider）与纯内存常驻缓存的单例门面管理器。
 _Avoid_: DictService, CodeManager, EnumCache
 
 **AtengDateRange**:
-具备常用区间快捷切换与双字段解构绑定的快捷时间范围选择器组件。
+具备常用自然周期快捷切换、双字段解构绑定（v-model:start/end）与 autoTime 时刻智能对齐的快捷时间范围选择器组件。
 _Avoid_: RangePicker, DateRangePicker, QuickDateRange
 
 **AtengExcelFeedback**:
-Excel 导入错误明细在线预览与 Apache Fesod 标红批注回写文件下载弹窗组件。
+Excel 导入错误明细在线预览、标红批注回写文件下载与前端降级防乱码 CSV 纠错清单导出的弹窗组件。
 _Avoid_: ErrorDialog, ExcelModal, FeedbackDialog, ImportResultModal
 
 **AtengExcelExport**:
-具备防重复连击、Loading 锁与表格状态感知的流式 Excel 导出按钮组件。
+接入 ADR-0004 Blob-JSON 双态异常识别防御、具备防重复连击、Loading 锁与表格状态感知的流式 Excel 导出按钮组件。
 _Avoid_: ExportButton, ExcelBtn, Downloader, TableExport
 
 **AtengUpload**:
-统一抽象本地与标准 S3/MinIO 多源存储的直传与分片上传器组件。
+统一抽象本地与标准 S3/MinIO 多源存储的直传与分片上传器，内置 AtengFilePreview 多媒体灯箱预览与 Blob 确定性内存回收。
 _Avoid_: FileUploader, OssUpload, UploadBox, StorageUpload
 
 **AtengDialog**:
@@ -69,7 +69,7 @@ _Avoid_: PageLayout, LayoutPage, PageView, AdminPage, PageWrapper
 _Avoid_: SplitPane, TreeTableLayout, TwoColumn, SplitView, Splitter
 
 **AtengFooterBar**:
-具备自动安全边距占位、ResizeObserver 容器智能锚定自适应避让与双向操作排版的企业级吸底悬浮操作栏容器组件。
+具备自动安全边距占位、ResizeObserver 容器智能锚定自适应避让、预置操作流编排与异步 Promise 自动防重锁的企业级吸底悬浮操作栏容器组件。
 _Avoid_: BottomBar, ActionBar, StickyFooter, SubmitBar, FootToolbar
 
 **AtengCard**:
@@ -93,7 +93,7 @@ _Avoid_: Elevator, FloorNav, ScrollSpy, AffixAnchor, AnchorNav
 _Avoid_: AutoGrid, FlexGrid, ResponsiveLayout, ContainerGrid, FluidGrid
 
 **AtengPageSkeleton**:
-具备列表、表单、详情、卡片网格与仪表盘看板等多形态预设及弹性自适应栅格的页面骨架屏占位容器组件。
+具备列表、表单、详情、卡片网格等多形态预设、弹性自适应栅格与内容插槽包装渐变平滑切换的页面骨架屏占位容器组件。
 _Avoid_: PageLoading, SkeletonView, LayoutSkeleton, ContentSkeleton
 
 **AtengEmpty**:

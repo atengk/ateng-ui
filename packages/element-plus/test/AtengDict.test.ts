@@ -269,4 +269,127 @@ describe('AtengDict* 字典套件组件交互测试', () => {
       expect(vm.matchingItems.length).toBe(1);
     });
   });
+
+  describe('数据字典套件功能增强与字段映射 (Ticket #115 验收测试)', () => {
+    it('AtengDictSelect 自定义字段映射：支持 fieldNames={ label: "deptName", value: "deptId" }', async () => {
+      const customOptions = [
+        { deptName: '研发部', deptId: 101, deptTag: 'success' },
+        { deptName: '市场部', deptId: 102, deptTag: 'warning' },
+      ];
+
+      wrapper = mount(AtengDictSelect, {
+        props: {
+          options: customOptions,
+          fieldNames: {
+            label: 'deptName',
+            value: 'deptId',
+            tagType: 'deptTag',
+          },
+          modelValue: 101,
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const vm = wrapper.vm as unknown as AtengDictSelectExpose;
+      expect(vm.dictItems.length).toBe(2);
+      expect(vm.dictItems[0].label).toBe('研发部');
+      expect(vm.dictItems[0].value).toBe(101);
+      expect(vm.dictItems[0].tagType).toBe('success');
+      expect(vm.dictItems[1].label).toBe('市场部');
+    });
+
+    it('AtengDictSelect 快捷属性与回退链：支持 labelField/valueField 与部分缺失安全回退', async () => {
+      const mixedOptions = [
+        { title: '管理层', id: 'm1' },
+        { label: '标准项', value: 's1' }, // 缺少 title/id，安全回退 label/value
+      ];
+
+      wrapper = mount(AtengDictSelect, {
+        props: {
+          options: mixedOptions,
+          labelField: 'title',
+          valueField: 'id',
+          modelValue: 'm1',
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const vm = wrapper.vm as unknown as AtengDictSelectExpose;
+      expect(vm.dictItems.length).toBe(2);
+      expect(vm.dictItems[0].label).toBe('管理层');
+      expect(vm.dictItems[0].value).toBe('m1');
+      expect(vm.dictItems[1].label).toBe('标准项');
+      expect(vm.dictItems[1].value).toBe('s1');
+    });
+
+    it('valueType="auto" 弱比对防呆：选项为数字 1，绑定模型为字符串 "1" 时精准高亮与回显', async () => {
+      wrapper = mount(AtengDictSelect, {
+        props: {
+          dictCode: 'sys_status', // options: [{ label: '启用', value: 1 }, { label: '停用', value: 0 }]
+          modelValue: '1', // 字符串 "1"
+          valueType: 'auto',
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const vm = wrapper.vm as unknown as AtengDictSelectExpose;
+      expect(vm.dictItems.length).toBe(2);
+      expect(vm.dictItems[0].value).toBe(1);
+
+      // 验证触发 change 时尊重外部字符串习惯
+      const select = wrapper.findComponent({ name: 'ElSelect' });
+      select.vm.$emit('update:modelValue', 0);
+      expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['0']);
+    });
+
+    it('AtengDictRadio 支持 fieldNames 映射与 border 边框选项', async () => {
+      const customOptions = [
+        { codeName: '微信支付', codeVal: 'wx' },
+        { codeName: '支付宝', codeVal: 'ali' },
+      ];
+
+      wrapper = mount(AtengDictRadio, {
+        props: {
+          options: customOptions,
+          fieldNames: { label: 'codeName', value: 'codeVal' },
+          border: true,
+          modelValue: 'wx',
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const radios = wrapper.findAllComponents({ name: 'ElRadio' });
+      expect(radios.length).toBe(2);
+      expect(radios[0].props('border')).toBe(true);
+      expect(wrapper.text()).toContain('微信支付');
+      expect(wrapper.text()).toContain('支付宝');
+    });
+
+    it('AtengDictTag 支持 fieldNames 映射与 valueType="auto" 弱匹配数字与字符', async () => {
+      const statusOptions = [
+        { name: '正常运行', id: 10, color: 'success' },
+        { name: '系统维护', id: 20, color: 'danger' },
+      ];
+
+      wrapper = mount(AtengDictTag, {
+        props: {
+          options: statusOptions,
+          fieldNames: { label: 'name', value: 'id', tagType: 'color' },
+          value: '10', // 字符串 "10"，对应选项中的数字 10
+          valueType: 'auto',
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const tag = wrapper.find('.el-tag');
+      expect(tag.exists()).toBe(true);
+      expect(tag.text()).toBe('正常运行');
+      expect(tag.classes()).toContain('el-tag--success');
+    });
+  });
 });

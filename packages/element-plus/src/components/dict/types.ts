@@ -9,6 +9,37 @@ import type { Ref, ShallowRef, ComputedRef } from 'vue';
 import type { ComponentSize, ElSelect, ElRadioGroup } from 'element-plus';
 
 /**
+ * 字典项自定义字段映射规则契约。
+ */
+export interface DictFieldNames {
+  /**
+   * 字典项显示标签字段名，默认为 'label'。
+   */
+  label?: string;
+  /**
+   * 字典项真实键值字段名，默认为 'value'。
+   */
+  value?: string;
+  /**
+   * 字典项映射的 Tag 语义色彩类别字段名，默认为 'tagType'。
+   */
+  tagType?: string;
+  /**
+   * 是否禁用该字典项的字段名，默认为 'disabled'。
+   */
+  disabled?: string;
+  /**
+   * 自定义扩展 CSS 类名字段名，默认为 'cssClass'。
+   */
+  cssClass?: string;
+}
+
+/**
+ * 键值数据类型自适应转换与比对策略。
+ */
+export type DictValueType = 'auto' | 'string' | 'number';
+
+/**
  * 字典单项数据契约。
  */
 export interface DictItem {
@@ -44,6 +75,11 @@ export interface DictItem {
 export type DictProvider = (code: string) => Promise<DictItem[]>;
 
 /**
+ * 全局批量字典提供者函数签名。
+ */
+export type DictBatchProvider = (codes: string[]) => Promise<Record<string, DictItem[]>>;
+
+/**
  * 组件局部字典加载函数签名。
  */
 export type DictLoader = () => Promise<DictItem[]>;
@@ -63,7 +99,31 @@ export interface AtengDictSelectProps {
   /**
    * 静态字典选项数组（最高优先级）。
    */
-  options?: DictItem[];
+  options?: DictItem[] | Record<string, unknown>[];
+  /**
+   * 自定义字段映射规则对象。
+   */
+  fieldNames?: DictFieldNames;
+  /**
+   * 自定义标签字段名快捷属性。
+   */
+  labelField?: string;
+  /**
+   * 自定义键值字段名快捷属性。
+   */
+  valueField?: string;
+  /**
+   * 自定义 Tag 类别字段名快捷属性。
+   */
+  tagTypeField?: string;
+  /**
+   * 自定义禁用字段名快捷属性。
+   */
+  disabledField?: string;
+  /**
+   * 键值类型弱比对与转换策略，默认为 'auto'。
+   */
+  valueType?: DictValueType;
   /**
    * 双向绑定值（单选为基础类型，多选为数组）。
    */
@@ -167,7 +227,31 @@ export interface AtengDictRadioProps {
   /**
    * 静态字典选项数组。
    */
-  options?: DictItem[];
+  options?: DictItem[] | Record<string, unknown>[];
+  /**
+   * 自定义字段映射规则对象。
+   */
+  fieldNames?: DictFieldNames;
+  /**
+   * 自定义标签字段名快捷属性。
+   */
+  labelField?: string;
+  /**
+   * 自定义键值字段名快捷属性。
+   */
+  valueField?: string;
+  /**
+   * 自定义 Tag 类别字段名快捷属性。
+   */
+  tagTypeField?: string;
+  /**
+   * 自定义禁用字段名快捷属性。
+   */
+  disabledField?: string;
+  /**
+   * 键值类型弱比对与转换策略，默认为 'auto'。
+   */
+  valueType?: DictValueType;
   /**
    * 双向绑定值。
    */
@@ -176,6 +260,10 @@ export interface AtengDictRadioProps {
    * 是否使用按钮风格单选。
    */
   button?: boolean;
+  /**
+   * 是否显示边框。
+   */
+  border?: boolean;
   /**
    * 组件尺寸。
    */
@@ -240,7 +328,31 @@ export interface AtengDictTagProps {
   /**
    * 静态字典选项数组。
    */
-  options?: DictItem[];
+  options?: DictItem[] | Record<string, unknown>[];
+  /**
+   * 自定义字段映射规则对象。
+   */
+  fieldNames?: DictFieldNames;
+  /**
+   * 自定义标签字段名快捷属性。
+   */
+  labelField?: string;
+  /**
+   * 自定义键值字段名快捷属性。
+   */
+  valueField?: string;
+  /**
+   * 自定义 Tag 类别字段名快捷属性。
+   */
+  tagTypeField?: string;
+  /**
+   * 自定义禁用字段名快捷属性。
+   */
+  disabledField?: string;
+  /**
+   * 键值类型弱比对与转换策略，默认为 'auto'。
+   */
+  valueType?: DictValueType;
   /**
    * 待映射展示的当前状态值（支持单值、多值数组、逗号分隔多值字符串）。
    */
@@ -313,7 +425,31 @@ export interface AtengDictCheckboxProps {
   /**
    * 静态字典选项数组。
    */
-  options?: DictItem[];
+  options?: DictItem[] | Record<string, unknown>[];
+  /**
+   * 自定义字段映射规则对象。
+   */
+  fieldNames?: DictFieldNames;
+  /**
+   * 自定义标签字段名快捷属性。
+   */
+  labelField?: string;
+  /**
+   * 自定义键值字段名快捷属性。
+   */
+  valueField?: string;
+  /**
+   * 自定义 Tag 类别字段名快捷属性。
+   */
+  tagTypeField?: string;
+  /**
+   * 自定义禁用字段名快捷属性。
+   */
+  disabledField?: string;
+  /**
+   * 键值类型弱比对与转换策略，默认为 'auto'。
+   */
+  valueType?: DictValueType;
   /**
    * 双向绑定值（支持数组，或配合 separator 的字符串）。
    */
@@ -326,6 +462,10 @@ export interface AtengDictCheckboxProps {
    * 是否使用按钮风格多选。
    */
   button?: boolean;
+  /**
+   * 是否显示边框。
+   */
+  border?: boolean;
   /**
    * 是否展示全选复选框。
    */

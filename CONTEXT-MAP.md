@@ -127,3 +127,7 @@ flowchart TD
 - [ADR-0021: Element Plus 全局样式引擎体系化拓展与全量组件覆盖架构](./docs/adr/0021-element-plus-global-style-engine-and-comprehensive-component-coverage.md)
 - [ADR-0022: Element Plus 全量组件样式大满贯打磨与富媒体/上传/滚动条扩展架构](./docs/adr/0022-element-plus-full-component-style-perfection-and-media-upload-expansion.md)
 - [ADR-0023: 通用容器组件矩阵扩充、视口脱壳全屏与防篡改治理架构](./docs/adr/0023-general-container-components-expansion-and-viewport-governance-architecture.md)
+- [ADR-0024: 弹窗与抽屉渲染性能治理、硬件合成图层与分帧挂载架构](./docs/adr/0024-modal-rendering-performance-layer-governance-and-deferred-mount-architecture.md)
+- [ADR-0025: 状态反馈性能治理、GPU 脉冲动效与组件布局契约深化架构](./docs/adr/0025-feedbacks-performance-governance-and-component-layout-contracts.md)
+- [ADR-0026: 按钮微动效物理学、高反差签名隔离与表单内嵌描边盒模型架构](./docs/adr/0026-button-micro-physics-and-input-inset-box-shadow-architecture.md)
+- [ADR-0027: 次核心基石组件零胶水集成、字段映射与多维健壮性增强架构](./docs/adr/0027-secondary-core-components-zero-glue-and-robustness-architecture.md)

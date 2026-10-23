@@ -4,10 +4,12 @@
  *
  * 核心特性：
  * 1. 深度集成 DictManager 单例并发去重与纯内存常驻缓存；
- * 2. 双向解构支持：支持标准数组 v-model，亦支持配置 separator="," 双向绑定逗号分隔字符串；
- * 3. 视觉形态切换：支持普通多选（el-checkbox）与按钮风格（el-checkbox-button）一键切换（:button="true"）；
- * 4. 全选与半选快捷支持：支持 showCheckAll 展示全选复选框与 indeterminate 状态自适应；
- * 5. 显式收敛对外暴露 refresh() 强制穿透刷新接口与 dictItems 列表。
+ * 2. 支持自定义 fieldNames 映射与 labelField/valueField 快捷属性，结合安全回退链防呆；
+ * 3. 支持 valueType="auto" 弱比对防呆，消除整型 1 与字符 '1' 不匹配导致的选中回显失效；
+ * 4. 双向解构支持：支持标准数组 v-model，亦支持配置 separator="," 双向绑定逗号分隔字符串；
+ * 5. 视觉形态切换：支持普通多选（el-checkbox）与按钮风格（el-checkbox-button）一键切换（:button="true"），支持边框（border）；
+ * 6. 全选与半选快捷支持：支持 showCheckAll 展示全选复选框与 indeterminate 状态自适应；
+ * 7. 显式收敛对外暴露 refresh() 强制穿透刷新接口与 dictItems 列表。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -22,6 +24,7 @@ import type {
   DictItem,
 } from './types';
 import { DictManager } from './DictManager';
+import { normalizeDictItems, isDictValueMatched } from './utils';
 
 defineOptions({
   name: 'AtengDictCheckbox',
@@ -31,9 +34,16 @@ const props = withDefaults(defineProps<AtengDictCheckboxProps>(), {
   dictCode: '',
   loader: undefined,
   options: undefined,
+  fieldNames: undefined,
+  labelField: undefined,
+  valueField: undefined,
+  tagTypeField: undefined,
+  disabledField: undefined,
+  valueType: 'auto',
   modelValue: undefined,
   separator: undefined,
   button: false,
+  border: false,
   showCheckAll: false,
   checkAllText: '全选',
   size: undefined,
@@ -44,34 +54,46 @@ const props = withDefaults(defineProps<AtengDictCheckboxProps>(), {
 const emit = defineEmits<AtengDictCheckboxEmits>();
 
 const checkboxGroupRef = shallowRef<InstanceType<typeof ElCheckboxGroup> | null>(null);
-const internalItems = shallowRef<DictItem[]>([]);
+const internalItems = shallowRef<unknown[]>([]);
 const internalLoading = ref(false);
 
-const effectiveItems = computed<DictItem[]>(() => {
+const rawItems = computed<unknown[]>(() => {
   if (Array.isArray(props.options) && props.options.length > 0) {
     return props.options;
   }
   return internalItems.value;
 });
 
-// 解构为供 ElCheckboxGroup 使用的内部数组
+const effectiveItems = computed<DictItem[]>(() => {
+  return normalizeDictItems(rawItems.value, {
+    fieldNames: props.fieldNames,
+    labelField: props.labelField,
+    valueField: props.valueField,
+    tagTypeField: props.tagTypeField,
+    disabledField: props.disabledField,
+  });
+});
+
+// 解构为供 ElCheckboxGroup 使用的内部数组（支持 weak match 对齐真实 item.value）
 const internalCheckedValues = computed<Array<string | number | boolean>>(() => {
+  let rawList: Array<string | number | boolean> = [];
   if (Array.isArray(props.modelValue)) {
-    return props.modelValue;
-  }
-  if (typeof props.modelValue === 'string' && props.separator) {
+    rawList = props.modelValue;
+  } else if (typeof props.modelValue === 'string' && props.separator) {
     const trimmed = props.modelValue.trim();
-    if (!trimmed) {
-      return [];
+    if (trimmed) {
+      rawList = trimmed
+        .split(props.separator)
+        .map(s => s.trim())
+        .filter(Boolean);
     }
-    const rawStrs = trimmed.split(props.separator).map(s => s.trim());
-    const items = effectiveItems.value;
-    return rawStrs.map(str => {
-      const matched = items.find(item => String(item.value) === str);
-      return matched !== undefined ? matched.value : str;
-    });
   }
-  return [];
+
+  const items = effectiveItems.value;
+  return rawList.map(rawVal => {
+    const matched = items.find(item => isDictValueMatched(item.value, rawVal, props.valueType));
+    return matched !== undefined ? matched.value : rawVal;
+  });
 });
 
 // 计算是否全选
@@ -96,7 +118,7 @@ const isIndeterminate = computed<boolean>(() => {
 async function fetchDictData(force: boolean = false): Promise<DictItem[]> {
   if (Array.isArray(props.options) && props.options.length > 0) {
     internalItems.value = props.options;
-    return props.options;
+    return effectiveItems.value;
   }
 
   if (!props.dictCode && typeof props.loader !== 'function') {
@@ -108,7 +130,7 @@ async function fetchDictData(force: boolean = false): Promise<DictItem[]> {
   try {
     const items = await DictManager.loadDict(props.dictCode, props.loader, force);
     internalItems.value = items;
-    return items;
+    return effectiveItems.value;
   } finally {
     internalLoading.value = false;
   }
@@ -123,13 +145,26 @@ async function refresh(): Promise<DictItem[]> {
 
 // 选中项变动处理
 function handleGroupChange(values: Array<string | number | boolean>): void {
+  let coercedValues: Array<string | number | boolean> = values;
+  if (props.valueType === 'number') {
+    coercedValues = values.map(Number);
+  } else if (props.valueType === 'string') {
+    coercedValues = values.map(String);
+  } else if (props.valueType === 'auto') {
+    if (Array.isArray(props.modelValue) && typeof props.modelValue[0] === 'string') {
+      coercedValues = values.map(String);
+    } else if (Array.isArray(props.modelValue) && typeof props.modelValue[0] === 'number') {
+      coercedValues = values.map(Number);
+    }
+  }
+
   if (props.separator) {
-    const stringVal = values.join(props.separator);
+    const stringVal = coercedValues.join(props.separator);
     emit('update:modelValue', stringVal);
     emit('change', stringVal);
   } else {
-    emit('update:modelValue', values);
-    emit('change', values);
+    emit('update:modelValue', coercedValues);
+    emit('change', coercedValues);
   }
 }
 
@@ -227,6 +262,7 @@ defineExpose<AtengDictCheckboxExpose>({
           :key="String(item.value)"
           :value="item.value"
           :disabled="item.disabled"
+          :border="border"
           :class="item.cssClass"
         >
           <slot name="checkbox" :item="item">
