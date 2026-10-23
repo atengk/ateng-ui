@@ -5,7 +5,7 @@
  * 1. 彻底移除 2012 拟物果冻反光线与 text-shadow；
  * 2. 沉稳天鹅绒主题色 Primary 按钮 (无刺眼荧光感，跟随当前预设动态换肤)；
  * 3. Linear / Vercel 签名级高反差按钮 (.is-contrast / .el-button--contrast)；
- * 4. 冷钛金 Secondary 与 Ghost 按钮，带 scale(0.975) 阻尼按压微动效；
+ * 4. 冷钛金 Secondary 与 Ghost 按钮，标配 scale(0.98) 纯阻尼按压微动效；
  * 5. 全面适配深浅双模与键盘 focus-visible 焦点环。
  *
  * @author Ateng
@@ -13,28 +13,30 @@
  */
 
 // ========================================================
-// 1. 按钮基础微物理与阻尼按压动效
+// 1. 按钮基础微物理与阻尼按压动效 (Pure Damped Press)
 // ========================================================
 .el-button {
   font-family: inherit;
   font-weight: 500;
   border-radius: var(--el-border-radius-base);
   transition:
-    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transform 0.12s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   text-shadow: none; // 彻底根除拟物文字阴影
 
   &:not(.is-disabled):not(.is-loading) {
-    &:hover {
-      transform: translateY(-1px);
-    }
-
+    // 彻底剥离 Hover 阶段物理位移 (禁用 translateY)，保持排版基准线稳固，杜绝抖动与虚焦
     &:active {
-      transform: scale(0.975);
+      transform: scale(0.98); // 纯阻尼微缩放
     }
+  }
+
+  // 区分指针与键盘导航：鼠标点击不残留破坏性轮廓，仅键盘 Tab 触发激光聚焦环
+  &:focus {
+    outline: none;
   }
 
   &:focus-visible {
@@ -46,7 +48,7 @@
 // ========================================================
 // 2. Primary 主按钮 (天鹅绒沉稳主色，无果冻反光线)
 // ========================================================
-.el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
+.el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]):not(.is-contrast) {
   --el-button-bg-color: var(--el-color-primary);
   --el-button-text-color: #ffffff;
   --el-button-border-color: var(--el-color-primary);
@@ -70,11 +72,14 @@
     &:hover {
       background-color: var(--el-color-primary-light-3);
       border-color: transparent;
+      color: #ffffff;
       box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.35);
     }
 
     &:active {
       background-color: var(--el-color-primary-dark-2);
+      border-color: transparent;
+      color: #ffffff;
       box-shadow: 0 1px 2px rgba(var(--el-color-primary-rgb), 0.3);
     }
   }
@@ -101,6 +106,7 @@ html.dark
     &:hover {
       background-color: var(--el-color-primary);
       border-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
       box-shadow:
         0 2px 10px rgba(0, 0, 0, 0.5),
         0 0 22px -1px rgba(var(--el-color-primary-rgb), 0.5);
@@ -108,6 +114,8 @@ html.dark
 
     &:active {
       background-color: var(--el-color-primary-dark-2);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
     }
   }
@@ -116,8 +124,9 @@ html.dark
 // ========================================================
 // 3. Linear / Vercel 签名级高反差主按钮 (.is-contrast)
 // ========================================================
-.el-button--contrast,
-.el-button--primary.is-contrast {
+.el-button.el-button--contrast,
+.el-button.el-button--primary.is-contrast,
+.el-button.is-contrast {
   font-weight: 600;
   letter-spacing: -0.01em;
 
@@ -131,7 +140,7 @@ html.dark
   --el-button-active-bg-color: #0f172a;
   --el-button-active-border-color: #0f172a;
 
-  // 浅色模式：极黑曜石底 + 纯白文字
+  // 浅色模式：极黑曜石底 + 纯白文字 (绝不受 Primary 色阶覆盖)
   background-color: #090d16;
   color: #ffffff;
   border-color: #090d16;
@@ -144,18 +153,21 @@ html.dark
       background-color: #1e293b;
       border-color: #1e293b;
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
     }
 
     &:active {
       background-color: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
     }
   }
 }
 
 // 暗黑模式下：纯白底 + 纯黑文字 (极致反差与权威感)
-html.dark .el-button--contrast,
-html.dark .el-button--primary.is-contrast {
+html.dark .el-button.el-button--contrast,
+html.dark .el-button.el-button--primary.is-contrast,
+html.dark .el-button.is-contrast {
   --el-button-bg-color: #f8fafc;
   --el-button-text-color: #07090e;
   --el-button-border-color: #ffffff;
@@ -184,6 +196,8 @@ html.dark .el-button--primary.is-contrast {
 
     &:active {
       background-color: #cbd5e1;
+      border-color: #cbd5e1;
+      color: #07090e;
     }
   }
 }
@@ -266,6 +280,22 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-success-rgb), 0.2);
+
+  &:not(.is-disabled):not(.is-loading) {
+    &:hover {
+      background-color: var(--el-color-success-light-3);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(var(--el-color-success-rgb), 0.35);
+    }
+
+    &:active {
+      background-color: var(--el-color-success-dark-2);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(var(--el-color-success-rgb), 0.3);
+    }
+  }
 }
 
 .el-button--warning:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
@@ -284,6 +314,22 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-warning-rgb), 0.2);
+
+  &:not(.is-disabled):not(.is-loading) {
+    &:hover {
+      background-color: var(--el-color-warning-light-3);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(var(--el-color-warning-rgb), 0.35);
+    }
+
+    &:active {
+      background-color: var(--el-color-warning-dark-2);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(var(--el-color-warning-rgb), 0.3);
+    }
+  }
 }
 
 .el-button--danger:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
@@ -302,6 +348,22 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-danger-rgb), 0.2);
+
+  &:not(.is-disabled):not(.is-loading) {
+    &:hover {
+      background-color: var(--el-color-danger-light-3);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(var(--el-color-danger-rgb), 0.35);
+    }
+
+    &:active {
+      background-color: var(--el-color-danger-dark-2);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(var(--el-color-danger-rgb), 0.3);
+    }
+  }
 }
 
 .el-button--info:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]) {
@@ -320,4 +382,20 @@ html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(var(--el-color-info-rgb), 0.2);
+
+  &:not(.is-disabled):not(.is-loading) {
+    &:hover {
+      background-color: var(--el-color-info-light-3);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(var(--el-color-info-rgb), 0.35);
+    }
+
+    &:active {
+      background-color: var(--el-color-info-dark-2);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(var(--el-color-info-rgb), 0.3);
+    }
+  }
 }

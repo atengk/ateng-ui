@@ -577,7 +577,7 @@ onUnmounted(() => {
           <AtengCard title="🏆 三轨主按钮体系 (彻底消除拟物果冻反光线与文字阴影)">
             <div class="section-desc mb-3">
               支持 Linear 签名级高反差主按钮
-              (.is-contrast)、天鹅绒沉稳主色按钮与冷钛金次级按钮，标配 scale(0.975) 阻尼微动效。
+              (.is-contrast)、天鹅绒沉稳主色按钮与冷钛金次级按钮，标配 scale(0.98) 纯阻尼微动效。
             </div>
             <div class="btn-cluster mb-3">
               <ElButton type="primary" class="is-contrast">

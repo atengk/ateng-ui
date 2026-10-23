@@ -203,3 +203,19 @@ _Avoid_: FlashSkeleton, DefaultSkeleton, ShimmerWhite
 **Ring-Cut Avatar Group (环切重叠头像组)**:
 基于 8px 负外边距与 2px 环形遮罩（`box-shadow: 0 0 0 2px var(--el-bg-color)`）物理重叠呈现立体景深的团队头像排版规约。
 _Avoid_: OverlapAvatars, StackedAvatars, MergedAvatars
+
+**Pure Damped Press (纯阻尼微缩放)**:
+彻底剥离 Hover 阶段物理坐标位移（禁用 translateY），在 `:active` 按压态仅施加极轻微且稳定的 `scale(0.98)` 阻尼微缩放，消除文字边缘亚像素抖动与界面颠簸。
+_Avoid_: BounceButton, HoverJump, ElasticButton
+
+**Contrast Obsidian Invariant (高反差黑曜石签名)**:
+独立解耦的 Linear / Vercel 签名级按钮（`.is-contrast`），在浅色模式下锁定极黑曜石底与纯白文字，暗黑模式下锁定冷白底与极黑文字，不受动态主题预设覆盖侵蚀。
+_Avoid_: ContrastTheme, InvertedButton, HighContrastBtn
+
+**Inset Box-Shadow Border Model (内嵌阴影描边盒模型)**:
+表单输入层（Input、Select、Textarea）彻底废弃破坏绝对定位子元素盒模型的物理 `border: 1px solid`，对齐 Element Plus 2.x 规范，采用 `box-shadow: 0 0 0 1px var(--el-border-color) inset` 实现精密内描边与激光聚焦环。
+_Avoid_: PhysicalBorder, OuterBorder, BorderHack
+
+**Integrated Stepper Focus-Ring (步进器一体化焦点环)**:
+`ElInputNumber` 减号、加号与中间输入区共享精密清晰的边框分割线，且聚焦时外沿激光聚焦环完整包裹整体组件，消除线条残缺与两端裁切。
+_Avoid_: BrokenStepper, CutRing, SplitNumberInput

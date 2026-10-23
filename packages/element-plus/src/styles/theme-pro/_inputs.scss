@@ -21,30 +21,29 @@
 .el-input__wrapper,
 .el-range-editor.el-input__wrapper {
   background-color: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  border: none; // 剥离破坏盒模型的物理 border，对齐 Element Plus 原生与现代 Box-Shadow Inset 内描边
   border-radius: var(--el-border-radius-base);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
   transition:
-    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+    box-shadow: 0 0 0 1px rgba(var(--el-color-primary-rgb), 0.45) inset;
   }
 
   // 聚焦态 (Laser Focus-Ring 双层激光光晕)
   &.is-focus,
   &:focus-within {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
   }
 
   // 禁用态
   &.is-disabled {
     background-color: var(--el-fill-color-light);
-    border-color: var(--el-border-color-light);
-    box-shadow: none;
+    box-shadow: 0 0 0 1px var(--el-border-color-light) inset;
     cursor: not-allowed;
   }
 }
@@ -53,22 +52,23 @@
 html.dark .el-input__wrapper,
 html.dark .el-range-editor.el-input__wrapper {
   background-color: #121824;
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
   }
 
   &.is-focus,
   &:focus-within {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
   }
 
   &.is-disabled {
     background-color: #0f1522;
-    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   }
 }
 
@@ -77,48 +77,48 @@ html.dark .el-range-editor.el-input__wrapper {
 // ========================================================
 .el-select__wrapper {
   background-color: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  border: none;
   border-radius: var(--el-border-radius-base);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
   transition:
-    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+    box-shadow: 0 0 0 1px rgba(var(--el-color-primary-rgb), 0.45) inset;
   }
 
   &.is-focused {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
   }
 
   &.is-disabled {
     background-color: var(--el-fill-color-light);
-    border-color: var(--el-border-color-light);
-    box-shadow: none;
+    box-shadow: 0 0 0 1px var(--el-border-color-light) inset;
     cursor: not-allowed;
   }
 }
 
 html.dark .el-select__wrapper {
   background-color: #121824;
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
   }
 
   &.is-focused {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
   }
 
   &.is-disabled {
     background-color: #0f1522;
-    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   }
 }
 
@@ -127,44 +127,48 @@ html.dark .el-select__wrapper {
 // ========================================================
 .el-textarea__inner {
   background-color: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  border: none;
   border-radius: var(--el-border-radius-base);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
   transition:
-    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    border-color: rgba(var(--el-color-primary-rgb), 0.35);
+    box-shadow: 0 0 0 1px rgba(var(--el-color-primary-rgb), 0.45) inset;
   }
 
   &:focus {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
     outline: none;
   }
 }
 
 html.dark .el-textarea__inner {
   background-color: #121824;
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
   }
 
   &:focus {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--at-shadow-focus-ring);
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      var(--at-shadow-focus-ring);
   }
 }
 
 // ========================================================
-// 4. 数字步进器 (ElInputNumber)
+// 4. 数字步进器 (ElInputNumber - 精密机械一体化规约)
 // ========================================================
 .el-input-number {
+  border-radius: var(--el-border-radius-base);
+  transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
   .el-input__inner {
     font-variant-numeric: tabular-nums;
   }
@@ -172,12 +176,11 @@ html.dark .el-textarea__inner {
   .el-input-number__decrease,
   .el-input-number__increase {
     background-color: var(--el-fill-color-light);
-    border-color: var(--el-border-color-lighter);
     color: var(--el-text-color-regular);
     transition:
       background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
       color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+      border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
     &:hover {
       background-color: var(--el-fill-color);
@@ -186,23 +189,67 @@ html.dark .el-textarea__inner {
 
     &:active {
       background-color: var(--el-fill-color-dark, var(--el-fill-color));
-      transform: scale(0.92);
     }
   }
 
-  &.is-controls-right {
-    .el-input-number__decrease,
-    .el-input-number__increase {
-      border-left: 1px solid var(--el-border-color-lighter);
+  // 双翼对称控制位置 (默认控制位置：左减右加，清晰精致分隔线)
+  &:not(.is-controls-right) {
+    .el-input-number__decrease {
+      border-right: 1px solid var(--el-border-color);
+      border-top-left-radius: var(--el-border-radius-base);
+      border-bottom-left-radius: var(--el-border-radius-base);
     }
 
     .el-input-number__increase {
-      border-bottom: 1px solid var(--el-border-color-lighter);
+      border-left: 1px solid var(--el-border-color);
+      border-top-right-radius: var(--el-border-radius-base);
+      border-bottom-right-radius: var(--el-border-radius-base);
+    }
+  }
+
+  // 紧凑右翼控制位置 (controls-position="right")
+  &.is-controls-right {
+    .el-input-number__decrease,
+    .el-input-number__increase {
+      border-left: 1px solid var(--el-border-color);
+    }
+
+    .el-input-number__increase {
+      border-bottom: 1px solid var(--el-border-color);
       border-top-right-radius: var(--el-border-radius-base);
     }
 
     .el-input-number__decrease {
       border-bottom-right-radius: var(--el-border-radius-base);
+    }
+  }
+
+  // 步进器聚焦联动 (一体化外延聚焦激光环，消除两端按钮切断裁切)
+  &:focus-within {
+    border-radius: var(--el-border-radius-base);
+    box-shadow: var(--at-shadow-focus-ring);
+
+    .el-input__wrapper {
+      box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+    }
+
+    &:not(.is-controls-right) {
+      .el-input-number__decrease {
+        border-right-color: rgba(var(--el-color-primary-rgb), 0.35);
+      }
+      .el-input-number__increase {
+        border-left-color: rgba(var(--el-color-primary-rgb), 0.35);
+      }
+    }
+
+    &.is-controls-right {
+      .el-input-number__decrease,
+      .el-input-number__increase {
+        border-left-color: rgba(var(--el-color-primary-rgb), 0.35);
+      }
+      .el-input-number__increase {
+        border-bottom-color: rgba(var(--el-color-primary-rgb), 0.35);
+      }
     }
   }
 }
@@ -211,7 +258,6 @@ html.dark .el-input-number {
   .el-input-number__decrease,
   .el-input-number__increase {
     background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.1);
@@ -223,14 +269,44 @@ html.dark .el-input-number {
     }
   }
 
+  &:not(.is-controls-right) {
+    .el-input-number__decrease {
+      border-right-color: rgba(255, 255, 255, 0.12);
+    }
+    .el-input-number__increase {
+      border-left-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
   &.is-controls-right {
     .el-input-number__decrease,
     .el-input-number__increase {
-      border-left-color: rgba(255, 255, 255, 0.08);
+      border-left-color: rgba(255, 255, 255, 0.12);
     }
 
     .el-input-number__increase {
-      border-bottom-color: rgba(255, 255, 255, 0.08);
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  &:focus-within {
+    &:not(.is-controls-right) {
+      .el-input-number__decrease {
+        border-right-color: rgba(var(--el-color-primary-rgb), 0.5);
+      }
+      .el-input-number__increase {
+        border-left-color: rgba(var(--el-color-primary-rgb), 0.5);
+      }
+    }
+
+    &.is-controls-right {
+      .el-input-number__decrease,
+      .el-input-number__increase {
+        border-left-color: rgba(var(--el-color-primary-rgb), 0.5);
+      }
+      .el-input-number__increase {
+        border-bottom-color: rgba(var(--el-color-primary-rgb), 0.5);
+      }
     }
   }
 }
