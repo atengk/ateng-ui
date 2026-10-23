@@ -28,13 +28,16 @@ const escExit = ref(true);
 const shadowType = ref<'never' | 'hover' | 'always'>('hover');
 const showBorder = ref(true);
 const selectedDimension = ref('hourly');
+const showRefreshBtn = ref(true);
+const tabsPosition = ref<'top' | 'bottom'>('top');
+const activeMetricTab = ref<'overview' | 'trend' | 'ranking'>('overview');
 
 const handleRefresh = () => {
   isLoading.value = true;
   setTimeout(() => {
     isLoading.value = false;
-    ElMessage.success('面板数据已刷新！');
-  }, 1000);
+    ElMessage.success('面板数据已刷新，平滑旋转动画完成！');
+  }, 800);
 };
 
 const handleFullscreen = (val: boolean) => {
@@ -45,16 +48,25 @@ const handleFullscreen = (val: boolean) => {
 <template>
   <div class="card-view">
     <ElAlert
-      title="AtengCard 核心特性与全屏增强"
+      title="AtengCard 核心特性、页签与局部刷新增强"
       type="info"
-      description="结构化头部：支持标准化标题、副标题、图标、Tooltip 气泡与 Extra 操作区；全屏防穿透：基于模块级引用计数管理 lockScroll，防止底层背景滚动穿透并支持多卡片并发安全还原；防冲突 ESC：支持 escExit 受控开关并尊重 defaultPrevented，防止按 ESC 退出全屏时误关内嵌下拉菜单与弹窗。"
+      description="结构化头部：标准化标题、副标题、图标、Tooltip 与 Extra；全新增强：支持右上角局部刷新按钮（带平滑 360 度旋转动效与 loading 联动）及 #tabs 插槽（支持 tabsPosition='top' 单行紧凑模式与 'bottom' 次行沉降排版）；全屏防穿透：基于模块级引用计数管理 lockScroll 并通过 escExit 防冲突快捷退出。"
       show-icon
       :closable="false"
       style="margin-bottom: 20px"
     />
 
     <div class="ctrl-bar">
-      <span>阴影策略：</span>
+      <span>页签布局方位 (tabsPosition)：</span>
+      <ElRadioGroup v-model="tabsPosition" size="small">
+        <ElRadioButton value="top">单行紧凑 (top)</ElRadioButton>
+        <ElRadioButton value="bottom">次行沉降 (bottom)</ElRadioButton>
+      </ElRadioGroup>
+
+      <span style="margin-left: 20px">局部刷新按钮 (showRefresh)：</span>
+      <ElSwitch v-model="showRefreshBtn" />
+
+      <span style="margin-left: 20px">阴影策略：</span>
       <ElRadioGroup v-model="shadowType" size="small">
         <ElRadioButton value="never">从不 (never)</ElRadioButton>
         <ElRadioButton value="hover">悬浮 (hover)</ElRadioButton>
@@ -75,7 +87,7 @@ const handleFullscreen = (val: boolean) => {
     </div>
 
     <div class="card-grid">
-      <!-- 演示卡片 1：全功能全屏与折叠面板 -->
+      <!-- 演示卡片 1：全功能全屏、页签与局部刷新面板 -->
       <AtengCard
         v-model:collapsed="isCollapsed"
         v-model:fullscreen="isFullscreen"
@@ -84,16 +96,28 @@ const handleFullscreen = (val: boolean) => {
         tooltip="该指标由大数据中台实时聚合，延时低于 500ms"
         collapsible
         fullscreenable
+        :show-refresh="showRefreshBtn"
+        refresh-tooltip="点击立即同步最新交易大盘"
+        :tabs-position="tabsPosition"
         :lock-scroll="lockScroll"
         :esc-exit="escExit"
         :loading="isLoading"
         :shadow="shadowType"
         :bordered="showBorder"
+        @refresh="handleRefresh"
         @fullscreen="handleFullscreen"
       >
+        <!-- 头部嵌入的页签插槽 -->
+        <template #tabs>
+          <ElRadioGroup v-model="activeMetricTab" size="small">
+            <ElRadioButton value="overview">大盘总览</ElRadioButton>
+            <ElRadioButton value="trend">趋势曲线</ElRadioButton>
+            <ElRadioButton value="ranking">类目排行</ElRadioButton>
+          </ElRadioGroup>
+        </template>
+
         <template #extra>
           <ElTag type="success" size="small">运行正常</ElTag>
-          <ElButton size="small" @click="handleRefresh">刷新</ElButton>
         </template>
 
         <div class="chart-mockup">

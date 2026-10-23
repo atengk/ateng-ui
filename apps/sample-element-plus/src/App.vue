@@ -99,6 +99,7 @@ onMounted(() => {
               </ElMenuItem>
               <ElMenuItem index="/layout/footer-bar"> 吸底操作栏 (AtengFooterBar) </ElMenuItem>
               <ElMenuItem index="/layout/card"> 结构化卡片 (AtengCard) </ElMenuItem>
+              <ElMenuItem index="/layout/card-group"> 卡片组手风琴 (AtengCardGroup) </ElMenuItem>
               <ElMenuItem index="/layout/skeleton"> 页面骨架屏 (AtengPageSkeleton) </ElMenuItem>
               <ElMenuItem index="/layout/watermark"> 防篡改水印容器 (AtengWatermark) </ElMenuItem>
               <ElMenuItem index="/layout/grid"> 容器自适应网格 (AtengGrid) </ElMenuItem>

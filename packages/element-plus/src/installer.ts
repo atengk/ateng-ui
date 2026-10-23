@@ -15,7 +15,7 @@ import { AtengEmpty } from './components/empty';
 import { AtengPageContainer } from './components/page-container';
 import { AtengSplitLayout } from './components/split-layout';
 import { AtengFooterBar } from './components/footer-bar';
-import { AtengCard } from './components/card';
+import { AtengCard, AtengCardGroup } from './components/card';
 import { AtengPageSkeleton } from './components/page-skeleton';
 import { AtengQueryForm } from './components/query-form';
 import { AtengTable } from './components/table';
@@ -70,6 +70,7 @@ const components: Record<string, Component> = {
   AtengSplitLayout,
   AtengFooterBar,
   AtengCard,
+  AtengCardGroup,
   AtengPageSkeleton,
   AtengQueryForm,
   AtengTable,

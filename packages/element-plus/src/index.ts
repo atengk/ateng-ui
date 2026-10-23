@@ -26,6 +26,7 @@ export {
   AtengSplitLayout as AtSplitLayout,
   AtengFooterBar as AtFooterBar,
   AtengCard as AtCard,
+  AtengCardGroup as AtCardGroup,
   AtengPageSkeleton as AtPageSkeleton,
   AtengQueryForm as AtQueryForm,
   AtengTable as AtTable,

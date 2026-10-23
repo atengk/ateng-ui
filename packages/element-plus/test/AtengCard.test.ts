@@ -223,4 +223,58 @@ describe('AtengCard 组件测试', () => {
     expect(wrapper.find('.at-card__loading-mask').exists()).toBe(true);
     expect(wrapper.find('.at-card__spinner').exists()).toBe(true);
   });
+
+  it('局部刷新操作与动效派发 (showRefresh=true & @refresh)', async () => {
+    wrapper = mount(AtengCard, {
+      props: {
+        title: '仪表盘指标',
+        showRefresh: true,
+        refreshTooltip: '点击同步最新指标',
+      },
+      attachTo: document.body,
+    });
+
+    const refreshBtn = wrapper.find('.at-card__refresh-btn');
+    expect(refreshBtn.exists()).toBe(true);
+    expect(refreshBtn.attributes('title')).toBe('点击同步最新指标');
+
+    // 触发刷新
+    await refreshBtn.trigger('click');
+    expect(wrapper.emitted('refresh')).toBeTruthy();
+    expect(refreshBtn.classes()).toContain('is-refreshing');
+  });
+
+  it('单行紧凑页签插槽 (#tabs & tabsPosition="top")', () => {
+    wrapper = mount(AtengCard, {
+      props: {
+        title: '分段统计',
+        tabsPosition: 'top',
+      },
+      slots: {
+        tabs: '<div class="custom-tabs">本日/本周/本月</div>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-card__header-tabs.is-top').exists()).toBe(true);
+    expect(wrapper.find('.custom-tabs').text()).toBe('本日/本周/本月');
+    expect(wrapper.find('.at-card__header').classes()).toContain('tabs-pos-top');
+  });
+
+  it('次行沉降页签插槽 (#tabs & tabsPosition="bottom")', () => {
+    wrapper = mount(AtengCard, {
+      props: {
+        title: '复杂看板',
+        tabsPosition: 'bottom',
+      },
+      slots: {
+        tabs: '<div class="sub-row-tabs">次行沉降多标签页</div>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-card__header-tabs.is-bottom').exists()).toBe(true);
+    expect(wrapper.find('.sub-row-tabs').text()).toBe('次行沉降多标签页');
+    expect(wrapper.find('.at-card__header').classes()).toContain('tabs-pos-bottom');
+  });
 });

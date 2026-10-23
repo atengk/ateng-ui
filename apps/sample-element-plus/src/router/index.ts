@@ -85,6 +85,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '结构化卡片 AtengCard' },
   },
   {
+    path: '/layout/card-group',
+    name: 'LayoutCardGroup',
+    component: () => import('../views/layout/CardGroupView.vue'),
+    meta: { title: '卡片手风琴编排 AtengCardGroup' },
+  },
+  {
     path: '/layout/skeleton',
     name: 'LayoutSkeleton',
     component: () => import('../views/layout/SkeletonView.vue'),
