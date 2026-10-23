@@ -89,6 +89,11 @@ export interface DescriptionsItemConfig<T = Record<string, unknown>> {
    */
   emptyText?: string;
   /**
+   * 是否支持一键复制到系统剪贴板。
+   * 若配置将覆盖容器级 copyable 设置；空值时自动隐藏复制按钮。
+   */
+  copyable?: boolean;
+  /**
    * 自定义格式化计算函数。
    */
   formatter?: (value: unknown, data: T) => string;
@@ -133,7 +138,12 @@ export interface AtengDescriptionsProps<T = Record<string, unknown>> {
    */
   size?: ComponentSize;
   /**
-   * 全局空值或未定义时的保底文本（默认为 '-'）。
+   * 是否全局开启一键复制能力（默认 false）。
+   * 开启后，非空数据项后方自动呈现微型复制按钮，恪守“内存真明文契约”进行复制。
+   */
+  copyable?: boolean;
+  /**
+   * 全局空值或未定义时的保底文本（默认为 '--'）。
    */
   emptyText?: string;
 }

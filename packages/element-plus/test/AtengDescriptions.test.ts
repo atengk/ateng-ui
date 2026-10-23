@@ -284,4 +284,97 @@ describe('AtengDescriptions 组件规范与渲染测试', () => {
     expect(capturedSlotData?.id).toBe('acc_1001');
     expect(wrapper.find('.account-slot-text').text()).toBe('财务专有账户');
   });
+
+  it('统一空安全保底规范：未指定 emptyText 时默认保底渲染为 "--"，且空值项绝不呈现复制按钮', async () => {
+    const data = {
+      username: '',
+      nullField: null,
+      undefField: undefined,
+      validField: '有效内容',
+    };
+    const items: DescriptionsItemConfig[] = [
+      { prop: 'username', label: '用户名' },
+      { prop: 'nullField', label: '空字段' },
+      { prop: 'undefField', label: '未定义' },
+      { prop: 'validField', label: '有效项' },
+    ];
+
+    wrapper = mount(AtengDescriptions, {
+      props: { data, items, copyable: true },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    // 默认保底渲染为 '--'
+    expect(wrapper.text()).toContain('--');
+
+    // 仅有效项渲染复制按钮，3个空值项绝不呈现复制按钮，杜绝视觉塌陷
+    const copyBtns = wrapper.findAll('.at-descriptions__copy-btn');
+    expect(copyBtns).toHaveLength(1);
+  });
+
+  it('一键复制与内存真明文契约：脱敏字段点击复制真实数据而非掩码脏数据', async () => {
+    let copiedText = '';
+    const writeTextMock = vi.fn().mockImplementation(async (text: string) => {
+      copiedText = text;
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+
+    const data = {
+      phone: '13812345678',
+      idCard: '110101199003072345',
+    };
+    const items: DescriptionsItemConfig[] = [
+      { prop: 'phone', label: '手机号', mask: 'phone', copyable: true },
+      { prop: 'idCard', label: '身份证', mask: 'idCard' }, // 容器未开启，单项未显式开启 -> 不可复制
+    ];
+
+    wrapper = mount(AtengDescriptions, {
+      props: { data, items },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    // 页面脱敏展示
+    expect(wrapper.text()).toContain('138****5678');
+    expect(wrapper.text()).toContain('110101********2345');
+
+    // 仅配置了 copyable: true 的手机号渲染复制按钮
+    const copyBtns = wrapper.findAll('.at-descriptions__copy-btn');
+    expect(copyBtns).toHaveLength(1);
+
+    // 点击复制
+    await copyBtns[0].trigger('click');
+    await flushPromises();
+
+    expect(writeTextMock).toHaveBeenCalledTimes(1);
+    // 关键断言：复制的是内存真实明文 '13812345678'，绝非脱敏后的 '138****5678'
+    expect(copiedText).toBe('13812345678');
+    expect(copyBtns[0].classes()).toContain('is-copied');
+  });
+
+  it('单项覆盖容器级 copyable：支持 item.copyable: false 排除特定敏感项', async () => {
+    const data = {
+      secretToken: 'sk-9999999999',
+      orderNo: 'ORD202610230001',
+    };
+    const items: DescriptionsItemConfig[] = [
+      { prop: 'secretToken', label: '密钥令牌', copyable: false },
+      { prop: 'orderNo', label: '订单号' },
+    ];
+
+    wrapper = mount(AtengDescriptions, {
+      props: { data, items, copyable: true },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    const copyBtns = wrapper.findAll('.at-descriptions__copy-btn');
+    // secretToken 显式关闭 copyable，仅 orderNo 渲染复制按钮
+    expect(copyBtns).toHaveLength(1);
+  });
 });

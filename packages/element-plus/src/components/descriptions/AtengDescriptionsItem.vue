@@ -30,6 +30,7 @@ withDefaults(defineProps<AtengDescriptionsItemProps>(), {
   currencySymbol: '￥',
   dictCode: undefined,
   emptyText: undefined,
+  copyable: undefined,
   formatter: undefined,
 });
 </script>

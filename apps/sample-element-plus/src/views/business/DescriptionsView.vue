@@ -26,6 +26,7 @@ import {
 
 // 交互布局受控状态
 const border = ref(true);
+const copyable = ref(true);
 const size = ref<ComponentSize>('default');
 const column = ref(3);
 const direction = ref<'horizontal' | 'vertical'>('horizontal');
@@ -42,6 +43,7 @@ interface UserDetailProfile {
   status: string;
   remark: string;
   department: string | null;
+  emptyField: string | null;
 }
 
 // 模拟详情数据源（包含真实脱敏场景、空值保底、大数与字典状态）
@@ -57,6 +59,7 @@ const detailData = ref<UserDetailProfile>({
   status: '1',
   remark: '', // 空值测试
   department: null, // 空值测试
+  emptyField: null, // 统一保底测试
 });
 
 // Schema 项定义
@@ -91,7 +94,7 @@ const handleRefreshData = () => {
       <ElAlert
         title="组件核心能力"
         type="info"
-        description="基于 el-descriptions 深度封装：双模驱动（数据驱动 items 配置模式与 SFC 声明式子组件模式）；内置 5 大脱敏管道（phone / idCard / email / name / bankCard）；内置货币与日期格式化；自动联动 AtengDictTag 字典彩色标签；空值全链路 '-' 保底防崩；完美继承 Element Plus 设计令牌与尺寸切换。"
+        description="基于 el-descriptions 深度封装：双模驱动（数据驱动 items 配置模式与 SFC 声明式子组件模式）；支持 :copyable 声明式一键复制，严格恪守“内存真明文契约”，复制脱敏前原始数据而非掩码；内置 5 大脱敏管道（phone / idCard / email / name / bankCard）；内置货币与日期格式化；自动联动 AtengDictTag 字典彩色标签；空值全链路 '--' 保底防崩且空值项绝不呈现复制按钮；完美继承 Element Plus 设计令牌与尺寸切换。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -102,6 +105,11 @@ const handleRefreshData = () => {
         <div class="ctrl-item">
           <span class="ctrl-label">边框模式：</span>
           <ElSwitch v-model="border" active-text="开启" inactive-text="关闭" />
+        </div>
+
+        <div class="ctrl-item">
+          <span class="ctrl-label">一键复制：</span>
+          <ElSwitch v-model="copyable" active-text="开启" inactive-text="关闭" />
         </div>
 
         <div class="ctrl-item">
@@ -144,6 +152,7 @@ const handleRefreshData = () => {
           :data="detailData"
           :items="schemaItems"
           :border="border"
+          :copyable="copyable"
           :size="size"
           :column="column"
           :direction="direction"
@@ -161,6 +170,7 @@ const handleRefreshData = () => {
           title="系统安全审计信息 (Declarative SFC Mode)"
           :data="detailData"
           :border="border"
+          :copyable="copyable"
           :size="size"
           :column="column"
           :direction="direction"
@@ -168,9 +178,10 @@ const handleRefreshData = () => {
           <AtengDescriptionsItem prop="userId" label="主键标识" :span="1" />
           <AtengDescriptionsItem
             prop="phone"
-            label="安全手机"
+            label="安全手机 (真明文复制)"
             mask="phone"
             mask-char="#"
+            :copyable="true"
             :span="1"
           />
           <AtengDescriptionsItem
@@ -179,7 +190,8 @@ const handleRefreshData = () => {
             dict-code="sys_user_status"
             :span="1"
           />
-          <AtengDescriptionsItem prop="customAction" label="审计操作" :span="3">
+          <AtengDescriptionsItem prop="emptyField" label="未分配字段 (空安全保底)" :span="1" />
+          <AtengDescriptionsItem prop="customAction" label="审计操作" :span="2">
             <template #customAction>
               <ElButton type="danger" size="small" plain> 强制下线 </ElButton>
               <ElButton type="warning" size="small" plain> 锁定账号 </ElButton>
