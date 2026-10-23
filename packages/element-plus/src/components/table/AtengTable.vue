@@ -96,6 +96,7 @@ const props = withDefaults(defineProps<AtengTableProps<T>>(), {
   reserveSelection: false,
   selection: undefined,
   selectedKeys: undefined,
+  selectedRows: undefined,
   error: undefined,
   emptyDescription: undefined,
   searchEmptyDescription: undefined,

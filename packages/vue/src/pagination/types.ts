@@ -101,6 +101,11 @@ export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQue
  */
 export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuery> {
   /**
+   * 当前响应式查询与筛选参数对象（可直接双向绑定表单控件，亦受 search 与 reset 调度）。
+   */
+  query: Partial<TParams>;
+
+  /**
    * 当前生效的页码，受到 readonly 只读保护。
    */
   pageNum: DeepReadonly<Ref<number>>;

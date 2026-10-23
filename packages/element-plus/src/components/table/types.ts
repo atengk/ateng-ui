@@ -214,6 +214,11 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   selectedKeys?: (string | number)[];
 
   /**
+   * 当前选中的数据行实体集合（支持 v-model:selectedRows）。
+   */
+  selectedRows?: T[];
+
+  /**
    * 外部受控异常错误对象（离散模式）。
    */
   error?: unknown;

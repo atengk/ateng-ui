@@ -7,7 +7,16 @@
  * @since 2026-10-20
  */
 
-import { computed, readonly, ref, toValue, watch, type DeepReadonly, type Ref } from 'vue';
+import {
+  computed,
+  readonly,
+  reactive,
+  ref,
+  toValue,
+  watch,
+  type DeepReadonly,
+  type Ref,
+} from 'vue';
 import type { PageQuery, PageResult } from '@atengk/core';
 import { useAtengConfig } from '../context';
 import { useRequest } from '../request';
@@ -51,6 +60,7 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
   const sortField = ref<string | undefined>(initialSortField);
   const sortAsc = ref<boolean | undefined>(initialSortAsc);
   const extraParams = ref<Partial<TParams>>({ ...initialExtraParams });
+  const query = reactive<Record<string, unknown>>({ ...initialExtraParams }) as Partial<TParams>;
 
   /**
    * 构建当前生效的完整分页请求入参（override 优先级最高）。
@@ -58,6 +68,7 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
   const buildCurrentParams = (override?: Partial<TParams>): TParams => {
     return {
       ...extraParams.value,
+      ...query,
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       sortField: sortField.value,
@@ -87,6 +98,7 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
       ...extraParams.value,
       ...override,
     };
+    Object.assign(query, override);
   };
 
   // 2. 深度组合 useRequest 请求状态机，并注入空安全保底拦截
@@ -183,6 +195,12 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
         ...extraParams.value,
         ...newExtraParams,
       };
+      Object.assign(query, newExtraParams);
+    } else {
+      extraParams.value = {
+        ...extraParams.value,
+        ...query,
+      };
     }
     pageNum.value = 1;
     return request.run(buildCurrentParams({ pageNum: 1 } as Partial<TParams>));
@@ -193,6 +211,12 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
    */
   const reset = (): Promise<PageResult<TItem> | undefined> => {
     extraParams.value = { ...initialExtraParams };
+    for (const key of Object.keys(query)) {
+      if (!(key in initialExtraParams)) {
+        delete (query as Record<string, unknown>)[key];
+      }
+    }
+    Object.assign(query, initialExtraParams);
     sortField.value = initialSortField;
     sortAsc.value = initialSortAsc;
     pageNum.value = 1;
@@ -252,6 +276,7 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
   }
 
   return {
+    query,
     pageNum: readonly(pageNum) as DeepReadonly<Ref<number>>,
     pageSize: readonly(pageSize) as DeepReadonly<Ref<number>>,
     sortField: readonly(sortField) as DeepReadonly<Ref<string | undefined>>,
