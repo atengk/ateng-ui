@@ -30,4 +30,5 @@ export * from './captcha';
 export * from './file-preview';
 export * from './watermark';
 export * from './grid';
+export * from './anchor';
 export * from './shared/context';

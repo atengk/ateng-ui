@@ -12,6 +12,7 @@ import AtengElementPlus, {
   install,
   installer,
   VERSION,
+  AtengAnchor,
   AtengCard,
   AtengCardGroup,
   AtengDialog,
@@ -28,6 +29,7 @@ import AtengElementPlus, {
   AtengExcelFeedback,
   AtengUpload,
   DictManager,
+  AtAnchor,
   AtCard,
   AtCardGroup,
   AtDialog,
@@ -68,6 +70,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(AtengElementPlus).toBe(installer);
 
     // 验证 Stage 1 & Stage 2 组件原名导出
+    expect(AtengAnchor).toBeDefined();
     expect(AtengCard).toBeDefined();
     expect(AtengCardGroup).toBeDefined();
     expect(AtengDialog).toBeDefined();
@@ -88,6 +91,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(DictManager).toBeDefined();
 
     // 验证便捷 At* 别名导出
+    expect(AtAnchor).toBe(AtengAnchor);
     expect(AtCard).toBe(AtengCard);
     expect(AtCardGroup).toBe(AtengCardGroup);
     expect(AtDialog).toBe(AtengDialog);

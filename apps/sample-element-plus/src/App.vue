@@ -103,6 +103,7 @@ onMounted(() => {
               <ElMenuItem index="/layout/skeleton"> 页面骨架屏 (AtengPageSkeleton) </ElMenuItem>
               <ElMenuItem index="/layout/watermark"> 防篡改水印容器 (AtengWatermark) </ElMenuItem>
               <ElMenuItem index="/layout/grid"> 容器自适应网格 (AtengGrid) </ElMenuItem>
+              <ElMenuItem index="/layout/anchor"> 电梯锚点导航 (AtengAnchor) </ElMenuItem>
             </ElSubMenu>
 
             <ElSubMenu index="containers">

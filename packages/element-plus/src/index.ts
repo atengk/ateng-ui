@@ -49,6 +49,7 @@ export {
   AtengFilePreview as AtFilePreview,
   AtengWatermark as AtWatermark,
   AtengGrid as AtGrid,
+  AtengAnchor as AtAnchor,
 } from './components';
 
 export default installer;

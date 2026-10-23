@@ -109,6 +109,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '容器自适应流式网格 AtengGrid' },
   },
   {
+    path: '/layout/anchor',
+    name: 'LayoutAnchor',
+    component: () => import('../views/layout/AnchorView.vue'),
+    meta: { title: '电梯楼层导航锚点 AtengAnchor' },
+  },
+  {
     path: '/table/query-form',
     name: 'TableQueryForm',
     component: () => import('../views/table/QueryFormView.vue'),
