@@ -55,6 +55,7 @@ import {
   IconColumnSetting,
 } from './icons';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
+import { useSelection, type UseSelectionResult } from '@atengk/vue';
 import type {
   AtengTableProps,
   AtengTableEmits,
@@ -92,6 +93,9 @@ const props = withDefaults(defineProps<AtengTableProps<T>>(), {
   paginationLayout: 'total, sizes, prev, pager, next, jumper',
   showPagination: undefined,
   showBatchBar: true,
+  reserveSelection: false,
+  selection: undefined,
+  selectedKeys: undefined,
   error: undefined,
   emptyDescription: undefined,
   searchEmptyDescription: undefined,
@@ -526,7 +530,18 @@ const activeAttributeColumns = computed<TableColumnConfig[]>(() => {
       const k = getColumnKey(col);
       const width = k && widthMap.has(k) ? widthMap.get(k) : col.width;
       const resizable = col.resizable ?? props.enableColumnResize;
-      return { ...col, width, resizable };
+      const reserveSelection =
+        col.type === 'selection'
+          ? (col.reserveSelection ?? col['reserve-selection'] ?? Boolean(props.reserveSelection))
+          : undefined;
+      return {
+        ...col,
+        width,
+        resizable,
+        ...(reserveSelection !== undefined
+          ? { reserveSelection, 'reserve-selection': reserveSelection }
+          : {}),
+      };
     })
     .sort((a, b) => {
       const kA = getColumnKey(a);
@@ -623,38 +638,167 @@ const effectiveTableHeight = computed(() => {
   return undefined;
 });
 
-// 6. 表格实例与核心门面
+// 6. 表格实例、跨页多选状态机与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
 
-const selectedRows = ref<T[]>([]);
-const selectedCount = computed<number>(() => selectedRows.value.length);
+const fallbackSelectedRows = ref<T[]>([]);
+
+// 跨页多选状态机编排
+const internalSelection =
+  props.reserveSelection && !props.selection
+    ? useSelection<T>({
+        rowKey: props.rowKey as string | ((item: T) => string | number | bigint),
+        initialSelected: props.selectedRows,
+      })
+    : undefined;
+
+const effectiveSelection = computed<UseSelectionResult<T> | undefined>(() => {
+  return props.selection ?? internalSelection;
+});
+
+// 数据刷新时同步更新跨页缓存中的最新实体属性
+watch(
+  () => tableData.value,
+  newData => {
+    if (effectiveSelection.value && Array.isArray(newData)) {
+      effectiveSelection.value.syncWithData(newData);
+    }
+  },
+  { deep: true },
+);
+
+const selectedRows = computed<T[]>(() => {
+  if (effectiveSelection.value) {
+    return effectiveSelection.value.selectedRows.value;
+  }
+  return fallbackSelectedRows.value;
+});
+
+const selectedKeys = computed<string[]>(() => {
+  if (effectiveSelection.value) {
+    return effectiveSelection.value.selectedKeys.value;
+  }
+  return fallbackSelectedRows.value
+    .map(row => {
+      if (typeof props.rowKey === 'function') {
+        return String(props.rowKey(row));
+      }
+      const k = (row as Record<string, unknown>)[props.rowKey || 'id'];
+      return k !== undefined && k !== null ? String(k) : '';
+    })
+    .filter(Boolean);
+});
+
+const selectedCount = computed<number>(() => {
+  if (effectiveSelection.value) {
+    return effectiveSelection.value.selectedCount.value;
+  }
+  return fallbackSelectedRows.value.length;
+});
+
 const shouldShowBatchBar = computed<boolean>(() => {
   return props.showBatchBar !== false;
 });
 
 const handleSelectionChange = (selection: unknown[]) => {
-  selectedRows.value = selection as T[];
-  emit('selection-change', selectedRows.value);
-  emit('update:selectedRows', selectedRows.value);
+  const currentSelection = (selection ?? []) as T[];
+  if (effectiveSelection.value) {
+    // 提取当前可见页的数据行的 Key 集合
+    const currentTableKeys = new Set(
+      tableData.value
+        .map(row => {
+          if (typeof props.rowKey === 'function') {
+            return String(props.rowKey(row));
+          }
+          const k = (row as Record<string, unknown>)[props.rowKey || 'id'];
+          return k !== undefined && k !== null ? String(k) : '';
+        })
+        .filter(Boolean),
+    );
+
+    // 当前选中的行中，属于当前可见页的 Key 集合
+    const selectedCurrentKeys = new Set(
+      currentSelection
+        .map(row => {
+          if (typeof props.rowKey === 'function') {
+            return String(props.rowKey(row));
+          }
+          const k = (row as Record<string, unknown>)[props.rowKey || 'id'];
+          return k !== undefined && k !== null ? String(k) : '';
+        })
+        .filter(Boolean),
+    );
+
+    // 1. 将本次选中的所有数据加入多选集合
+    effectiveSelection.value.select(currentSelection);
+
+    // 2. 当前页被用户手动取消勾选的项从状态机中移除
+    const toDeselect: T[] = [];
+    for (const item of tableData.value) {
+      const k =
+        typeof props.rowKey === 'function'
+          ? String(props.rowKey(item))
+          : String((item as Record<string, unknown>)[props.rowKey || 'id'] ?? '');
+      if (
+        k &&
+        currentTableKeys.has(k) &&
+        !selectedCurrentKeys.has(k) &&
+        effectiveSelection.value.isKeySelected(k)
+      ) {
+        toDeselect.push(item);
+      }
+    }
+    if (toDeselect.length > 0) {
+      effectiveSelection.value.deselect(toDeselect);
+    }
+
+    emit('selection-change', effectiveSelection.value.selectedRows.value);
+    emit('update:selectedRows', effectiveSelection.value.selectedRows.value);
+    emit('update:selectedKeys', effectiveSelection.value.selectedKeys.value);
+  } else {
+    fallbackSelectedRows.value = currentSelection;
+    emit('selection-change', fallbackSelectedRows.value);
+    emit('update:selectedRows', fallbackSelectedRows.value);
+    emit('update:selectedKeys', selectedKeys.value);
+  }
 };
 
 const clearSelection = () => {
   tableRef.value?.clearSelection();
-  selectedRows.value = [];
+  if (effectiveSelection.value) {
+    effectiveSelection.value.clear();
+  }
+  fallbackSelectedRows.value = [];
   emit('selection-change', []);
   emit('update:selectedRows', []);
+  emit('update:selectedKeys', []);
 };
 
 const toggleRowSelection = (row: T, selected?: boolean) => {
   tableRef.value?.toggleRowSelection(row, selected);
+  if (effectiveSelection.value) {
+    if (selected === undefined) {
+      effectiveSelection.value.toggle(row);
+    } else if (selected) {
+      effectiveSelection.value.select(row);
+    } else {
+      effectiveSelection.value.deselect(row);
+    }
+    emit('selection-change', effectiveSelection.value.selectedRows.value);
+    emit('update:selectedRows', effectiveSelection.value.selectedRows.value);
+    emit('update:selectedKeys', effectiveSelection.value.selectedKeys.value);
+  }
 };
 
 const getSelectionRows = (): T[] => {
+  if (effectiveSelection.value) {
+    return effectiveSelection.value.selectedRows.value;
+  }
   const elRows = tableRef.value?.getSelectionRows();
   if (Array.isArray(elRows) && elRows.length > 0) {
     return elRows as T[];
   }
-  return selectedRows.value;
+  return fallbackSelectedRows.value;
 };
 
 const handleRefresh = async () => {
@@ -808,11 +952,14 @@ provide(ATENG_TABLE_CONTEXT_KEY, tableContext);
 defineExpose<AtengTableExpose<T>>({
   tableRef,
   columns: columnSettings as ComputedRef<TableColumnConfig[]>,
-  selectedRows: computed(() => selectedRows.value),
+  selectedKeys,
+  selection: effectiveSelection.value,
+  selectedRows,
   selectedCount,
   clearSelection,
   toggleRowSelection,
   getSelectionRows,
+  resetColumns: handleResetColumns,
   refresh: handleRefresh,
 });
 </script>

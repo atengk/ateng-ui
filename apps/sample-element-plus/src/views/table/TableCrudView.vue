@@ -122,6 +122,7 @@ const pagination = usePagination(fetchUsersApi, {
 
 // 5. 表格 Ref 引用与表单状态
 const tableRef = ref<AtengTableInstance>();
+const selectedKeys = ref<string[]>([]);
 const queryForm = reactive({
   username: '',
   status: '',
@@ -198,6 +199,27 @@ const enableAutoHeight = ref(false);
           <ElButton size="small" type="danger" plain @click="tableRef?.clearSelection">
             清空多选 (clearSelection)
           </ElButton>
+          <ElButton size="small" type="info" plain @click="tableRef?.resetColumns">
+            重置列排版 (resetColumns)
+          </ElButton>
+        </div>
+        <div v-if="selectedKeys.length > 0" class="control-item" style="margin-top: 8px">
+          <span class="ctrl-title">跨页已选中 ({{ selectedKeys.length }} 项): </span>
+          <ElTag
+            v-for="id in selectedKeys.slice(0, 3)"
+            :key="id"
+            size="small"
+            type="success"
+            style="margin-right: 6px"
+          >
+            {{ id }}
+          </ElTag>
+          <span
+            v-if="selectedKeys.length > 3"
+            style="color: var(--el-text-color-secondary); font-size: 12px"
+          >
+            ...等共 {{ selectedKeys.length }} 项
+          </span>
         </div>
       </div>
       <div class="control-tip">
@@ -206,7 +228,10 @@ const enableAutoHeight = ref(false);
         防塌陷），刷新浏览器后列宽自动恢复记忆；点击右上角<strong>「列设置」</strong>弹层可拖拽列排序或一键<strong>「重置列宽」</strong>。<br />
         💡 提示 2：点击<strong>「模拟无匹配搜索」</strong>后，表格呈现
         <code>status="search"</code>
-        多态缺省态与<strong>「清空筛选条件」</strong>按钮，点击后自动联动表单重置并恢复第一页数据。
+        多态缺省态与<strong>「清空筛选条件」</strong>按钮，点击后自动联动表单重置并恢复第一页数据。<br />
+        💡 提示 3：已开启<strong>「跨页多选记忆 (reserve-selection)」</strong>，在第 1
+        页勾选数据后切换至第 2 页，底部批量操作栏与 <code>v-model:selectedKeys</code> 始终保留已选的
+        64 位分布式雪花 ID 字符串。
       </div>
     </ElCard>
 
@@ -214,8 +239,10 @@ const enableAutoHeight = ref(false);
     <ElCard shadow="hover" class="main-card">
       <AtengTable
         ref="tableRef"
+        v-model:selected-keys="selectedKeys"
         :pagination="pagination"
         :auto-height="enableAutoHeight ? 32 : false"
+        reserve-selection
         row-key="id"
         storage-key="sample-crud-table-columns"
         border

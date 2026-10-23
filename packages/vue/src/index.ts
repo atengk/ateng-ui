@@ -20,3 +20,4 @@ export * from './upload';
 export * from './stream';
 export * from './websocket';
 export * from './loading';
+export * from './selection';

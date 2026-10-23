@@ -1171,4 +1171,83 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     wrapper.unmount();
     wrapper = null;
   });
+
+  describe('AtengTable 跨页多选记忆与 useSelection 深度集成测试', () => {
+    it('跨页多选保持与雪花 ID 字符串安全：翻页后保留选中项并正确触发 update:selectedKeys', async () => {
+      const page1Data = [
+        { id: '1890123456789012345', username: '雪花用户1' },
+        { id: '1890123456789012346', username: '雪花用户2' },
+      ];
+      const page2Data = [
+        { id: '1890123456789012347', username: '雪花用户3' },
+        { id: '1890123456789012348', username: '雪花用户4' },
+      ];
+
+      const pagination = createMockPagination({
+        list: ref(page1Data),
+      });
+
+      wrapper = mount(AtengTable, {
+        props: {
+          pagination,
+          reserveSelection: true,
+          columns: [{ type: 'selection' }, { prop: 'username', label: '用户名' }],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const elTable = wrapper.findComponent({ name: 'ElTable' });
+      // 模拟第一页勾选第一行
+      elTable.vm.$emit('selection-change', [page1Data[0]]);
+      await doubleWait();
+
+      // 验证已触发 update:selectedKeys 与 update:selectedRows
+      expect(wrapper.emitted('update:selectedKeys')?.[0]?.[0]).toEqual(['1890123456789012345']);
+      expect(wrapper.emitted('update:selectedRows')?.[0]?.[0]).toEqual([page1Data[0]]);
+
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      expect(vm.selectedCount).toBe(1);
+      expect(vm.selectedRows).toEqual([page1Data[0]]);
+
+      // 模拟换页：pagination.list 变为第二页数据
+      pagination.list.value = page2Data;
+      await doubleWait();
+
+      // 验证跨页记忆：即使当前页换为 page2，已选总数仍为 1，且包含第一页的雪花 ID
+      expect(vm.selectedCount).toBe(1);
+      expect(vm.selectedRows[0]?.id).toBe('1890123456789012345');
+
+      // 清空选择
+      vm.clearSelection();
+      await doubleWait();
+
+      expect(vm.selectedCount).toBe(0);
+      expect(vm.selectedRows).toEqual([]);
+    });
+
+    it('重置列暴露方法：实例支持 resetColumns 门面直接调用', async () => {
+      const storageKey = 'test_table_reset_columns_expose';
+      localStorage.setItem(storageKey, JSON.stringify({ widths: { username: 200 } }));
+
+      wrapper = mount(AtengTable, {
+        props: {
+          data: mockData,
+          storageKey,
+          columns: [{ prop: 'username', label: '用户名', width: 100 }],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      expect(typeof vm.resetColumns).toBe('function');
+      vm.resetColumns();
+      await doubleWait();
+
+      expect(localStorage.getItem(storageKey)).toBeNull();
+    });
+  });
 });

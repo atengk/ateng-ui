@@ -7,7 +7,7 @@
 
 import type { ComputedRef, ShallowRef } from 'vue';
 import type { TableInstance } from 'element-plus';
-import type { UsePaginationResult } from '@atengk/vue';
+import type { UsePaginationResult, UseSelectionResult } from '@atengk/vue';
 
 /**
  * 表格列配置元数据接口。
@@ -197,6 +197,23 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   showBatchBar?: boolean;
 
   /**
+   * 是否开启跨页多选记忆保持。
+   * 为 true 时，翻页或调整分页大小将自动保留之前选中的数据行，配合 rowKey 唯一标识生效。
+   * @default false
+   */
+  reserveSelection?: boolean;
+
+  /**
+   * 绑定的 @atengk/vue useSelection 跨页多选状态机实例（外部独立受控模式）。
+   */
+  selection?: UseSelectionResult<T>;
+
+  /**
+   * 当前选中的数据行主键集合（支持 v-model:selectedKeys）。
+   */
+  selectedKeys?: (string | number)[];
+
+  /**
    * 外部受控异常错误对象（离散模式）。
    */
   error?: unknown;
@@ -237,6 +254,11 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
    * 多选项双向更新事件（支持 v-model:selectedRows）。
    */
   (e: 'update:selectedRows', selection: T[]): void;
+
+  /**
+   * 选中的唯一键集合更新事件（支持 v-model:selectedKeys）。
+   */
+  (e: 'update:selectedKeys', keys: string[]): void;
 
   /**
    * 排序改变事件。
@@ -374,6 +396,16 @@ export interface AtengTableExpose<T = Record<string, unknown>> {
   columns: ComputedRef<TableColumnConfig[]>;
 
   /**
+   * 当前所有选中的数据行主键集合。
+   */
+  selectedKeys?: ComputedRef<string[]>;
+
+  /**
+   * 当前绑定的跨页多选状态机实例（若已开启）。
+   */
+  selection?: UseSelectionResult<T>;
+
+  /**
    * 当前所有选中的数据行。
    */
   selectedRows: ComputedRef<T[]>;
@@ -397,6 +429,11 @@ export interface AtengTableExpose<T = Record<string, unknown>> {
    * 获取当前所有选中的数据行。
    */
   getSelectionRows: () => T[];
+
+  /**
+   * 重置列配置至初始默认状态（清空本地持久化存储并还原列排序、显隐与列宽）。
+   */
+  resetColumns: () => void;
 
   /**
    * 触发表格数据刷新。

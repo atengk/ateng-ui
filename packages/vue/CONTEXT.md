@@ -16,6 +16,10 @@ _Avoid_: usePage, useTablePagination, usePager
 解决高频异步操作时序倒挂的竞态控制 Hook，采用“物理中断 + 逻辑过期”双重防御，确保快速切换或连续触发时仅最新一次请求生效并自动作废未决前序请求。
 _Avoid_: useRace, useLatestAsync, useCancelPrevious, useAsyncLock
 
+**useSelection**:
+负责跨页多选集合记忆、全选/反选、排他选中与雪花 Long ID 主键键值映射的无头响应式选择状态机 Hook。
+_Avoid_: useSelect, useSelected, useTableSelection, useMultiSelect
+
 ## 状态治理与扩展能力
 
 **useAuth**:
