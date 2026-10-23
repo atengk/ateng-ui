@@ -44,3 +44,17 @@ export interface AtengPageSkeletonProps {
    */
   columns?: number;
 }
+
+/**
+ * AtengPageSkeleton 插槽契约。
+ */
+export interface AtengPageSkeletonSlots {
+  /**
+   * 真实业务视图内容插槽（包装容器模式）。
+   */
+  default?: () => unknown;
+  /**
+   * 自定义骨架屏内容插槽。
+   */
+  skeleton?: () => unknown;
+}

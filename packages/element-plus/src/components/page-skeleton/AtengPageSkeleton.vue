@@ -15,11 +15,13 @@
 
 import { ref } from 'vue';
 import { ElSkeleton, ElSkeletonItem } from 'element-plus';
-import type { AtengPageSkeletonProps } from './types';
+import type { AtengPageSkeletonProps, AtengPageSkeletonSlots } from './types';
 
 defineOptions({
   name: 'AtengPageSkeleton',
 });
+
+defineSlots<AtengPageSkeletonSlots>();
 
 withDefaults(defineProps<AtengPageSkeletonProps>(), {
   loading: true,

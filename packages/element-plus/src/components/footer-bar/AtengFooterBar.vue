@@ -6,15 +6,24 @@
  * 1. 支持 sticky（局部容器粘滞吸底）与 fixed（全局视口悬浮吸底）双模；
  * 2. fixed 模式标配自动 placeholder 等高透明占位垫块，彻底杜绝底部字段被遮挡；
  * 3. 规范左侧辅助状态（#extra）与右侧操作按钮（#default）双向排版；
- * 4. 支持 leftOffset 侧边栏动态避让偏移与设计令牌暗黑模式适配；
- * 5. 进阶增强：支持 autoOffset 与 target 智能容器锚定，基于 ResizeObserver + rAF 动态平滑更新 left 与 width。
+ * 4. 预置快捷操作流：开箱即用提供保存/提交/重置/取消按钮，支持 actions 声明式批量配置；
+ * 5. 异步 Loading 互斥防重锁：onSubmit 绑定异步 Promise 时自动接管加载态与防重点击，支持 submitLoading 受控覆盖；
+ * 6. 支持 leftOffset 侧边栏动态避让偏移与设计令牌暗黑模式适配；
+ * 7. 进阶增强：支持 autoOffset 与 target 智能容器锚定，基于 ResizeObserver + rAF 动态平滑更新 left 与 width。
  *
  * @author Ateng
  * @since 2026-10-22
  */
 
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import type { AtengFooterBarProps } from './types';
+import { ElButton } from 'element-plus';
+import type {
+  AtengFooterBarProps,
+  AtengFooterBarEmits,
+  AtengFooterBarSlots,
+  AtengFooterBarExpose,
+  FooterBarActionItem,
+} from './types';
 
 defineOptions({
   name: 'AtengFooterBar',
@@ -28,7 +37,22 @@ const props = withDefaults(defineProps<AtengFooterBarProps>(), {
   bordered: true,
   leftOffset: 'auto',
   autoOffset: false,
+  showSubmit: undefined,
+  submitText: '提交',
+  submitType: 'primary',
+  submitLoading: undefined,
+  onSubmit: undefined,
+  showReset: undefined,
+  resetText: '重置',
+  onReset: undefined,
+  showCancel: undefined,
+  cancelText: '取消',
+  onCancel: undefined,
+  actions: undefined,
 });
+
+const emit = defineEmits<AtengFooterBarEmits>();
+defineSlots<AtengFooterBarSlots>();
 
 const barRef = ref<HTMLElement | null>(null);
 const dynamicOffset = ref<{ left: number; width: number } | null>(null);
@@ -36,7 +60,100 @@ const dynamicOffset = ref<{ left: number; width: number } | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 let rafId: number | null = null;
 
-// 解析智能对齐目标 DOM 节点
+// 1. 预置操作按钮可见性判断
+const isSubmitVisible = computed(() => {
+  if (typeof props.showSubmit === 'boolean') {
+    return props.showSubmit;
+  }
+  return typeof props.onSubmit === 'function';
+});
+
+const isResetVisible = computed(() => {
+  if (typeof props.showReset === 'boolean') {
+    return props.showReset;
+  }
+  return typeof props.onReset === 'function';
+});
+
+const isCancelVisible = computed(() => {
+  if (typeof props.showCancel === 'boolean') {
+    return props.showCancel;
+  }
+  return typeof props.onCancel === 'function';
+});
+
+const hasPresetActions = computed(() => {
+  return isSubmitVisible.value || isResetVisible.value || isCancelVisible.value;
+});
+
+// 2. 异步 Loading 互斥防重锁状态机
+const internalSubmitLoading = ref(false);
+
+const computedSubmitLoading = computed<boolean>(() => {
+  if (typeof props.submitLoading === 'boolean') {
+    return props.submitLoading;
+  }
+  return internalSubmitLoading.value;
+});
+
+async function handleSubmit(event?: MouseEvent): Promise<void> {
+  const evt =
+    event || (typeof window !== 'undefined' ? new MouseEvent('click') : ({} as MouseEvent));
+
+  // 互斥防重锁：若正在 loading 则立即阻断
+  if (computedSubmitLoading.value) {
+    return;
+  }
+
+  if (typeof props.onSubmit === 'function') {
+    internalSubmitLoading.value = true;
+    try {
+      const result = props.onSubmit(evt);
+      if (result instanceof Promise) {
+        await result;
+      }
+    } catch (err) {
+      emit('submit-error', err);
+    } finally {
+      internalSubmitLoading.value = false;
+    }
+  } else {
+    emit('submit', evt);
+  }
+}
+
+function handleReset(event?: MouseEvent): void {
+  const evt =
+    event || (typeof window !== 'undefined' ? new MouseEvent('click') : ({} as MouseEvent));
+  if (computedSubmitLoading.value) return;
+  if (typeof props.onReset === 'function') {
+    props.onReset(evt);
+  } else {
+    emit('reset', evt);
+  }
+}
+
+function handleCancel(event?: MouseEvent): void {
+  const evt =
+    event || (typeof window !== 'undefined' ? new MouseEvent('click') : ({} as MouseEvent));
+  if (computedSubmitLoading.value) return;
+  if (typeof props.onCancel === 'function') {
+    props.onCancel(evt);
+  } else {
+    emit('cancel', evt);
+  }
+}
+
+async function handleCustomAction(action: FooterBarActionItem, event: MouseEvent): Promise<void> {
+  if (action.disabled || (action.key === 'submit' && computedSubmitLoading.value)) {
+    return;
+  }
+  if (typeof action.onClick === 'function') {
+    await action.onClick(event);
+  }
+}
+
+// 3. 解析智能对齐目标 DOM 节点
 const resolveTargetElement = (): HTMLElement | null => {
   if (typeof document === 'undefined') return null;
   if (props.target) {
@@ -52,7 +169,7 @@ const resolveTargetElement = (): HTMLElement | null => {
   return el.parentElement;
 };
 
-// 执行测量并更新 left 与 width
+// 4. 执行测量并更新 left 与 width
 const updateOffset = () => {
   const targetEl = resolveTargetElement();
   if (!targetEl) return;
@@ -86,10 +203,9 @@ const startObserving = () => {
   const targetEl = resolveTargetElement();
   if (!targetEl) return;
 
-  // 1. 同步初始测量一次，杜绝首屏闪烁
+  // 同步初始测量一次，杜绝首屏闪烁
   updateOffset();
 
-  // 2. 挂载 ResizeObserver 观测容器尺寸变化
   if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
       scheduleUpdate();
@@ -97,7 +213,6 @@ const startObserving = () => {
     resizeObserver.observe(targetEl);
   }
 
-  // 3. 挂载全局窗口视口缩放监听
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', scheduleUpdate);
   }
@@ -154,7 +269,7 @@ const fixedStyles = computed(() => {
     bottom: 0,
   };
 
-  // 1. 若开启了 autoOffset 并已完成测量
+  // 开启了 autoOffset 并已完成测量
   if (props.autoOffset && dynamicOffset.value) {
     styles.left = `${dynamicOffset.value.left}px`;
     styles.width = `${dynamicOffset.value.width}px`;
@@ -162,7 +277,7 @@ const fixedStyles = computed(() => {
     return styles;
   }
 
-  // 2. 默认固定视口悬浮
+  // 默认固定视口悬浮
   styles.right = 0;
   if (props.leftOffset !== 'auto') {
     styles.left = typeof props.leftOffset === 'number' ? `${props.leftOffset}px` : props.leftOffset;
@@ -173,9 +288,13 @@ const fixedStyles = computed(() => {
   return styles;
 });
 
-defineExpose({
+defineExpose<AtengFooterBarExpose>({
   barRef,
   updateOffset,
+  submitLoading: computedSubmitLoading,
+  submit: handleSubmit,
+  reset: handleReset,
+  cancel: handleCancel,
 });
 </script>
 
@@ -208,7 +327,42 @@ defineExpose({
 
       <!-- 右侧主要操作按钮区 -->
       <div class="at-footer-bar__actions">
+        <!-- 默认自定义插槽内容 -->
         <slot />
+
+        <!-- 声明式 actions 按钮列表 -->
+        <template v-if="actions && actions.length > 0">
+          <el-button
+            v-for="(action, index) in actions"
+            :key="action.key || index"
+            :type="action.type || 'default'"
+            :plain="action.plain"
+            :disabled="action.disabled || (action.key === 'submit' && computedSubmitLoading)"
+            :loading="action.loading || (action.key === 'submit' && computedSubmitLoading)"
+            @click="handleCustomAction(action, $event)"
+          >
+            {{ action.label }}
+          </el-button>
+        </template>
+
+        <!-- 预置开箱即用操作流 (取消/重置/提交) -->
+        <template v-if="hasPresetActions">
+          <el-button v-if="isCancelVisible" :disabled="computedSubmitLoading" @click="handleCancel">
+            {{ cancelText }}
+          </el-button>
+          <el-button v-if="isResetVisible" :disabled="computedSubmitLoading" @click="handleReset">
+            {{ resetText }}
+          </el-button>
+          <el-button
+            v-if="isSubmitVisible"
+            :type="submitType"
+            :loading="computedSubmitLoading"
+            :disabled="computedSubmitLoading"
+            @click="handleSubmit"
+          >
+            {{ submitText }}
+          </el-button>
+        </template>
       </div>
     </div>
   </footer>
