@@ -8,7 +8,7 @@
  * 4. 步进器微加减按钮 (ElInputNumber) 紧凑微调与阻尼按压微动；
  * 5. 晶体标签输入 (ElInputTag) 柔光边框与内嵌标签悬浮动效；
  * 6. 验证码输入 (ElInputOtp) 等宽数字单元格与微光聚焦；
- * 7. 联想与提及下拉浮窗 (ElAutocomplete & ElMention) 毛玻璃与高亮项美化；
+ * 7. 联想与提及下拉浮窗 (ElAutocomplete & ElMention) 高性能实体浮层与高亮项美化；
  * 8. 严格恪守深浅双模与零 !important 铁律。
  *
  * @author Ateng
@@ -347,9 +347,7 @@ html.dark .el-input-otp {
 .el-autocomplete__popper.el-popper,
 .el-mention__popper.el-popper {
   border-radius: var(--at-radius-card, 8px);
-  background-color: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-color: var(--el-bg-color-overlay);
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.12),
     0 2px 6px rgba(0, 0, 0, 0.04);

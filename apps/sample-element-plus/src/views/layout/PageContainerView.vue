@@ -87,7 +87,7 @@ const handleFullscreen = (val: boolean) => {
         <ElSwitch v-model="isFixedHeader" />
       </span>
       <span class="ctrl-item">
-        <span>吸顶毛玻璃 (headerBlur)：</span>
+        <span>吸顶轻量固顶 (headerBlur)：</span>
         <ElSwitch v-model="isHeaderBlur" />
       </span>
       <span class="ctrl-item">

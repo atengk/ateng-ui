@@ -209,9 +209,7 @@ html.dark .el-menu {
   border-radius: var(--el-border-radius-base);
   border: 1px solid var(--el-border-color);
   box-shadow: var(--at-shadow-floating);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background-color: rgba(255, 255, 255, 0.96);
+  background-color: var(--el-bg-color-overlay);
   padding: 4px;
 
   .el-dropdown-menu__item {

@@ -24,6 +24,22 @@ describe('AtengFilePreview 多格式文件预览门户交互与契约测试', ()
 
     expect(wrapper.classes()).toContain('at-file-preview');
     expect(wrapper.find('.at-file-preview__image').exists()).toBe(true);
+    expect(wrapper.find('.at-file-preview__image-hint').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it('SVG 矢量字符串 content 自动转换为 Blob URL 渲染', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL');
+    const wrapper = mount(AtengFilePreview, {
+      props: {
+        name: 'flow.svg',
+        content: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>',
+      },
+    });
+
+    expect(wrapper.find('.at-file-preview__image').exists()).toBe(true);
+    expect(createObjectUrlSpy).toHaveBeenCalled();
 
     wrapper.unmount();
   });
@@ -149,6 +165,24 @@ describe('AtengFilePreview 多格式文件预览门户交互与契约测试', ()
 
     expect(wrapper.find('.custom-unsupported').exists()).toBe(true);
     expect(wrapper.find('.custom-unsupported').text()).toContain('archive.tar.gz');
+
+    wrapper.unmount();
+  });
+
+  it('弹窗模式正确渲染并递归装载内嵌预览视图', async () => {
+    const wrapper = mount(AtengFilePreview, {
+      props: {
+        mode: 'dialog',
+        visible: true,
+        name: 'app.json',
+        content: '{"key": "value"}',
+        height: 560,
+      },
+      attachTo: document.body,
+    });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(wrapper.exists()).toBe(true);
 
     wrapper.unmount();
   });

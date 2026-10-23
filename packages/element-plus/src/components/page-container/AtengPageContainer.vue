@@ -524,13 +524,15 @@ defineExpose({
 }
 
 .at-page-container__header.has-blur {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: var(--el-bg-color-overlay, rgba(255, 255, 255, 0.98));
+  border-bottom: 1px solid var(--el-border-color-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 :global(.dark) .at-page-container__header.has-blur {
-  background-color: rgba(20, 20, 20, 0.85);
+  background-color: var(--el-bg-color-overlay, rgba(20, 20, 20, 0.98));
+  border-bottom: 1px solid var(--el-border-color-darker);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
 .at-page-container__header.is-elevated {

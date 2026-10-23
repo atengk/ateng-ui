@@ -14,6 +14,7 @@ const smallDrawerVisible = ref(false);
 const defaultDrawerVisible = ref(false);
 const largeDrawerVisible = ref(false);
 const asyncDrawerVisible = ref(false);
+const lazyDrawerVisible = ref(false);
 
 const drawerInput = ref('重要修改配置');
 
@@ -30,7 +31,7 @@ const handleDrawerAsyncConfirm = async () => {
       <ElAlert
         title="组件特性说明"
         type="info"
-        description="基于 el-drawer 强化封装：支持 small (360px)、default (500px)、large (720px) 响应式语义断点；移动端视口（< 768px）自动 100% 全宽；统一的异步确认 Loading 锁协议与标准化底部操作栏。"
+        description="基于 el-drawer 强化封装：支持 small (360px)、default (500px)、large (720px) 响应式语义断点；移动端视口（< 768px）自动 100% 全宽；统一的异步确认 Loading 锁协议与标准化底部操作栏；支持分帧延迟挂载（lazy-render）与硬件图层加速，杜绝大页面掉帧卡顿。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -48,6 +49,9 @@ const handleDrawerAsyncConfirm = async () => {
         </ElButton>
         <ElButton type="warning" @click="asyncDrawerVisible = true">
           异步确认锁抽屉 (2秒异步保存)
+        </ElButton>
+        <ElButton type="info" @click="lazyDrawerVisible = true">
+          分帧延迟挂载抽屉 (lazy-render 防掉帧)
         </ElButton>
       </div>
 
@@ -76,6 +80,32 @@ const handleDrawerAsyncConfirm = async () => {
       >
         <p>点击确定按钮开始 2 秒异步提交，验证按钮 loading 与互斥锁效果：</p>
         <ElInput v-model="drawerInput" />
+      </AtengDrawer>
+
+      <!-- 5. 分帧延迟挂载抽屉 (lazy-render) -->
+      <AtengDrawer
+        v-model="lazyDrawerVisible"
+        title="分帧延迟挂载抽屉 (lazy-render)"
+        size="default"
+        :lazy-render="true"
+      >
+        <template #placeholder>
+          <div style="padding: 24px 0; text-align: center; color: var(--el-text-color-secondary)">
+            <p>⚡ 正在分帧异步调度挂载重型抽屉组件，展开动效独占主线程达成 100% 满帧...</p>
+          </div>
+        </template>
+        <div style="padding: 8px 0">
+          <ElAlert
+            title="分帧延迟挂载就绪"
+            type="success"
+            description="抽屉滑动展开动效执行期间先平滑呈现占位，待展开完成（@opened）后无感渲染本内容。彻底消除主线程重排、子组件初始化与动效争抢 CPU，达成零掉帧！"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 16px"
+          />
+          <p>适合承载大表格、复杂富文本或数据分析视图：</p>
+          <ElInput v-model="drawerInput" />
+        </div>
       </AtengDrawer>
     </ElCard>
   </div>

@@ -43,45 +43,6 @@ const props = withDefaults(defineProps<AtengFilePreviewProps>(), {
 const emit = defineEmits<AtengFilePreviewEmits>();
 defineSlots<AtengFilePreviewSlots>();
 
-// 本地 Blob URL 缓存
-const objectUrl = ref<string>('');
-const isLocalBlob = ref<boolean>(false);
-
-// 生成或解析资源访问 URL
-function resolveResourceUrl(): void {
-  // 释放前序 ObjectURL 防内存泄漏
-  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
-    URL.revokeObjectURL(objectUrl.value);
-    objectUrl.value = '';
-    isLocalBlob.value = false;
-  }
-
-  if (typeof URL !== 'undefined' && props.file instanceof Blob) {
-    objectUrl.value = URL.createObjectURL(props.file);
-    isLocalBlob.value = true;
-  } else if (props.url) {
-    objectUrl.value = props.url;
-    isLocalBlob.value = false;
-  }
-}
-
-watch(
-  () => [props.url, props.file],
-  () => {
-    resolveResourceUrl();
-  },
-  { immediate: true },
-);
-
-onUnmounted(() => {
-  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
-    URL.revokeObjectURL(objectUrl.value);
-  }
-});
-
-// 计算最终目标 URL
-const currentUrl = computed<string>(() => objectUrl.value);
-
 // 计算有效文件名
 const computedFileName = computed<string>(() => {
   if (props.name) return props.name;
@@ -102,6 +63,57 @@ const detectedType = computed<PreviewFileType>(() => {
   const mime = props.file instanceof Blob ? props.file.type : undefined;
   return detectFileType(computedFileName.value || props.url, mime);
 });
+
+// 本地 Blob URL 缓存
+const objectUrl = ref<string>('');
+const isLocalBlob = ref<boolean>(false);
+
+// 生成或解析资源访问 URL
+function resolveResourceUrl(): void {
+  // 释放前序 ObjectURL 防内存泄漏
+  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
+    URL.revokeObjectURL(objectUrl.value);
+    objectUrl.value = '';
+    isLocalBlob.value = false;
+  }
+
+  if (typeof URL !== 'undefined' && props.file instanceof Blob) {
+    objectUrl.value = URL.createObjectURL(props.file);
+    isLocalBlob.value = true;
+  } else if (props.url) {
+    objectUrl.value = props.url;
+    isLocalBlob.value = false;
+  } else if (
+    props.content &&
+    (detectedType.value === 'image' || detectedType.value === 'pdf') &&
+    typeof URL !== 'undefined' &&
+    typeof Blob !== 'undefined'
+  ) {
+    const isSvg =
+      computedFileName.value.endsWith('.svg') || props.content.trim().startsWith('<svg');
+    const mime = isSvg ? 'image/svg+xml;charset=utf-8' : 'application/pdf';
+    const blob = new Blob([props.content], { type: mime });
+    objectUrl.value = URL.createObjectURL(blob);
+    isLocalBlob.value = true;
+  }
+}
+
+watch(
+  () => [props.url, props.file, props.content],
+  () => {
+    resolveResourceUrl();
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  if (objectUrl.value && isLocalBlob.value && typeof URL !== 'undefined') {
+    URL.revokeObjectURL(objectUrl.value);
+  }
+});
+
+// 计算最终目标 URL
+const currentUrl = computed<string>(() => objectUrl.value);
 
 // 计算文本代码语言类型
 const codeLanguage = computed<CodeViewLanguage>(() => {
@@ -166,6 +178,9 @@ defineExpose<AtengFilePreviewExpose>({
               preview-teleported
               class="at-file-preview__image"
             />
+            <div class="at-file-preview__image-hint">
+              <span>🔍 点击开启全屏高清灯箱与缩放旋转</span>
+            </div>
           </div>
         </template>
 
@@ -177,7 +192,13 @@ defineExpose<AtengFilePreviewExpose>({
         <!-- 3. 原生视频播放 -->
         <template v-else-if="detectedType === 'video'">
           <div class="at-file-preview__media-wrapper">
-            <video :src="currentUrl" controls class="at-file-preview__video" />
+            <video
+              :src="currentUrl"
+              controls
+              playsinline
+              preload="metadata"
+              class="at-file-preview__video"
+            />
           </div>
         </template>
 
@@ -192,7 +213,13 @@ defineExpose<AtengFilePreviewExpose>({
 
         <!-- 5. 源码与文本数据高亮预览 (复用 AtengCodeView) -->
         <template v-else-if="detectedType === 'code' || detectedType === 'text'">
-          <AtengCodeView :code="textContent || currentUrl" :language="codeLanguage" height="100%" />
+          <div class="at-file-preview__code-wrapper">
+            <AtengCodeView
+              :code="textContent || currentUrl"
+              :language="codeLanguage"
+              height="100%"
+            />
+          </div>
         </template>
 
         <!-- 6. 未知类型降级处理 -->
@@ -228,11 +255,8 @@ defineExpose<AtengFilePreviewExpose>({
         class="at-file-preview__dialog"
         @close="handleDialogClose"
       >
-        <div
-          class="at-file-preview__container is-dialog"
-          :style="{ height: typeof height === 'number' ? `${height}px` : height }"
-        >
-          <!-- 递归复用自身内嵌视图 -->
+        <div class="at-file-preview__dialog-body">
+          <!-- 递归复用自身内嵌视图，直接传递用户配置的高度 -->
           <AtengFilePreview
             mode="inline"
             :url="url"
@@ -241,7 +265,7 @@ defineExpose<AtengFilePreviewExpose>({
             :name="name"
             :file-type="fileType"
             :downloadable="false"
-            height="100%"
+            :height="height"
           />
         </div>
 
@@ -272,8 +296,7 @@ defineExpose<AtengFilePreviewExpose>({
     border: 1px solid var(--el-border-color-lighter);
     position: relative;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
   }
 
   &__image-wrapper {
@@ -282,20 +305,81 @@ defineExpose<AtengFilePreviewExpose>({
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: 24px;
     box-sizing: border-box;
+    position: relative;
+    // 工业级透明网格棋盘底纹（适配深浅双模，解决透明 PNG / 白底矢量 SVG 吞色与边界模糊问题）
+    background-color: var(--el-fill-color-light);
+    background-image:
+      linear-gradient(45deg, var(--el-fill-color) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--el-fill-color) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--el-fill-color) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--el-fill-color) 75%);
+    background-size: 20px 20px;
+    background-position:
+      0 0,
+      0 10px,
+      10px -10px,
+      -10px 0px;
   }
 
   &__image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-in;
+
+    :deep(.el-image__inner) {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      user-select: none;
+    }
+  }
+
+  &__image-hint {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    color: #fff;
+    background: rgba(15, 23, 42, 0.65);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    opacity: 0.85;
+    transition: opacity 0.2s ease;
+  }
+
+  &__image-wrapper:hover &__image-hint {
+    opacity: 1;
   }
 
   &__pdf-frame {
     width: 100%;
     height: 100%;
     border: none;
+  }
+
+  &__code-wrapper {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.at-code-view) {
+      border: none;
+      border-radius: 0;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+    }
   }
 
   &__media-wrapper {
@@ -308,16 +392,22 @@ defineExpose<AtengFilePreviewExpose>({
   }
 
   &__video {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    outline: none;
   }
 
   &__audio-wrapper {
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 16px;
     padding: 30px;
+    box-sizing: border-box;
 
     .audio-disc {
       font-size: 48px;
@@ -331,8 +421,19 @@ defineExpose<AtengFilePreviewExpose>({
     }
   }
 
+  &__audio {
+    width: min(500px, 90%);
+    outline: none;
+  }
+
   &__unsupported {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 30px;
+    box-sizing: border-box;
 
     .unsupported-box {
       display: flex;
@@ -346,6 +447,11 @@ defineExpose<AtengFilePreviewExpose>({
         margin: 0;
       }
     }
+  }
+
+  &__dialog-body {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   &__dialog-footer {

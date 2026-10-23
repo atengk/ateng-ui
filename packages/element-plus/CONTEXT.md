@@ -53,15 +53,15 @@ _Avoid_: ExportButton, ExcelBtn, Downloader, TableExport
 _Avoid_: FileUploader, OssUpload, UploadBox, StorageUpload
 
 **AtengDialog**:
-企业级可拖拽、全屏切换与异步提交 Loading 锁交互弹窗容器组件。
+具备可拖拽、全屏切换、异步提交 Loading 锁、分帧延迟挂载（lazy-render）与独立 GPU 合成图层加速的企业级弹窗交互容器组件。
 _Avoid_: AtengModal, BaseDialog, DragDialog, FullscreenDialog
 
 **AtengDrawer**:
-企业级响应式尺寸与异步提交 Loading 锁抽屉交互容器组件。
+具备响应式尺寸断点、异步提交 Loading 锁、分帧延迟挂载（lazy-render）与硬件图层加速的企业级抽屉交互容器组件。
 _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 
 **AtengPageContainer**:
-具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签/可选滚动折叠）、吸顶毛玻璃与滚动阴影、双模自适应滚动、内容脱壳全屏与沉浸式卡片包装的企业级标准页面容器组件。
+具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签/可选滚动折叠）、吸顶轻量固顶与滚动阴影、双模自适应滚动、内容脱壳全屏与沉浸式卡片包装的企业级标准页面容器组件。
 _Avoid_: PageLayout, LayoutPage, PageView, AdminPage, PageWrapper
 
 **AtengSplitLayout**:
@@ -93,7 +93,7 @@ _Avoid_: Elevator, FloorNav, ScrollSpy, AffixAnchor, AnchorNav
 _Avoid_: AutoGrid, FlexGrid, ResponsiveLayout, ContainerGrid, FluidGrid
 
 **AtengPageSkeleton**:
-具备列表、表单、详情、卡片网格与仪表盘看板等多模态预设及弹性自适应栅格的页面骨架屏占位容器组件。
+具备列表、表单、详情、卡片网格与仪表盘看板等多形态预设及弹性自适应栅格的页面骨架屏占位容器组件。
 _Avoid_: PageLoading, SkeletonView, LayoutSkeleton, ContentSkeleton
 
 **AtengEmpty**:
@@ -184,9 +184,9 @@ _Avoid_: TopLight, HighLight, BorderGlow
 基于主品牌色 1px 锐利内环与 4px 半透明柔光外环的表单与拾取器无框激光聚焦高光反馈机制。
 _Avoid_: FocusBorder, Outline, GlowRing
 
-**Obsidian Glass Overlay (黑曜石毛玻璃浮层)**:
-遮罩层、全局/局部加载态（Loading）与全屏大图预览（ImageViewer）统一应用的 `backdrop-filter: blur(...)` 景深毛玻璃微质感模型。
-_Avoid_: BlurMask, GlassModal, FrostedOverlay
+**Obsidian Dark Overlay (黑曜石高质感浮层)**:
+遮罩层、全局/局部加载态（Loading）与全屏大图预览（ImageViewer）统一应用的独立 GPU 合成图层与实体微透暗黑高质感模型（彻底剥离 backdrop-filter，杜绝 GPU 资源消耗与模糊失真）。
+_Avoid_: BlurMask, GlassModal, FrostedOverlay, HeavyBlurOverlay
 
 **Tactile Dragger (触感拖拽上传)**:
 基于亚像素虚线描边、阻尼悬浮反馈与主色激光微光的现代文件上传拖拽容器交互规约。

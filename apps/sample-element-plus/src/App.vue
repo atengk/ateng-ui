@@ -161,7 +161,7 @@ onMounted(() => {
               </ElMenuItem>
               <ElMenuItem index="/theme/tables"> 流体表格与防抖 (Tables & Anti-Jitter) </ElMenuItem>
               <ElMenuItem index="/theme/tags-overlays">
-                标签、开关与毛玻璃浮层 (Tags & Overlays)
+                标签、开关与轻量浮层 (Tags & Overlays)
               </ElMenuItem>
               <ElMenuItem index="/theme/tenant">
                 动态租户换肤 API (Tenant Theme Engine)

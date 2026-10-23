@@ -8,7 +8,7 @@
  * 3. 紧凑精密内边距 (8px~10px)，平衡呼吸感与数据密度；
  * 4. 数据行 Hover 浅淡主题微流光 (浅色 4%，暗黑 6%) 与平滑过渡；
  * 5. 全面强制 tabular-nums 等宽排版，高频变动/翻页绝对零水平抖动；
- * 6. 沉浸式毛玻璃悬浮批量操作条 (.at-table__batch-bar)；
+ * 6. 高性能实体悬浮批量操作条 (.at-table__batch-bar)；
  * 7. 零 !important 逃生门：局部 class 随意覆写；
  * 8. 5 款科技主题预设实时秒切与暗黑模式深度自适应。
  *
@@ -170,7 +170,7 @@ const showBorder = ref(false);
       </div>
       <p class="preset-tip">
         💡 提示：在上方切换主题，或在右上角切换深色模式，观察表格表头分层、Hover
-        微流光与毛玻璃批量条实时联动！
+        微流光与悬浮批量条实时联动！
       </p>
     </AtengCard>
 
@@ -246,7 +246,7 @@ const showBorder = ref(false);
         </ElTableColumn>
       </ElTable>
 
-      <!-- 批量操作条 (毛玻璃悬浮效果) -->
+      <!-- 批量操作条 (高性能悬浮操作条) -->
       <transition name="fade">
         <div v-if="selectedItems.length > 0" class="at-table__batch-bar mt-3">
           <div class="batch-bar-left">

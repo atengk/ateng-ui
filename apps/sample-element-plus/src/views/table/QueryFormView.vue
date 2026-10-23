@@ -12,7 +12,7 @@
  * @since 2026-10-21
  */
 
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import {
   ElCard,
   ElFormItem,
@@ -42,7 +42,8 @@ const queryModel = reactive({
 });
 
 // 2. 栅格列数受控切换与折叠行数
-const selectedCols = ref<number | undefined>(undefined);
+const selectedCols = ref<number | 'auto'>('auto');
+const activeCols = computed(() => (selectedCols.value === 'auto' ? undefined : selectedCols.value));
 const collapsedRows = ref(1);
 
 // 3. 提交与重置日志记录
@@ -100,7 +101,7 @@ const handleReset = () => {
             </ElRadioGroup>
             <span class="ctrl-tip" style="margin-left: 12px">指定栅格列数：</span>
             <ElRadioGroup v-model="selectedCols" size="small">
-              <ElRadioButton :value="undefined">自适应断点</ElRadioButton>
+              <ElRadioButton value="auto">自适应断点</ElRadioButton>
               <ElRadioButton :value="1">单列 (1)</ElRadioButton>
               <ElRadioButton :value="2">双列 (2)</ElRadioButton>
               <ElRadioButton :value="3">三列 (3)</ElRadioButton>
@@ -113,7 +114,7 @@ const handleReset = () => {
       <!-- 搜索表单容器 -->
       <AtengQueryForm
         :model="queryModel"
-        :cols="selectedCols"
+        :cols="activeCols"
         :collapsed-rows="collapsedRows"
         :default-collapsed="true"
         label-width="90px"

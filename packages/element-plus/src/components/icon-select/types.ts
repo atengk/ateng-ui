@@ -55,7 +55,7 @@ export interface AtengIconSelectProps {
   placeholder?: string;
 
   /**
-   * 展现交互模式（浮窗 popover 或模态弹窗 dialog）。
+   * 展现交互模式（浮窗 popover 或弹窗 dialog）。
    * @default 'popover'
    */
   mode?: IconSelectMode;

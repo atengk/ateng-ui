@@ -60,7 +60,7 @@ export interface AtengPageContainerProps {
   fixedHeader?: boolean;
 
   /**
-   * 页头是否开启吸顶毛玻璃滤镜（backdrop-filter: blur(8px)）。
+   * 页头是否开启吸顶轻量固顶微透样式（实体防透底与微投影，杜绝 CPU/GPU 模糊掉帧）。
    * 默认 false。
    */
   headerBlur?: boolean;

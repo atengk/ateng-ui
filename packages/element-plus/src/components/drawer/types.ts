@@ -96,6 +96,13 @@ export interface AtengDrawerProps {
   appendToBody?: boolean;
 
   /**
+   * 是否启用分帧延迟挂载（lazy-render）。
+   * 开启后，抽屉展开动效期间先呈现平滑骨架占位，待展开完成（@opened）后再挂载真实内容，
+   * 彻底避免复杂子组件与展开动画争抢主线程导致的掉帧卡顿，默认 false。
+   */
+  lazyRender?: boolean;
+
+  /**
    * 抽屉自定义类名。
    */
   customClass?: string;
@@ -123,6 +130,10 @@ export interface AtengDrawerSlots {
   header?: () => VNode[];
   footer?: () => VNode[];
   title?: () => VNode[];
+  /**
+   * 分帧延迟挂载模式下的占位骨架插槽。
+   */
+  placeholder?: () => VNode[];
 }
 
 /**

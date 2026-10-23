@@ -211,4 +211,47 @@ describe('AtengDrawer 组件规范与交互测试', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(visible.value).toBe(false);
   });
+
+  it('分帧延迟挂载协议 (lazy-render)：展开完成前显示骨架占位，opened 触发后挂载真实内容', async () => {
+    const visible = ref(true);
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible };
+      },
+      template: `
+        <AtengDrawer
+          v-model="visible"
+          title="延迟挂载抽屉"
+          :lazy-render="true"
+          :append-to-body="false"
+        >
+          <template #placeholder>
+            <div id="drawer-placeholder">抽屉骨架屏加载中...</div>
+          </template>
+          <div id="drawer-heavy-content">复杂抽屉详情视图</div>
+        </AtengDrawer>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDrawer } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    // 初始动效执行期间渲染骨架占位，未挂载重型业务节点
+    expect(wrapper.find('#drawer-placeholder').exists()).toBe(true);
+    expect(wrapper.find('#drawer-heavy-content').exists()).toBe(false);
+
+    // 模拟 Element Plus 抽屉展开就绪派发 opened
+    const drawerComponent = wrapper.findComponent(AtengDrawer);
+    const elDrawer = drawerComponent.findComponent({ name: 'ElDrawer' });
+    elDrawer.vm.$emit('opened');
+    await nextTick();
+
+    // 展开落地后，真实业务内容平滑挂载
+    expect(wrapper.find('#drawer-placeholder').exists()).toBe(false);
+    expect(wrapper.find('#drawer-heavy-content').exists()).toBe(true);
+  });
 });

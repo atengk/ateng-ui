@@ -77,7 +77,7 @@ const customIcons: IconItem[] = [
           <ElFormItem label="展现模式：">
             <ElRadioGroup v-model="currentMode" size="small">
               <ElRadioButton value="popover">Popover 浮窗</ElRadioButton>
-              <ElRadioButton value="dialog">Dialog 模态窗</ElRadioButton>
+              <ElRadioButton value="dialog">Dialog 弹窗</ElRadioButton>
             </ElRadioGroup>
           </ElFormItem>
 

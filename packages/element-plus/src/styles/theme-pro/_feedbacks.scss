@@ -261,20 +261,17 @@
 }
 
 // ========================================================
-// 5. 加载遮罩 (Loading - Obsidian Glass Overlay)
+// 5. 加载遮罩 (Loading - Pure Semi-transparent Overlay)
+// 彻底剥离全屏与局部 backdrop-filter 滤镜，杜绝 GPU 资源消耗与模糊失真
 // ========================================================
 .el-loading-mask {
-  background-color: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background-color: rgba(255, 255, 255, 0.78);
   transition:
-    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.is-fullscreen {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    background-color: rgba(15, 23, 42, 0.65);
+    background-color: rgba(15, 23, 42, 0.75);
 
     .el-loading-text {
       color: #ffffff;
@@ -301,35 +298,37 @@
 }
 
 // ========================================================
-// 6. 骨架屏平滑波纹 (Skeleton - Pulse Wave)
+// 6. 骨架屏 GPU 纯净呼吸脉冲 (Skeleton - GPU Opacity Pulse)
+// 废除 background-position 线性重绘，升级为 GPU 硬件合成图层透明度平滑呼吸，0 次 Repaint
 // ========================================================
 .el-skeleton {
   .el-skeleton__item {
     border-radius: var(--el-border-radius-base, 6px);
+    background: var(--el-fill-color);
 
     &.el-skeleton__circle {
       border-radius: 50%;
     }
   }
 
-  &.is-animated .el-skeleton__item {
-    background: linear-gradient(
-      90deg,
-      var(--el-skeleton-color) 25%,
-      var(--el-skeleton-to-color) 50%,
-      var(--el-skeleton-color) 75%
-    );
-    background-size: 200% 100%;
-    animation: at-skeleton-pulse 1.8s ease-in-out infinite;
+  &.is-animated {
+    animation: at-skeleton-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    will-change: opacity;
+
+    .el-skeleton__item {
+      background: var(--el-fill-color);
+      animation: none;
+    }
   }
 }
 
 @keyframes at-skeleton-pulse {
-  0% {
-    background-position: 100% 50%;
-  }
+  0%,
   100% {
-    background-position: 0 50%;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.42;
   }
 }
 
@@ -409,15 +408,19 @@ html.dark {
   }
 
   .el-loading-mask {
-    background-color: rgba(15, 23, 42, 0.72);
+    background-color: rgba(15, 23, 42, 0.78);
 
     &.is-fullscreen {
-      background-color: rgba(2, 6, 23, 0.82);
+      background-color: rgba(2, 6, 23, 0.85);
     }
   }
 
   .el-skeleton {
     --el-skeleton-color: #1e293b;
     --el-skeleton-to-color: #334155;
+
+    .el-skeleton__item {
+      background: #1e293b;
+    }
   }
 }

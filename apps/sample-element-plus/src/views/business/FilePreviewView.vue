@@ -35,11 +35,78 @@ interface FileSample {
   fileType?: PreviewFileType;
 }
 
+const sampleArchitectureSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 480" width="100%" height="100%">
+  <defs>
+    <linearGradient id="l3Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="l2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6d28d9" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="l1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#047857" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="l0Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#b45309" stop-opacity="0.25"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="840" height="480" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
+
+  <text x="40" y="44" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="18" font-weight="700" fill="#0f172a">ateng-ui 工业级四层单向洋葱拓扑架构全景</text>
+  <text x="40" y="66" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="12" fill="#64748b">严格单向无环依赖律：L3 ➔ L2 ➔ L1 ➔ L0，中立原生优先与零臃肿工程契约</text>
+
+  <g transform="translate(40, 85)">
+    <rect width="760" height="74" rx="10" fill="url(#l3Grad)" stroke="#3b82f6" stroke-width="1.5"/>
+    <rect x="16" y="16" width="42" height="42" rx="8" fill="#3b82f6"/>
+    <text x="37" y="42" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">L3</text>
+    <text x="72" y="34" font-family="sans-serif" font-size="14" font-weight="700" fill="#1e3a8a">表现与高阶套件层 (@atengk/element-plus / UI Suites)</text>
+    <text x="72" y="52" font-family="sans-serif" font-size="11" fill="#475569">AtengTable 响应式表格 · AtengQueryForm 栅格搜索 · AtengDialog/Drawer 硬件加速弹层 · ThemePro 科技主题</text>
+  </g>
+
+  <path d="M 420 160 L 420 178" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 3"/>
+  <polygon points="420,182 416,174 424,174" fill="#3b82f6"/>
+
+  <g transform="translate(40, 182)">
+    <rect width="760" height="74" rx="10" fill="url(#l2Grad)" stroke="#8b5cf6" stroke-width="1.5"/>
+    <rect x="16" y="16" width="42" height="42" rx="8" fill="#8b5cf6"/>
+    <text x="37" y="42" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">L2</text>
+    <text x="72" y="34" font-family="sans-serif" font-size="14" font-weight="700" fill="#4c1d95">专用领域能力扩展层 (@atengk/extensions / Domain Engines)</text>
+    <text x="72" y="52" font-family="sans-serif" font-size="11" fill="#475569">ECharts 数据可视化适配 · 流程图与拓扑编排 · 富文本与高级文档引擎 · 高内聚轻量领域封装</text>
+  </g>
+
+  <path d="M 420 257 L 420 275" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="3 3"/>
+  <polygon points="420,279 416,271 424,271" fill="#8b5cf6"/>
+
+  <g transform="translate(40, 279)">
+    <rect width="760" height="74" rx="10" fill="url(#l1Grad)" stroke="#10b981" stroke-width="1.5"/>
+    <rect x="16" y="16" width="42" height="42" rx="8" fill="#10b981"/>
+    <text x="37" y="42" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">L1</text>
+    <text x="72" y="34" font-family="sans-serif" font-size="14" font-weight="700" fill="#064e3b">无头响应式状态机层 (@atengk/vue / Headless Hooks)</text>
+    <text x="72" y="52" font-family="sans-serif" font-size="11" fill="#475569">usePagination 分页状态机 · useLatest 竞态防御 · useDebounce/useThrottle · 纯响应式调度零 UI 依赖</text>
+  </g>
+
+  <path d="M 420 354 L 420 372" stroke="#10b981" stroke-width="2" stroke-dasharray="3 3"/>
+  <polygon points="420,376 416,368 424,368" fill="#10b981"/>
+
+  <g transform="translate(40, 376)">
+    <rect width="760" height="74" rx="10" fill="url(#l0Grad)" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="16" y="16" width="42" height="42" rx="8" fill="#f59e0b"/>
+    <text x="37" y="42" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">L0</text>
+    <text x="72" y="34" font-family="sans-serif" font-size="14" font-weight="700" fill="#78350f">纯原生跨框架核心底座 (@atengk/core / Core Layer)</text>
+    <text x="72" y="52" font-family="sans-serif" font-size="11" fill="#475569">HttpClient 企业网络客户端 · 雪花 ID 大数防失真 · StreamClient 流式调度 · WebSocket 心跳重连</text>
+  </g>
+</svg>`;
+
 const samples: FileSample[] = [
   {
     label: '🖼️ 图片 (PNG/SVG)',
     name: 'architecture_diagram.svg',
-    url: 'https://vitejs.dev/logo.svg',
+    content: sampleArchitectureSvg,
   },
   {
     label: '📄 原生 PDF',
@@ -133,7 +200,7 @@ const handleLocalFileChange = (uploadFile: { raw?: File }) => {
             <span class="label">展现交互模式：</span>
             <ElRadioGroup v-model="displayMode" size="small">
               <ElRadioButton value="inline">内联内嵌 (Inline)</ElRadioButton>
-              <ElRadioButton value="dialog">模态弹窗 (Dialog)</ElRadioButton>
+              <ElRadioButton value="dialog">对话框 (Dialog)</ElRadioButton>
             </ElRadioGroup>
           </div>
 

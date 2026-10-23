@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * @atengk/element-plus 现代主题引擎 - 标签、开关与毛玻璃浮层自验展厅。
+ * @atengk/element-plus 现代主题引擎 - 标签、开关与轻量浮层自验展厅。
  *
  * 验证维度：
  * 1. 软质高透 Soft Pill 标签与黑曜石暗晶体底 (Obsidian)；
  * 2. 呼吸微发光 LED 状态核标签 (.is-dot / .el-tag--dot)；
  * 3. 精密数控滑动开关 (ElSwitch: 冷钛底、立体内凹微影滑块、阻尼过渡、开启态柔光)；
- * 4. 沉浸式景深毛玻璃遮罩 (ElOverlay: blur(8px)) 与 16px 大圆角弹窗 (ElDialog)；
- * 5. 浮动药丸卡片 Toast 提示 (ElMessage: 9999px 圆角 + blur(16px))；
+ * 4. 沉浸式暗色景深遮罩 (ElOverlay: 0 模糊消耗、独立 GPU 图层) 与 16px 大圆角弹窗 (ElDialog)；
+ * 5. 浮动药丸卡片 Toast 提示 (ElMessage: 9999px 圆角 + 实体浮层投影)；
  * 6. 5 款科技主题预设实时秒切与暗黑模式深度自适应；
  * 7. 零 !important 逃生门：业务局部 class 天然自由覆写。
  *
@@ -174,14 +174,14 @@ const triggerNotification = () => {
       </div>
     </AtengCard>
 
-    <!-- 3. 沉浸式景深毛玻璃弹窗与药丸浮岛 -->
+    <!-- 3. 高质感暗色遮罩弹窗与药丸浮岛 -->
     <AtengCard
-      title="🪟 浮层与反馈系统 (blur(8px) 景深遮罩 + 16px 弹窗 + 9999px 药丸 Message)"
+      title="🪟 浮层与反馈系统 (高质感沉浸遮罩 + 16px 弹窗 + 9999px 药丸 Message)"
       class="mb-4"
     >
       <div class="btn-row mb-4">
         <ElButton type="primary" @click="dialogVisible = true">
-          打开现代毛玻璃弹窗 (ElDialog)
+          打开企业级现代弹窗 (ElDialog)
         </ElButton>
         <ElButton @click="triggerMessage('success')">触发 Success 药丸 Toast</ElButton>
         <ElButton @click="triggerMessage('warning')">触发 Warning 药丸 Toast</ElButton>
@@ -200,7 +200,7 @@ const triggerNotification = () => {
             <li>包含 5 款科技预设色阶及 Slate 深空冷灰暗黑基底；</li>
             <li>全面启用 <code>tabular-nums</code> 数值防抖与双层激光光晕输入控件；</li>
             <li>底座已通过 32 个测试套件、273 项全绿自动化测试；</li>
-            <li>系统遮罩当前呈现 <code>backdrop-filter: blur(8px)</code> 沉浸式景深。</li>
+            <li>系统遮罩当前呈现 Slate 沉浸暗色半透与独立 GPU 图层隔离（0 模糊计算、0 掉帧）。</li>
           </ul>
         </div>
         <template #footer>

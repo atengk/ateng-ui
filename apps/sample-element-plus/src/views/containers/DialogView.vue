@@ -15,6 +15,7 @@ const basicDialogVisible = ref(false);
 const asyncDialogVisible = ref(false);
 const failDialogVisible = ref(false);
 const scrollDialogVisible = ref(false);
+const lazyDialogVisible = ref(false);
 
 // 表单数据
 const form = ref({
@@ -46,7 +47,7 @@ const handleFailingConfirm = async () => {
       <ElAlert
         title="组件特性说明"
         type="info"
-        description="基于 el-dialog 强化封装：默认支持原生拖拽 draggable；右上角集成全屏放大/还原按钮，支持双击 Header 快速全屏切换；内容区由 el-scrollbar 承载并严格限制视口高度；异步确认 Loading 锁协议：确定时进入 loading，同步禁用取消/关闭/ESC，成功自动关闭，失败保持开启保护现场。"
+        description="基于 el-dialog 强化封装：默认支持原生拖拽 draggable；右上角集成全屏放大/还原按钮，支持双击 Header 快速全屏切换；内容区由 el-scrollbar 承载并严格限制视口高度；异步确认 Loading 锁协议：确定时进入 loading，同步禁用取消/关闭/ESC，成功自动关闭，失败保持开启保护现场；支持分帧延迟挂载（lazy-render）与独立硬件合成图层加速，杜绝大页面掉帧卡顿。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -64,6 +65,9 @@ const handleFailingConfirm = async () => {
         </ElButton>
         <ElButton type="warning" @click="scrollDialogVisible = true">
           超长视口滚动弹窗 (高度受控)
+        </ElButton>
+        <ElButton type="info" @click="lazyDialogVisible = true">
+          分帧延迟挂载弹窗 (lazy-render 防掉帧)
         </ElButton>
       </div>
 
@@ -111,6 +115,35 @@ const handleFailingConfirm = async () => {
         <div v-for="i in 30" :key="i" class="scroll-item">
           第
           {{ i }} 条：企业级基础设施交互容器规范，确保内容区域严格自适应视口高度，绝不溢出撑破屏幕。
+        </div>
+      </AtengDialog>
+
+      <!-- 5. 分帧延迟挂载弹窗 (lazy-render) -->
+      <AtengDialog
+        v-model="lazyDialogVisible"
+        title="分帧延迟挂载极速弹窗 (lazy-render)"
+        width="600px"
+        :lazy-render="true"
+      >
+        <template #placeholder>
+          <div style="padding: 24px 0; text-align: center; color: var(--el-text-color-secondary)">
+            <p>⚡ 正在分帧异步调度挂载重型业务节点，展开动效独占主线程达成 100% 满帧...</p>
+          </div>
+        </template>
+        <div style="padding: 8px 0">
+          <ElAlert
+            title="分帧延迟挂载就绪"
+            type="success"
+            description="弹窗展开动效（250ms）执行期间先平滑呈现占位，待展开完成（@opened）后无感渲染本内容。彻底消除主线程重排、子组件初始化与 GPU 动效争抢 CPU，达成零掉帧！"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 16px"
+          />
+          <ElForm :model="form" label-width="100px">
+            <ElFormItem label="重型报表项">
+              <ElInput v-model="form.remark" placeholder="复杂大表单数据" />
+            </ElFormItem>
+          </ElForm>
         </div>
       </AtengDialog>
     </ElCard>

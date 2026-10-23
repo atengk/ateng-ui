@@ -13,7 +13,7 @@
  */
 
 import { ref, computed, watch, onMounted, toRef } from 'vue';
-import { ElDialog, ElButton, ElScrollbar } from 'element-plus';
+import { ElDialog, ElButton, ElScrollbar, ElSkeleton } from 'element-plus';
 import type {
   AtengDialogProps,
   AtengDialogEmits,
@@ -43,6 +43,7 @@ const props = withDefaults(defineProps<AtengDialogProps>(), {
   closeOnPressEscape: true,
   destroyOnClose: false,
   appendToBody: true,
+  lazyRender: false,
   customClass: '',
 });
 
@@ -121,7 +122,33 @@ const handleCancel = () => {
   emit('close');
 };
 
-// 3. 计算内容区滚动高度
+// 3. 分帧延迟挂载 (lazy-render) 状态机编排
+const isContentReady = ref(!props.lazyRender);
+
+const handleOpened = () => {
+  if (props.lazyRender && !isContentReady.value) {
+    isContentReady.value = true;
+  }
+  emit('opened');
+};
+
+const handleClosed = () => {
+  if (props.lazyRender && props.destroyOnClose) {
+    isContentReady.value = false;
+  }
+  emit('closed');
+};
+
+watch(
+  () => props.lazyRender,
+  val => {
+    if (!val) {
+      isContentReady.value = true;
+    }
+  },
+);
+
+// 4. 计算内容区滚动高度
 const scrollbarMaxHeight = computed(() => {
   if (isFullscreen.value) {
     return 'calc(100vh - 120px)';
@@ -129,7 +156,7 @@ const scrollbarMaxHeight = computed(() => {
   return typeof props.maxHeight === 'number' ? `${props.maxHeight}px` : props.maxHeight;
 });
 
-// 4. 显式暴露方法
+// 5. 显式暴露方法
 defineExpose<AtengDialogExpose>({
   toggleFullscreen,
   confirm: handleConfirm,
@@ -152,9 +179,9 @@ defineExpose<AtengDialogExpose>({
     :class="['at-dialog', isFullscreen && 'at-dialog--fullscreen', customClass]"
     @update:model-value="val => emit('update:modelValue', val)"
     @open="emit('open')"
-    @opened="emit('opened')"
+    @opened="handleOpened"
     @close="emit('close')"
-    @closed="emit('closed')"
+    @closed="handleClosed"
   >
     <!-- 自定义 Header：集成标题、双击区域、全屏按钮与关闭按钮 -->
     <template #header="{ close, titleId, titleClass }">
@@ -219,7 +246,14 @@ defineExpose<AtengDialogExpose>({
     <div class="at-dialog__body">
       <el-scrollbar :max-height="scrollbarMaxHeight">
         <div class="at-dialog__content">
-          <slot />
+          <template v-if="!lazyRender || isContentReady">
+            <slot />
+          </template>
+          <template v-else>
+            <slot name="placeholder">
+              <el-skeleton :rows="4" animated class="at-dialog__placeholder" />
+            </slot>
+          </template>
         </div>
       </el-scrollbar>
     </div>
@@ -301,6 +335,10 @@ defineExpose<AtengDialogExpose>({
 
   &__content {
     padding: 0 4px;
+  }
+
+  &__placeholder {
+    padding: 16px 8px;
   }
 
   &__footer {

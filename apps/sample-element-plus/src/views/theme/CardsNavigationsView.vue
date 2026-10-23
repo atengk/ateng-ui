@@ -5,7 +5,7 @@
  * 验证维度：
  * 1. 结构化卡片 (ElCard / AtengCard): 顶部 Specular Hairline 微发丝高光、10px 弹性圆角与环境微影；
  * 2. 选项卡体系 (ElTabs): 2.5px 平滑微圆角指示条、卡片式与边框卡片式无缝衔接；
- * 3. 菜单与下拉 (ElMenu / ElDropdown): 胶囊激活项、微亮指示标与毛玻璃浮岛；
+ * 3. 菜单与下拉 (ElMenu / ElDropdown): 胶囊激活项、微亮指示标与高质感实体浮岛；
  * 4. 选择控件 (ElCheckbox / ElRadio): 4px 微圆角与弹性阻尼动效；
  * 5. 分页器体系 (ElPagination): 6px 微圆角等宽页码与沉稳激活态；
  * 6. 5 款科技主题预设实时秒切与暗黑模式深度自适应；

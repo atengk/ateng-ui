@@ -3,7 +3,7 @@
  *
  * 核心特性：
  * 1. 深度对齐 Element Plus 原生二级变量 (--el-datepicker-*, --el-cascader-*)；
- * 2. 下拉面板引入亚像素半透明微描边与毛玻璃景深效果 (backdrop-filter: blur)；
+ * 2. 下拉面板采用高质感实体底色与亚像素微描边（剥离 backdrop-filter，彻底消除 GPU 模糊掉帧）；
  * 3. 范围拾取器 (RangePicker) 范围波段平滑过渡并联动品牌主色浅阶；
  * 4. 级联选择器菜单与节点黑曜石微光悬浮与选中态；
  * 5. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
@@ -83,7 +83,6 @@
   border: 1px solid var(--el-border-color);
   background: var(--el-bg-color-overlay);
   box-shadow: var(--at-shadow-floating);
-  backdrop-filter: blur(16px);
   overflow: hidden;
 
   // 顶部导航与切换按钮
@@ -288,7 +287,6 @@
   border: 1px solid var(--el-border-color);
   background: var(--el-bg-color-overlay);
   box-shadow: var(--at-shadow-floating);
-  backdrop-filter: blur(16px);
   overflow: hidden;
 }
 
@@ -344,7 +342,6 @@
   border: 1px solid var(--el-border-color);
   background: var(--el-bg-color-overlay);
   box-shadow: var(--at-shadow-floating);
-  backdrop-filter: blur(16px);
 }
 
 // ========================================================
@@ -354,7 +351,7 @@ html.dark {
   .el-picker-panel,
   .el-cascader__dropdown,
   .el-color-dropdown {
-    background: rgba(18, 24, 36, 0.88);
+    background: #151b26;
     border-color: rgba(255, 255, 255, 0.08);
   }
 

@@ -11,8 +11,8 @@
  * @since 2026-10-21
  */
 
-import { ref, computed, onMounted, toRef } from 'vue';
-import { ElDrawer, ElButton } from 'element-plus';
+import { ref, computed, watch, onMounted, toRef } from 'vue';
+import { ElDrawer, ElButton, ElSkeleton } from 'element-plus';
 import type {
   AtengDrawerProps,
   AtengDrawerEmits,
@@ -40,6 +40,7 @@ const props = withDefaults(defineProps<AtengDrawerProps>(), {
   closeOnPressEscape: true,
   destroyOnClose: false,
   appendToBody: true,
+  lazyRender: false,
   customClass: '',
 });
 
@@ -102,7 +103,33 @@ const handleCancel = () => {
   emit('close');
 };
 
-// 3. 显式暴露方法
+// 3. 分帧延迟挂载 (lazy-render) 状态机编排
+const isContentReady = ref(!props.lazyRender);
+
+const handleOpened = () => {
+  if (props.lazyRender && !isContentReady.value) {
+    isContentReady.value = true;
+  }
+  emit('opened');
+};
+
+const handleClosed = () => {
+  if (props.lazyRender && props.destroyOnClose) {
+    isContentReady.value = false;
+  }
+  emit('closed');
+};
+
+watch(
+  () => props.lazyRender,
+  val => {
+    if (!val) {
+      isContentReady.value = true;
+    }
+  },
+);
+
+// 4. 显式暴露方法
 defineExpose<AtengDrawerExpose>({
   confirm: handleConfirm,
   cancel: handleCancel,
@@ -124,9 +151,9 @@ defineExpose<AtengDrawerExpose>({
     :class="['at-drawer', customClass]"
     @update:model-value="val => emit('update:modelValue', val)"
     @open="emit('open')"
-    @opened="emit('opened')"
+    @opened="handleOpened"
     @close="emit('close')"
-    @closed="emit('closed')"
+    @closed="handleClosed"
   >
     <!-- 自定义 Header：带标题与防锁死关闭按钮 -->
     <template v-if="withHeader" #header="{ close, titleId, titleClass }">
@@ -158,7 +185,14 @@ defineExpose<AtengDrawerExpose>({
 
     <!-- 抽屉主要内容区 -->
     <div class="at-drawer__body">
-      <slot />
+      <template v-if="!lazyRender || isContentReady">
+        <slot />
+      </template>
+      <template v-else>
+        <slot name="placeholder">
+          <el-skeleton :rows="6" animated class="at-drawer__placeholder" />
+        </slot>
+      </template>
     </div>
 
     <!-- 底部标准化操作栏 -->
@@ -233,6 +267,10 @@ defineExpose<AtengDrawerExpose>({
   &__body {
     height: 100%;
     box-sizing: border-box;
+  }
+
+  &__placeholder {
+    padding: 16px 8px;
   }
 
   &__footer {

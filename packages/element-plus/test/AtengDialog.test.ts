@@ -231,4 +231,47 @@ describe('AtengDialog 组件规范与交互测试', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(visible.value).toBe(false);
   });
+
+  it('分帧延迟挂载协议 (lazy-render)：展开完成前显示骨架占位，opened 触发后挂载真实内容', async () => {
+    const visible = ref(true);
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible };
+      },
+      template: `
+        <AtengDialog
+          v-model="visible"
+          title="延迟挂载弹窗"
+          :lazy-render="true"
+          :append-to-body="false"
+        >
+          <template #placeholder>
+            <div id="custom-placeholder">骨架屏加载中...</div>
+          </template>
+          <div id="heavy-content">复杂重型业务数据</div>
+        </AtengDialog>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDialog } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    // 初始状态下动效尚未完成，渲染占位骨架，未挂载真实业务内容
+    expect(wrapper.find('#custom-placeholder').exists()).toBe(true);
+    expect(wrapper.find('#heavy-content').exists()).toBe(false);
+
+    // 模拟 Element Plus 动效结束派发 opened 事件
+    const dialogComponent = wrapper.findComponent(AtengDialog);
+    const elDialog = dialogComponent.findComponent({ name: 'ElDialog' });
+    elDialog.vm.$emit('opened');
+    await nextTick();
+
+    // 动效落地后，真实业务内容平滑挂载，占位骨架移除
+    expect(wrapper.find('#custom-placeholder').exists()).toBe(false);
+    expect(wrapper.find('#heavy-content').exists()).toBe(true);
+  });
 });

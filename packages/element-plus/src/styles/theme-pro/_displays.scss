@@ -250,14 +250,17 @@
   overflow: hidden;
 
   .el-carousel__arrow {
-    background-color: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(8px);
+    background-color: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transition:
       background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
       transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
     &:hover {
       background-color: var(--el-color-primary);
+      border-color: var(--el-color-primary);
       transform: scale(1.1);
     }
   }

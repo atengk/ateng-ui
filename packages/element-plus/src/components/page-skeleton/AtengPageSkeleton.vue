@@ -3,7 +3,7 @@
  * 页面骨架屏占位容器组件。
  *
  * 核心特性：
- * 1. 预设 5 大企业级高频模态：table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（流式卡片网格）、dashboard（4 指标卡+双图表看板）；
+ * 1. 预设 5 大企业级高频形态：table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（流式卡片网格）、dashboard（4 指标卡+双图表看板）；
  * 2. 现代 CSS Grid 流式自适应布局（repeat(auto-fit, minmax(220px, 1fr))），小屏幕优雅折行无溢出；
  * 3. 深度集成 ElSkeleton，自带原生平滑呼吸动效；
  * 4. 真实内容切换时采用平滑 Fade Transition 淡入淡出过渡，彻底消除突兀闪变；
@@ -38,14 +38,14 @@ defineExpose({
 
 <template>
   <div ref="skeletonRef" class="at-page-skeleton">
-    <transition name="at-fade" mode="out-in">
+    <transition name="at-fade">
       <!-- 骨架屏占位区 -->
       <div v-if="loading" key="skeleton" class="at-page-skeleton__wrapper">
         <slot v-if="type === 'custom' || $slots.skeleton" name="skeleton" />
 
         <el-skeleton v-else :animated="animated">
           <template #template>
-            <!-- 模态 1: 表格型 (table) -->
+            <!-- 形态 1: 表格型 (table) -->
             <div v-if="type === 'table'" class="at-skeleton-table">
               <!-- 顶部模拟检索表单 -->
               <div class="at-skeleton-table__query">
@@ -77,7 +77,7 @@ defineExpose({
               </div>
             </div>
 
-            <!-- 模态 2: 表单型 (form) -->
+            <!-- 形态 2: 表单型 (form) -->
             <div v-else-if="type === 'form'" class="at-skeleton-form">
               <div
                 class="at-skeleton-form__grid"
@@ -97,7 +97,7 @@ defineExpose({
               </div>
             </div>
 
-            <!-- 模态 3: 详情型 (detail) -->
+            <!-- 形态 3: 详情型 (detail) -->
             <div v-else-if="type === 'detail'" class="at-skeleton-detail">
               <el-skeleton-item
                 variant="rect"
@@ -114,7 +114,7 @@ defineExpose({
               </div>
             </div>
 
-            <!-- 模态 4: 卡片网格型 (card) -->
+            <!-- 形态 4: 卡片网格型 (card) -->
             <div v-else-if="type === 'card'" class="at-skeleton-card-grid">
               <div v-for="i in columns * 2" :key="i" class="at-skeleton-card-item">
                 <el-skeleton-item
@@ -129,7 +129,7 @@ defineExpose({
               </div>
             </div>
 
-            <!-- 模态 5: 仪表盘看板型 (dashboard) -->
+            <!-- 形态 5: 仪表盘看板型 (dashboard) -->
             <div v-else-if="type === 'dashboard'" class="at-skeleton-dashboard">
               <!-- 4 张指标卡骨架 -->
               <div class="at-skeleton-dashboard__stats">
@@ -183,7 +183,7 @@ defineExpose({
   box-sizing: border-box;
 }
 
-/* 模态 1: 表格 */
+/* 形态 1: 表格 */
 .at-skeleton-table__query {
   display: flex;
   align-items: center;
@@ -225,7 +225,7 @@ defineExpose({
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-/* 模态 2: 表单 */
+/* 形态 2: 表单 */
 .at-skeleton-form__grid {
   display: grid;
   gap: 20px 24px;
@@ -240,7 +240,7 @@ defineExpose({
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
-/* 模态 3: 详情 */
+/* 形态 3: 详情 */
 .at-skeleton-detail__grid {
   display: grid;
   gap: 18px 24px;
@@ -252,7 +252,7 @@ defineExpose({
   gap: 12px;
 }
 
-/* 模态 4: 卡片网格（流式自适应） */
+/* 形态 4: 卡片网格（流式自适应） */
 .at-skeleton-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -266,7 +266,7 @@ defineExpose({
   box-sizing: border-box;
 }
 
-/* 模态 5: 仪表盘看板（4 指标卡 + 双图表区块） */
+/* 形态 5: 仪表盘看板（4 指标卡 + 双图表区块） */
 .at-skeleton-dashboard {
   display: flex;
   flex-direction: column;
@@ -313,10 +313,11 @@ defineExpose({
   border-radius: 4px;
 }
 
-/* 淡入淡出过渡动效 */
+/* 淡入淡出过渡动效 - 极速 GPU 毫秒级过渡 */
 .at-fade-enter-active,
 .at-fade-leave-active {
-  transition: opacity 0.25s ease;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity;
 }
 
 .at-fade-enter-from,

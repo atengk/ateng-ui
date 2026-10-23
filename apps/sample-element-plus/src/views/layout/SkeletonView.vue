@@ -41,7 +41,7 @@ const mockTable = [
   <div class="skeleton-view">
     <ElCard header="页面骨架屏占位容器 AtengPageSkeleton">
       <ElAlert
-        title="5 大典型后台骨架模态与流式自适应网格"
+        title="5 大典型后台骨架屏形态与流式自适应网格"
         type="info"
         description="开箱即用支持 table（检索表单+表格）、form（表单栅格）、detail（详情结构）、card（流式卡片网格）、dashboard（4 指标卡+双图表看板）五大高频后台预设；卡片与仪表盘升级为现代 CSS Grid auto-fit + minmax 流式自适应网格，窄屏自然换行无溢出；数据加载完成时自带平滑淡入淡出（Fade Transition）过渡，消除突变闪变。"
         show-icon
@@ -50,7 +50,7 @@ const mockTable = [
       />
 
       <div class="ctrl-bar">
-        <span>骨架屏预设模态：</span>
+        <span>骨架屏预设形态：</span>
         <ElRadioGroup v-model="currentType" size="small">
           <ElRadioButton value="table">表格型 (table)</ElRadioButton>
           <ElRadioButton value="form">表单型 (form)</ElRadioButton>

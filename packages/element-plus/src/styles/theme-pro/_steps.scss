@@ -4,7 +4,7 @@
  * 核心特性：
  * 1. 步骤条 (Steps) 节点发光微阴影与进行态激光呼吸光晕；
  * 2. 时间线 (Timeline) 高反差中心微标与等宽时间戳排版；
- * 3. 漫游引导 (Tour) 毛玻璃景深浮层卡片；
+ * 3. 漫游引导 (Tour) 高质感浮层卡片；
  * 4. 全面适配 Slate 深空暗黑基底与 5 套科技主题；
  * 5. 严格恪守全局零 !important 铁律。
  *
@@ -232,7 +232,6 @@
     border-radius: var(--at-radius-card, 10px);
     background: var(--el-bg-color-overlay);
     box-shadow: var(--at-shadow-floating);
-    backdrop-filter: blur(16px);
     border: 1px solid var(--el-border-color);
     padding: 16px;
 

@@ -8,9 +8,9 @@
  * 3. 5-Tab 容器切片系统实现全量 80+ 原生组件大满贯覆盖：
  *    - Tab 1: 【基础与交互】（三轨主按钮、双层激光表单、现代晶体标签、数控滑动开关、表单校验、数字步进器、晶体标签输入、等宽验证码、联想与提及）；
  *    - Tab 2: 【高级表单与拾取】（日期时间全家桶、级联选择、组织树与树选择、穿梭框、滑块与评分、色彩拾取、触感拖拽上传、照片墙与极简微光进度条）；
- *    - Tab 3: 【状态反馈与步骤】（警告卡片四态、动态发光进度条、步骤条动态推演、时间线、徽标气泡、结果页、黑曜石毛玻璃加载遮罩、深空平滑呼吸骨架屏、气泡确认、面包屑与弹簧锚点）；
+ *    - Tab 3: 【状态反馈与步骤】（警告卡片四态、动态发光进度条、步骤条动态推演、时间线、徽标气泡、结果页、黑曜石沉浸加载遮罩、深空平滑呼吸骨架屏、气泡确认、面包屑与弹簧锚点）；
  *    - Tab 4: 【数据展示与排版】（分段控制器、折叠面板、分割线、描述列表、网格日历、走马灯、分栏器、极窄冷钛滚动条、排版文本与文字链接、环切重叠头像组、防破损图片与黑曜石全屏大图灯箱）；
- *    - Tab 5: 【表格与弹层】（流体无框表格高频 tabular-nums 防抖、极窄分页、毛玻璃弹窗、浮岛 Toast、租户品牌色实时推演）；
+ *    - Tab 5: 【表格与弹层】（流体无框表格高频 tabular-nums 防抖、极窄分页、现代企业级弹窗、浮岛 Toast、租户品牌色实时推演）；
  * 4. 全局恪守零 !important 铁律与 Slate 深空暗黑基底自适应。
  *
  * @author Ateng
@@ -207,6 +207,35 @@ const dateShortcuts = [
     },
   },
 ];
+const dateRangeShortcuts = [
+  {
+    text: '最近一周',
+    value: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setTime(start.getTime() - 3600 * 1000 * 24 * 7);
+      return [start, end];
+    },
+  },
+  {
+    text: '最近一月',
+    value: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setTime(start.getTime() - 3600 * 1000 * 24 * 30);
+      return [start, end];
+    },
+  },
+  {
+    text: '最近三月',
+    value: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setTime(start.getTime() - 3600 * 1000 * 24 * 90);
+      return [start, end];
+    },
+  },
+];
 
 const cascaderValue = ref(['apac', 'hk', 'cluster-01']);
 const cascaderOptions = [
@@ -344,7 +373,7 @@ const isLoadingDemo = ref(true);
 const triggerFullscreenLoading = () => {
   const loading = ElLoading.service({
     lock: true,
-    text: '正在执行全屏黑曜石毛玻璃同步校验 (2秒自动关闭)...',
+    text: '正在执行全屏黑曜石沉浸同步校验 (2秒自动关闭)...',
     background: isDark.value ? 'rgba(2, 6, 23, 0.82)' : 'rgba(15, 23, 42, 0.65)',
   });
   setTimeout(() => {
@@ -674,7 +703,7 @@ onUnmounted(() => {
           </template>
           <div class="section-desc mb-3">
             支持必填红星微调与平滑对齐；整表 .is-error
-            联动双层红光报警聚焦光晕；步进器微加减阻尼微动、晶体标签输入、等宽验证码与毛玻璃联想/提及浮层。
+            联动双层红光报警聚焦光晕；步进器微加减阻尼微动、晶体标签输入、等宽验证码与高性能实体联想/提及浮层。
           </div>
           <ElForm
             ref="testFormRef"
@@ -739,12 +768,12 @@ onUnmounted(() => {
       <!-- ==================================================== -->
       <!-- Tab 2: 【高级表单与拾取】 -->
       <!-- ==================================================== -->
-      <ElTabPane label="📅 高级表单与拾取" name="pickers">
+      <ElTabPane label="📅 高级表单与拾取" name="pickers" :lazy="true">
         <div class="grid-two-col mb-3">
           <!-- 日期时间选择器全家桶 -->
           <AtengCard title="📅 日期时间拾取器全家桶 (DatePicker / TimePicker)">
             <div class="section-desc mb-3">
-              集成毛玻璃景深下拉面板、激光
+              集成现代高质感实体下拉面板、激光
               Focus-Ring、快捷侧栏、日期单元格微圆角与范围选取连贯平滑波段。
             </div>
             <div class="form-vertical-cluster">
@@ -753,6 +782,8 @@ onUnmounted(() => {
                 <ElDatePicker
                   v-model="dateSingle"
                   type="date"
+                  value-format="YYYY-MM-DD"
+                  :shortcuts="dateShortcuts"
                   placeholder="选择单个日期"
                   style="width: 100%"
                 />
@@ -762,16 +793,22 @@ onUnmounted(() => {
                 <ElDatePicker
                   v-model="dateRange"
                   type="daterange"
+                  value-format="YYYY-MM-DD"
                   range-separator="至"
                   start-placeholder="开始日期"
                   end-placeholder="结束日期"
-                  :shortcuts="dateShortcuts"
+                  :shortcuts="dateRangeShortcuts"
                   style="width: 100%"
                 />
               </div>
               <div class="form-row">
                 <span class="field-label">时间刻度选择:</span>
-                <ElTimePicker v-model="timePoint" placeholder="选择精确时刻" style="width: 100%" />
+                <ElTimePicker
+                  v-model="timePoint"
+                  value-format="HH:mm:ss"
+                  placeholder="选择精确时刻"
+                  style="width: 100%"
+                />
               </div>
             </div>
           </AtengCard>
@@ -779,7 +816,7 @@ onUnmounted(() => {
           <!-- 级联选择器与颜色拾取 -->
           <AtengCard title="🌐 级联选择 (Cascader) & 颜色拾取 (ColorPicker)">
             <div class="section-desc mb-3">
-              多层级弹窗毛玻璃微透，节点悬浮与激活态主色高反差；颜色选择器支持透明度与高光双层环。
+              多层级面板高质感微透与实体投影，节点悬浮与激活态主色高反差；颜色选择器支持透明度与高光双层环。
             </div>
             <div class="form-vertical-cluster">
               <div class="form-row">
@@ -910,7 +947,7 @@ onUnmounted(() => {
       <!-- ==================================================== -->
       <!-- Tab 3: 【状态反馈与步骤】 -->
       <!-- ==================================================== -->
-      <ElTabPane label="⚡ 状态反馈与步骤" name="feedbacks">
+      <ElTabPane label="⚡ 状态反馈与步骤" name="feedbacks" :lazy="true">
         <div class="grid-two-col mb-3">
           <!-- 警告提示 -->
           <AtengCard title="⚠️ 警告提示卡片 (Alert Specular 微光色条)">
@@ -1036,24 +1073,23 @@ onUnmounted(() => {
             </div>
           </AtengCard>
 
-          <!-- 毛玻璃加载遮罩与气泡确认 -->
-          <AtengCard title="⏳ 毛玻璃加载遮罩 (Loading) & 气泡确认 (Popconfirm)">
+          <!-- 纯净高性能加载遮罩与气泡确认 -->
+          <AtengCard title="⏳ 纯净加载遮罩 (Loading) & 气泡确认 (Popconfirm)">
             <template #extra>
               <ElSpace>
                 <ElButton size="small" @click="isLoadingDemo = !isLoadingDemo">
                   {{ isLoadingDemo ? '关闭局部 Loading' : '开启局部 Loading' }}
                 </ElButton>
                 <ElButton size="small" type="primary" plain @click="triggerFullscreenLoading">
-                  全屏黑曜石 Loading
+                  全屏极速 Loading
                 </ElButton>
               </ElSpace>
             </template>
             <div class="section-desc mb-3">
-              支持黑曜石景深毛玻璃遮罩（backdrop-filter: blur(6px)）与主题色
-              Spinner；紧凑气泡卡片确认。
+              支持高性能半透明加载遮罩（纯净高透无重绘开销）与主题色 Spinner；紧凑气泡卡片确认。
             </div>
             <div class="form-vertical-cluster">
-              <!-- 局部毛玻璃 Loading 演示容器 -->
+              <!-- 局部黑曜石 Loading 演示容器 -->
               <div
                 v-loading="isLoadingDemo"
                 element-loading-text="正在校验分布式节点状态..."
@@ -1204,7 +1240,7 @@ onUnmounted(() => {
       <!-- ==================================================== -->
       <!-- Tab 4: 【数据展示与排版】 -->
       <!-- ==================================================== -->
-      <ElTabPane label="📑 数据展示与排版" name="displays">
+      <ElTabPane label="📑 数据展示与排版" name="displays" :lazy="true">
         <div class="grid-two-col mb-3">
           <!-- 分段控制器与折叠面板 -->
           <AtengCard title="🎛️ 分段控制器 (Segmented) & 折叠面板 (Collapse)">
@@ -1268,7 +1304,7 @@ onUnmounted(() => {
           <!-- 走马灯与日历 -->
           <AtengCard title="🎠 走马灯 (Carousel) & 分栏手柄 (Splitter)">
             <div class="section-desc mb-3">
-              走马灯毛玻璃悬浮圆角按钮与胶囊指示器；Splitter 拖拽把手主色微光。
+              走马灯悬浮圆角按钮与胶囊指示器；Splitter 拖拽把手主色微光。
             </div>
             <ElCarousel height="140px" class="mb-3">
               <ElCarouselItem v-for="item in 3" :key="item">
@@ -1368,8 +1404,8 @@ onUnmounted(() => {
           <AtengCard title="🖼️ 富媒体与全屏灯箱 (Avatar / AvatarGroup & Image / ImageViewer)">
             <div class="section-desc mb-3">
               环切重叠头像组（8px 负外边距 + 2px 背景色立体环切遮罩 +
-              悬浮立体景深微动）；图片优雅卡片占位与错误缺省；黑曜石毛玻璃全屏大图灯箱（16px
-              深空景深遮罩 + 悬浮胶囊工具栏）。
+              悬浮立体景深微动）；图片优雅卡片占位与错误缺省；黑曜石沉浸全屏大图灯箱（16px
+              深空实体遮罩 + 悬浮胶囊工具栏）。
             </div>
             <div class="form-vertical-cluster">
               <!-- 环切重叠头像组 -->
@@ -1450,7 +1486,7 @@ onUnmounted(() => {
       <!-- ==================================================== -->
       <!-- Tab 5: 【表格与弹层】 -->
       <!-- ==================================================== -->
-      <ElTabPane label="📊 表格与弹层" name="tables">
+      <ElTabPane label="📊 表格与弹层" name="tables" :lazy="true">
         <!-- 流体表格与 tabular-nums 防抖 -->
         <AtengCard
           title="📊 流体无框工整表格 (规整冷灰独立表头分层 + tabular-nums 防抖)"
@@ -1513,14 +1549,14 @@ onUnmounted(() => {
           </ElTable>
         </AtengCard>
 
-        <!-- 沉浸景深毛玻璃浮层与药丸浮岛 Toast -->
+        <!-- 沉浸暗色遮罩浮层与药丸浮岛 Toast -->
         <AtengCard
-          title="🪟 浮层与反馈系统 (blur(8px) 景深遮罩 + 16px 弹窗 + 9999px 药丸 Message)"
+          title="🪟 浮层与反馈系统 (高质感沉浸遮罩 + 16px 弹窗 + 9999px 药丸 Message)"
           class="mb-3"
         >
           <div class="feedback-btn-cluster mb-4">
             <ElButton type="primary" @click="dialogVisible = true">
-              打开企业级毛玻璃弹窗 (AtengDialog)
+              打开企业级现代弹窗 (AtengDialog)
             </ElButton>
             <ElButton @click="triggerToast('success')">触发 Success 药丸 Toast</ElButton>
             <ElButton @click="triggerToast('warning')">触发 Warning 药丸 Toast</ElButton>
@@ -1547,7 +1583,9 @@ onUnmounted(() => {
                   覆盖 18+
                   组件域，包含日期拾取、步骤条、警告卡片、树形、穿梭框、进度条、折叠面板等；
                 </li>
-                <li>弹窗背景与遮罩层支持 <code>backdrop-filter: blur(8px)</code> 景深雾化；</li>
+                <li>
+                  弹窗背景与遮罩层采用 Slate 沉浸暗色半透与独立 GPU 图层隔离（0 模糊计算、0 掉帧）；
+                </li>
                 <li>表单、按钮、表格、卡片、开关、标签全生命周期微交互增强；</li>
                 <li>原生支持双击标题栏全屏放大/还原、拖拽与 ESC 物理快捷键；</li>
                 <li>全局零 <code>!important</code>，业务代码享有 100% 自由覆盖逃生门。</li>

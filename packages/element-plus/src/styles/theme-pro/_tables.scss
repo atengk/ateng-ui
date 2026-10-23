@@ -7,7 +7,7 @@
  * 3. 单元格内边距紧凑调优 (8px~10px)，强化呼吸感与数据密度平衡；
  * 4. 数据行 Hover 浅淡主题微流光 (浅色 rgba(var(--el-color-primary-rgb), 0.04)，暗黑 0.06)，支持平滑过渡；
  * 5. 全面强制 tabular-nums 等宽排版，翻页/刷新/数据高频变动绝对零水平抖动；
- * 6. 批量操作条 (.at-table__batch-bar) 沉浸式毛玻璃悬浮 (backdrop-filter: blur(12px)) 与微透高光边框；
+ * 6. 批量操作条 (.at-table__batch-bar) 高性能实体悬浮与微透高光边框；
  * 7. 表格外层边框与内边框圆润融合，消除双重重叠硬边；
  * 8. 严格依从零 !important 铁律，保证下游业务随手可覆盖。
  *
@@ -235,16 +235,14 @@ html.dark .el-table {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 
-  // 沉浸式毛玻璃悬浮批量操作条
+  // 高性能实体悬浮批量操作条 (纯背景色与浮层投影，杜绝 CPU/GPU 模糊抖动)
   &__batch-bar {
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    background-color: rgba(var(--el-color-primary-rgb), 0.08);
-    border: 1px solid rgba(var(--el-color-primary-rgb), 0.24);
+    background-color: var(--el-bg-color-overlay, #ffffff);
+    border: 1px solid rgba(var(--el-color-primary-rgb), 0.28);
     border-radius: var(--el-border-radius-base);
     box-shadow:
-      0 8px 24px -4px rgba(0, 0, 0, 0.12),
-      0 0 16px -2px rgba(var(--el-color-primary-rgb), 0.15);
+      0 10px 28px -4px rgba(0, 0, 0, 0.14),
+      0 0 16px -2px rgba(var(--el-color-primary-rgb), 0.16);
     transition:
       background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
       border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
@@ -260,8 +258,8 @@ html.dark .el-table {
 
 // 暗黑模式下批量操作条
 html.dark .at-table__batch-bar {
-  background-color: rgba(12, 16, 23, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: var(--el-bg-color-overlay, #141414);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
     0 16px 36px -4px rgba(0, 0, 0, 0.8),
     0 0 20px -2px rgba(var(--el-color-primary-rgb), 0.3);
