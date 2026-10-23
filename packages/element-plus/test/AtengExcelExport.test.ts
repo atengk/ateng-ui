@@ -156,6 +156,35 @@ describe('AtengExcelExport 流式导出按钮组件交互与契约测试', () =>
     wrapper.unmount();
   });
 
+  it('ADR-0004 双态异常防御：action 返回 application/problem+json 伪装 Blob 时提取错误信息并拦截', async () => {
+    const errorJson = JSON.stringify({
+      code: 40301,
+      message: '数据安全合规管控：禁止跨租户全量导出',
+    });
+    const mockJsonBlob = new Blob([errorJson], { type: 'application/problem+json;charset=utf-8' });
+    const mockAction = vi.fn().mockResolvedValue(mockJsonBlob);
+
+    const createObjectURLMock = vi.fn();
+    globalThis.URL.createObjectURL = createObjectURLMock;
+
+    const wrapper = mount(AtengExcelExport, {
+      props: {
+        action: mockAction,
+      },
+    });
+
+    await wrapper.find('.el-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(wrapper.emitted('export-error')).toBeTruthy();
+    });
+
+    const emittedErrors = wrapper.emitted('export-error')![0] as [Error];
+    expect(emittedErrors[0].message).toBe('数据安全合规管控：禁止跨租户全量导出');
+    expect(createObjectURLMock).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
   it('多模下拉菜单模式：mode="dropdown" 渲染 el-dropdown 并能正确通过 handleCommand 触发', async () => {
     const mockAction = vi.fn().mockResolvedValue(true);
     const wrapper = mount(AtengExcelExport, {

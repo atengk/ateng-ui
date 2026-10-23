@@ -174,7 +174,7 @@ describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
     expect(wrapper.emitted('download-success')).toBeTruthy();
   });
 
-  it('自适应隐藏：未配置 fileUrl 且未配置 downloadAction 时，下载按钮自动隐藏', async () => {
+  it('自适应隐藏：未配置 fileUrl 且未配置 downloadAction 时，下载批注按钮自动隐藏', async () => {
     wrapper = mount(AtengExcelFeedback, {
       props: {
         modelValue: true,
@@ -187,6 +187,128 @@ describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
     const buttons = wrapper.findAllComponents(ElButton);
     const downloadBtn = buttons.find(b => b.text().includes('下载标红批注 Excel'));
     expect(downloadBtn).toBeUndefined();
+  });
+
+  it('本地 CSV 降级导出：无后端批注文件时默认渲染导出 CSV 按钮，且 allowCsvFallback=false 时隐藏', async () => {
+    wrapper = mount(AtengExcelFeedback, {
+      props: {
+        modelValue: true,
+        errors: mockErrors,
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    // 默认 allowCsvFallback=true，应渲染导出 CSV 按钮
+    let buttons = wrapper.findAllComponents(ElButton);
+    let csvBtn = buttons.find(b => b.text().includes('导出错误清单 (CSV)'));
+    expect(csvBtn).toBeDefined();
+
+    wrapper.unmount();
+
+    // 当显式配置 allowCsvFallback=false 时，CSV 导出按钮不渲染
+    wrapper = mount(AtengExcelFeedback, {
+      props: {
+        modelValue: true,
+        errors: mockErrors,
+        allowCsvFallback: false,
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    buttons = wrapper.findAllComponents(ElButton);
+    csvBtn = buttons.find(b => b.text().includes('导出错误清单 (CSV)'));
+    expect(csvBtn).toBeUndefined();
+  });
+
+  it('UTF-8 BOM 防乱码导出：点击导出 CSV 生成带 \\uFEFF BOM 头的二进制流，确保 Windows Excel 不乱码且确定性回收内存', async () => {
+    let capturedBlob: Blob | null = null;
+    const createObjectURLMock = vi.fn().mockImplementation((blob: Blob) => {
+      capturedBlob = blob;
+      return 'blob:mock-csv-url';
+    });
+    const revokeObjectURLMock = vi.fn();
+    globalThis.URL.createObjectURL = createObjectURLMock;
+    globalThis.URL.revokeObjectURL = revokeObjectURLMock;
+
+    wrapper = mount(AtengExcelFeedback, {
+      props: {
+        modelValue: true,
+        errors: mockErrors,
+        csvFileName: '自定义错误清单.csv',
+        downloadCsvText: '立即下载错误清单',
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    const buttons = wrapper.findAllComponents(ElButton);
+    const csvBtn = buttons.find(b => b.text().includes('立即下载错误清单'));
+    expect(csvBtn).toBeDefined();
+
+    await csvBtn!.trigger('click');
+    await nextTick();
+
+    // 1. 验证创建了 ObjectURL 并捕获了 Blob
+    expect(createObjectURLMock).toHaveBeenCalled();
+    expect(capturedBlob).not.toBeNull();
+
+    // 2. 验证关键不变量：必须前置注入 \uFEFF (UTF-8 BOM 头)，彻底根除 Windows Excel 乱码
+    const csvContent = await (capturedBlob as unknown as Blob).text();
+    expect(csvContent.startsWith('\uFEFF')).toBe(true);
+
+    // 3. 验证 CSV 结构化内容与表头
+    expect(csvContent).toContain('"行号","列名/字段","错误原因","提交原始值"');
+    expect(csvContent).toContain('"2","用户姓名","姓名不能为空"');
+    expect(csvContent).toContain('"5","-","该行缺少必填关键数据"');
+
+    // 4. 验证派发 download-success 事件与正确的文件名
+    expect(wrapper.emitted('download-success')).toBeTruthy();
+    expect(wrapper.emitted('download-success')![0]).toEqual(['自定义错误清单.csv']);
+
+    // 5. 验证确定性生命周期回收：URL.revokeObjectURL 必须被调用
+    expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:mock-csv-url');
+  });
+
+  it('RFC 4180 特殊字符转义：当错误原因或列名包含双引号、逗号、换行符时，严格转义', async () => {
+    let capturedBlob: Blob | null = null;
+    const createObjectURLMock = vi.fn().mockImplementation((blob: Blob) => {
+      capturedBlob = blob;
+      return 'blob:mock-escaped-csv';
+    });
+    const revokeObjectURLMock = vi.fn();
+    globalThis.URL.createObjectURL = createObjectURLMock;
+    globalThis.URL.revokeObjectURL = revokeObjectURLMock;
+
+    const trickyErrors: ExcelFeedbackItem[] = [
+      {
+        rowNum: 99,
+        columnName: '公司,部门"核心"',
+        errorMessage: '包含换行\n和"内部双引号"的错误信息',
+        rawValue: '100,200',
+      },
+    ];
+
+    wrapper = mount(AtengExcelFeedback, {
+      props: {
+        modelValue: true,
+        errors: trickyErrors,
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    // 调用暴露的 exportErrorsAsCsv 方法
+    const exposed = wrapper.vm as unknown as { exportErrorsAsCsv: () => Promise<boolean> };
+    const success = await exposed.exportErrorsAsCsv();
+    expect(success).toBe(true);
+
+    const csvContent = await (capturedBlob as unknown as Blob).text();
+    // 内部双引号应被替换为两个双引号：""
+    expect(csvContent).toContain('"公司,部门""核心"""');
+    expect(csvContent).toContain('"包含换行\n和""内部双引号""的错误信息"');
+    expect(csvContent).toContain('"100,200"');
   });
 
   it('下载异常防御：downloadAction 抛错时捕获异常并派发 download-error', async () => {
@@ -247,12 +369,14 @@ describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
     const exposed = wrapper.vm as unknown as {
       copyErrors: () => Promise<boolean>;
       downloadAnnotatedExcel: () => Promise<boolean>;
+      exportErrorsAsCsv: () => Promise<boolean>;
       downloadLoading: unknown;
       dialogRef: unknown;
     };
 
     expect(typeof exposed.copyErrors).toBe('function');
     expect(typeof exposed.downloadAnnotatedExcel).toBe('function');
+    expect(typeof exposed.exportErrorsAsCsv).toBe('function');
     expect(exposed.downloadLoading).toBeDefined();
     expect(exposed.dialogRef).toBeDefined();
   });

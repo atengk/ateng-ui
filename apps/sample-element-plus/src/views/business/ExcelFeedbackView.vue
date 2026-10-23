@@ -1,17 +1,24 @@
 <script setup lang="ts">
 /**
- * Excel 导入错误反馈弹窗 AtengExcelFeedback 自验页面。
+ * Excel 导入错误反馈弹窗与流式导出双态防御自验展厅。
+ *
+ * 核心演示特性：
+ * 1. AtengExcelFeedback 后端批注回写模式：异步流式下载标红批注 Excel；
+ * 2. AtengExcelFeedback 前端本地降级模式：无后端批注文件时，生成带 UTF-8 BOM (\uFEFF) 的 CSV 错误清单，彻底解决 Windows Excel 中文乱码；
+ * 3. AtengExcelExport ADR-0004 双态异常防御：后端返回 application/json 错误体时，自动熔断拦截并告警，坚决不下载损坏伪文件；
+ * 4. AtengExcelExport 正常流式导出对照组。
  *
  * @author Ateng
  * @since 2026-10-21
  */
 
 import { ref } from 'vue';
-import { ElCard, ElAlert, ElButton, ElDivider, ElMessage, ElTag } from 'element-plus';
-import { AtengExcelFeedback, type ExcelFeedbackItem } from '@atengk/element-plus';
+import { ElCard, ElAlert, ElButton, ElMessage, ElTag } from 'element-plus';
+import { AtengExcelFeedback, AtengExcelExport, type ExcelFeedbackItem } from '@atengk/element-plus';
 
-// 弹窗可见性
+// 弹窗可见性：模式一（带批注）与模式二（无批注降级 CSV）
 const feedbackVisible = ref(false);
+const feedbackNoAnnotateVisible = ref(false);
 
 // 模拟导入失败的错误明细数据（12 条，涵盖多行、多列与不同失败场景）
 const mockErrors = ref<ExcelFeedbackItem[]>([
@@ -91,10 +98,8 @@ const mockErrors = ref<ExcelFeedbackItem[]>([
 
 // 模拟异步下载标红批注 Excel 文件
 const handleMockDownloadAction = async (): Promise<Blob> => {
-  // 模拟服务端导出耗时 1200ms
-  await new Promise(resolve => setTimeout(resolve, 1200));
+  await new Promise(resolve => setTimeout(resolve, 800));
 
-  // 构造模拟 Excel 文本 Blob
   const csvContent =
     '行号,列名,输入值,错误原因\n' +
     mockErrors.value
@@ -107,35 +112,65 @@ const handleMockDownloadAction = async (): Promise<Blob> => {
   return new Blob(['\uFEFF' + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
 };
 
+// 模拟 AtengExcelExport 正常流式导出
+const handleMockNormalExport = async (): Promise<Blob> => {
+  await new Promise(resolve => setTimeout(resolve, 600));
+  const dummyContent = 'ID,姓名,部门,状态\n1,张三,研发部,正常\n2,李四,市场部,正常';
+  return new Blob(['\uFEFF' + dummyContent], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+};
+
+// 模拟 AtengExcelExport ADR-0004 双态异常：后端发生业务拦截，返回了装在 Blob 里的 application/json 错误体
+const handleMockDualStateErrorExport = async (): Promise<Blob> => {
+  await new Promise(resolve => setTimeout(resolve, 600));
+  const errorJson = JSON.stringify({
+    code: 40301,
+    msg: '数据安全合规熔断：您无权限全量导出包含薪资与身份证的核心员工档案',
+    traceId: 'trace-demo-dual-state-8888',
+  });
+  return new Blob([errorJson], { type: 'application/json;charset=utf-8' });
+};
+
 // 操作反馈日志
 const feedbackLogs = ref<string[]>([]);
 
+const addLog = (message: string) => {
+  feedbackLogs.value.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+};
+
 const handleCopySuccess = (text: string) => {
-  feedbackLogs.value.unshift(
-    `[${new Date().toLocaleTimeString()}] 成功复制错误明细至剪贴板（前 50 字）：${text.slice(0, 50)}...`,
-  );
+  addLog(`成功复制错误明细至剪贴板（前 50 字）：${text.slice(0, 50)}...`);
   ElMessage.success('已复制全部错误明细至系统剪贴板！');
 };
 
 const handleDownloadSuccess = (filename: string) => {
-  feedbackLogs.value.unshift(
-    `[${new Date().toLocaleTimeString()}] 标红批注 Excel 文件下载成功：${filename}`,
-  );
-  ElMessage.success(`标红批注 Excel 文件下载成功：${filename}`);
+  addLog(`文件下载成功：${filename}`);
+  ElMessage.success(`文件下载成功：${filename}`);
 };
 
 const handleDownloadError = (err: unknown) => {
+  addLog(`下载发生异常：${String(err)}`);
   ElMessage.error(`下载异常：${String(err)}`);
+};
+
+const handleExportError = (err: unknown) => {
+  addLog(`导出被 ADR-0004 双态防线成功拦截：${err instanceof Error ? err.message : String(err)}`);
+};
+
+const handleExportSuccess = () => {
+  addLog('正常导出任务完成并已触发浏览器下载');
 };
 </script>
 
 <template>
   <div class="excel-feedback-view">
-    <ElCard header="Excel 导入错误明细反馈 AtengExcelFeedback">
+    <!-- 1. Excel 导入错误反馈弹窗演示 (AtengExcelFeedback) -->
+    <ElCard header="1. Excel 导入错误反馈弹窗 (AtengExcelFeedback)">
       <ElAlert
-        title="组件核心能力"
+        title="双轨纠错与防乱码机制"
         type="info"
-        description="专为企业级 Excel 导入失败场景打造：集成 AtengDialog 弹窗容器；在线表格结构化呈现错误行号、列名、原始值与校验失败原因；内置分页控制器防撑破；支持一键格式化复制全部错误文本；完美打通 Fesod 标红批注 Excel 下载协议（支持静态 URL 与异步 Blob 流下载双模）。"
+        description="专为企业级 Excel 导入失败场景打造：在线表格结构化呈现错误行号、列名、原始值与校验失败原因；内置分页控制器防撑破；支持一键复制全部错误文本；当后端提供批注时可流式下载标红批注 Excel；当后端未提供批注文件时，前端本地无缝降级生成带 UTF-8 BOM (\uFEFF) 的 CSV 错误清单，彻底解决 Windows Excel 双击打开乱码顽疾。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -144,40 +179,105 @@ const handleDownloadError = (err: unknown) => {
       <div class="demo-section">
         <div class="action-panel">
           <ElButton type="danger" @click="feedbackVisible = true">
-            模拟 Excel 批量导入失败 (打开错误弹窗，共 12 条错误)
+            场景 A：模拟导入失败（含后端标红批注 Excel 回写）
           </ElButton>
-          <span class="panel-hint">点击后即可唤起结构化错误明细分析与批注下载弹窗</span>
+          <ElButton type="warning" @click="feedbackNoAnnotateVisible = true">
+            场景 B：模拟导入失败（无批注文件，本地降级 UTF-8 BOM CSV）
+          </ElButton>
         </div>
 
         <div class="stats-panel" style="margin-top: 16px">
           <span class="stats-label">当前待检错误集：</span>
           <ElTag type="danger" size="small"> 错误记录：{{ mockErrors.length }} 条 </ElTag>
-          <ElTag type="info" size="small" style="margin-left: 8px"> 下载模式：异步 Blob 流 </ElTag>
+          <ElTag type="success" size="small" style="margin-left: 8px">
+            场景 A：后端标红批注回写
+          </ElTag>
+          <ElTag type="warning" size="small" style="margin-left: 8px">
+            场景 B：本地 UTF-8 BOM CSV 降级
+          </ElTag>
         </div>
+      </div>
+    </ElCard>
 
-        <div v-if="feedbackLogs.length > 0" class="log-box" style="margin-top: 16px">
-          <div class="log-title">用户交互操作流水：</div>
-          <div v-for="(log, idx) in feedbackLogs" :key="idx" class="log-line">
-            {{ log }}
+    <!-- 2. Excel 流式导出与 ADR-0004 双态异常防御演示 (AtengExcelExport) -->
+    <ElCard
+      header="2. Excel 流式导出与 ADR-0004 双态异常识别防御 (AtengExcelExport)"
+      style="margin-top: 20px"
+    >
+      <ElAlert
+        title="ADR-0004 Blob-JSON 双态异常识别防线"
+        type="warning"
+        description="当前端以 responseType: 'blob' 导出文件时，若后端发生权限拦截或业务报错，返回 application/json 会被封装为 Blob。若前端直接触发下载，会导致用户下载损坏的伪 xlsx 文件。AtengExcelExport 集成 checkBlobForJsonError 防线，自动嗅探解包并转译为业务异常拦截，绝不触发假下载。"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
+
+      <div class="demo-section">
+        <div class="action-panel">
+          <div class="export-demo-item">
+            <span class="demo-label">A. 模拟触发业务异常拦截：</span>
+            <AtengExcelExport
+              :action="handleMockDualStateErrorExport"
+              filename="全量员工敏感资产.xlsx"
+              text="触发敏感数据导出 (触发双态拦截)"
+              type="danger"
+              @export-error="handleExportError"
+            />
+          </div>
+
+          <div class="export-demo-item">
+            <span class="demo-label">B. 正常流式导出：</span>
+            <AtengExcelExport
+              :action="handleMockNormalExport"
+              filename="员工导出名单.xlsx"
+              text="导出普通员工名单"
+              type="primary"
+              @export-success="handleExportSuccess"
+            />
           </div>
         </div>
       </div>
-
-      <ElDivider />
-
-      <!-- 核心 AtengExcelFeedback 弹窗 -->
-      <AtengExcelFeedback
-        v-model="feedbackVisible"
-        title="员工名单 Excel 批量导入失败明细"
-        :errors="mockErrors"
-        :download-action="handleMockDownloadAction"
-        file-name="员工导入校验失败批注清单.xlsx"
-        :page-size="5"
-        @copy="handleCopySuccess"
-        @download-success="handleDownloadSuccess"
-        @download-error="handleDownloadError"
-      />
     </ElCard>
+
+    <!-- 3. 操作流水与诊断日志 -->
+    <ElCard header="3. 交互操作流水与防御诊断日志" style="margin-top: 20px">
+      <div v-if="feedbackLogs.length > 0" class="log-box">
+        <div class="log-title">操作流水跟踪（最新居前）：</div>
+        <div v-for="(log, idx) in feedbackLogs" :key="idx" class="log-line">
+          {{ log }}
+        </div>
+      </div>
+      <div v-else class="empty-log">
+        点击上方任意按钮体验导入错误回写、本地 CSV 防乱码降级或 ADR-0004 双态异常拦截。
+      </div>
+    </ElCard>
+
+    <!-- 弹窗 A：有后端批注文件回写 -->
+    <AtengExcelFeedback
+      v-model="feedbackVisible"
+      title="场景 A：员工名单导入失败明细 (含批注回写)"
+      :errors="mockErrors"
+      :download-action="handleMockDownloadAction"
+      file-name="员工导入校验失败批注清单.xlsx"
+      :page-size="5"
+      @copy="handleCopySuccess"
+      @download-success="handleDownloadSuccess"
+      @download-error="handleDownloadError"
+    />
+
+    <!-- 弹窗 B：无后端批注文件，前端本地降级 UTF-8 BOM CSV -->
+    <AtengExcelFeedback
+      v-model="feedbackNoAnnotateVisible"
+      title="场景 B：员工名单导入失败明细 (本地 CSV 降级)"
+      :errors="mockErrors"
+      csv-file-name="员工导入错误明细清单(本地导出).csv"
+      download-csv-text="导出错误清单 (CSV)"
+      :page-size="5"
+      @copy="handleCopySuccess"
+      @download-success="handleDownloadSuccess"
+      @download-error="handleDownloadError"
+    />
   </div>
 </template>
 
@@ -192,13 +292,21 @@ const handleDownloadError = (err: unknown) => {
 
 .action-panel {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
 }
 
-.panel-hint {
+.export-demo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-label {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
 }
 
 .stats-panel {
@@ -229,5 +337,12 @@ const handleDownloadError = (err: unknown) => {
 .log-line {
   color: var(--el-text-color-regular);
   line-height: 1.6;
+}
+
+.empty-log {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  font-style: italic;
+  padding: 8px 0;
 }
 </style>

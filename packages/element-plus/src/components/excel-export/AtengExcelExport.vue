@@ -14,6 +14,7 @@
 
 import { ref, computed, inject } from 'vue';
 import { ElButton, ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessage } from 'element-plus';
+import { checkBlobForJsonError, saveBlobAsFile } from '@atengk/core';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
 import { IconExport } from './icons';
 import type {
@@ -104,28 +105,9 @@ async function triggerExport(exportType?: ExcelExportType): Promise<void> {
       // 如果返回 Blob，进行标准的客户端下载流转
       if (result instanceof Blob) {
         // ADR-0004 双态异常防御：若 Blob 伪装承载了 JSON 业务错误报文，则提取错误并熔断，绝不下载损坏文件
-        if (result.type.includes('application/json') || result.type.includes('text/json')) {
-          const text = await result.text();
-          let errorMsg = '导出失败，后端返回业务异常';
-          try {
-            const errObj = JSON.parse(text);
-            errorMsg = errObj.msg || errObj.message || errorMsg;
-          } catch {
-            // 保留默认错误文案
-          }
-          ElMessage.error(errorMsg);
-          emit('export-error', new Error(errorMsg));
-          return;
-        }
+        await checkBlobForJsonError(result, result.type, 200);
 
-        const downloadUrl = URL.createObjectURL(result);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = props.filename || `export_${Date.now()}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
+        saveBlobAsFile(result, props.filename || `export_${Date.now()}.xlsx`, { revokeDelay: 0 });
       }
 
       ElMessage.success('导出数据成功');

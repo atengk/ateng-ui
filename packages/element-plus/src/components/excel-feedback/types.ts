@@ -83,6 +83,21 @@ export interface AtengExcelFeedbackProps {
    */
   pageSize?: number;
   /**
+   * 当后端未提供标红批注文件时（无 fileUrl 与 downloadAction），是否允许降级导出本地 CSV 错误清单。
+   * @default true
+   */
+  allowCsvFallback?: boolean;
+  /**
+   * 本地降级导出的 CSV 文件名，默认为 "导入错误清单.csv"。
+   * @default '导入错误清单.csv'
+   */
+  csvFileName?: string;
+  /**
+   * 本地降级导出 CSV 按钮文本，默认为 "导出错误清单 (CSV)"。
+   * @default '导出错误清单 (CSV)'
+   */
+  downloadCsvText?: string;
+  /**
    * 是否在关闭时销毁弹窗内容，默认为 false。
    */
   destroyOnClose?: boolean;
@@ -115,6 +130,10 @@ export interface AtengExcelFeedbackExpose {
    * 触发下载标红批注 Excel 文件。
    */
   downloadAnnotatedExcel: () => Promise<boolean>;
+  /**
+   * 本地降级导出带 UTF-8 BOM 头的 CSV 错误清单文件。
+   */
+  exportErrorsAsCsv: () => Promise<boolean>;
   /**
    * 下载进行中状态。
    */

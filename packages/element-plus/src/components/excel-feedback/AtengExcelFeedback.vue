@@ -5,8 +5,9 @@
  * 核心特性：
  * 1. 结构化错误明细展示：基于 ElTable 呈现行号、列名与错误原因，空值防御保底；
  * 2. 剪贴板一键导出：一键复制结构化错误列表到系统剪贴板，联动交互反馈；
- * 3. 双模批注回写闭环：支持 fileUrl 静态地址与 downloadAction 异步流式拉取，无批注文件时自动隐藏；
- * 4. 深度联动底层引擎：复用 @atengk/vue 的 useExcel 与 @atengk/core 的 Blob 双态错误识别防线。
+ * 3. 双模批注回写闭环：支持 fileUrl 静态地址与 downloadAction 异步流式拉取；
+ * 4. 本地防乱码降级导出：无后端批注文件时，前端本地降级生成带 UTF-8 BOM (\uFEFF) 的 CSV 错误清单；
+ * 5. 深度联动底层引擎：复用 @atengk/vue 的 useExcel 与 @atengk/core 的 Blob 双态错误识别防线。
  *
  * @author Ateng
  * @since 2026-10-21
@@ -14,6 +15,7 @@
 
 import { ref, shallowRef, computed, watch } from 'vue';
 import { ElTable, ElTableColumn, ElPagination, ElButton, ElAlert, ElMessage } from 'element-plus';
+import { saveBlobAsFile } from '@atengk/core';
 import { useExcel } from '@atengk/vue';
 import type {
   AtengExcelFeedbackProps,
@@ -41,6 +43,9 @@ const props = withDefaults(defineProps<AtengExcelFeedbackProps>(), {
   downloadText: '下载标红批注 Excel',
   closeText: '关闭',
   pageSize: 10,
+  allowCsvFallback: true,
+  csvFileName: '导入错误清单.csv',
+  downloadCsvText: '导出错误清单 (CSV)',
   destroyOnClose: false,
   appendToBody: true,
 });
@@ -182,6 +187,68 @@ async function downloadAnnotatedExcel(): Promise<boolean> {
   }
 }
 
+/**
+ * 转义 CSV 单元格内容以符合 RFC 4180 标准。
+ */
+function escapeCsvCell(cell: unknown): string {
+  if (cell === null || cell === undefined) {
+    return '""';
+  }
+  const str = String(cell);
+  if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return `"${str}"`;
+}
+
+/**
+ * 本地生成携带 UTF-8 BOM (\uFEFF) 的 CSV 错误清单文本，
+ * 彻底消除 Windows Excel 打开中文乱码顽疾。
+ */
+function generateErrorCsv(items: ExcelFeedbackItem[]): string {
+  const headers = ['行号', '列名/字段', '错误原因', '提交原始值'];
+  const headerLine = headers.map(escapeCsvCell).join(',');
+  const rows = items.map(item => {
+    return [
+      escapeCsvCell(item.rowNum),
+      escapeCsvCell(item.columnName || '-'),
+      escapeCsvCell(item.errorMessage),
+      escapeCsvCell(item.rawValue ?? '-'),
+    ].join(',');
+  });
+  return '\uFEFF' + [headerLine, ...rows].join('\r\n');
+}
+
+/**
+ * 本地降级导出带 UTF-8 BOM 头的 CSV 错误清单文件。
+ */
+async function exportErrorsAsCsv(): Promise<boolean> {
+  if (safeErrors.value.length === 0) {
+    ElMessage.warning('暂无错误明细可供导出');
+    return false;
+  }
+
+  internalActionLoading.value = true;
+  try {
+    const csvContent = generateErrorCsv(safeErrors.value);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const targetName = props.csvFileName || '导入错误清单.csv';
+
+    const success = saveBlobAsFile(blob, targetName, { revokeDelay: 0 });
+    if (success) {
+      ElMessage.success('导出错误清单成功');
+      emit('download-success', targetName);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    emit('download-error', err);
+    return false;
+  } finally {
+    internalActionLoading.value = false;
+  }
+}
+
 function handleVisibleChange(visible: boolean): void {
   emit('update:modelValue', visible);
 }
@@ -194,6 +261,7 @@ function handleClose(): void {
 defineExpose<AtengExcelFeedbackExpose>({
   copyErrors,
   downloadAnnotatedExcel,
+  exportErrorsAsCsv,
   downloadLoading,
   dialogRef,
 });
@@ -269,6 +337,16 @@ defineExpose<AtengExcelFeedbackExpose>({
             @click="downloadAnnotatedExcel"
           >
             {{ downloadText }}
+          </el-button>
+          <el-button
+            v-else-if="allowCsvFallback"
+            type="warning"
+            plain
+            :disabled="totalErrors === 0"
+            :loading="downloadLoading"
+            @click="exportErrorsAsCsv"
+          >
+            {{ downloadCsvText }}
           </el-button>
         </div>
         <div class="at-excel-feedback__footer-close">
