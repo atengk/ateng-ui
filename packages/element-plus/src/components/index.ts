@@ -28,4 +28,5 @@ export * from './code-view';
 export * from './icon-select';
 export * from './captcha';
 export * from './file-preview';
+export * from './watermark';
 export * from './shared/context';

@@ -46,6 +46,7 @@ export {
   AtengIconSelect as AtIconSelect,
   AtengCaptcha as AtCaptcha,
   AtengFilePreview as AtFilePreview,
+  AtengWatermark as AtWatermark,
 } from './components';
 
 export default installer;

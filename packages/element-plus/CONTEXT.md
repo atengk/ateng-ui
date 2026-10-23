@@ -61,7 +61,7 @@ _Avoid_: AtengModal, BaseDialog, DragDialog, FullscreenDialog
 _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 
 **AtengPageContainer**:
-具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签）、吸顶毛玻璃与滚动阴影、双模自适应滚动与沉浸式卡片包装的企业级标准页面容器组件。
+具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签/可选滚动折叠）、吸顶毛玻璃与滚动阴影、双模自适应滚动、内容脱壳全屏与沉浸式卡片包装的企业级标准页面容器组件。
 _Avoid_: PageLayout, LayoutPage, PageView, AdminPage, PageWrapper
 
 **AtengSplitLayout**:
@@ -73,8 +73,24 @@ _Avoid_: SplitPane, TreeTableLayout, TwoColumn, SplitView, Splitter
 _Avoid_: BottomBar, ActionBar, StickyFooter, SubmitBar, FootToolbar
 
 **AtengCard**:
-具备自定义标题区、操作插槽、一键平滑折叠、视口全屏展开与防穿透栈式滚动锁定的企业级结构化卡片面板组件。
+具备自定义标题区、操作插槽、局部刷新触发、内嵌页签切换、一键平滑折叠、视口全屏展开与防穿透栈式滚动锁定的企业级结构化卡片面板组件。
 _Avoid_: Panel, BoxCard, ContentBox, AtengPanel
+
+**AtengCardGroup**:
+具备状态集中编排、手风琴单开互斥与批量折叠展开的企业级多卡片协调容器组件。
+_Avoid_: CardList, PanelGroup, MultiCard, AccordionGroup, CardAccordion
+
+**AtengWatermark**:
+具备离屏 Canvas 矢量渲染、多行文本/图片合成与 MutationObserver 防篡改防删除守卫的企业级安全水印包裹容器组件。
+_Avoid_: WaterMarker, WaterMarkView, BgWatermark, SafeWatermark
+
+**AtengAnchor**:
+具备双模滚动自适应感知、平滑滚动定位与卡片节点联动的企业级电梯楼层导航锚点容器组件。
+_Avoid_: Elevator, FloorNav, ScrollSpy, AffixAnchor, AnchorNav
+
+**AtengGrid**:
+基于现代 CSS 容器查询与自适应最小列宽机制的企业级响应式流式网格排版容器组件。
+_Avoid_: AutoGrid, FlexGrid, ResponsiveLayout, ContainerGrid, FluidGrid
 
 **AtengPageSkeleton**:
 具备列表、表单、详情、卡片网格与仪表盘看板等多模态预设及弹性自适应栅格的页面骨架屏占位容器组件。

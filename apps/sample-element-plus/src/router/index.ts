@@ -91,6 +91,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '页面骨架屏 AtengPageSkeleton' },
   },
   {
+    path: '/layout/watermark',
+    name: 'LayoutWatermark',
+    component: () => import('../views/layout/WatermarkView.vue'),
+    meta: { title: '安全防篡改水印容器 AtengWatermark' },
+  },
+  {
     path: '/table/query-form',
     name: 'TableQueryForm',
     component: () => import('../views/table/QueryFormView.vue'),

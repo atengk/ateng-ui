@@ -39,6 +39,7 @@ import { AtengCodeView } from './components/code-view';
 import { AtengIconSelect } from './components/icon-select';
 import { AtengCaptcha } from './components/captcha';
 import { AtengFilePreview } from './components/file-preview';
+import { AtengWatermark } from './components/watermark';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
@@ -88,6 +89,7 @@ const components: Record<string, Component> = {
   AtengIconSelect,
   AtengCaptcha,
   AtengFilePreview,
+  AtengWatermark,
 };
 
 /**
