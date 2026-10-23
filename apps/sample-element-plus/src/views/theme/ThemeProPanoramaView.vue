@@ -589,7 +589,12 @@ onUnmounted(() => {
               <ElButton dashed>Ghost 虚线</ElButton>
             </div>
             <div class="btn-cluster mb-3">
-              <ElButton type="primary" :loading="isBtnLoading" @click="triggerBtnLoading">
+              <ElButton
+                type="primary"
+                class="btn-loading-stable"
+                :loading="isBtnLoading"
+                @click="triggerBtnLoading"
+              >
                 {{ isBtnLoading ? '提交中...' : '点击触发 Loading' }}
               </ElButton>
               <ElButton type="primary" class="at-btn-glow">脉冲微光发光 (.at-btn-glow)</ElButton>
@@ -870,13 +875,13 @@ onUnmounted(() => {
             <div class="form-vertical-cluster">
               <div class="form-row">
                 <span class="field-label">单值滑块 ({{ sliderVal }}%):</span>
-                <div class="flex-1">
+                <div class="flex-1 slider-cell">
                   <ElSlider v-model="sliderVal" />
                 </div>
               </div>
               <div class="form-row">
                 <span class="field-label">区间双向范围:</span>
-                <div class="flex-1">
+                <div class="flex-1 slider-cell">
                   <ElSlider v-model="sliderRangeVal" range />
                 </div>
               </div>
@@ -993,7 +998,7 @@ onUnmounted(() => {
               <div class="flex items-center gap-4">
                 <ElProgress type="circle" :percentage="progressPercent" :width="90" />
                 <ElProgress type="dashboard" :percentage="progressPercent" :width="90" />
-                <div class="flex-1">
+                <div class="flex-1 slider-cell">
                   <span class="text-xs text-muted mb-1 block">实时拖拽联动调整：</span>
                   <ElSlider v-model="progressPercent" :min="0" :max="100" />
                 </div>
@@ -1770,6 +1775,120 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* 微布局与弹性实用工具类 */
+.flex {
+  display: flex;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.gap-3 {
+  gap: 12px;
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+.gap-6 {
+  gap: 24px;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.w-10 {
+  width: 40px;
+}
+
+.h-10 {
+  height: 40px;
+}
+
+.mb-1 {
+  margin-bottom: 4px;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
+
+.mb-3 {
+  margin-bottom: 12px;
+}
+
+.p-2 {
+  padding: 8px;
+}
+
+.py-2 {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.pt-3 {
+  padding-top: 12px;
+}
+
+.border {
+  border: 1px solid var(--el-border-color-light);
+}
+
+.border-t {
+  border-top: 1px solid var(--el-border-color-light);
+}
+
+.rounded {
+  border-radius: var(--el-border-radius-base);
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.block {
+  display: block;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-3xl {
+  font-size: 28px;
+}
+
+/* 按钮加载态抗抖动稳定宽度 */
+.btn-loading-stable {
+  min-width: 148px;
+  justify-content: center;
+}
+
+/* 滑块弹性容器与手柄防裁切微内边距 */
+.slider-cell {
+  padding: 0 10px;
 }
 
 .field-label {

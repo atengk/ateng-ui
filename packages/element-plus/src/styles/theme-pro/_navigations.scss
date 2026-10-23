@@ -141,14 +141,23 @@ html.dark .el-tabs {
   border-right: 1px solid var(--el-border-color-light);
   background-color: transparent;
 
+  // 永久 BFC 隔离，彻底消除子菜单展开/收起过渡动画结束瞬间的 6px 外边距塌陷跳跃抖动
+  .el-menu--inline {
+    overflow: hidden;
+    background-color: transparent;
+  }
+
   .el-menu-item,
   .el-sub-menu__title {
     height: 40px;
     line-height: 40px;
     border-radius: var(--el-border-radius-base);
-    margin: 3px 8px;
+    margin: 2px 8px;
     font-size: 13.5px;
     color: var(--el-text-color-regular);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition:
       background-color 0.15s,
       color 0.15s;
@@ -179,6 +188,47 @@ html.dark .el-tabs {
       box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb), 0.5);
     }
   }
+
+  // 折叠收缩状态 (Collapse Mini Mode)
+  &--collapse {
+    width: 64px;
+
+    .el-menu-item,
+    .el-sub-menu__title {
+      margin: 4px 6px;
+      padding: 0;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .el-menu-item.is-active::before {
+      left: 0;
+    }
+  }
+}
+
+// 折叠收缩时悬浮弹出的二级菜单浮层 (ElMenu Popup)
+.el-menu--popup {
+  border-radius: var(--el-border-radius-base);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--el-box-shadow-light);
+  padding: 6px;
+  background-color: var(--el-bg-color-overlay);
+
+  .el-menu-item {
+    height: 38px;
+    line-height: 38px;
+    border-radius: var(--el-border-radius-base);
+    font-size: 13px;
+    margin: 2px 0;
+    padding: 0 16px;
+  }
+}
+
+html.dark .el-menu--popup {
+  background-color: #121824;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
 }
 
 // 暗黑模式下菜单
