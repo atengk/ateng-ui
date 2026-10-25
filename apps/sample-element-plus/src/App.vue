@@ -131,6 +131,12 @@ onMounted(() => {
                     无状态基础布局 (AtengLayout)
                   </ElMenuItem>
                   <ElMenuItem
+                    index="/layout/container-suite"
+                    title="容器套件大满贯 (ContainerSuite)"
+                  >
+                    容器套件大满贯 (ContainerSuite)
+                  </ElMenuItem>
+                  <ElMenuItem
                     index="/layout/page-container"
                     title="页面主体容器 (AtengPageContainer)"
                   >

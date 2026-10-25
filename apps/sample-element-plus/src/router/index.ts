@@ -80,6 +80,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '无状态基础布局 AtengLayout' },
   },
   {
+    path: '/layout/container-suite',
+    name: 'LayoutContainerSuite',
+    component: () => import('../views/layout/ContainerSuiteView.vue'),
+    meta: { title: '容器套件大满贯综合实战 AtengContainerSuite' },
+  },
+  {
     path: '/layout/page-container',
     name: 'LayoutPageContainer',
     component: () => import('../views/layout/PageContainerView.vue'),
