@@ -5,6 +5,8 @@
  * @since 2026-10-22
  */
 
+import type { InjectionKey, ComputedRef, ShallowRef, Ref } from 'vue';
+
 /**
  * 路由目标类型（兼容 Vue Router 路径字符串或对象）。
  */
@@ -169,3 +171,84 @@ export interface AtengPageContainerEmits {
    */
   (e: 'header-collapse', collapsed: boolean): void;
 }
+
+/**
+ * AtengPageContainer 插槽契约。
+ */
+export interface AtengPageContainerSlots {
+  /**
+   * 默认内容插槽。
+   */
+  default?: () => unknown;
+  /**
+   * 自定义页头插槽。
+   */
+  header?: () => unknown;
+  /**
+   * 自定义面包屑插槽。
+   */
+  breadcrumb?: () => unknown;
+  /**
+   * 自定义标题左侧前缀插槽。
+   */
+  prefix?: () => unknown;
+  /**
+   * 自定义标题插槽。
+   */
+  title?: () => unknown;
+  /**
+   * 自定义状态微标插槽。
+   */
+  tags?: () => unknown;
+  /**
+   * 自定义右上角额外操作区插槽。
+   */
+  extra?: () => unknown;
+  /**
+   * 自定义页签区插槽。
+   */
+  tabs?: () => unknown;
+  /**
+   * 页面底部固定/悬浮插槽（位于 Flex 纵向最底层，天然不随内容滚动）。
+   */
+  footer?: () => unknown;
+}
+
+/**
+ * 容器上下文总线 (Container Context Bus) 协议契约。
+ */
+export interface AtengPageContainerContext {
+  /**
+   * 是否处于视口撑满模式。
+   */
+  fitViewport: ComputedRef<boolean> | Ref<boolean>;
+
+  /**
+   * 页面容器局部内容滚动 DOM 节点引用。
+   */
+  contentRef: ShallowRef<HTMLElement | null> | Ref<HTMLElement | null>;
+
+  /**
+   * 向页面容器注册吸底操作栏高度，并返回注销回调。
+   * 页面容器将自动为局部滚动内容区域追加等高 padding-bottom 占位垫块。
+   */
+  registerFooter: (height: number) => () => void;
+
+  /**
+   * 获取当前生效的局部滚动容器节点。
+   */
+  getScrollContainer: () => HTMLElement | null;
+}
+
+/**
+ * 容器上下文总线 InjectionKey。
+ */
+export const PAGE_CONTAINER_INJECTION_KEY: InjectionKey<AtengPageContainerContext> = Symbol(
+  'AtengPageContainerContext',
+);
+
+/**
+ * 别名导出对齐。
+ */
+export const ATENG_PAGE_CONTAINER_INJECTION_KEY: InjectionKey<AtengPageContainerContext> =
+  PAGE_CONTAINER_INJECTION_KEY;

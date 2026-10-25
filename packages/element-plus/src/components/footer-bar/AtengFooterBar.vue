@@ -15,8 +15,9 @@
  * @since 2026-10-22
  */
 
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue';
 import { ElButton } from 'element-plus';
+import { PAGE_CONTAINER_INJECTION_KEY } from '../page-container';
 import type {
   AtengFooterBarProps,
   AtengFooterBarEmits,
@@ -56,6 +57,19 @@ defineSlots<AtengFooterBarSlots>();
 
 const barRef = ref<HTMLElement | null>(null);
 const dynamicOffset = ref<{ left: number; width: number } | null>(null);
+
+// 容器上下文总线 (Container Context Bus)
+const pageContainerContext = inject(PAGE_CONTAINER_INJECTION_KEY, null);
+let unregisterFooter: (() => void) | null = null;
+
+const syncRegisterFooter = () => {
+  if (pageContainerContext && typeof pageContainerContext.registerFooter === 'function') {
+    unregisterFooter?.();
+    const h =
+      typeof props.height === 'number' ? props.height : parseFloat(String(props.height)) || 56;
+    unregisterFooter = pageContainerContext.registerFooter(h);
+  }
+};
 
 let resizeObserver: ResizeObserver | null = null;
 let rafId: number | null = null;
@@ -240,12 +254,24 @@ watch(
   },
 );
 
+watch(
+  () => props.height,
+  () => {
+    syncRegisterFooter();
+  },
+);
+
 onMounted(() => {
   startObserving();
+  syncRegisterFooter();
 });
 
 onBeforeUnmount(() => {
   stopObserving();
+  if (unregisterFooter) {
+    unregisterFooter();
+    unregisterFooter = null;
+  }
 });
 
 // 计算高度样式
@@ -299,9 +325,9 @@ defineExpose<AtengFooterBarExpose>({
 </script>
 
 <template>
-  <!-- 占位垫块（仅在 fixed 模式且开启 placeholder 时渲染，防止内容被遮挡） -->
+  <!-- 占位垫块（仅在 fixed 模式且开启 placeholder 且未在页面容器中统一托管时渲染，防止内容被遮挡） -->
   <div
-    v-if="position === 'fixed' && placeholder"
+    v-if="position === 'fixed' && placeholder && !pageContainerContext"
     class="at-footer-bar__placeholder"
     :style="{ height: normalizedHeight }"
     aria-hidden="true"

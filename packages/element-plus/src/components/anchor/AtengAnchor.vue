@@ -13,7 +13,8 @@
  * @since 2026-10-23
  */
 
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, inject } from 'vue';
+import { PAGE_CONTAINER_INJECTION_KEY } from '../page-container';
 import type { AtengAnchorProps, AtengAnchorEmits, AtengAnchorItem } from './types';
 
 defineOptions({
@@ -63,12 +64,13 @@ const setActiveAnchor = (href: string) => {
 };
 
 // 3. 滚动宿主智能探测与解析
+const pageContainerContext = inject(PAGE_CONTAINER_INJECTION_KEY, null);
 let scrollContainer: HTMLElement | Window | null = null;
 
 const resolveScrollContainer = (): HTMLElement | Window => {
   if (typeof window === 'undefined') return {} as Window;
 
-  // 1. 若显式指定了 container prop
+  // 1. 若显式指定了 container prop，逃生舱最高优先级
   if (props.container) {
     if (typeof props.container === 'string') {
       const found = document.querySelector(props.container);
@@ -78,7 +80,16 @@ const resolveScrollContainer = (): HTMLElement | Window => {
     }
   }
 
-  // 2. 向上递归探测最近的祖先滚动容器
+  // 2. 检查注入的页面容器协同总线上下文 (Container Context Bus)
+  if (pageContainerContext) {
+    const busContainer =
+      pageContainerContext.getScrollContainer?.() || pageContainerContext.contentRef?.value;
+    if (busContainer instanceof HTMLElement) {
+      return busContainer;
+    }
+  }
+
+  // 3. 向上递归探测最近的祖先滚动容器
   let parent = anchorRef.value?.parentElement;
   while (parent) {
     // 优先探测 AtengPageContainer 局部内容滚动容器
@@ -262,6 +273,7 @@ defineExpose({
   anchorRef,
   scrollTo,
   activeAnchor,
+  getScrollContainer: () => scrollContainer,
 });
 </script>
 

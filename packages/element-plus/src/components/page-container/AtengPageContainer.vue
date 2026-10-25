@@ -39,17 +39,21 @@ const unlockBodyScroll = () => {
  * @since 2026-10-22
  */
 
-import { ref, computed, watch, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, getCurrentInstance, onMounted, onBeforeUnmount, provide } from 'vue';
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
-import type {
-  AtengPageContainerProps,
-  AtengPageContainerEmits,
-  AtengPageBreadcrumbItem,
+import {
+  PAGE_CONTAINER_INJECTION_KEY,
+  type AtengPageContainerProps,
+  type AtengPageContainerEmits,
+  type AtengPageContainerSlots,
+  type AtengPageBreadcrumbItem,
 } from './types';
 
 defineOptions({
   name: 'AtengPageContainer',
 });
+
+defineSlots<AtengPageContainerSlots>();
 
 const props = withDefaults(defineProps<AtengPageContainerProps>(), {
   title: '',
@@ -286,6 +290,39 @@ const normalizedPadding = computed(() => {
   return props.contentPadding;
 });
 
+// 6. 容器上下文总线 (Container Context Bus) 依赖注入
+const footerHeights = ref<Map<symbol, number>>(new Map());
+
+const totalFooterHeight = computed(() => {
+  let maxHeight = 0;
+  for (const h of footerHeights.value.values()) {
+    if (h > maxHeight) {
+      maxHeight = h;
+    }
+  }
+  return maxHeight;
+});
+
+const registerFooter = (height: number) => {
+  const key = Symbol('footer');
+  const updateMap = new Map(footerHeights.value);
+  updateMap.set(key, height);
+  footerHeights.value = updateMap;
+
+  return () => {
+    const nextMap = new Map(footerHeights.value);
+    nextMap.delete(key);
+    footerHeights.value = nextMap;
+  };
+};
+
+provide(PAGE_CONTAINER_INJECTION_KEY, {
+  fitViewport: computed(() => props.fitViewport || isFullscreen.value),
+  contentRef,
+  registerFooter,
+  getScrollContainer: () => contentRef.value,
+});
+
 const scrollTo = (options?: { left?: number; top?: number; behavior?: 'auto' | 'smooth' }) => {
   if (contentRef.value && options) {
     contentRef.value.scrollTo(options);
@@ -441,6 +478,10 @@ defineExpose({
           class="at-page-container__content"
           :style="{
             padding: ghost && !isFullscreen ? undefined : normalizedPadding,
+            paddingBottom:
+              totalFooterHeight > 0
+                ? `${(parseFloat(String(normalizedPadding)) || 0) + totalFooterHeight}px`
+                : undefined,
             backgroundColor: contentBackground || undefined,
           }"
           @scroll="handleScroll"

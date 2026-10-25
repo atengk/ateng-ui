@@ -17,8 +17,15 @@ import {
   ElTable,
   ElTableColumn,
   ElAlert,
+  ElRadioGroup,
+  ElRadioButton,
 } from 'element-plus';
-import { AtengPageContainer } from '@atengk/element-plus';
+import {
+  AtengPageContainer,
+  AtengFooterBar,
+  AtengAnchor,
+  type AtengAnchorItem,
+} from '@atengk/element-plus';
 
 const activeTab = ref('users');
 const isGhost = ref(false);
@@ -29,6 +36,16 @@ const isAutoBreadcrumb = ref(false);
 const isFullscreen = ref(false);
 const showFullscreenBtn = ref(true);
 const collapseHeaderOnScroll = ref(true);
+
+// 容器总线协同演示控制
+const footerMode = ref<'none' | 'nested' | 'slot'>('nested');
+const showAnchor = ref(true);
+
+const anchorItems: AtengAnchorItem[] = [
+  { href: '#sec-overview', title: '概览说明' },
+  { href: '#sec-table', title: '团队成员列表' },
+  { href: '#sec-audit', title: '安全审计' },
+];
 
 const breadcrumbList = [
   { label: '系统管理', path: '/' },
@@ -102,6 +119,18 @@ const handleFullscreen = (val: boolean) => {
         <span>沉浸式滚动折叠页头 (collapseHeaderOnScroll)：</span>
         <ElSwitch v-model="collapseHeaderOnScroll" />
       </span>
+      <span class="ctrl-item">
+        <span>底栏模式：</span>
+        <ElRadioGroup v-model="footerMode" size="small">
+          <ElRadioButton value="none">无底栏</ElRadioButton>
+          <ElRadioButton value="nested">内容末尾嵌套 (自动占位)</ElRadioButton>
+          <ElRadioButton value="slot">#footer 具名插槽</ElRadioButton>
+        </ElRadioGroup>
+      </span>
+      <span class="ctrl-item">
+        <span>楼层导航自动绑定：</span>
+        <ElSwitch v-model="showAnchor" />
+      </span>
     </div>
 
     <AtengPageContainer
@@ -138,30 +167,61 @@ const handleFullscreen = (val: boolean) => {
         </ElTabs>
       </template>
 
+      <!-- 专用具名底栏插槽演示 -->
+      <template v-if="footerMode === 'slot'" #footer>
+        <AtengFooterBar
+          position="sticky"
+          submit-text="保存团队设置 (专用插槽模式)"
+          show-reset
+          show-cancel
+        />
+      </template>
+
       <!-- 主体内容 -->
       <div class="content-body">
         <ElAlert
-          title="AtengPageContainer 核心设计与全屏/折叠增强"
-          type="info"
-          description="标配统一页头结构（面包屑/返回键/主副标题/状态 Tag/Extra 操作区/内嵌 Tabs）。支持双模滚动切换：默认整页流动，开启 fitViewport 后 Flex 100% 撑满视口剩余高度并局部滚动；脱壳全屏特性：通过 <Teleport to='body'> 将容器瞬移至顶层，彻底绕过父级侧边栏包含块 CSS transform 限制，集成 lockScroll 滚动防穿透锁并支持 ESC 退出；沉浸式折叠：向下滚动平滑收折页头，回滚平滑复原。"
+          id="sec-overview"
+          title="容器上下文总线 (Container Context Bus) 零胶水协同"
+          type="success"
+          description="AtengPageContainer 统一向上文注入 PAGE_CONTAINER_INJECTION_KEY；当 AtengFooterBar 嵌套在内容末尾时，自动感知祖先容器上下文并注册自身高度，父容器为内部局部滚动内容自动追加等高 padding-bottom 占位垫块防遮挡；内嵌的 AtengAnchor 在未显式声明 container 属性时，自动识别并绑定页面容器的局部滚动内容区。"
           show-icon
           :closable="false"
           style="margin-bottom: 16px"
         />
 
-        <ElTable :data="mockTableData" border stripe style="width: 100%">
-          <ElTableColumn prop="id" label="工号" width="100" />
-          <ElTableColumn prop="name" label="姓名" width="120" />
-          <ElTableColumn prop="dept" label="所属部门" width="180" />
-          <ElTableColumn prop="role" label="岗位角色" />
-          <ElTableColumn prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <ElTag :type="row.status === '正常' ? 'success' : 'danger'" size="small">
-                {{ row.status }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
-        </ElTable>
+        <div v-if="showAnchor" class="anchor-wrapper" style="margin-bottom: 16px">
+          <AtengAnchor :items="anchorItems" direction="horizontal" />
+        </div>
+
+        <div id="sec-table" style="margin-bottom: 20px">
+          <ElTable :data="mockTableData" border stripe style="width: 100%">
+            <ElTableColumn prop="id" label="工号" width="100" />
+            <ElTableColumn prop="name" label="姓名" width="120" />
+            <ElTableColumn prop="dept" label="所属部门" width="180" />
+            <ElTableColumn prop="role" label="岗位角色" />
+            <ElTableColumn prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <ElTag :type="row.status === '正常' ? 'success' : 'danger'" size="small">
+                  {{ row.status }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+          </ElTable>
+        </div>
+
+        <div id="sec-audit" class="audit-box">
+          <h4>安全合规审计与团队日志</h4>
+          <p>所有成员权限操作均受零信任分布式鉴权策略约束，变动行为已写入审计日志存储。</p>
+        </div>
+
+        <!-- 嵌套在内容末尾的底栏演示（触发父容器自动注入 padding-bottom 垫块） -->
+        <AtengFooterBar
+          v-if="footerMode === 'nested'"
+          position="sticky"
+          submit-text="提交审核 (内容嵌套自动占位模式)"
+          show-reset
+          show-cancel
+        />
       </div>
     </AtengPageContainer>
   </div>
@@ -198,5 +258,19 @@ const handleFullscreen = (val: boolean) => {
 
 .content-body {
   width: 100%;
+}
+
+.audit-box {
+  padding: 16px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.anchor-wrapper {
+  padding: 8px 12px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
 }
 </style>
