@@ -63,6 +63,7 @@ import AtengElementPlus, {
   vIdempotent,
   vCopy,
   vWatermark,
+  vSkeleton,
 } from '../src/index';
 
 describe('全局插件安装器与统一导出规范测试', () => {
@@ -139,6 +140,7 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(vIdempotent).toBeDefined();
     expect(vCopy).toBeDefined();
     expect(vWatermark).toBeDefined();
+    expect(vSkeleton).toBeDefined();
   });
 
   it('全局安装器 install(app)：批量注册全量组件（含 PascalCase 原名与 At 别名）及 DictManager 注入', () => {
@@ -196,12 +198,13 @@ describe('全局插件安装器与统一导出规范测试', () => {
     // 5. 验证全局注入 DictManager 门面
     expect(dummyApp.config.globalProperties.$dictManager).toBe(DictManager);
 
-    // 6. 验证全部 5 组指令注册
+    // 6. 验证全部 6 组指令注册
     expect(dummyApp.directive('permission')).toBeDefined();
     expect(dummyApp.directive('role')).toBeDefined();
     expect(dummyApp.directive('idempotent')).toBeDefined();
     expect(dummyApp.directive('copy')).toBeDefined();
     expect(dummyApp.directive('watermark')).toBeDefined();
+    expect(dummyApp.directive('skeleton')).toBeDefined();
   });
 
   it('重复调用 app.use 具备严格幂等性，不产生冲突', () => {

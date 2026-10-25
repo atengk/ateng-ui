@@ -55,6 +55,7 @@ import { vRole } from './directives/role';
 import { vIdempotent } from './directives/idempotent';
 import { vCopy } from './directives/copy';
 import { vWatermark } from './directives/watermark';
+import { vSkeleton } from './directives/skeleton';
 
 const INSTALLED_KEY = Symbol('ATENG_ELEMENT_PLUS_INSTALLED');
 
@@ -140,6 +141,7 @@ export function install(app: App, options?: AtengElementPlusOptions): void {
   app.directive('idempotent', vIdempotent);
   app.directive('copy', vCopy);
   app.directive('watermark', vWatermark);
+  app.directive('skeleton', vSkeleton);
 
   // 4. 全局注入与绑定 DictManager
   app.config.globalProperties.$dictManager = DictManager;

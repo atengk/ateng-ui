@@ -44,6 +44,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '动态防篡改水印指令 v-watermark' },
   },
   {
+    path: '/directives/skeleton',
+    name: 'DirectiveSkeleton',
+    component: () => import('../views/directives/SkeletonView.vue'),
+    meta: { title: '细粒度微骨架指令 v-skeleton' },
+  },
+  {
     path: '/containers/dialog',
     name: 'ContainerDialog',
     component: () => import('../views/containers/DialogView.vue'),

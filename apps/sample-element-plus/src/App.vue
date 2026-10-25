@@ -116,6 +116,9 @@ onMounted(() => {
                   <ElMenuItem index="/directives/watermark" title="动态防篡改水印 (v-watermark)">
                     动态防篡改水印 (v-watermark)
                   </ElMenuItem>
+                  <ElMenuItem index="/directives/skeleton" title="细粒度微骨架 (v-skeleton)">
+                    细粒度微骨架 (v-skeleton)
+                  </ElMenuItem>
                 </ElSubMenu>
 
                 <!-- 2. 页面骨架与容器 -->

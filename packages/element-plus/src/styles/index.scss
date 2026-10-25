@@ -9,3 +9,51 @@
   --at-namespace: 'at';
   --at-transition-duration: var(--el-transition-duration, 0.3s);
 }
+
+// ========================================================
+// 细粒度微骨架指令 (v-skeleton) 原地遮罩模型 (Zero-CLS)
+// ========================================================
+.at-skeleton-active {
+  position: relative !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  cursor: default !important;
+
+  // 隐藏内部所有真实文本/图标内容，但保持物理尺寸与盒模型（Zero-CLS）
+  > * {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  // 宿主文字透明化
+  color: transparent !important;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border-radius: inherit;
+    background-color: var(--el-fill-color, #f0f2f5);
+    box-sizing: border-box;
+  }
+
+  &.is-animated::after {
+    animation: at-skeleton-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    will-change: opacity;
+  }
+}
+
+html.dark .at-skeleton-active::after {
+  background-color: var(--el-fill-color, #1e293b);
+}
+
+@keyframes at-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
