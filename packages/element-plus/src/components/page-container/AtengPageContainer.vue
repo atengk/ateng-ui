@@ -40,13 +40,23 @@ const unlockBodyScroll = () => {
  */
 
 import { ref, computed, watch, getCurrentInstance, onMounted, onBeforeUnmount, provide } from 'vue';
-import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
+import {
+  ElBreadcrumb,
+  ElBreadcrumbItem,
+  ElButton,
+  ElDropdown,
+  ElDropdownMenu,
+  ElDropdownItem,
+} from 'element-plus';
+import AtengWatermark from '../watermark/AtengWatermark.vue';
+import type { AtengWatermarkProps } from '../watermark/types';
 import {
   PAGE_CONTAINER_INJECTION_KEY,
   type AtengPageContainerProps,
   type AtengPageContainerEmits,
   type AtengPageContainerSlots,
   type AtengPageBreadcrumbItem,
+  type AtengPageActionItem,
 } from './types';
 
 defineOptions({
@@ -75,9 +85,40 @@ const props = withDefaults(defineProps<AtengPageContainerProps>(), {
   lockScroll: true,
   escExit: true,
   collapseHeaderOnScroll: false,
+  headerVisible: true,
+  watermark: undefined,
+  extraActions: () => [],
+  maxVisibleActions: 3,
 });
 
 const emit = defineEmits<AtengPageContainerEmits>();
+
+// 0. 操作流动作切分与水印配置
+const visibleActions = computed(() => {
+  if (!props.extraActions || props.extraActions.length === 0) return [];
+  return props.extraActions.slice(0, props.maxVisibleActions);
+});
+
+const overflowActions = computed(() => {
+  if (!props.extraActions || props.extraActions.length === 0) return [];
+  return props.extraActions.slice(props.maxVisibleActions);
+});
+
+const handleActionClick = (action: AtengPageActionItem, e?: MouseEvent) => {
+  if (action.disabled || action.loading) return;
+  emit('action-click', action);
+  if (action.onClick) {
+    action.onClick(e);
+  }
+};
+
+const resolvedWatermarkProps = computed<AtengWatermarkProps | null>(() => {
+  if (!props.watermark) return null;
+  if (typeof props.watermark === 'string') {
+    return { content: props.watermark };
+  }
+  return props.watermark;
+});
 
 // 1. 节点引用
 const containerRef = ref<HTMLElement | null>(null);
@@ -365,6 +406,7 @@ defineExpose({
       >
         <!-- 页头区域 -->
         <header
+          v-if="headerVisible"
           ref="headerRef"
           class="at-page-container__header"
           :class="{
@@ -435,6 +477,62 @@ defineExpose({
                   <slot name="extra" />
                 </div>
 
+                <!-- 声明式操作流动作 -->
+                <div
+                  v-if="extraActions && extraActions.length > 0"
+                  class="at-page-container__extra-actions"
+                >
+                  <el-button
+                    v-for="action in visibleActions"
+                    :key="action.key || action.label"
+                    :type="action.type || 'default'"
+                    :plain="action.plain"
+                    :disabled="action.disabled"
+                    :loading="action.loading"
+                    :icon="action.icon"
+                    size="default"
+                    @click="handleActionClick(action, $event)"
+                  >
+                    {{ action.label }}
+                  </el-button>
+
+                  <!-- 超出折叠下拉菜单 -->
+                  <el-dropdown
+                    v-if="overflowActions.length > 0"
+                    trigger="click"
+                    class="at-page-container__actions-dropdown"
+                  >
+                    <el-button class="at-page-container__dropdown-trigger" size="default">
+                      <span>更多</span>
+                      <svg
+                        viewBox="0 0 1024 1024"
+                        width="12"
+                        height="12"
+                        fill="currentColor"
+                        style="margin-left: 4px"
+                      >
+                        <path
+                          d="M831.872 340.777L512 652.615 192.128 340.777a32 32 0 0 0-45.248 45.248l342.613 334.336a32 32 0 0 0 45.014 0l342.613-334.336a32 32 0 0 0-45.248-45.248z"
+                        />
+                      </svg>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-for="action in overflowActions"
+                          :key="action.key || action.label"
+                          :disabled="action.disabled"
+                          :divided="action.divided"
+                          :icon="action.icon"
+                          @click="handleActionClick(action, $event)"
+                        >
+                          {{ action.label }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+
                 <!-- 全屏脱壳切换按钮 -->
                 <button
                   v-if="showFullscreen"
@@ -486,11 +584,25 @@ defineExpose({
           }"
           @scroll="handleScroll"
         >
-          <div v-if="!ghost || isFullscreen" class="at-page-container__card">
-            <slot />
-          </div>
+          <AtengWatermark
+            v-if="resolvedWatermarkProps"
+            v-bind="resolvedWatermarkProps"
+            class="at-page-container__watermark"
+          >
+            <div v-if="!ghost || isFullscreen" class="at-page-container__card">
+              <slot />
+            </div>
+            <template v-else>
+              <slot />
+            </template>
+          </AtengWatermark>
           <template v-else>
-            <slot />
+            <div v-if="!ghost || isFullscreen" class="at-page-container__card">
+              <slot />
+            </div>
+            <template v-else>
+              <slot />
+            </template>
           </template>
         </main>
 
@@ -718,5 +830,20 @@ defineExpose({
 
 .at-page-container__footer {
   flex-shrink: 0;
+}
+
+.at-page-container__extra-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-page-container__dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.at-page-container__watermark {
+  min-height: 100%;
 }
 </style>

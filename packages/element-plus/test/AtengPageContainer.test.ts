@@ -369,4 +369,159 @@ describe('AtengPageContainer 组件测试', () => {
     expect(header.classes()).not.toContain('is-scroll-collapsed');
     expect(wrapper.emitted('header-collapse')![1]).toEqual([false]);
   });
+
+  it('沉浸无页头模式 (headerVisible=false)：隐藏页头，保留 Flex 撑满与内容呈现', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '无页头沉浸页面',
+        headerVisible: false,
+        fitViewport: true,
+      },
+      slots: {
+        default: '<div class="fullscreen-content">大屏沉浸监控画布</div>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-page-container__header').exists()).toBe(false);
+    expect(wrapper.find('.fullscreen-content').exists()).toBe(true);
+    expect(wrapper.classes()).toContain('is-fit-viewport');
+  });
+
+  it('extraActions 操作流折叠：数量不超过 maxVisibleActions 时全量平铺渲染为按钮', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '操作流页面',
+        maxVisibleActions: 3,
+        extraActions: [
+          { key: 'edit', label: '编辑', type: 'primary' },
+          { key: 'export', label: '导出' },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    const actionButtons = wrapper.findAll('.at-page-container__extra-actions .el-button');
+    expect(actionButtons.length).toBe(2);
+    expect(actionButtons[0].text()).toContain('编辑');
+    expect(actionButtons[1].text()).toContain('导出');
+    // 不应出现下拉更多按钮
+    expect(wrapper.find('.at-page-container__actions-dropdown').exists()).toBe(false);
+  });
+
+  it('extraActions 操作流折叠：超过 maxVisibleActions 时自动将后续项折叠至下拉菜单', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '超长操作流页面',
+        maxVisibleActions: 2,
+        extraActions: [
+          { key: 'add', label: '新增', type: 'primary' },
+          { key: 'import', label: '导入' },
+          { key: 'export', label: '导出' },
+          { key: 'audit', label: '审核' },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    // 应该只展示前 2 个独立按钮 + 1 个下拉菜单触发按钮
+    const normalButtons = wrapper.findAll(
+      '.at-page-container__extra-actions > .el-button:not(.at-page-container__dropdown-trigger)',
+    );
+    expect(normalButtons.length).toBe(2);
+    expect(normalButtons[0].text()).toContain('新增');
+    expect(normalButtons[1].text()).toContain('导入');
+
+    // 存在下拉菜单容器
+    const dropdownTrigger = wrapper.find('.at-page-container__actions-dropdown');
+    expect(dropdownTrigger.exists()).toBe(true);
+  });
+
+  it('extraActions 与 #extra 具名插槽并存共生', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '并存插槽页面',
+        extraActions: [{ key: 'refresh', label: '刷新' }],
+      },
+      slots: {
+        extra: '<span class="custom-badge">VIP 用户</span>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.custom-badge').exists()).toBe(true);
+    expect(wrapper.find('.custom-badge').text()).toBe('VIP 用户');
+    expect(wrapper.find('.at-page-container__extra-actions').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__extra-actions').text()).toContain('刷新');
+  });
+
+  it('extraActions 点击事件与禁用/加载状态拦截', async () => {
+    let clickedActionKey = '';
+    const handleEdit = () => {
+      clickedActionKey = 'edit';
+    };
+
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '交互操作流',
+        extraActions: [
+          { key: 'edit', label: '编辑', onClick: handleEdit },
+          { key: 'delete', label: '删除', disabled: true },
+        ],
+      },
+      attachTo: document.body,
+    });
+
+    const buttons = wrapper.findAll('.at-page-container__extra-actions .el-button');
+    // 点击可操作按钮
+    await buttons[0].trigger('click');
+    expect(clickedActionKey).toBe('edit');
+    expect(wrapper.emitted('action-click')).toBeTruthy();
+    expect(wrapper.emitted('action-click')![0][0]).toMatchObject({ key: 'edit', label: '编辑' });
+
+    // 点击禁用按钮
+    await buttons[1].trigger('click');
+    expect(wrapper.emitted('action-click')!.length).toBe(1);
+  });
+
+  it('watermark 快捷属性：支持字符串快捷开启防篡改水印', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '水印页面',
+        watermark: '机密资产 @atengk',
+      },
+      slots: {
+        default: '<div class="confidential-doc">绝密报告</div>',
+      },
+      attachTo: document.body,
+    });
+
+    const watermarkComponent = wrapper.findComponent({ name: 'AtengWatermark' });
+    expect(watermarkComponent.exists()).toBe(true);
+    expect(watermarkComponent.props('content')).toBe('机密资产 @atengk');
+    expect(wrapper.find('.confidential-doc').exists()).toBe(true);
+  });
+
+  it('watermark 快捷属性：支持 AtengWatermarkProps 详细配置对象', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '自定义水印页面',
+        watermark: {
+          content: ['Ateng Security', 'Internal Only'],
+          rotate: -30,
+          zIndex: 99,
+        },
+      },
+      slots: {
+        default: '<div class="confidential-doc">绝密表格</div>',
+      },
+      attachTo: document.body,
+    });
+
+    const watermarkComponent = wrapper.findComponent({ name: 'AtengWatermark' });
+    expect(watermarkComponent.exists()).toBe(true);
+    expect(watermarkComponent.props('content')).toEqual(['Ateng Security', 'Internal Only']);
+    expect(watermarkComponent.props('rotate')).toBe(-30);
+    expect(watermarkComponent.props('zIndex')).toBe(99);
+  });
 });

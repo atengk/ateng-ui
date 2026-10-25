@@ -25,6 +25,7 @@ import {
   AtengFooterBar,
   AtengAnchor,
   type AtengAnchorItem,
+  type AtengPageActionItem,
 } from '@atengk/element-plus';
 
 const activeTab = ref('users');
@@ -36,6 +37,32 @@ const isAutoBreadcrumb = ref(false);
 const isFullscreen = ref(false);
 const showFullscreenBtn = ref(true);
 const collapseHeaderOnScroll = ref(true);
+const isHeaderVisible = ref(true);
+const enableWatermark = ref(false);
+const enableExtraActions = ref(true);
+
+const extraActions: AtengPageActionItem[] = [
+  {
+    key: 'export',
+    label: '导出明细',
+    type: 'primary',
+    onClick: () => ElMessage.success('点击了操作项：导出明细'),
+  },
+  { key: 'import', label: '批量导入', onClick: () => ElMessage.info('点击了操作项：批量导入') },
+  { key: 'print', label: '打印单据', onClick: () => ElMessage.info('点击了操作项：打印单据') },
+  {
+    key: 'archive',
+    label: '归档数据',
+    divided: true,
+    onClick: () => ElMessage.warning('点击了操作项：归档数据'),
+  },
+  {
+    key: 'lock',
+    label: '锁定成员',
+    disabled: true,
+    onClick: () => ElMessage.error('该操作已禁用'),
+  },
+];
 
 // 容器总线协同演示控制
 const footerMode = ref<'none' | 'nested' | 'slot'>('nested');
@@ -120,6 +147,18 @@ const handleFullscreen = (val: boolean) => {
         <ElSwitch v-model="collapseHeaderOnScroll" />
       </span>
       <span class="ctrl-item">
+        <span>沉浸无页头模式 (headerVisible)：</span>
+        <ElSwitch v-model="isHeaderVisible" />
+      </span>
+      <span class="ctrl-item">
+        <span>防篡改安全水印 (watermark)：</span>
+        <ElSwitch v-model="enableWatermark" />
+      </span>
+      <span class="ctrl-item">
+        <span>页头操作流折叠 (extraActions)：</span>
+        <ElSwitch v-model="enableExtraActions" />
+      </span>
+      <span class="ctrl-item">
         <span>底栏模式：</span>
         <ElRadioGroup v-model="footerMode" size="small">
           <ElRadioButton value="none">无底栏</ElRadioButton>
@@ -146,8 +185,13 @@ const handleFullscreen = (val: boolean) => {
       :auto-breadcrumb="isAutoBreadcrumb"
       :show-fullscreen="showFullscreenBtn"
       :collapse-header-on-scroll="collapseHeaderOnScroll"
+      :header-visible="isHeaderVisible"
+      :watermark="enableWatermark ? '机密文档 @atengk 2026' : undefined"
+      :extra-actions="enableExtraActions ? extraActions : undefined"
+      :max-visible-actions="3"
       @back="handleBack"
       @fullscreen="handleFullscreen"
+      @action-click="act => ElMessage.info('触发操作: ' + act.label)"
     >
       <template #tags>
         <ElTag type="success" size="small">在线 32 人</ElTag>

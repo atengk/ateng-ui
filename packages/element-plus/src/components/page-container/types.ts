@@ -6,6 +6,7 @@
  */
 
 import type { InjectionKey, ComputedRef, ShallowRef, Ref } from 'vue';
+import type { AtengWatermarkProps } from '../watermark/types';
 
 /**
  * 路由目标类型（兼容 Vue Router 路径字符串或对象）。
@@ -28,6 +29,56 @@ export interface AtengPageBreadcrumbItem {
    * 路径。
    */
   path?: string;
+}
+
+/**
+ * 页头操作流按钮配置契约。
+ */
+export interface AtengPageActionItem {
+  /**
+   * 唯一标识 key。
+   */
+  key?: string;
+
+  /**
+   * 按钮展示文本。
+   */
+  label: string;
+
+  /**
+   * 按钮主题类型，默认为 'default'。
+   */
+  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'default';
+
+  /**
+   * 图标组件（如 Element Plus 图标或 Component/VNode）。
+   */
+  icon?: unknown;
+
+  /**
+   * 是否为朴素按钮。
+   */
+  plain?: boolean;
+
+  /**
+   * 是否禁用。
+   */
+  disabled?: boolean;
+
+  /**
+   * 是否处于加载状态。
+   */
+  loading?: boolean;
+
+  /**
+   * 是否在下拉菜单中显示上分割线。
+   */
+  divided?: boolean;
+
+  /**
+   * 点击事件回调，支持异步。
+   */
+  onClick?: (e?: MouseEvent) => void | Promise<unknown>;
 }
 
 /**
@@ -145,6 +196,28 @@ export interface AtengPageContainerProps {
    * 默认 false。
    */
   collapseHeaderOnScroll?: boolean;
+
+  /**
+   * 页头是否可见。设置为 false 时平滑隐藏页头，进入沉浸式无页头纯内容模式。
+   * 默认 true。
+   */
+  headerVisible?: boolean;
+
+  /**
+   * 快捷防篡改安全水印。可直接传入水印文本字符串，或 AtengWatermarkProps 详细配置对象。
+   */
+  watermark?: string | AtengWatermarkProps;
+
+  /**
+   * 页头声明式操作流动作列表。超限自动折叠至下拉菜单。
+   */
+  extraActions?: AtengPageActionItem[];
+
+  /**
+   * 页头最大可见按钮数量，超出部分自动收敛折叠至下拉菜单。
+   * 默认 3。
+   */
+  maxVisibleActions?: number;
 }
 
 /**
@@ -155,6 +228,11 @@ export interface AtengPageContainerEmits {
    * 点击返回箭头按钮时触发。
    */
   (e: 'back'): void;
+
+  /**
+   * 点击页头操作流按钮或下拉项时触发。
+   */
+  (e: 'action-click', item: AtengPageActionItem): void;
 
   /**
    * 全屏状态更新（v-model:fullscreen）。
