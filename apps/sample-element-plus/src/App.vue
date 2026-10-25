@@ -124,6 +124,9 @@ onMounted(() => {
                     <ElIcon class="sub-menu-icon"><span>🏛️</span></ElIcon>
                     <span class="sub-menu-title">页面骨架与容器 (Layout)</span>
                   </template>
+                  <ElMenuItem index="/layout/layout" title="无状态基础布局 (AtengLayout)">
+                    无状态基础布局 (AtengLayout)
+                  </ElMenuItem>
                   <ElMenuItem
                     index="/layout/page-container"
                     title="页面主体容器 (AtengPageContainer)"

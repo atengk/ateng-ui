@@ -29,7 +29,20 @@ import AtengElementPlus, {
   AtengExcelFeedback,
   AtengUpload,
   DictManager,
+  AtengGrid,
+  AtengAnchor,
+  AtengLayout,
+  AtengHeader,
+  AtengAside,
+  AtengContent,
+  AtengFooter,
+  AtGrid,
   AtAnchor,
+  AtLayout,
+  AtHeader,
+  AtAside,
+  AtContent,
+  AtFooter,
   AtCard,
   AtCardGroup,
   AtDialog,
@@ -71,6 +84,12 @@ describe('全局插件安装器与统一导出规范测试', () => {
 
     // 验证 Stage 1 & Stage 2 组件原名导出
     expect(AtengAnchor).toBeDefined();
+    expect(AtengGrid).toBeDefined();
+    expect(AtengLayout).toBeDefined();
+    expect(AtengHeader).toBeDefined();
+    expect(AtengAside).toBeDefined();
+    expect(AtengContent).toBeDefined();
+    expect(AtengFooter).toBeDefined();
     expect(AtengCard).toBeDefined();
     expect(AtengCardGroup).toBeDefined();
     expect(AtengDialog).toBeDefined();
@@ -92,6 +111,12 @@ describe('全局插件安装器与统一导出规范测试', () => {
 
     // 验证便捷 At* 别名导出
     expect(AtAnchor).toBe(AtengAnchor);
+    expect(AtGrid).toBe(AtengGrid);
+    expect(AtLayout).toBe(AtengLayout);
+    expect(AtHeader).toBe(AtengHeader);
+    expect(AtAside).toBe(AtengAside);
+    expect(AtContent).toBe(AtengContent);
+    expect(AtFooter).toBe(AtengFooter);
     expect(AtCard).toBe(AtengCard);
     expect(AtCardGroup).toBe(AtengCardGroup);
     expect(AtDialog).toBe(AtengDialog);
@@ -126,6 +151,11 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(dummyApp.component('AtengEmpty')).toBeDefined();
     expect(dummyApp.component('AtengQueryForm')).toBeDefined();
     expect(dummyApp.component('AtengTable')).toBeDefined();
+    expect(dummyApp.component('AtengLayout')).toBeDefined();
+    expect(dummyApp.component('AtengHeader')).toBeDefined();
+    expect(dummyApp.component('AtengAside')).toBeDefined();
+    expect(dummyApp.component('AtengContent')).toBeDefined();
+    expect(dummyApp.component('AtengFooter')).toBeDefined();
 
     // 2. 验证 Stage 3 全量组件原名注册
     expect(dummyApp.component('AtengDictSelect')).toBeDefined();
@@ -143,6 +173,11 @@ describe('全局插件安装器与统一导出规范测试', () => {
     expect(dummyApp.component('AtEmpty')).toBeDefined();
     expect(dummyApp.component('AtQueryForm')).toBeDefined();
     expect(dummyApp.component('AtTable')).toBeDefined();
+    expect(dummyApp.component('AtLayout')).toBeDefined();
+    expect(dummyApp.component('AtHeader')).toBeDefined();
+    expect(dummyApp.component('AtAside')).toBeDefined();
+    expect(dummyApp.component('AtContent')).toBeDefined();
+    expect(dummyApp.component('AtFooter')).toBeDefined();
     expect(dummyApp.component('AtDictSelect')).toBeDefined();
     expect(dummyApp.component('AtDictRadio')).toBeDefined();
     expect(dummyApp.component('AtDictTag')).toBeDefined();

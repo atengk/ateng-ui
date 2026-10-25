@@ -68,6 +68,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '现代轻量加载与防闪烁 AtengLoading' },
   },
   {
+    path: '/layout/layout',
+    name: 'LayoutScaffold',
+    component: () => import('../views/layout/LayoutView.vue'),
+    meta: { title: '无状态基础布局 AtengLayout' },
+  },
+  {
     path: '/layout/page-container',
     name: 'LayoutPageContainer',
     component: () => import('../views/layout/PageContainerView.vue'),

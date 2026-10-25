@@ -60,6 +60,10 @@ _Avoid_: AtengModal, BaseDialog, DragDialog, FullscreenDialog
 具备响应式尺寸断点、异步提交 Loading 锁、分帧延迟挂载（lazy-render）与硬件图层加速的企业级抽屉交互容器组件。
 _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 
+**AtengLayout**:
+具备弹性盒子分栏、自动 Aside 感知、语义化分块与零状态纯 CSS 驱动的企业级基础无状态布局架构套件（包含 AtengLayout、AtengHeader、AtengAside、AtengContent、AtengFooter）。
+_Avoid_: Layout, AppLayout, PageLayout, ElContainer, AntdLayout
+
 **AtengPageContainer**:
 具备统一页头（自动路由推导/面包屑/标题/副标题/操作区/页签/可选滚动折叠）、吸顶轻量固顶与滚动阴影、双模自适应滚动、内容脱壳全屏与沉浸式卡片包装的企业级标准页面容器组件。
 _Avoid_: PageLayout, LayoutPage, PageView, AdminPage, PageWrapper
@@ -151,6 +155,24 @@ _Avoid_: v-clipboard, v-text-copy, v-click-copy
 **v-watermark**:
 基于 Canvas 渲染与 MutationObserver 动态防御篡改的防伪水印指令（支持局部容器与全屏双模）。
 _Avoid_: v-mask, v-water-mark, v-stamp
+
+**v-skeleton**:
+基于原地 CSS 盒模型微光覆盖与零布局跳变（Zero-CLS）的企业级细粒度局部骨架屏指令。
+_Avoid_: v-loading-skeleton, v-shimmer, v-pulse, v-skeleton-loading
+
+## 骨架与容器高级协同机制
+
+**Container Context Bus (容器上下文总线)**:
+父级 AtengPageContainer 基于 Vue 依赖注入向子孙组件动态分发滚动视口引用、尺寸边界与底部避让间距的响应式协同总线机制。
+_Avoid_: PageEventBus, ContainerStore, LayoutContext
+
+**Snap Points (分栏边缘磁吸附)**:
+在 AtengSplitLayout 中当拖拽把手逼近临界阈值时自动平滑吸附折叠或展开并触发微动效的物理阻尼吸附交互机制。
+_Avoid_: 边缘自动折叠, 磁吸折叠, AutoCollapseThreshold
+
+**Action Overflow (页头操作流折叠)**:
+在 AtengPageContainer 页头中当操作项超出数量阈值或容器宽度受限时，自动将次要操作收敛至下拉菜单的自适应折叠机制。
+_Avoid_: 更多按钮, 按钮溢出菜单, MoreDropdown, OverflowActions
 
 ## 表格与检索高级交互机制
 

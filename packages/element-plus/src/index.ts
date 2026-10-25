@@ -51,6 +51,11 @@ export {
   AtengWatermark as AtWatermark,
   AtengGrid as AtGrid,
   AtengAnchor as AtAnchor,
+  AtengLayout as AtLayout,
+  AtengHeader as AtHeader,
+  AtengAside as AtAside,
+  AtengContent as AtContent,
+  AtengFooter as AtFooter,
 } from './components';
 export { AtengLoading as AtLoading } from './loading';
 

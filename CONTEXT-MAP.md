@@ -28,7 +28,7 @@
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
 
 - **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`，当前活跃）：
-  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengPageContainer`（双模滚动页面容器）、`AtengSplitLayout`（拖拽分栏容器）、`AtengFooterBar`（吸底操作栏）、`AtengCard`（折叠全屏面板）、`AtengCardGroup`（手风琴卡片组容器）、`AtengWatermark`（安全水印容器）、`AtengAnchor`（电梯楼层导航锚点容器）、`AtengGrid`（容器查询自适应网格）、`AtengPageSkeleton`（多模态骨架屏）、`AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty`、`AtengLoadingBar` / `AtengLoading`（现代零开销加载与防闪烁套件）以及 5 大权限防重与安全指令。
+  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengLayout`（纯无状态基础布局框架套件：Layout/Header/Aside/Content/Footer）、`AtengPageContainer`（双模滚动页面容器）、`AtengSplitLayout`（拖拽分栏容器）、`AtengFooterBar`（吸底操作栏）、`AtengCard`（折叠全屏面板）、`AtengCardGroup`（手风琴卡片组容器）、`AtengWatermark`（安全水印容器）、`AtengAnchor`（电梯楼层导航锚点容器）、`AtengGrid`（容器查询自适应网格）、`AtengPageSkeleton`（多模态骨架屏）、`AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty`、`AtengLoadingBar` / `AtengLoading`（现代零开销加载与防闪烁套件）以及 6 大权限防重、微骨架与安全指令。
 - **React 企业级组件套件**（如 `@atengk/antd` 等，架构预留规划）：
   未来面向 React 生态的高阶组件套件，组装下层 L0 及 `@atengk/react` 能力。
 
@@ -131,3 +131,4 @@ flowchart TD
 - [ADR-0025: 状态反馈性能治理、GPU 脉冲动效与组件布局契约深化架构](./docs/adr/0025-feedbacks-performance-governance-and-component-layout-contracts.md)
 - [ADR-0026: 按钮微动效物理学、高反差签名隔离与表单内嵌描边盒模型架构](./docs/adr/0026-button-micro-physics-and-input-inset-box-shadow-architecture.md)
 - [ADR-0027: 次核心基石组件零胶水集成、字段映射与多维健壮性增强架构](./docs/adr/0027-secondary-core-components-zero-glue-and-robustness-architecture.md)
+- [ADR-0028: 纯无状态基础布局套件、细粒度微骨架与容器协同总线架构](./docs/adr/0028-stateless-layout-suite-and-container-synergy-architecture.md)

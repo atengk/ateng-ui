@@ -31,4 +31,5 @@ export * from './file-preview';
 export * from './watermark';
 export * from './grid';
 export * from './anchor';
+export * from './layout';
 export * from './shared/context';

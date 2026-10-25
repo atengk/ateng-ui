@@ -42,6 +42,13 @@ import { AtengFilePreview } from './components/file-preview';
 import { AtengWatermark } from './components/watermark';
 import { AtengGrid } from './components/grid';
 import { AtengAnchor } from './components/anchor';
+import {
+  AtengLayout,
+  AtengHeader,
+  AtengAside,
+  AtengContent,
+  AtengFooter,
+} from './components/layout';
 import { AtengLoading } from './loading';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
@@ -96,6 +103,11 @@ const components: Record<string, Component> = {
   AtengWatermark,
   AtengGrid,
   AtengAnchor,
+  AtengLayout,
+  AtengHeader,
+  AtengAside,
+  AtengContent,
+  AtengFooter,
   AtengLoading,
 };
 
