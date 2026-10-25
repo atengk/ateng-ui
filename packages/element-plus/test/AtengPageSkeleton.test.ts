@@ -41,6 +41,75 @@ describe('AtengPageSkeleton 组件测试', () => {
     expect(wrapper.find('.real-table').exists()).toBe(false);
   });
 
+  it('表格模态高拟真参数化 (columnWidths)：自定义表格列宽与列数', () => {
+    wrapper = mount(AtengPageSkeleton, {
+      props: {
+        loading: true,
+        type: 'table',
+        rows: 2,
+        columnWidths: [180, '30%', 120, '40%'],
+      },
+      attachTo: document.body,
+    });
+
+    const header = wrapper.find('.at-skeleton-table__header');
+    expect(header.exists()).toBe(true);
+    const headerCols = header.findAll('.el-skeleton__item');
+    expect(headerCols.length).toBe(4);
+    expect(headerCols[0].attributes('style')).toContain('width: 180px');
+    expect(headerCols[1].attributes('style')).toContain('width: 30%');
+    expect(headerCols[2].attributes('style')).toContain('width: 120px');
+    expect(headerCols[3].attributes('style')).toContain('width: 40%');
+
+    const firstRow = wrapper.findAll('.at-skeleton-table__row')[0];
+    const rowCols = firstRow.findAll('.el-skeleton__item');
+    expect(rowCols.length).toBe(4);
+    expect(rowCols[0].attributes('style')).toContain('width: 180px');
+    expect(rowCols[1].attributes('style')).toContain('width: 30%');
+    expect(rowCols[2].attributes('style')).toContain('width: 120px');
+    expect(rowCols[3].attributes('style')).toContain('width: 40%');
+  });
+
+  it('表格模态高拟真参数化 (showPagination)：默认不渲染，开启后渲染假分页占位', async () => {
+    wrapper = mount(AtengPageSkeleton, {
+      props: {
+        loading: true,
+        type: 'table',
+      },
+      attachTo: document.body,
+    });
+
+    // 默认 showPagination 为 false
+    expect(wrapper.find('.at-skeleton-table__pagination').exists()).toBe(false);
+
+    // 开启 showPagination: true
+    await wrapper.setProps({ showPagination: true });
+    expect(wrapper.find('.at-skeleton-table__pagination').exists()).toBe(true);
+    expect(wrapper.find('.at-skeleton-pagination-total').exists()).toBe(true);
+    expect(wrapper.findAll('.at-skeleton-pagination-btn').length).toBeGreaterThan(0);
+  });
+
+  it('表格模态高拟真参数化 (showHeader)：支持隐藏顶部检索区以适应纯表格', async () => {
+    wrapper = mount(AtengPageSkeleton, {
+      props: {
+        loading: true,
+        type: 'table',
+        showHeader: false,
+      },
+      attachTo: document.body,
+    });
+
+    // 隐藏顶部搜索区
+    expect(wrapper.find('.at-skeleton-table__query').exists()).toBe(false);
+    // 表头和数据行依然正常渲染
+    expect(wrapper.find('.at-skeleton-table__header').exists()).toBe(true);
+    expect(wrapper.findAll('.at-skeleton-table__row').length).toBe(5);
+
+    // 动态切回 true 时渲染
+    await wrapper.setProps({ showHeader: true });
+    expect(wrapper.find('.at-skeleton-table__query').exists()).toBe(true);
+  });
+
   it('表单模态预设 (type=form)：加载中渲染表单栅格骨架', () => {
     wrapper = mount(AtengPageSkeleton, {
       props: {

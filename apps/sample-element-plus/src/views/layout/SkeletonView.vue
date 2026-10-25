@@ -6,7 +6,7 @@
  * @since 2026-10-22
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
   ElCard,
   ElButton,
@@ -19,6 +19,7 @@ import {
   ElDescriptions,
   ElDescriptionsItem,
   ElTag,
+  ElPagination,
 } from 'element-plus';
 import { AtengPageSkeleton, type AtengSkeletonType } from '@atengk/element-plus';
 
@@ -28,6 +29,21 @@ const isLoading = ref(true);
 const toggleLoading = () => {
   isLoading.value = !isLoading.value;
 };
+
+// 表格高拟真参数化交互状态
+const tableLoading = ref(true);
+const tableRows = ref(4);
+const showPagination = ref(true);
+const showHeader = ref(true);
+const widthPreset = ref<'default' | 'order' | 'compact'>('order');
+
+const columnWidthPresets = {
+  default: undefined,
+  order: [180, 220, '25%', 140],
+  compact: [80, 140, '20%', 120, '25%', 100],
+};
+
+const currentColumnWidths = computed(() => columnWidthPresets[widthPreset.value]);
 
 // 真实模拟数据
 const mockTable = [
@@ -166,6 +182,72 @@ const mockTable = [
         </AtengPageSkeleton>
       </div>
     </ElCard>
+
+    <!-- 增强卡片：高拟真参数化表格骨架屏 -->
+    <ElCard header="高拟真参数化表格骨架屏 (Table Parameterized Skeleton)" style="margin-top: 24px">
+      <ElAlert
+        title="列宽自定义 (columnWidths)、假分页占位 (showPagination) 与纯表格开关 (showHeader)"
+        type="success"
+        description="支持通过 columnWidths 传入数字或百分比数组精准对齐真实表格各列比例；支持通过 showPagination: true 在表格底部自动渲染高拟真假分页条占位（包含总计、页码按钮与尺寸切换器）；支持通过 showHeader: false 隐藏顶部搜索区骨架，适应纯表格场景。"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
+
+      <div class="ctrl-bar">
+        <span>列宽预设 (columnWidths)：</span>
+        <ElRadioGroup v-model="widthPreset" size="small">
+          <ElRadioButton value="order">四列业务表 [180, 220, '25%', 140]</ElRadioButton>
+          <ElRadioButton value="compact"
+            >六列紧凑表 [80, 140, '20%', 120, '25%', 100]</ElRadioButton
+          >
+          <ElRadioButton value="default">默认五列均分</ElRadioButton>
+        </ElRadioGroup>
+
+        <span style="margin-left: 16px">假分页占位 (showPagination)：</span>
+        <ElSwitch v-model="showPagination" />
+
+        <span style="margin-left: 16px">搜索区骨架 (showHeader)：</span>
+        <ElSwitch v-model="showHeader" />
+
+        <span style="margin-left: 16px">加载态 (loading)：</span>
+        <ElSwitch v-model="tableLoading" />
+      </div>
+
+      <div class="skeleton-demo-box">
+        <AtengPageSkeleton
+          :loading="tableLoading"
+          type="table"
+          :rows="tableRows"
+          :column-widths="currentColumnWidths"
+          :show-pagination="showPagination"
+          :show-header="showHeader"
+        >
+          <div class="real-content">
+            <div v-if="showHeader" class="real-query">
+              <span class="query-title">高拟真业务数据表格 (共 3 笔订单)：</span>
+              <ElTag type="success">真实数据加载就绪</ElTag>
+            </div>
+            <ElTable :data="mockTable" border stripe>
+              <ElTableColumn prop="orderNo" label="订单编号" width="180" />
+              <ElTableColumn prop="customer" label="客户名称" width="220" />
+              <ElTableColumn prop="amount" label="合同金额" />
+              <ElTableColumn prop="status" label="履约状态" width="140">
+                <template #default="{ row }">
+                  <ElTag :type="row.status === '已履约' ? 'success' : 'warning'" size="small">
+                    {{ row.status }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+            </ElTable>
+            <div v-if="showPagination" class="real-pagination">
+              <span class="pagination-info">共 3 条记录</span>
+              <ElPagination layout="prev, pager, next" :total="3" :page-size="10" />
+            </div>
+          </div>
+        </AtengPageSkeleton>
+      </div>
+    </ElCard>
   </div>
 </template>
 
@@ -202,6 +284,20 @@ const mockTable = [
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+}
+
+.real-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .query-title {

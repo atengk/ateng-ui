@@ -43,6 +43,24 @@ export interface AtengPageSkeletonProps {
    * 默认 3。
    */
   columns?: number;
+
+  /**
+   * 表格各列宽度自定义数组（支持数字 px 或字符串百分比/px，如 [120, '25%', '20%']）。
+   * 仅在 type='table' 时生效。若未指定则默认使用 5 列自适应比例。
+   */
+  columnWidths?: (string | number)[];
+
+  /**
+   * 表格底部是否渲染模拟假分页栏骨架。
+   * 默认 false。
+   */
+  showPagination?: boolean;
+
+  /**
+   * 表格顶部是否渲染模拟搜索筛选区骨架。
+   * 默认 true。若为 false 则隐藏检索区，适应无查询区纯表格场景。
+   */
+  showHeader?: boolean;
 }
 
 /**

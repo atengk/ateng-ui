@@ -13,7 +13,7 @@
  * @since 2026-10-22
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { ElSkeleton, ElSkeletonItem } from 'element-plus';
 import type { AtengPageSkeletonProps, AtengPageSkeletonSlots } from './types';
 
@@ -23,12 +23,25 @@ defineOptions({
 
 defineSlots<AtengPageSkeletonSlots>();
 
-withDefaults(defineProps<AtengPageSkeletonProps>(), {
+const props = withDefaults(defineProps<AtengPageSkeletonProps>(), {
   loading: true,
   type: 'table',
   animated: true,
   rows: 5,
   columns: 3,
+  showPagination: false,
+  showHeader: true,
+});
+
+const DEFAULT_COLUMN_WIDTHS = ['15%', '25%', '20%', '20%', '20%'];
+
+const resolvedColumnWidths = computed<string[]>(() => {
+  if (props.columnWidths && props.columnWidths.length > 0) {
+    return props.columnWidths.map(w =>
+      typeof w === 'number' || /^\d+$/.test(String(w)) ? `${w}px` : String(w),
+    );
+  }
+  return DEFAULT_COLUMN_WIDTHS;
 });
 
 const skeletonRef = ref<HTMLElement | null>(null);
@@ -50,7 +63,7 @@ defineExpose({
             <!-- 形态 1: 表格型 (table) -->
             <div v-if="type === 'table'" class="at-skeleton-table">
               <!-- 顶部模拟检索表单 -->
-              <div class="at-skeleton-table__query">
+              <div v-if="showHeader" class="at-skeleton-table__query">
                 <el-skeleton-item variant="rect" class="at-skeleton-item-input" />
                 <el-skeleton-item variant="rect" class="at-skeleton-item-input" />
                 <el-skeleton-item variant="rect" class="at-skeleton-item-input" />
@@ -62,20 +75,58 @@ defineExpose({
 
               <!-- 表格表头 -->
               <div class="at-skeleton-table__header">
-                <el-skeleton-item variant="rect" style="width: 15%; height: 28px" />
-                <el-skeleton-item variant="rect" style="width: 25%; height: 28px" />
-                <el-skeleton-item variant="rect" style="width: 20%; height: 28px" />
-                <el-skeleton-item variant="rect" style="width: 20%; height: 28px" />
-                <el-skeleton-item variant="rect" style="width: 20%; height: 28px" />
+                <el-skeleton-item
+                  v-for="(w, idx) in resolvedColumnWidths"
+                  :key="idx"
+                  variant="rect"
+                  :style="{ width: w, height: '28px' }"
+                />
               </div>
 
               <!-- 表格多行数据 -->
               <div v-for="i in rows" :key="i" class="at-skeleton-table__row">
-                <el-skeleton-item variant="text" style="width: 15%" />
-                <el-skeleton-item variant="text" style="width: 25%" />
-                <el-skeleton-item variant="text" style="width: 20%" />
-                <el-skeleton-item variant="text" style="width: 20%" />
-                <el-skeleton-item variant="text" style="width: 20%" />
+                <el-skeleton-item
+                  v-for="(w, idx) in resolvedColumnWidths"
+                  :key="idx"
+                  variant="text"
+                  :style="{ width: w }"
+                />
+              </div>
+
+              <!-- 底部模拟假分页栏 -->
+              <div v-if="showPagination" class="at-skeleton-table__pagination">
+                <el-skeleton-item
+                  variant="text"
+                  class="at-skeleton-pagination-total"
+                  style="width: 88px; height: 16px"
+                />
+                <div class="at-skeleton-table__pagination-controls">
+                  <el-skeleton-item
+                    variant="button"
+                    class="at-skeleton-pagination-btn"
+                    style="width: 32px; height: 32px"
+                  />
+                  <el-skeleton-item
+                    variant="button"
+                    class="at-skeleton-pagination-btn"
+                    style="width: 32px; height: 32px"
+                  />
+                  <el-skeleton-item
+                    variant="button"
+                    class="at-skeleton-pagination-btn"
+                    style="width: 32px; height: 32px"
+                  />
+                  <el-skeleton-item
+                    variant="button"
+                    class="at-skeleton-pagination-btn"
+                    style="width: 32px; height: 32px"
+                  />
+                  <el-skeleton-item
+                    variant="rect"
+                    class="at-skeleton-pagination-sizes"
+                    style="width: 96px; height: 32px"
+                  />
+                </div>
               </div>
             </div>
 
@@ -225,6 +276,33 @@ defineExpose({
   gap: 16px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.at-skeleton-table__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.at-skeleton-table__pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-skeleton-pagination-total {
+  border-radius: 4px;
+}
+
+.at-skeleton-pagination-btn {
+  border-radius: 4px;
+}
+
+.at-skeleton-pagination-sizes {
+  border-radius: 4px;
 }
 
 /* 形态 2: 表单 */
