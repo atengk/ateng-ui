@@ -91,6 +91,14 @@ export interface AtengSplitLayoutProps {
   storageKey?: string;
 
   /**
+   * 边缘阻尼磁吸附阈值（单位 px）。
+   * 当拖拽把手逼近最小阈值或视口边缘距离小于该阈值时自动平滑吸附折叠；反向拉出阈值时平滑恢复。
+   * 设置为 0 时禁用边缘磁吸附。
+   * 默认 30。
+   */
+  snapThreshold?: number;
+
+  /**
    * 是否禁用拖拽调宽。
    * 默认 false。
    */

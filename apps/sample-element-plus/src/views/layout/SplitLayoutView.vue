@@ -38,6 +38,7 @@ const splitSize = ref<string | number>('280px');
 const isCollapsed = ref(false);
 const isSecondCollapsed = ref(false);
 const collapseTarget = ref<'first' | 'second' | 'both'>('both');
+const snapThreshold = ref<number>(30);
 
 // 2. 三栏状态
 const outerSplitSize = ref<string | number>('240px');
@@ -271,9 +272,9 @@ const handleUserSelect = (row: UserItem) => {
       <!-- 视图 2：经典双栏分栏 -->
       <div v-else>
         <ElAlert
-          title="经典左右/上下双栏拖拽场景"
+          title="经典左右/上下双栏拖拽场景（边缘磁吸附与键盘 A11y 增强）"
           type="info"
-          description="现代 W3C Pointer Events 原生拖拽调宽，完美支持鼠标、触屏平板与 iPad 手势；支持 collapseTarget（首栏、次栏或双向把手）；提供 storageKey 本地持久化。"
+          description="现代 W3C Pointer Events 原生拖拽调宽；支持 snapThreshold 边缘阻尼磁吸附（逼近临界值吸附折叠，向外拉出平滑恢复）；支持双击分割线快速折叠/复位；支持键盘聚焦后左右/上下方向键 8px 微调（按住 Shift 32px 快速步进）。"
           show-icon
           :closable="false"
           style="margin-bottom: 16px"
@@ -293,6 +294,13 @@ const handleUserSelect = (row: UserItem) => {
             <ElRadioButton value="both">双向把手</ElRadioButton>
           </ElRadioGroup>
 
+          <span class="ctrl-label" style="margin-left: 20px">磁吸附阈值 (snapThreshold)：</span>
+          <ElRadioGroup v-model="snapThreshold" size="small">
+            <ElRadioButton :value="0">0 (禁用)</ElRadioButton>
+            <ElRadioButton :value="30">30px (默认)</ElRadioButton>
+            <ElRadioButton :value="60">60px (强吸附)</ElRadioButton>
+          </ElRadioGroup>
+
           <span class="ctrl-label" style="margin-left: 20px">当前尺寸：{{ splitSize }}</span>
         </div>
 
@@ -303,6 +311,7 @@ const handleUserSelect = (row: UserItem) => {
             v-model:second-collapsed="isSecondCollapsed"
             :collapse-target="collapseTarget"
             :direction="splitDirection"
+            :snap-threshold="snapThreshold"
             default-size="280px"
             min="160px"
             max="500px"

@@ -33,6 +33,7 @@ const props = withDefaults(defineProps<AtengSplitLayoutProps>(), {
   secondCollapsed: undefined,
   secondCollapseSize: 0,
   storageKey: '',
+  snapThreshold: 30,
   disabled: false,
 });
 
@@ -166,23 +167,34 @@ const secondPaneStyle = computed(() => {
   return undefined;
 });
 
-// 4. 现代 W3C PointerEvent 拖拽调宽编排
+// 4. 现代 W3C PointerEvent 拖拽调宽与阻尼磁吸附状态机
 let startPos = 0;
 let startSize = 0;
+let preSnapSize = 0;
+let isSnapped = false;
 let activePointerId: number | null = null;
 let activePointerTarget: HTMLElement | null = null;
+const lastExpandedSize = ref<string | number>(props.defaultSize);
 
 const onPointerDown = (e: PointerEvent) => {
   if (props.disabled || isCollapsed.value || isSecondCollapsed.value || !containerRef.value) return;
 
   isDragging.value = true;
+  isSnapped = false;
   startPos = props.direction === 'horizontal' ? e.clientX : e.clientY;
 
   // 获取当前实际像素尺寸
   const firstEl = containerRef.value.querySelector<HTMLElement>('.at-split-layout__first');
   if (firstEl) {
     startSize = props.direction === 'horizontal' ? firstEl.offsetWidth : firstEl.offsetHeight;
+  } else {
+    const totalSize =
+      props.direction === 'horizontal'
+        ? containerRef.value.offsetWidth
+        : containerRef.value.offsetHeight;
+    startSize = parseThreshold(props.modelValue ?? internalSize.value, totalSize);
   }
+  preSnapSize = startSize;
 
   activePointerId = e.pointerId;
   activePointerTarget = e.currentTarget as HTMLElement;
@@ -211,8 +223,36 @@ const onPointerMove = (e: PointerEvent) => {
   const minPx = parseThreshold(props.min, totalSize);
   const maxPx = parseThreshold(props.max, totalSize);
 
+  const snapThreshold = props.snapThreshold ?? 30;
+
+  // 边缘阻尼磁吸附状态机：若逼近 min 或视口边缘小于 snapThreshold 则平滑吸附折叠
+  if (snapThreshold > 0) {
+    const snapTriggerPoint = Math.max(snapThreshold, minPx - snapThreshold);
+    if (newSize < snapTriggerPoint) {
+      if (!isSnapped) {
+        isSnapped = true;
+        preSnapSize = Math.max(minPx, startSize);
+        toggleCollapse(true);
+      }
+      return;
+    } else if (isSnapped && newSize >= minPx) {
+      // 从吸附状态反向拉出有效距离 -> 平滑恢复至吸附前宽度
+      isSnapped = false;
+      toggleCollapse(false);
+      const restored = Math.max(minPx, Math.min(maxPx, preSnapSize));
+      internalSize.value = `${restored}px`;
+      emit('update:modelValue', `${restored}px`);
+      emit('resize', restored);
+      return;
+    } else if (isSnapped) {
+      // 处于磁吸附死区中
+      return;
+    }
+  }
+
   // 边界约束
   const clamped = Math.max(minPx, Math.min(maxPx, newSize));
+  preSnapSize = clamped;
 
   internalSize.value = `${clamped}px`;
   emit('update:modelValue', `${clamped}px`);
@@ -251,7 +291,112 @@ onBeforeUnmount(() => {
   document.body.style.cursor = '';
 });
 
-// 5. 折叠与恢复方法
+// 5. 双击快速折叠与恢复
+const onSplitterDblClick = () => {
+  if (props.disabled) return;
+
+  if (props.collapseTarget === 'second') {
+    toggleSecondCollapse();
+    return;
+  }
+
+  if (isCollapsed.value) {
+    // 恢复记忆宽度
+    toggleCollapse(false);
+    const restored = lastExpandedSize.value || props.defaultSize;
+    internalSize.value = restored;
+    emit('update:modelValue', restored);
+  } else {
+    // 记忆当前有效宽度并折叠
+    lastExpandedSize.value = internalSize.value || props.defaultSize;
+    toggleCollapse(true);
+  }
+};
+
+// 6. W3C 无障碍 A11y 属性与键盘方向键微调
+const ariaValueNow = computed(() => {
+  if (isCollapsed.value) {
+    return 0;
+  }
+  const currentSize = props.modelValue !== undefined ? props.modelValue : internalSize.value;
+  if (typeof currentSize === 'number') {
+    return Math.round(currentSize);
+  }
+  return Math.round(parseFloat(String(currentSize)) || 0);
+});
+
+const ariaValueMin = computed(() => {
+  const total = containerRef.value
+    ? props.direction === 'horizontal'
+      ? containerRef.value.offsetWidth
+      : containerRef.value.offsetHeight
+    : 1000;
+  return Math.round(parseThreshold(props.min, total));
+});
+
+const ariaValueMax = computed(() => {
+  const total = containerRef.value
+    ? props.direction === 'horizontal'
+      ? containerRef.value.offsetWidth
+      : containerRef.value.offsetHeight
+    : 1000;
+  return Math.round(parseThreshold(props.max, total));
+});
+
+const onKeydown = (e: KeyboardEvent) => {
+  if (props.disabled) return;
+
+  let isIncrease = false;
+
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    isIncrease = false;
+  } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    isIncrease = true;
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    onSplitterDblClick();
+    return;
+  } else {
+    return;
+  }
+
+  e.preventDefault();
+
+  const step = e.shiftKey ? 32 : 8;
+  const isHorizontal = props.direction === 'horizontal';
+  const totalSize = containerRef.value
+    ? isHorizontal
+      ? containerRef.value.offsetWidth
+      : containerRef.value.offsetHeight
+    : 1000;
+
+  const minPx = parseThreshold(props.min, totalSize);
+  const maxPx = parseThreshold(props.max, totalSize);
+
+  let currentPx =
+    typeof internalSize.value === 'number'
+      ? internalSize.value
+      : parseThreshold(internalSize.value, totalSize);
+
+  if (isCollapsed.value) {
+    if (isIncrease) {
+      toggleCollapse(false);
+      currentPx = minPx;
+    } else {
+      return;
+    }
+  }
+
+  const targetPx = isIncrease ? currentPx + step : currentPx - step;
+  const clamped = Math.max(minPx, Math.min(maxPx, targetPx));
+
+  internalSize.value = `${clamped}px`;
+  emit('update:modelValue', `${clamped}px`);
+  emit('resize', clamped);
+  savePreference(internalSize.value, isCollapsed.value, isSecondCollapsed.value);
+};
+
+// 7. 折叠与恢复方法
 const toggleCollapse = (force?: boolean) => {
   const next = force !== undefined ? force : !isCollapsed.value;
   internalCollapsed.value = next;
@@ -324,7 +469,16 @@ defineExpose({
     <div
       class="at-split-layout__splitter"
       :class="{ 'is-disabled': disabled || isCollapsed || isSecondCollapsed }"
+      role="separator"
+      :tabindex="disabled ? -1 : 0"
+      :aria-orientation="direction"
+      :aria-valuenow="ariaValueNow"
+      :aria-valuemin="ariaValueMin"
+      :aria-valuemax="ariaValueMax"
+      :aria-label="direction === 'horizontal' ? '左右分栏分割线' : '上下分栏分割线'"
       @pointerdown="onPointerDown"
+      @dblclick="onSplitterDblClick"
+      @keydown="onKeydown"
     >
       <slot name="splitter">
         <div class="at-split-layout__splitter-line" />
@@ -469,6 +623,12 @@ defineExpose({
 .at-split-layout__splitter:hover,
 .at-split-layout.is-dragging .at-split-layout__splitter {
   background-color: var(--el-color-primary-light-5);
+}
+
+.at-split-layout__splitter:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: -1px;
+  background-color: var(--el-color-primary-light-7);
 }
 
 .at-split-layout__splitter.is-disabled {

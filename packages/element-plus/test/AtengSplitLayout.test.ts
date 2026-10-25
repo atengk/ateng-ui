@@ -205,4 +205,107 @@ describe('AtengSplitLayout 组件测试', () => {
     expect(wrapper.classes()).not.toContain('is-second-collapsed');
     expect(wrapper.find('.at-split-layout__first').attributes('style')).toContain('width: 280px');
   });
+
+  it('边缘阻尼磁吸附 (snapThreshold)：逼近临界值吸附折叠，反向拉出恢复有效宽度', async () => {
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        defaultSize: '200px',
+        min: '100px',
+        snapThreshold: 30,
+      },
+      attachTo: document.body,
+    });
+
+    const splitter = wrapper.find('.at-split-layout__splitter');
+    const container = wrapper.element as HTMLElement;
+    Object.defineProperty(container, 'offsetWidth', { value: 1000, configurable: true });
+
+    const firstPane = wrapper.find('.at-split-layout__first').element as HTMLElement;
+    Object.defineProperty(firstPane, 'offsetWidth', { value: 200, configurable: true });
+
+    // 1. 模拟 pointerdown
+    splitter.element.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerId: 1, clientX: 200, bubbles: true }),
+    );
+
+    // 2. 向左拖拽至 60px (低于 min 100px - snapThreshold 30px = 70px) -> 触发磁吸附折叠
+    window.dispatchEvent(
+      new PointerEvent('pointermove', { pointerId: 1, clientX: 60, bubbles: true }),
+    );
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain('is-collapsed');
+    expect(wrapper.emitted('collapse')).toBeTruthy();
+    expect(wrapper.emitted('update:collapsed')![0]).toEqual([true]);
+
+    // 3. 反向向右拉出至 120px (拉出临界值) -> 平滑恢复至吸附前宽度
+    window.dispatchEvent(
+      new PointerEvent('pointermove', { pointerId: 1, clientX: 120, bubbles: true }),
+    );
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+    expect(wrapper.emitted('update:collapsed')![1]).toEqual([false]);
+
+    // 4. 释放指针
+    window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true }));
+  });
+
+  it('双击把手交互 (dblclick)：在记忆宽度与折叠状态之间快速切换', async () => {
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        defaultSize: '260px',
+        collapsible: true,
+      },
+      attachTo: document.body,
+    });
+
+    const splitter = wrapper.find('.at-split-layout__splitter');
+    expect(splitter.exists()).toBe(true);
+
+    // 初始状态未折叠
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+
+    // 双击把手 -> 快速折叠
+    await splitter.trigger('dblclick');
+    expect(wrapper.classes()).toContain('is-collapsed');
+    expect(wrapper.emitted('update:collapsed')![0]).toEqual([true]);
+
+    // 再次双击把手 -> 快速恢复记忆宽度
+    await splitter.trigger('dblclick');
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+    expect(wrapper.emitted('update:collapsed')![1]).toEqual([false]);
+    expect(wrapper.find('.at-split-layout__first').attributes('style')).toContain('width: 260px');
+  });
+
+  it('无障碍 A11y 属性与键盘微调：role="separator"、方向键 8px 及 Shift 32px 快速步进', async () => {
+    wrapper = mount(AtengSplitLayout, {
+      props: {
+        defaultSize: '200px',
+        min: '100px',
+        max: '500px',
+      },
+      attachTo: document.body,
+    });
+
+    const splitter = wrapper.find('.at-split-layout__splitter');
+    expect(splitter.attributes('role')).toBe('separator');
+    expect(splitter.attributes('tabindex')).toBe('0');
+    expect(splitter.attributes('aria-valuenow')).toBe('200');
+
+    const container = wrapper.element as HTMLElement;
+    Object.defineProperty(container, 'offsetWidth', { value: 1000, configurable: true });
+
+    // 1. 按右方向键微调增加 8px (200 + 8 = 208px)
+    await splitter.trigger('keydown', { key: 'ArrowRight' });
+    expect(wrapper.emitted('update:modelValue')![0]).toEqual(['208px']);
+
+    // 2. 按住 Shift 键按右方向键增加 32px (208 + 32 = 240px)
+    await splitter.trigger('keydown', { key: 'ArrowRight', shiftKey: true });
+    expect(wrapper.emitted('update:modelValue')![1]).toEqual(['240px']);
+
+    // 3. 按左方向键微调减少 8px (240 - 8 = 232px)
+    await splitter.trigger('keydown', { key: 'ArrowLeft' });
+    expect(wrapper.emitted('update:modelValue')![2]).toEqual(['232px']);
+  });
 });
