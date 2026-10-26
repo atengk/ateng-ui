@@ -8,7 +8,7 @@
  * @since 2026-10-26
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { AtengFileViewer } from '@atengk/file-viewer';
 
 interface PresetItem {
@@ -31,6 +31,28 @@ const currentName = ref<string>('企业合同规范.docx');
 const currentType = ref<string>('docx');
 const selectedFile = ref<File | undefined>(undefined);
 const lastEventMsg = ref<string>('就绪');
+
+// DLP 权限控制与水印测试状态
+const downloadable = ref<boolean>(true);
+const printable = ref<boolean>(true);
+const copyable = ref<boolean>(true);
+const contextMenu = ref<boolean>(true);
+const watermarkType = ref<string>('text');
+
+const watermarkConfig = computed(() => {
+  if (watermarkType.value === 'none') return false;
+  if (watermarkType.value === 'text') return '张三 10086 绝密文件';
+  if (watermarkType.value === 'custom') {
+    return {
+      text: '研发审计专用 2026-10-26',
+      color: '#e11d48',
+      fontSize: 18,
+      opacity: 0.22,
+      rotate: -30,
+    };
+  }
+  return false;
+});
 
 function selectPreset(item: PresetItem) {
   selectedFile.value = undefined;
@@ -113,6 +135,38 @@ function handleError(err: unknown) {
       </div>
     </div>
 
+    <!-- 四维 DLP 权限与水印配置操作条 -->
+    <div class="dlp-controls">
+      <div class="dlp-group">
+        <span class="dlp-label">🛡️ DLP 防泄密控制:</span>
+        <label class="dlp-checkbox">
+          <input v-model="downloadable" type="checkbox" />
+          <span>允许下载 (Ctrl+S)</span>
+        </label>
+        <label class="dlp-checkbox">
+          <input v-model="printable" type="checkbox" />
+          <span>允许打印 (Ctrl+P)</span>
+        </label>
+        <label class="dlp-checkbox">
+          <input v-model="copyable" type="checkbox" />
+          <span>允许复制 (Copy/Cut)</span>
+        </label>
+        <label class="dlp-checkbox">
+          <input v-model="contextMenu" type="checkbox" />
+          <span>允许右键菜单</span>
+        </label>
+      </div>
+
+      <div class="dlp-group">
+        <span class="dlp-label">💧 安全防篡改水印:</span>
+        <select v-model="watermarkType" class="dlp-select">
+          <option value="none">关闭水印</option>
+          <option value="text">标准文本水印 (张三 10086)</option>
+          <option value="custom">高保真旋转警戒水印 (研发专用)</option>
+        </select>
+      </div>
+    </div>
+
     <div class="sample-status-bar">
       <span
         >当前文件: <strong>{{ currentName }}</strong></span
@@ -133,6 +187,11 @@ function handleError(err: unknown) {
         :file="selectedFile"
         :file-name="currentName"
         :file-type="currentType"
+        :downloadable="downloadable"
+        :printable="printable"
+        :copyable="copyable"
+        :context-menu="contextMenu"
+        :watermark="watermarkConfig"
         height="100%"
         @load="handleLoad"
         @error="handleError"
@@ -279,5 +338,47 @@ function handleError(err: unknown) {
   min-height: 0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dlp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: #f1f5f9;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.dlp-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dlp-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.dlp-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.dlp-select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
 }
 </style>

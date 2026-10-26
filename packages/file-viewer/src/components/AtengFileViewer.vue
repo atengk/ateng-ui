@@ -10,7 +10,7 @@
  * @since 2026-10-26
  */
 
-import { computed, ref, watch, onUnmounted, type ComponentPublicInstance } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue';
 import { FileViewer } from '@file-viewer/vue3';
 import '@file-viewer/preset-office';
 import { BusinessException } from '@atengk/core';
@@ -22,6 +22,12 @@ import type {
 } from '../types';
 import { detectFileType } from '../utils/sniff';
 import { fetchRemoteFileStream } from '../utils/fetcher';
+import {
+  normalizeWatermark,
+  createWatermarkOverlay,
+  type WatermarkInstance,
+} from '../utils/watermark';
+import { setupDlpProtection, type DlpController } from '../utils/dlp';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -46,18 +52,28 @@ const props = withDefaults(defineProps<AtengFileViewerProps>(), {
   headers: () => ({}),
   options: () => ({}),
   customClass: '',
+  downloadable: true,
+  printable: true,
+  copyable: true,
+  contextMenu: true,
+  watermark: undefined,
 });
 
 const emit = defineEmits<AtengFileViewerEmits>();
 defineSlots<AtengFileViewerSlots>();
 
 // 内部状态
+const containerRef = ref<HTMLElement | null>(null);
 const innerFileViewerRef = ref<(ComponentPublicInstance & InnerViewerMethods) | null>(null);
 const isLoading = ref<boolean>(true);
 const loadError = ref<unknown>(null);
 const reloadKey = ref<number>(0);
 const zoomScale = ref<number>(1);
 const rotationDegree = ref<number>(0);
+
+// DLP 与水印运行时实例引用
+let watermarkInstance: WatermarkInstance | null = null;
+let dlpController: DlpController | null = null;
 
 // 远程拉取结果
 const resolvedFile = ref<File | undefined>(undefined);
@@ -248,12 +264,62 @@ watch(
   { immediate: true },
 );
 
+function applyWatermark(): void {
+  if (watermarkInstance) {
+    watermarkInstance.destroy();
+    watermarkInstance = null;
+  }
+  const container = containerRef.value;
+  if (!container) return;
+
+  const normalized = normalizeWatermark(props.watermark);
+  if (normalized) {
+    watermarkInstance = createWatermarkOverlay(container, normalized);
+  }
+}
+
+onMounted(() => {
+  const container = containerRef.value;
+  if (container) {
+    dlpController = setupDlpProtection(container, () => ({
+      downloadable: props.downloadable,
+      printable: props.printable,
+      copyable: props.copyable,
+      contextMenu: props.contextMenu,
+    }));
+    applyWatermark();
+  }
+});
+
+watch(
+  () => props.watermark,
+  () => {
+    applyWatermark();
+  },
+  { deep: true },
+);
+
+watch(
+  () => [props.downloadable, props.printable, props.copyable, props.contextMenu],
+  () => {
+    dlpController?.update();
+  },
+);
+
 onUnmounted(() => {
   if (activeAbortController) {
     activeAbortController.abort();
     activeAbortController = null;
   }
   releaseObjectUrl();
+  if (watermarkInstance) {
+    watermarkInstance.destroy();
+    watermarkInstance = null;
+  }
+  if (dlpController) {
+    dlpController.destroy();
+    dlpController = null;
+  }
 });
 
 function handleLoadComplete() {
@@ -310,6 +376,9 @@ function rotate() {
 }
 
 function download() {
+  if (props.downloadable === false) {
+    return;
+  }
   const fileToDownload = normalizedFile.value;
   if (fileToDownload instanceof Blob && typeof window !== 'undefined') {
     const blobUrl = URL.createObjectURL(fileToDownload);
@@ -334,6 +403,15 @@ function download() {
   }
 }
 
+function print() {
+  if (props.printable === false) {
+    return;
+  }
+  if (typeof window !== 'undefined') {
+    window.print();
+  }
+}
+
 function retry() {
   reloadKey.value++;
 }
@@ -343,6 +421,7 @@ defineExpose<AtengFileViewerExpose>({
   zoomOut,
   rotate,
   download,
+  print,
   retry,
   getFileName: () => computedFileName.value,
   getFileType: () => computedFileType.value,
@@ -351,6 +430,7 @@ defineExpose<AtengFileViewerExpose>({
 
 <template>
   <div
+    ref="containerRef"
     class="at-file-viewer"
     :class="[customClass, `at-file-viewer--theme-${theme}`]"
     :style="containerStyle"
@@ -365,7 +445,10 @@ defineExpose<AtengFileViewerExpose>({
         :zoom-out="zoomOut"
         :rotate="rotate"
         :download="download"
+        :print="print"
         :retry="retry"
+        :downloadable="downloadable"
+        :printable="printable"
       >
         <div class="at-file-viewer__meta">
           <span class="at-file-viewer__badge">{{ computedFileType.toUpperCase() || 'FILE' }}</span>
@@ -434,6 +517,29 @@ defineExpose<AtengFileViewerExpose>({
             </svg>
           </button>
           <button
+            v-if="printable"
+            type="button"
+            class="at-file-viewer__btn"
+            title="打印文档"
+            aria-label="打印文档"
+            @click="print"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              stroke="currentColor"
+              fill="none"
+              stroke-width="2"
+            >
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path
+                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+              ></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+          </button>
+          <button
             type="button"
             class="at-file-viewer__btn"
             title="刷新重试"
@@ -454,6 +560,7 @@ defineExpose<AtengFileViewerExpose>({
             </svg>
           </button>
           <button
+            v-if="downloadable"
             type="button"
             class="at-file-viewer__btn at-file-viewer__btn--primary"
             title="下载原文件"
@@ -507,6 +614,7 @@ defineExpose<AtengFileViewerExpose>({
           <div class="at-file-viewer__error-actions">
             <button type="button" class="at-file-viewer__error-btn" @click="retry">重试加载</button>
             <button
+              v-if="downloadable"
               type="button"
               class="at-file-viewer__error-btn at-file-viewer__error-btn--primary"
               @click="download"
@@ -717,5 +825,27 @@ defineExpose<AtengFileViewerExpose>({
   background-color: #3b82f6;
   border-color: #3b82f6;
   color: #ffffff;
+}
+
+/* DLP 四维数据防泄密样式抑制防线 */
+:deep(.at-file-viewer--no-copy),
+.at-file-viewer.at-file-viewer--no-copy,
+.at-file-viewer.at-file-viewer--no-copy * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+@media print {
+  :deep(.at-file-viewer--no-print),
+  .at-file-viewer.at-file-viewer--no-print,
+  .at-file-viewer.at-file-viewer--no-print * {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
 }
 </style>

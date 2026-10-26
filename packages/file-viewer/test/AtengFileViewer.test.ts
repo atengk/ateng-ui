@@ -182,4 +182,75 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
 
     expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/mock-uuid');
   });
+
+  describe('DLP 四维数据防泄密与水印矩阵契约测试', () => {
+    it('当 downloadable 为 false 时隐藏下载按钮且调用 download() 不触发下载', async () => {
+      const createUrlSpy = vi.spyOn(URL, 'createObjectURL');
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/test.docx',
+          file: new File(['mock'], 'test.docx'),
+          downloadable: false,
+        },
+      });
+
+      // 验证工具栏无下载按钮
+      expect(wrapper.find('button[title="下载原文件"]').exists()).toBe(false);
+
+      // 直接调用暴露的 download 方法，应被直接阻断且不创建 ObjectURL
+      wrapper.vm.download();
+      expect(createUrlSpy).not.toHaveBeenCalled();
+
+      wrapper.unmount();
+    });
+
+    it('当 printable 为 false 时隐藏打印按钮且容器添加 at-file-viewer--no-print 类', async () => {
+      const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/test.docx',
+          printable: false,
+        },
+      });
+
+      expect(wrapper.find('button[title="打印文档"]').exists()).toBe(false);
+      expect(wrapper.classes()).toContain('at-file-viewer--no-print');
+
+      wrapper.vm.print();
+      expect(printSpy).not.toHaveBeenCalled();
+
+      printSpy.mockRestore();
+      wrapper.unmount();
+    });
+
+    it('当 copyable 为 false 时容器添加 at-file-viewer--no-copy 类', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/test.docx',
+          copyable: false,
+        },
+      });
+
+      expect(wrapper.classes()).toContain('at-file-viewer--no-copy');
+      wrapper.unmount();
+    });
+
+    it('传入 watermark 字符串或对象时自动渲染防篡改水印图层，并在卸载时销毁', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/test.docx',
+          watermark: '绝密审计 2026-10-26',
+        },
+      });
+
+      const wm = wrapper.find('.at-file-viewer__watermark');
+      expect(wm.exists()).toBe(true);
+      expect(wm.attributes('style')).toContain('background-repeat: repeat');
+
+      wrapper.unmount();
+      expect(document.querySelector('.at-file-viewer__watermark')).toBeNull();
+    });
+  });
 });

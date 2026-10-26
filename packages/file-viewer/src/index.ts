@@ -16,6 +16,17 @@ export type { SniffOptions } from './utils/sniff';
 export { fetchRemoteFileStream } from './utils/fetcher';
 export type { RemoteFileFetchOptions, RemoteFileFetchResult } from './utils/fetcher';
 
+export {
+  normalizeWatermark,
+  buildWatermarkSvg,
+  buildWatermarkDataUrl,
+  createWatermarkOverlay,
+} from './utils/watermark';
+export type { WatermarkInstance } from './utils/watermark';
+
+export { setupDlpProtection } from './utils/dlp';
+export type { DlpOptions, DlpController } from './utils/dlp';
+
 export type {
   AtengFileViewerProps,
   AtengFileViewerEmits,
@@ -23,6 +34,8 @@ export type {
   AtengFileViewerExpose,
   AtengFileViewerInstance,
   FileViewerTheme,
+  WatermarkOptions,
+  FileViewerWatermark,
 } from './types';
 
 /**
