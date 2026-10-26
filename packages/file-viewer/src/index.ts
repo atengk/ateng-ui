@@ -60,6 +60,16 @@ export type {
   FileViewerPresetRendererDefinition,
 } from './utils/presets';
 
+export {
+  DEFAULT_MAX_SIZE,
+  parseSizeLimit,
+  formatFileSize,
+  formatSpeed,
+  isFileSizeExceeded,
+  calculateProgress,
+} from './utils/sizeGuard';
+export type { FileViewerDownloadProgress, CalculateProgressInput } from './utils/sizeGuard';
+
 export { useFileViewer } from './composables/useFileViewer';
 export type { UseFileViewerOptions, UseFileViewerReturn } from './composables/useFileViewer';
 

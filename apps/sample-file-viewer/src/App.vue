@@ -17,6 +17,7 @@ import {
   type FileViewerSheet,
   type FileViewerDocumentAnchor,
   type AtengFileViewerInstance,
+  type FileViewerDownloadProgress,
 } from '@atengk/file-viewer';
 
 interface PresetItem {
@@ -58,6 +59,10 @@ const viewerInstanceRef = ref<AtengFileViewerInstance | null>(null);
 const assetStrategy = ref<'local' | 'intranet' | 'cdn'>('local');
 const enableCadPreset = ref<boolean>(true);
 const enableModelPreset = ref<boolean>(false);
+
+// 工单 #136 新增：大文件渐进进度指示与百兆内存防崩护栏 (SizeGuard)
+const maxSizeLimit = ref<string>('50MB');
+const lastProgressMsg = ref<string>('');
 
 const dynamicPresets = computed(() => {
   const list = [];
@@ -111,6 +116,7 @@ const headlessViewer = useFileViewer({
   sheet: () => currentSheet.value,
   downloadable: () => downloadable.value,
   printable: () => printable.value,
+  maxSize: () => maxSizeLimit.value,
 });
 
 const watermarkConfig = computed(() => {
@@ -150,6 +156,24 @@ function simulateBlobError() {
   currentName.value = 'confidential_report.xlsx';
   currentType.value = 'xlsx';
   lastEventMsg.value = '已载入模拟 403 JSON 错误流，触发 ADR-0004 异常防御拦截';
+}
+
+function simulateLargeFile() {
+  const largeBlob = new Blob(['x'], { type: 'application/pdf' });
+  Object.defineProperty(largeBlob, 'size', { value: 120 * 1024 * 1024 });
+  selectedFile.value = largeBlob as File;
+  currentUrl.value = '';
+  currentName.value = '特大型城市地下管网综合规划图.pdf';
+  currentType.value = 'pdf';
+  lastEventMsg.value = '已载入 120MB 超大虚拟文件，已触发 SizeGuard 护栏拦截！';
+}
+
+function handleSizeGuard(payload: { size: number; maxSize: number }) {
+  lastEventMsg.value = `SizeGuard 拦截触发: 当前文件 ${(payload.size / (1024 * 1024)).toFixed(1)} MB 超过阈值 ${(payload.maxSize / (1024 * 1024)).toFixed(0)} MB`;
+}
+
+function handleProgress(progress: FileViewerDownloadProgress) {
+  lastProgressMsg.value = `${progress.percent}% (${progress.formattedLoaded} / ${progress.formattedTotal}, ${progress.formattedSpeed})`;
 }
 
 function handleFileInput(e: Event) {
@@ -223,6 +247,9 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
       <div class="local-upload">
         <button type="button" class="ctrl-btn ctrl-btn--danger" @click="simulateBlobError">
           🛡️ 模拟 403 错误流 (ADR-0004)
+        </button>
+        <button type="button" class="ctrl-btn ctrl-btn--warning" @click="simulateLargeFile">
+          🛑 模拟 120MB 超大图纸 (SizeGuard)
         </button>
         <label class="ctrl-btn ctrl-btn--upload">
           <span>📁 选择任意本地文件</span>
@@ -329,6 +356,32 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
       </div>
     </div>
 
+    <!-- 工单 #136 控制栏：大文件防崩护栏 (SizeGuard) 与渐进进度 -->
+    <div class="feature-bar">
+      <div class="feature-group">
+        <span class="feature-label">🛑 防崩阈值 (SizeGuard):</span>
+        <select v-model="maxSizeLimit" class="dlp-select">
+          <option value="20MB">20 MB (小阈值测试)</option>
+          <option value="50MB">50 MB (常用阈值)</option>
+          <option value="100MB">100 MB (默认安全基准)</option>
+          <option value="500MB">500 MB (超宽上限)</option>
+        </select>
+        <button
+          v-if="headlessViewer.isSizeGuarded.value"
+          type="button"
+          class="mini-btn mini-btn--warning"
+          @click="headlessViewer.forceRender"
+        >
+          ⚡ 强制渲染 (Hook 指令)
+        </button>
+      </div>
+
+      <div v-if="lastProgressMsg" class="feature-group">
+        <span class="feature-label">🚀 下载进度指示:</span>
+        <span class="status-msg">{{ lastProgressMsg }}</span>
+      </div>
+    </div>
+
     <div class="sample-status-bar">
       <span
         >当前文件: <strong>{{ currentName }}</strong></span
@@ -368,11 +421,14 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         :copyable="copyable"
         :context-menu="contextMenu"
         :watermark="watermarkConfig"
+        :max-size="maxSizeLimit"
         height="100%"
         @load="handleLoad"
         @error="handleError"
         @page-change="handlePageChange"
         @sheet-change="handleSheetChange"
+        @size-guard="handleSizeGuard"
+        @progress="handleProgress"
       />
       <div v-else class="remount-placeholder">
         <div class="remount-spinner"></div>
@@ -480,6 +536,17 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
   border-color: #fca5a5;
 }
 
+.ctrl-btn--warning {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.ctrl-btn--warning:hover {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+}
+
 .ctrl-btn--upload {
   background-color: #ecfdf5;
   border-color: #a7f3d0;
@@ -570,6 +637,17 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
 
 .mini-btn--primary:hover {
   background-color: #dbeafe;
+}
+
+.mini-btn--warning {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+  font-weight: 600;
+}
+
+.mini-btn--warning:hover {
+  background-color: #fef3c7;
 }
 
 .page-text {

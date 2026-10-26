@@ -197,4 +197,41 @@ describe('useFileViewer 无头 Hook 状态响应与指令派发测试', () => {
     expect(controller.getAssetBaseUrl()).toBe('https://intranet.corp.com/assets/');
     expect(controller.getPresets().some(p => p.id === 'preset-cad-headless')).toBe(true);
   });
+
+  it('支持 maxSize 配置、SizeGuard 状态响应与 forceRender 指令派发 (#136)', () => {
+    const mockForceRender = vi.fn();
+    const mockInstance = {
+      isSizeGuarded: () => true,
+      forceRender: mockForceRender,
+      getProgress: () => ({
+        loaded: 50 * 1024 * 1024,
+        total: 100 * 1024 * 1024,
+        percent: 50,
+        speed: 1024 * 1024,
+        formattedSpeed: '1.0 MB/s',
+        formattedLoaded: '50.0 MB',
+        formattedTotal: '100.0 MB',
+      }),
+      getFileSize: () => 150 * 1024 * 1024,
+    } as unknown as AtengFileViewerInstance;
+
+    const controller = useFileViewer({
+      maxSize: '100MB',
+    });
+
+    expect(controller.isSizeGuarded.value).toBe(false);
+    expect(controller.downloadProgress.value.percent).toBe(0);
+
+    // 绑定实例后同步
+    controller.bindViewer(mockInstance);
+    expect(controller.isSizeGuarded.value).toBe(true);
+    expect(controller.downloadProgress.value.percent).toBe(50);
+    expect(controller.fileSize.value).toBe(150 * 1024 * 1024);
+    expect(controller.isFileSizeExceeded()).toBe(true);
+
+    // 调用 forceRender 指令
+    controller.forceRender();
+    expect(mockForceRender).toHaveBeenCalledTimes(1);
+    expect(controller.isSizeGuarded.value).toBe(false);
+  });
 });

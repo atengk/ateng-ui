@@ -46,6 +46,13 @@ import {
 } from '../utils/viewStateHistory';
 import { resolveThreeTierAssetBaseUrl, createTieredAssetOptions } from '../utils/assets';
 import { resolvePresets, type FileViewerPreset } from '../utils/presets';
+import {
+  DEFAULT_MAX_SIZE,
+  parseSizeLimit,
+  formatFileSize,
+  isFileSizeExceeded,
+  type FileViewerDownloadProgress,
+} from '../utils/sizeGuard';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -93,6 +100,7 @@ const props = withDefaults(defineProps<AtengFileViewerProps>(), {
   watermark: undefined,
   assetBaseUrl: undefined,
   preset: undefined,
+  maxSize: DEFAULT_MAX_SIZE,
 });
 
 const emit = defineEmits<AtengFileViewerEmits>();
@@ -106,6 +114,20 @@ const loadError = ref<unknown>(null);
 const reloadKey = ref<number>(0);
 const zoomScale = ref<number>(1);
 const rotationDegree = ref<number>(0);
+
+// SizeGuard 大文件防崩护栏与下载进度状态
+const isSizeGuarded = ref<boolean>(false);
+const isForceRendered = ref<boolean>(false);
+const currentFileSize = ref<number>(0);
+const downloadProgress = ref<FileViewerDownloadProgress>({
+  loaded: 0,
+  total: undefined,
+  percent: 0,
+  speed: 0,
+  formattedSpeed: '0 KB/s',
+  formattedLoaded: '0 B',
+  formattedTotal: '未知大小',
+});
 
 // 多页受控状态
 const currentPage = ref<number>(props.page ?? 1);
@@ -370,10 +392,31 @@ async function loadSource() {
   rotationDegree.value = 0;
   internalTocList.value = [];
   detectedSheets.value = [];
+  isSizeGuarded.value = false;
+  isForceRendered.value = false;
+  currentFileSize.value = 0;
+  downloadProgress.value = {
+    loaded: 0,
+    total: undefined,
+    percent: 0,
+    speed: 0,
+    formattedSpeed: '0 KB/s',
+    formattedLoaded: '0 B',
+    formattedTotal: '未知大小',
+  };
 
   // 本地文件模式
   if (props.file) {
     if (props.file instanceof Blob) {
+      currentFileSize.value = props.file.size;
+      const limit = parseSizeLimit(props.maxSize);
+      if (!isForceRendered.value && isFileSizeExceeded(props.file.size, limit)) {
+        isSizeGuarded.value = true;
+        isLoading.value = false;
+        emit('size-guard', { size: props.file.size, maxSize: limit });
+        return;
+      }
+
       try {
         const slice = props.file.slice(0, 2048);
         const buf = await slice.arrayBuffer();
@@ -409,12 +452,31 @@ async function loadSource() {
         fileType: props.fileType,
         headers: props.headers,
         auth: props.auth,
+        onProgress: progress => {
+          downloadProgress.value = progress;
+          if (progress.total) {
+            currentFileSize.value = progress.total;
+          } else if (progress.loaded) {
+            currentFileSize.value = progress.loaded;
+          }
+          emit('progress', progress);
+        },
       });
 
       resolvedFile.value = result.file;
       resolvedFileName.value = result.fileName;
       resolvedFileType.value = result.fileType;
       createdObjectUrl.value = result.objectUrl;
+      currentFileSize.value = result.file.size;
+
+      const limit = parseSizeLimit(props.maxSize);
+      if (!isForceRendered.value && isFileSizeExceeded(result.file.size, limit)) {
+        isSizeGuarded.value = true;
+        isLoading.value = false;
+        emit('size-guard', { size: result.file.size, maxSize: limit });
+        return;
+      }
+
       isLoading.value = false;
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -428,6 +490,17 @@ async function loadSource() {
   }
 
   isLoading.value = false;
+}
+
+/**
+ * 解除 SizeGuard 拦截并强制渲染大文件。
+ */
+function forceRender(): void {
+  isForceRendered.value = true;
+  isSizeGuarded.value = false;
+  if (!props.file && !resolvedFile.value && props.url) {
+    loadSource();
+  }
 }
 
 // 监听文件来源变化
@@ -762,6 +835,10 @@ defineExpose<AtengFileViewerExpose>({
   download,
   print,
   retry,
+  forceRender,
+  isSizeGuarded: () => isSizeGuarded.value,
+  getProgress: () => downloadProgress.value,
+  getFileSize: () => currentFileSize.value,
   getFileName: () => computedFileName.value,
   getFileType: () => computedFileType.value,
   getPage: () => currentPage.value,
@@ -1127,9 +1204,90 @@ defineExpose<AtengFileViewerExpose>({
       <main class="at-file-viewer__body">
         <!-- 加载中遮罩 -->
         <div v-if="isLoading" class="at-file-viewer__loading">
-          <slot name="loading" :percent="undefined">
+          <slot
+            name="loading"
+            :percent="downloadProgress.percent"
+            :loaded="downloadProgress.loaded"
+            :total="downloadProgress.total"
+            :speed="downloadProgress.speed"
+            :formatted-loaded="downloadProgress.formattedLoaded"
+            :formatted-total="downloadProgress.formattedTotal"
+            :formatted-speed="downloadProgress.formattedSpeed"
+          >
             <div class="at-file-viewer__spinner" aria-hidden="true"></div>
             <span class="at-file-viewer__loading-text">正在解析并渲染文档...</span>
+            <div v-if="downloadProgress.percent > 0" class="at-file-viewer__progress-wrapper">
+              <div class="at-file-viewer__progress-bar">
+                <div
+                  class="at-file-viewer__progress-inner"
+                  :style="{ width: `${downloadProgress.percent}%` }"
+                ></div>
+              </div>
+              <div class="at-file-viewer__progress-info">
+                <span class="at-file-viewer__progress-percent"
+                  >{{ downloadProgress.percent }}%</span
+                >
+                <span class="at-file-viewer__progress-size">
+                  ({{ downloadProgress.formattedLoaded }} / {{ downloadProgress.formattedTotal }})
+                </span>
+                <span v-if="downloadProgress.speed > 0" class="at-file-viewer__progress-speed">
+                  {{ downloadProgress.formattedSpeed }}
+                </span>
+              </div>
+            </div>
+          </slot>
+        </div>
+
+        <!-- 大文件防崩护栏 (SizeGuard) 拦截卡片 -->
+        <div v-if="isSizeGuarded" class="at-file-viewer__size-guard">
+          <slot
+            name="sizeGuard"
+            :size="currentFileSize"
+            :max-size="parseSizeLimit(maxSize)"
+            :formatted-size="formatFileSize(currentFileSize)"
+            :formatted-max-size="formatFileSize(parseSizeLimit(maxSize))"
+            :force-render="forceRender"
+            :download="download"
+          >
+            <div class="at-file-viewer__size-guard-card">
+              <svg
+                viewBox="0 0 24 24"
+                width="48"
+                height="48"
+                stroke="#e6a23c"
+                fill="none"
+                stroke-width="2"
+              >
+                <path
+                  d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                ></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <h3 class="at-file-viewer__size-guard-title">大文件解析预警 (SizeGuard)</h3>
+              <p class="at-file-viewer__size-guard-desc">
+                当前文档大小为 <strong>{{ formatFileSize(currentFileSize) }}</strong
+                >，已超出设定的安全预览阈值 ({{ formatFileSize(parseSizeLimit(maxSize)) }})。<br />
+                直接在浏览器渲染该文件可能引发内存膨胀、页面卡顿或标签页崩溃，建议直接下载原文件阅读。
+              </p>
+              <div class="at-file-viewer__size-guard-actions">
+                <button
+                  v-if="downloadable"
+                  type="button"
+                  class="at-file-viewer__btn at-file-viewer__btn--primary at-file-viewer__size-guard-btn"
+                  @click="download"
+                >
+                  立即下载原文件
+                </button>
+                <button
+                  type="button"
+                  class="at-file-viewer__btn at-file-viewer__size-guard-btn at-file-viewer__size-guard-btn--warning"
+                  @click="forceRender"
+                >
+                  仍要尝试渲染
+                </button>
+              </div>
+            </div>
           </slot>
         </div>
 
@@ -1170,7 +1328,7 @@ defineExpose<AtengFileViewerExpose>({
 
         <!-- 底层多格式渲染引擎 -->
         <div
-          v-if="(url || file || resolvedFile) && !loadError"
+          v-if="(url || file || resolvedFile) && !loadError && !isSizeGuarded"
           :key="reloadKey"
           class="at-file-viewer__engine"
           :style="{
@@ -1191,7 +1349,7 @@ defineExpose<AtengFileViewerExpose>({
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="!loadError && !isLoading" class="at-file-viewer__empty">
+        <div v-else-if="!loadError && !isLoading && !isSizeGuarded" class="at-file-viewer__empty">
           <p>暂无文件输入</p>
         </div>
       </main>
@@ -1532,6 +1690,115 @@ defineExpose<AtengFileViewerExpose>({
   font-size: 13px;
   color: #64748b;
   font-weight: 500;
+}
+
+.at-file-viewer__progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 240px;
+  margin-top: 4px;
+}
+
+.at-file-viewer__progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.at-file-viewer__progress-inner {
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 9999px;
+  transition: width 0.15s ease;
+}
+
+.at-file-viewer__progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.at-file-viewer__progress-percent {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.at-file-viewer__progress-speed {
+  color: #3b82f6;
+}
+
+/* SizeGuard 防崩护栏警告卡片 */
+.at-file-viewer__size-guard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.at-file-viewer__size-guard-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 460px;
+  padding: 32px 24px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.05),
+    0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  text-align: center;
+}
+
+.at-file-viewer__size-guard-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 16px 0 8px;
+}
+
+.at-file-viewer__size-guard-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
+  margin: 0 0 20px;
+}
+
+.at-file-viewer__size-guard-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.at-file-viewer__size-guard-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.at-file-viewer__size-guard-btn--warning {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.at-file-viewer__size-guard-btn--warning:hover {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
 }
 
 .at-file-viewer__error {

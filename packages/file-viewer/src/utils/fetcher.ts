@@ -16,6 +16,13 @@ import {
   type Result,
 } from '@atengk/core';
 import { detectFileType } from './sniff';
+import { calculateProgress, type FileViewerDownloadProgress } from './sizeGuard';
+
+interface StreamProgressEvent {
+  loaded?: number;
+  total?: number;
+  rate?: number;
+}
 
 export interface RemoteFileFetchOptions {
   /**
@@ -42,6 +49,11 @@ export interface RemoteFileFetchOptions {
    * 是否自动注入当前登录态凭据 (默认 true)。
    */
   auth?: boolean;
+
+  /**
+   * 流式下载进度监听回调。
+   */
+  onProgress?: (progress: FileViewerDownloadProgress) => void;
 }
 
 export interface RemoteFileFetchResult {
@@ -92,6 +104,19 @@ export async function fetchRemoteFileStream(
     signal,
     headers,
     unwrap: false,
+    onDownloadProgress: (progressEvent: StreamProgressEvent) => {
+      if (options.onProgress) {
+        const loaded = progressEvent.loaded || 0;
+        const total = progressEvent.total;
+        const bytesPerSec = progressEvent.rate || 0;
+        const progress = calculateProgress({
+          loaded,
+          total,
+          bytesPerSec,
+        });
+        options.onProgress(progress);
+      }
+    },
   });
 
   const blob = (

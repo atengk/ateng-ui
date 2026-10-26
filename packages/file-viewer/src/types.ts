@@ -7,9 +7,11 @@
 
 import type { ComponentPublicInstance } from 'vue';
 import type { FileViewerPreset } from './utils/presets';
+import type { FileViewerDownloadProgress } from './utils/sizeGuard';
 
 export type { FileViewerPreset } from './utils/presets';
 export type { FileViewerGlobalConfig } from './utils/assets';
+export type { FileViewerDownloadProgress, CalculateProgressInput } from './utils/sizeGuard';
 
 export type FileViewerTheme = 'light' | 'dark' | 'auto';
 
@@ -247,6 +249,12 @@ export interface AtengFileViewerProps {
    * 防泄密动态安全倾斜水印配置 (支持传入文本字符串或结构化对象，具备 MutationObserver 反篡改监视)。
    */
   watermark?: FileViewerWatermark;
+
+  /**
+   * 最大允许直接渲染的文件体积上限 (支持整数字节或 '100MB', '50M', '1GB'，默认 100MB)。
+   * 超过该阈值时触发 SizeGuard 防崩护栏，阻止默认自动渲染并弹出确认卡片。
+   */
+  maxSize?: number | string;
 }
 
 export interface AtengFileViewerEmits {
@@ -260,6 +268,8 @@ export interface AtengFileViewerEmits {
   (e: 'update:toc-open', open: boolean): void;
   (e: 'toc-change', anchors: FileViewerDocumentAnchor[]): void;
   (e: 'view-state-change', change: Record<string, unknown>): void;
+  (e: 'progress', progress: FileViewerDownloadProgress): void;
+  (e: 'size-guard', payload: { size: number; maxSize: number }): void;
 }
 
 export interface AtengFileViewerSlots {
@@ -296,7 +306,19 @@ export interface AtengFileViewerSlots {
     scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => void;
     closeToc: () => void;
   }) => unknown;
-  loading?: (scope: { percent?: number }) => unknown;
+  loading?: (
+    scope: FileViewerDownloadProgress & {
+      percent?: number;
+    },
+  ) => unknown;
+  sizeGuard?: (scope: {
+    size: number;
+    maxSize: number;
+    formattedSize: string;
+    formattedMaxSize: string;
+    forceRender: () => void;
+    download: () => void;
+  }) => unknown;
   error?: (scope: { error: unknown; retry: () => void; download: () => void }) => unknown;
 }
 
@@ -335,6 +357,26 @@ export interface AtengFileViewerExpose {
    * 重新加载/重试。
    */
   retry: () => void;
+
+  /**
+   * 解除 SizeGuard 拦截并强制渲染大文件。
+   */
+  forceRender: () => void;
+
+  /**
+   * 获取当前是否正处于 SizeGuard 拦截状态。
+   */
+  isSizeGuarded: () => boolean;
+
+  /**
+   * 获取当前下载/加载进度指标。
+   */
+  getProgress: () => FileViewerDownloadProgress;
+
+  /**
+   * 获取当前文件体积字节数。
+   */
+  getFileSize: () => number;
 
   /**
    * 获取解析出的当前文件名。

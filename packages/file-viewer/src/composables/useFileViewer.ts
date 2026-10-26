@@ -15,9 +15,15 @@ import type {
   FileViewerDocumentAnchor,
   FileViewerSheet,
   FileViewerPreset,
+  FileViewerDownloadProgress,
 } from '../types';
 import { resolveThreeTierAssetBaseUrl } from '../utils/assets';
 import { resolvePresets } from '../utils/presets';
+import {
+  DEFAULT_MAX_SIZE,
+  parseSizeLimit,
+  isFileSizeExceeded as checkExceeded,
+} from '../utils/sizeGuard';
 
 export interface UseFileViewerOptions {
   /**
@@ -74,6 +80,11 @@ export interface UseFileViewerOptions {
    * 是否允许打印 (DLP 控制)。
    */
   printable?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
+   * 最大允许直接渲染的文件体积上限 (支持整数字节或 '100MB', '50M', '1GB' 等)。
+   */
+  maxSize?: MaybeRefOrGetter<string | number | undefined>;
 }
 
 export interface UseFileViewerReturn {
@@ -92,6 +103,9 @@ export interface UseFileViewerReturn {
   isTocOpen: Readonly<Ref<boolean>>;
   downloadable: Readonly<Ref<boolean>>;
   printable: Readonly<Ref<boolean>>;
+  isSizeGuarded: Readonly<Ref<boolean>>;
+  downloadProgress: Readonly<Ref<FileViewerDownloadProgress>>;
+  fileSize: Readonly<Ref<number>>;
 
   // 绑定与底层实例访问
   bindViewer: (instance: AtengFileViewerInstance | null) => void;
@@ -112,6 +126,8 @@ export interface UseFileViewerReturn {
   openToc: () => void;
   closeToc: () => void;
   scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => Promise<boolean>;
+  forceRender: () => void;
+  isFileSizeExceeded: () => boolean;
   download: () => void;
   print: () => void;
   retry: () => void;
@@ -137,6 +153,17 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
   const pageCount = ref<number>(1);
   const sheet = ref<number | string>(toValue(options.sheet) ?? 0);
   const isTocOpen = ref<boolean>(false);
+  const isSizeGuarded = ref<boolean>(false);
+  const currentFileSize = ref<number>(0);
+  const downloadProgress = ref<FileViewerDownloadProgress>({
+    loaded: 0,
+    total: undefined,
+    percent: 0,
+    speed: 0,
+    formattedSpeed: '0 KB/s',
+    formattedLoaded: '0 B',
+    formattedTotal: '未知大小',
+  });
 
   // 2. 解析当前绑定的组件实例
   const activeInstance = computed<AtengFileViewerInstance | null>(() => {
@@ -239,6 +266,9 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
       if (instance.getPageCount) pageCount.value = instance.getPageCount();
       if (instance.getSheet) sheet.value = instance.getSheet();
       if (instance.isTocOpen) isTocOpen.value = instance.isTocOpen();
+      if (instance.isSizeGuarded) isSizeGuarded.value = instance.isSizeGuarded();
+      if (instance.getProgress) downloadProgress.value = instance.getProgress();
+      if (instance.getFileSize) currentFileSize.value = instance.getFileSize();
     }
   }
 
@@ -328,6 +358,17 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     activeInstance.value?.download();
   }
 
+  function forceRender(): void {
+    isSizeGuarded.value = false;
+    activeInstance.value?.forceRender();
+  }
+
+  function isFileSizeExceeded(): boolean {
+    const size = currentFileSize.value;
+    const limit = parseSizeLimit(toValue(options.maxSize) ?? DEFAULT_MAX_SIZE);
+    return checkExceeded(size, limit);
+  }
+
   function print(): void {
     activeInstance.value?.print();
   }
@@ -366,6 +407,9 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     isTocOpen: readonly(isTocOpen) as Readonly<Ref<boolean>>,
     downloadable: readonly(downloadable) as Readonly<Ref<boolean>>,
     printable: readonly(printable) as Readonly<Ref<boolean>>,
+    isSizeGuarded: readonly(isSizeGuarded) as Readonly<Ref<boolean>>,
+    downloadProgress: readonly(downloadProgress) as Readonly<Ref<FileViewerDownloadProgress>>,
+    fileSize: readonly(currentFileSize) as Readonly<Ref<number>>,
 
     // 绑定与实例获取
     bindViewer,
@@ -394,6 +438,8 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     openToc,
     closeToc,
     scrollToAnchor,
+    forceRender,
+    isFileSizeExceeded,
     download,
     print,
     retry,

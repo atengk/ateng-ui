@@ -471,4 +471,108 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
       wrapper.unmount();
     });
   });
+
+  describe('大文件渐进进度指示与百兆内存防崩护栏 (SizeGuard) 契约测试 (#136)', () => {
+    it('当本地文件超过 maxSize (默认 100MB) 时，自动触发 SizeGuard 拦截并派发 size-guard 事件', async () => {
+      // 创建一个模拟的 150MB 文件
+      const largeFile = new File(['x'], 'heavy-drawing.cad', { type: 'application/octet-stream' });
+      Object.defineProperty(largeFile, 'size', { value: 150 * 1024 * 1024 });
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          file: largeFile,
+          maxSize: '100MB',
+        },
+      });
+
+      await nextTick();
+
+      // 验证拦截状态
+      expect(wrapper.vm.isSizeGuarded()).toBe(true);
+      expect(wrapper.vm.getFileSize()).toBe(150 * 1024 * 1024);
+      expect(wrapper.find('.at-file-viewer__size-guard').exists()).toBe(true);
+      expect(wrapper.find('.at-file-viewer__size-guard-title').text()).toContain('SizeGuard');
+
+      // 验证事件派发
+      const sizeGuardEmits = wrapper.emitted('size-guard');
+      expect(sizeGuardEmits).toBeTruthy();
+      expect(sizeGuardEmits![0][0]).toEqual({
+        size: 150 * 1024 * 1024,
+        maxSize: 100 * 1024 * 1024,
+      });
+
+      // 验证底层 FileViewer 未挂载渲染
+      expect(wrapper.findComponent({ name: 'FileViewer' }).exists()).toBe(false);
+
+      // 调用 forceRender() 解除拦截
+      wrapper.vm.forceRender();
+      await nextTick();
+
+      expect(wrapper.vm.isSizeGuarded()).toBe(false);
+      expect(wrapper.find('.at-file-viewer__size-guard').exists()).toBe(false);
+
+      wrapper.unmount();
+    });
+
+    it('点击 SizeGuard 警告卡片中的【仍要尝试渲染】按钮可解除拦截', async () => {
+      const largeFile = new File(['x'], 'report.pdf', { type: 'application/pdf' });
+      Object.defineProperty(largeFile, 'size', { value: 120 * 1024 * 1024 });
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          file: largeFile,
+          maxSize: '100MB',
+        },
+      });
+
+      await nextTick();
+      expect(wrapper.find('.at-file-viewer__size-guard').exists()).toBe(true);
+
+      // 点击仍要尝试渲染按钮
+      const forceBtn = wrapper.find('.at-file-viewer__size-guard-btn--warning');
+      expect(forceBtn.exists()).toBe(true);
+      await forceBtn.trigger('click');
+      await nextTick();
+
+      expect(wrapper.vm.isSizeGuarded()).toBe(false);
+      expect(wrapper.find('.at-file-viewer__size-guard').exists()).toBe(false);
+
+      wrapper.unmount();
+    });
+
+    it('支持自定义 #sizeGuard 与 #loading 插槽', async () => {
+      const largeFile = new File(['x'], 'big-data.xlsx', { type: 'application/vnd.ms-excel' });
+      Object.defineProperty(largeFile, 'size', { value: 80 * 1024 * 1024 });
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          file: largeFile,
+          maxSize: '50MB', // 设置较小的阈值触发拦截
+        },
+        slots: {
+          sizeGuard: `
+            <template #sizeGuard="{ formattedSize, formattedMaxSize, forceRender }">
+              <div class="custom-guard">
+                <span>超标: {{ formattedSize }} / {{ formattedMaxSize }}</span>
+                <button class="custom-force-btn" @click="forceRender">强制打开</button>
+              </div>
+            </template>
+          `,
+        },
+      });
+
+      await nextTick();
+
+      expect(wrapper.find('.custom-guard').exists()).toBe(true);
+      expect(wrapper.find('.custom-guard').text()).toContain('80.0 MB');
+      expect(wrapper.find('.custom-guard').text()).toContain('50.0 MB');
+
+      // 点击自定义强制按钮
+      await wrapper.find('.custom-force-btn').trigger('click');
+      await nextTick();
+      expect(wrapper.vm.isSizeGuarded()).toBe(false);
+
+      wrapper.unmount();
+    });
+  });
 });
