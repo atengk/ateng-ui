@@ -1,0 +1,26 @@
+{
+  "name": "sample-file-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/file-viewer 专业多格式文档与工程图纸渲染自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/file-viewer": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@file-viewer/preset-office": "^3.2.2",
+    "@file-viewer/vue3": "^3.2.2",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

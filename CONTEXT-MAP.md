@@ -22,7 +22,9 @@
 
 ### L2 专用能力/领域扩展层 (Extension Layer)
 
-- **领域引擎适配与专业能力扩展包**（未来扩展，如 `@atengk/echarts`、`@atengk/editor` 等）：
+- **[FileViewer 专业文档与工程文件渲染扩展](./packages/file-viewer/CONTEXT.md)**（`@atengk/file-viewer`，当前已立项入驻）：
+  基于现代浏览器原生渲染生态封装的企业级专业多格式文档/工程文件预览扩展包，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层 `@file-viewer/*` 核心，严格中立并与具体 UI 库解耦。内置高频 Office 预设（Word/Excel/PPT/PDF/图片）开箱即用，支持 CAD/3D/OFD 等超大重载预设动态插拔；支持三级弹性静态资产寻址（内网私有化/CDN/本地）、全链路 Token Header 自动注入、Blob-JSON 双态异常防崩溃拦截（ADR-0004）、安全防篡改水印覆盖以及请求与 Worker 任务的确定性清理。提供 `<AtengFileViewer />` 统一表现容器与 `useFileViewer()` 无头状态机。
+- **其他领域引擎适配与专业能力扩展包**（未来扩展，如 `@atengk/echarts`、`@atengk/editor` 等）：
   封装特定图表、富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
@@ -36,6 +38,7 @@
 
 - **[Sample Core 原生自验工程](./apps/sample-core/README.md)**（`sample-core`）：纯 TS 沙箱，1:1 对标 `@atengk/core`，验证网络管道、雪花大数与凭据注入。
 - **[Sample Vue 响应式自验工程](./apps/sample-vue/README.md)**（`sample-vue`）：Vue 3 应用沙箱，1:1 对标 `@atengk/vue`，验证无头 Hooks 状态机、抗竞态与销毁清理。
+- **[Sample FileViewer 专业文档自验展厅](./apps/sample-file-viewer/README.md)**（`sample-file-viewer`）：文档预览沙箱，1:1 对标 `@atengk/file-viewer`，验证 Office/PDF/图片/鉴权流/Blob 双态异常与水印全真交互。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -59,6 +62,7 @@ flowchart TD
     end
 
     subgraph L2["L2 专用能力/领域扩展层 (Extension Layer)"]
+        FV["@atengk/file-viewer<br/>(专业文档与工程文件渲染扩展)"]
         EXT["未来的 @atengk/echarts / editor ...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -74,6 +78,7 @@ flowchart TD
     subgraph Samples["1:1 镜像验证工程 (Apps)"]
         S_CORE["apps/sample-core"]
         S_VUE["apps/sample-vue"]
+        S_FV["apps/sample-file-viewer"]
         S_EP["apps/sample-element-plus"]
     end
 
@@ -87,6 +92,7 @@ flowchart TD
 
     CORE --> S_CORE
     VUE --> S_VUE
+    FV --> S_FV
     EP --> S_EP
 ```
 
@@ -132,3 +138,5 @@ flowchart TD
 - [ADR-0026: 按钮微动效物理学、高反差签名隔离与表单内嵌描边盒模型架构](./docs/adr/0026-button-micro-physics-and-input-inset-box-shadow-architecture.md)
 - [ADR-0027: 次核心基石组件零胶水集成、字段映射与多维健壮性增强架构](./docs/adr/0027-secondary-core-components-zero-glue-and-robustness-architecture.md)
 - [ADR-0028: 纯无状态基础布局套件、细粒度微骨架与容器协同总线架构](./docs/adr/0028-stateless-layout-suite-and-container-synergy-architecture.md)
+- [ADR-0029: Element Plus 全局样式体系与现代多主题引擎工业级全维优化架构](./docs/adr/0029-element-plus-global-style-and-theme-engine-industrial-perfection.md)
+- [ADR-0030: FileViewer L2 专用能力扩展包架构与弹性预设治理策略](./docs/adr/0030-file-viewer-l2-extension-architecture-and-preset-strategy.md)
