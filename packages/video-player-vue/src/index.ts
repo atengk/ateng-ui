@@ -33,6 +33,9 @@ export * from './security';
 // 6. 流媒体驱动器全量具名导出
 export * from './drivers';
 
+// 7. 外挂多轨字幕与解析器全量导出
+export * from './subtitles';
+
 /**
  * Vue 插件安装器。
  *

@@ -12,6 +12,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./plugins/danmaku": {
+      "types": "./dist/plugins/danmaku/index.d.ts",
+      "import": "./dist/plugins/danmaku/index.js",
+      "require": "./dist/plugins/danmaku/index.cjs"
+    },
     "./style.css": "./dist/index.css"
   },
   "files": [

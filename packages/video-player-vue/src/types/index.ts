@@ -8,6 +8,9 @@
  */
 
 import type { ComponentPublicInstance, ComputedRef, MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
+import type { VideoSubtitleItem, VideoSubtitleStyle } from '../subtitles/types';
+
+export type * from '../subtitles/types';
 
 /**
  * 视频播放流协议与媒体类型。
@@ -409,6 +412,22 @@ export interface VideoPlayerOptions {
    * 自定义流媒体解封装加载器（扩展 SPI）。
    */
   customType?: Record<string, (video: HTMLVideoElement, url: string, art: unknown) => void>;
+  /**
+   * 多轨外挂字幕列表。
+   */
+  subtitles?: VideoSubtitleItem[];
+  /**
+   * 默认选中的字幕轨道 ID 或语言代码。
+   */
+  defaultSubtitle?: string;
+  /**
+   * 外挂字幕样式配置。
+   */
+  subtitleStyle?: VideoSubtitleStyle;
+  /**
+   * 注入的扩展插件函数列表（如弹幕插件）。
+   */
+  plugins?: Array<(art: unknown) => unknown>;
 }
 
 /**
@@ -527,6 +546,22 @@ export interface AtengVideoPlayerProps {
    * 自定义流媒体解复用器钩子（如 hls.js、mpegts.js 挂载）。
    */
   customType?: Record<string, (video: HTMLVideoElement, url: string, art: unknown) => void>;
+  /**
+   * 多轨外挂字幕列表。
+   */
+  subtitles?: VideoSubtitleItem[];
+  /**
+   * 默认选中的字幕轨道 ID 或语言代码。
+   */
+  defaultSubtitle?: string;
+  /**
+   * 外挂字幕样式配置。
+   */
+  subtitleStyle?: VideoSubtitleStyle;
+  /**
+   * 注入的扩展插件函数列表（如弹幕插件 createDanmakuPlugin）。
+   */
+  plugins?: Array<(art: unknown) => unknown>;
 }
 
 /**
@@ -577,6 +612,14 @@ export interface AtengVideoPlayerEmits {
    * 时间轴事件打点标记点击跳帧事件 (驼峰命名)。
    */
   (e: 'markerClick', marker: VideoMarkerItem): void;
+  /**
+   * 字幕轨道切换事件。
+   */
+  (e: 'subtitle-change', subtitle: VideoSubtitleItem | null): void;
+  /**
+   * 字幕轨道切换事件 (驼峰命名)。
+   */
+  (e: 'subtitleChange', subtitle: VideoSubtitleItem | null): void;
 }
 
 /**

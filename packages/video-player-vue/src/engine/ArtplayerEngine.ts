@@ -151,6 +151,10 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
       artOptions.type = options.type;
     }
 
+    if (options.plugins && options.plugins.length > 0) {
+      artOptions.plugins = options.plugins;
+    }
+
     // 实例化内核并挂载事件
     this.artInstance = new Artplayer(artOptions as unknown as Option);
     this.bindEvents();

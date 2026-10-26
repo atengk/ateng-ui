@@ -14,11 +14,14 @@ import { ArtplayerEngine } from '../engine/ArtplayerEngine';
 import { BlobJsonGuard } from '../security';
 import { useStreamReconnect } from '../composables/useStreamReconnect';
 import { useVideoPlaybackHistory } from '../composables/useVideoPlaybackHistory';
+import { useVideoSubtitles } from '../subtitles/useVideoSubtitles';
 import type {
   AtengVideoPlayerEmits,
   AtengVideoPlayerProps,
   IVideoPlayerEngine,
   StreamReconnectOptions,
+  VideoSubtitleItem,
+  VideoSubtitleStyle,
 } from '../types';
 
 const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
@@ -49,6 +52,10 @@ const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
   autoResume: false,
   autoPlayResume: false,
   customType: undefined,
+  subtitles: () => [],
+  defaultSubtitle: undefined,
+  subtitleStyle: undefined,
+  plugins: () => [],
 });
 
 const emit = defineEmits<AtengVideoPlayerEmits>();
@@ -70,6 +77,15 @@ defineSlots<{
    * 安全水印专用插槽。
    */
   watermark?: (props: { engine: IVideoPlayerEngine | null }) => unknown;
+  /**
+   * 外挂字幕渲染专用插槽。
+   */
+  subtitle?: (props: {
+    currentText: string;
+    currentCue: unknown;
+    activeSubtitle: unknown;
+    isVisible: boolean;
+  }) => unknown;
   /**
    * 异常错误缺省插槽。
    */
@@ -101,6 +117,30 @@ const historyState = useVideoPlaybackHistory(
   () => props.url,
   () => props.autoResume,
   () => props.autoPlayResume,
+);
+
+// 外挂多轨字幕状态机
+const subtitleState = useVideoSubtitles(
+  () => props.subtitles || [],
+  () => props.defaultSubtitle,
+);
+
+watch(
+  () => props.subtitleStyle,
+  newStyle => {
+    if (newStyle) {
+      subtitleState.setStyle(newStyle);
+    }
+  },
+  { deep: true, immediate: true },
+);
+
+watch(
+  () => subtitleState.activeSubtitle.value,
+  newSub => {
+    emit('subtitle-change', newSub);
+    emit('subtitleChange', newSub);
+  },
 );
 
 // 直播流判定
@@ -181,12 +221,19 @@ const initPlayer = async (): Promise<void> => {
         isLive: isLiveStream.value,
         liveBufferLatencyChasing: props.liveBufferLatencyChasing,
         chaseThreshold: props.chaseThreshold,
+        subtitles: props.subtitles,
+        defaultSubtitle: props.defaultSubtitle,
+        subtitleStyle: props.subtitleStyle,
+        plugins: props.plugins,
       },
       {
         onReady: eng => {
           isReady.value = true;
           // 连接成功重置重连状态
           reconnectState.reset();
+
+          // 外挂字幕尝试挂载与初始化
+          void subtitleState.init();
 
           // 记忆续播尝试恢复
           const restored = historyState.checkAndApplyResume(eng, eng.duration);
@@ -207,6 +254,7 @@ const initPlayer = async (): Promise<void> => {
           if (engineRef.value) {
             historyState.saveProgress(time, engineRef.value.duration);
           }
+          subtitleState.updateCurrentTime(time);
           emit('timeupdate', time);
         },
         onEnded: () => {
@@ -415,6 +463,24 @@ defineExpose({
   replay: async (): Promise<void> => {
     await handleReplayFromBeginning();
   },
+  switchSubtitle: async (id: string | null): Promise<void> => {
+    await subtitleState.switchSubtitle(id);
+  },
+  toggleSubtitle: (vis?: boolean): void => {
+    subtitleState.toggleVisible(vis);
+  },
+  setSubtitleStyle: (st: Partial<VideoSubtitleStyle>): void => {
+    subtitleState.setStyle(st);
+  },
+  get activeSubtitle(): VideoSubtitleItem | null {
+    return subtitleState.activeSubtitle.value;
+  },
+  get activeSubtitleId(): string | null {
+    return subtitleState.activeSubtitleId.value;
+  },
+  get currentSubtitleText(): string {
+    return subtitleState.currentText.value;
+  },
 });
 </script>
 
@@ -482,6 +548,35 @@ defineExpose({
     <div v-if="$slots.watermark" class="at-video-player__watermark-layer">
       <slot name="watermark" :engine="engineRef"></slot>
     </div>
+
+    <!-- 外挂字幕渲染层 -->
+    <slot
+      name="subtitle"
+      :current-text="subtitleState.currentText.value"
+      :current-cue="subtitleState.currentCue.value"
+      :active-subtitle="subtitleState.activeSubtitle.value"
+      :is-visible="subtitleState.isVisible.value"
+    >
+      <div
+        v-if="subtitleState.isVisible.value && subtitleState.currentText.value"
+        class="at-video-subtitle"
+        :style="{
+          fontSize:
+            typeof subtitleState.style.value.fontSize === 'number'
+              ? `${subtitleState.style.value.fontSize}px`
+              : subtitleState.style.value.fontSize,
+          color: subtitleState.style.value.color,
+          backgroundColor: subtitleState.style.value.backgroundColor,
+          textShadow: subtitleState.style.value.textShadow,
+          bottom:
+            typeof subtitleState.style.value.bottom === 'number'
+              ? `${subtitleState.style.value.bottom}px`
+              : subtitleState.style.value.bottom,
+        }"
+      >
+        <span class="at-video-subtitle__text">{{ subtitleState.currentText.value }}</span>
+      </div>
+    </slot>
 
     <!-- 默认自由插槽图层 -->
     <slot :engine="engineRef"></slot>
@@ -820,5 +915,27 @@ defineExpose({
 .at-banner-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -10px);
+}
+
+/* 外挂字幕展示样式 */
+.at-video-subtitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 85%;
+  text-align: center;
+  padding: 6px 16px;
+  border-radius: 6px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 15;
+  transition: all 0.2s ease-out;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.at-video-subtitle__text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 </style>

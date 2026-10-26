@@ -18,15 +18,17 @@ export default defineConfig({
     dts({
       tsconfigPath: './tsconfig.json',
       outDir: 'dist',
-      rollupTypes: true,
     }),
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        'plugins/danmaku/index': resolve(__dirname, 'src/plugins/danmaku/index.ts'),
+      },
       name: 'AtengVideoPlayerVue',
       formats: ['es', 'cjs'],
-      fileName: format => `index.${format === 'es' ? 'js' : 'cjs'}`,
+      fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
     },
     cssCodeSplit: false,
     rollupOptions: {
