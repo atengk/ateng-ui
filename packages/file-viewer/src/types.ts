@@ -529,3 +529,197 @@ export type AtengFileViewerInstance = ComponentPublicInstance<
   AtengFileViewerProps,
   AtengFileViewerExpose
 >;
+
+/**
+ * 声明式弹窗组件 AtengFileViewerDialog 配置 Props。
+ */
+export interface AtengFileViewerDialogProps extends AtengFileViewerProps {
+  /**
+   * 弹窗显隐双向绑定状态 (支持 v-model 或 v-model:visible)。
+   */
+  modelValue?: boolean;
+
+  /**
+   * 弹窗显隐状态别名 (支持 v-model:visible)。
+   */
+  visible?: boolean;
+
+  /**
+   * 弹窗顶栏标题文案 (若不传则自动使用解析出的文件名或保底 '文档预览')。
+   */
+  title?: string;
+
+  /**
+   * 是否全屏展示弹窗 (支持 v-model:fullscreen 双向绑定，默认 false)。
+   */
+  fullscreen?: boolean;
+
+  /**
+   * 非全屏模式下弹窗宽度 (支持 CSS 尺寸或像素数值，默认 '85vw')。
+   */
+  dialogWidth?: string | number;
+
+  /**
+   * 非全屏模式下弹窗高度 (支持 CSS 尺寸或像素数值，默认 '85vh')。
+   */
+  dialogHeight?: string | number;
+
+  /**
+   * 点击蒙层背景是否允许关闭弹窗 (默认 true)。
+   */
+  closeOnClickModal?: boolean;
+
+  /**
+   * 按下 ESC 快捷键是否允许关闭弹窗 (默认 true)。
+   */
+  closeOnPressEscape?: boolean;
+
+  /**
+   * 是否显示右上角关闭图标按钮 (默认 true)。
+   */
+  showClose?: boolean;
+
+  /**
+   * 是否显示右上角全屏切换图标按钮 (默认 true)。
+   */
+  showFullscreen?: boolean;
+
+  /**
+   * 关闭弹窗时是否彻底销毁内部渲染器与 DOM 结构 (默认 true)。
+   */
+  destroyOnClose?: boolean;
+
+  /**
+   * 是否将弹窗挂载至 document.body 顶层 (默认 true)。
+   */
+  appendToBody?: boolean;
+
+  /**
+   * 弹窗容器 z-index 层级 (默认 2000)。
+   */
+  zIndex?: number;
+}
+
+/**
+ * 声明式弹窗组件 AtengFileViewerDialog 事件契约。
+ */
+export interface AtengFileViewerDialogEmits extends AtengFileViewerEmits {
+  (e: 'update:modelValue', visible: boolean): void;
+  (e: 'update:visible', visible: boolean): void;
+  (e: 'update:fullscreen', fullscreen: boolean): void;
+  (e: 'open'): void;
+  (e: 'opened'): void;
+  (e: 'close'): void;
+  (e: 'closed'): void;
+}
+
+/**
+ * 声明式弹窗组件 AtengFileViewerDialog 插槽定义。
+ */
+export interface AtengFileViewerDialogSlots extends AtengFileViewerSlots {
+  header?: (scope: { title: string; close: () => void; toggleFullscreen: () => void }) => unknown;
+  footer?: () => unknown;
+}
+
+/**
+ * 声明式弹窗组件 AtengFileViewerDialog Expose 接口方法。
+ */
+export interface AtengFileViewerDialogExpose extends AtengFileViewerExpose {
+  /**
+   * 打开弹窗。
+   */
+  open: () => void;
+
+  /**
+   * 关闭弹窗。
+   */
+  close: () => void;
+
+  /**
+   * 切换全屏状态。
+   */
+  toggleFullscreen: (fullscreen?: boolean) => void;
+
+  /**
+   * 获取底层 AtengFileViewer 组件实例。
+   */
+  getViewerInstance: () => AtengFileViewerInstance | null;
+}
+
+export type AtengFileViewerDialogInstance = ComponentPublicInstance<
+  AtengFileViewerDialogProps,
+  AtengFileViewerDialogExpose
+>;
+
+/**
+ * 命令式调用 FileViewer.preview(options) 参数接口。
+ */
+export interface FileViewerPreviewOptions extends Omit<
+  AtengFileViewerDialogProps,
+  'modelValue' | 'visible'
+> {
+  /**
+   * 弹窗打开时的回调钩子。
+   */
+  onOpen?: () => void;
+
+  /**
+   * 弹窗完全打开动画结束后的回调。
+   */
+  onOpened?: () => void;
+
+  /**
+   * 弹窗关闭时的回调钩子。
+   */
+  onClose?: () => void;
+
+  /**
+   * 弹窗完全关闭并销毁后的回调。
+   */
+  onClosed?: () => void;
+
+  /**
+   * 文档加载完成回调。
+   */
+  onLoad?: (payload: { fileName: string; fileType?: string }) => void;
+
+  /**
+   * 文档加载异常回调。
+   */
+  onError?: (error: unknown) => void;
+
+  /**
+   * 结构化诊断回调。
+   */
+  onDiagnostic?: (diagnostic: FileViewerDiagnostic) => void;
+}
+
+/**
+ * 命令式调用返回的控制句柄。
+ */
+export interface FileViewerPreviewHandle {
+  /**
+   * 手动关闭并销毁弹窗。
+   */
+  close: () => void;
+
+  /**
+   * 彻底卸载并清理宿主 DOM 节点。
+   */
+  destroy: () => void;
+
+  /**
+   * 获取内部挂载的 Dialog 组件实例。
+   */
+  getDialogInstance: () => AtengFileViewerDialogInstance | null;
+}
+
+/**
+ * 便捷静态命名空间门面接口。
+ */
+export interface FileViewerStaticFacade {
+  /**
+   * 命令式调用弹窗预览文档。
+   */
+  preview: (options: FileViewerPreviewOptions) => FileViewerPreviewHandle;
+}

@@ -13,6 +13,8 @@
 import { ref, computed } from 'vue';
 import {
   AtengFileViewer,
+  AtengFileViewerDialog,
+  FileViewer,
   useFileViewer,
   type FileViewerSheet,
   type FileViewerDocumentAnchor,
@@ -68,6 +70,25 @@ const lastProgressMsg = ref<string>('');
 // 工单 #137 新增：结构化异常诊断与加密文档原地密码解密重试
 const lastDiagnostic = ref<FileViewerDiagnostic | null>(null);
 const currentPasswordProp = ref<string>('');
+
+// 工单 #138 新增：三位一体多模态调用与声明式/命令式全屏弹窗
+const isDialogVisible = ref<boolean>(false);
+
+function openImperativePreview() {
+  FileViewer.preview({
+    url: currentUrl.value,
+    file: selectedFile.value,
+    fileName: currentName.value,
+    fileType: currentType.value,
+    downloadable: downloadable.value,
+    printable: printable.value,
+    watermark: watermarkConfig.value,
+    onClose: () => {
+      lastEventMsg.value = '命令式预览弹窗已关闭，宿主 DOM 已确定性销毁';
+    },
+  });
+  lastEventMsg.value = '已通过 FileViewer.preview 唤起命令式预览弹窗';
+}
 
 const dynamicPresets = computed(() => {
   const list = [];
@@ -439,6 +460,18 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
       </div>
     </div>
 
+    <div class="feature-bar">
+      <div class="feature-group">
+        <span class="feature-label">🪟 多模态弹窗调用:</span>
+        <button type="button" class="mini-btn mini-btn--primary" @click="isDialogVisible = true">
+          🖥️ 声明式弹窗 (&lt;AtengFileViewerDialog&gt;)
+        </button>
+        <button type="button" class="mini-btn mini-btn--warning" @click="openImperativePreview">
+          ⚡ 命令式极速预览 (FileViewer.preview)
+        </button>
+      </div>
+    </div>
+
     <div class="sample-status-bar">
       <span
         >当前文件: <strong>{{ currentName }}</strong></span
@@ -495,6 +528,28 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         <p>组件已销毁卸载，正在验证切 Tab 状态弱引用复原...</p>
       </div>
     </div>
+
+    <!-- 声明式弹窗组件 (<AtengFileViewerDialog>) 演示 -->
+    <AtengFileViewerDialog
+      v-model="isDialogVisible"
+      :url="currentUrl"
+      :file="selectedFile"
+      :file-name="currentName"
+      :file-type="currentType"
+      :sheets="sampleSheets"
+      :toc-list="sampleTocList"
+      :preset="dynamicPresets"
+      :asset-base-url="resolvedAssetBaseUrl"
+      :preserve-view-state="preserveViewState"
+      :downloadable="downloadable"
+      :printable="printable"
+      :copyable="copyable"
+      :context-menu="contextMenu"
+      :watermark="watermarkConfig"
+      :max-size="maxSizeLimit"
+      @load="handleLoad"
+      @error="handleError"
+    />
   </div>
 </template>
 

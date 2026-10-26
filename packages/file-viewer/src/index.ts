@@ -7,8 +7,15 @@
 
 import type { App, Plugin } from 'vue';
 import AtengFileViewer from './components/AtengFileViewer.vue';
+import AtengFileViewerDialog from './components/AtengFileViewerDialog.vue';
 
-export { AtengFileViewer };
+export { AtengFileViewer, AtengFileViewerDialog };
+export { previewFile, FileViewer } from './utils/preview';
+export type {
+  FileViewerPreviewOptions,
+  FileViewerPreviewHandle,
+  FileViewerStaticFacade,
+} from './types';
 
 export { detectFileType, sniffMagicNumber } from './utils/sniff';
 export type { SniffOptions } from './utils/sniff';
@@ -91,6 +98,11 @@ export type {
   FileViewerWatermark,
   FileViewerDocumentAnchor,
   FileViewerSheet,
+  AtengFileViewerDialogProps,
+  AtengFileViewerDialogEmits,
+  AtengFileViewerDialogSlots,
+  AtengFileViewerDialogExpose,
+  AtengFileViewerDialogInstance,
 } from './types';
 
 /**
@@ -102,6 +114,7 @@ export type {
  */
 export function install(app: App): void {
   app.component('AtengFileViewer', AtengFileViewer);
+  app.component('AtengFileViewerDialog', AtengFileViewerDialog);
 }
 
 const fileViewerPlugin: Plugin = {
