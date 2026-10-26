@@ -84,6 +84,30 @@ export interface WatermarkOptions {
  */
 export type FileViewerWatermark = string | WatermarkOptions | false;
 
+/**
+ * 文档章节、大纲或分页锚点定义。
+ */
+export interface FileViewerDocumentAnchor {
+  id: string;
+  index: number;
+  label: string;
+  text?: string;
+  page?: number;
+  line?: number;
+  type?: 'page' | 'line' | 'block' | 'heading';
+  top?: number;
+  left?: number;
+}
+
+/**
+ * 表格多工作表定义。
+ */
+export interface FileViewerSheet {
+  id: number | string;
+  name: string;
+  hidden?: boolean;
+}
+
 export interface AtengFileViewerProps {
   /**
    * 待预览文件的访问 URL (支持 HTTP/HTTPS、相对路径或 ObjectURL)。
@@ -104,6 +128,42 @@ export interface AtengFileViewerProps {
    * 显式指定文件类型/扩展名 (如 'docx', 'xlsx', 'pdf', 'pptx')。
    */
   fileType?: string;
+
+  /**
+   * 当前展示/受控页码 (从 1 开始，支持 v-model:page 双向绑定)。
+   */
+  page?: number;
+
+  /**
+   * 当前展示/受控工作表 ID 或名称 (支持 v-model:sheet 双向绑定)。
+   */
+  sheet?: number | string;
+
+  /**
+   * 显式指定或外部注入的多工作表列表 (若不传则从底层表格引擎自动解析)。
+   */
+  sheets?: FileViewerSheet[];
+
+  /**
+   * 是否在 Excel 表格等包含多工作表时渲染底栏工作表 Tab 条 (默认 true)。
+   */
+  showSheetBar?: boolean;
+
+  /**
+   * 是否启用文档目录大纲 (TOC) 折叠抽屉与侧边导航 (默认 true)。
+   */
+  showToc?: boolean;
+
+  /**
+   * 显式指定或外部注入的文档目录大纲 (TOC) 列表 (若不传则从底层引擎自动收集)。
+   */
+  tocList?: FileViewerDocumentAnchor[];
+
+  /**
+   * 是否开启阅读状态记忆与弱引用自动复原 (默认 true)。
+   * 在组件短暂重绘或切 Tab 时自动复原上一次的滚动位置、缩放比与旋转角度。
+   */
+  preserveViewState?: boolean;
 
   /**
    * 容器高度 (支持 CSS 尺寸表达式，默认 '100%')。
@@ -179,6 +239,13 @@ export interface AtengFileViewerEmits {
   (e: 'load', payload: { fileName: string; fileType?: string }): void;
   (e: 'error', error: unknown): void;
   (e: 'unload', payload: { reason?: string }): void;
+  (e: 'update:page', page: number): void;
+  (e: 'page-change', page: number, pageCount?: number): void;
+  (e: 'update:sheet', sheet: number | string): void;
+  (e: 'sheet-change', sheet: number | string, sheetName?: string): void;
+  (e: 'update:toc-open', open: boolean): void;
+  (e: 'toc-change', anchors: FileViewerDocumentAnchor[]): void;
+  (e: 'view-state-change', change: Record<string, unknown>): void;
 }
 
 export interface AtengFileViewerSlots {
@@ -186,6 +253,16 @@ export interface AtengFileViewerSlots {
   toolbar?: (scope: {
     fileName: string;
     fileType?: string;
+    page: number;
+    pageCount: number;
+    prevPage: () => void;
+    nextPage: () => void;
+    setPage: (page: number) => void;
+    sheet: number | string;
+    sheets: FileViewerSheet[];
+    setSheet: (sheet: number | string) => void;
+    isTocOpen: boolean;
+    toggleToc: () => void;
     zoomIn: () => void;
     zoomOut: () => void;
     rotate: () => void;
@@ -194,6 +271,16 @@ export interface AtengFileViewerSlots {
     retry: () => void;
     downloadable: boolean;
     printable: boolean;
+  }) => unknown;
+  sheetBar?: (scope: {
+    sheet: number | string;
+    sheets: FileViewerSheet[];
+    setSheet: (sheet: number | string) => void;
+  }) => unknown;
+  toc?: (scope: {
+    anchors: FileViewerDocumentAnchor[];
+    scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => void;
+    closeToc: () => void;
   }) => unknown;
   loading?: (scope: { percent?: number }) => unknown;
   error?: (scope: { error: unknown; retry: () => void; download: () => void }) => unknown;
@@ -209,6 +296,11 @@ export interface AtengFileViewerExpose {
    * 缩小视图。
    */
   zoomOut: () => void;
+
+  /**
+   * 重置缩放为 100%。
+   */
+  resetZoom: () => void;
 
   /**
    * 顺时针旋转 90 度。
@@ -239,6 +331,91 @@ export interface AtengFileViewerExpose {
    * 获取解析出的当前文件类型。
    */
   getFileType: () => string;
+
+  /**
+   * 获取当前展示页码。
+   */
+  getPage: () => number;
+
+  /**
+   * 获取文档总页数。
+   */
+  getPageCount: () => number;
+
+  /**
+   * 跳转至指定页码。
+   */
+  setPage: (page: number) => Promise<boolean>;
+
+  /**
+   * 翻至上一页。
+   */
+  prevPage: () => Promise<boolean>;
+
+  /**
+   * 翻至下一页。
+   */
+  nextPage: () => Promise<boolean>;
+
+  /**
+   * 获取当前活动工作表 ID 或名称。
+   */
+  getSheet: () => number | string;
+
+  /**
+   * 获取已解析或配置的工作表列表。
+   */
+  getSheets: () => FileViewerSheet[];
+
+  /**
+   * 切换至指定工作表。
+   */
+  setSheet: (sheet: number | string) => Promise<boolean>;
+
+  /**
+   * 获取文档目录大纲 (TOC) 锚点列表。
+   */
+  getTocList: () => FileViewerDocumentAnchor[];
+
+  /**
+   * 获取当前大纲抽屉是否处于展开状态。
+   */
+  isTocOpen: () => boolean;
+
+  /**
+   * 切换目录大纲抽屉的展开/收起状态。
+   */
+  toggleToc: (open?: boolean) => void;
+
+  /**
+   * 展开目录大纲抽屉。
+   */
+  openToc: () => void;
+
+  /**
+   * 关闭目录大纲抽屉。
+   */
+  closeToc: () => void;
+
+  /**
+   * 平滑滚动定位至指定锚点或章节 ID。
+   */
+  scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => Promise<boolean>;
+
+  /**
+   * 手动触发或重放加载完成生命周期。
+   */
+  handleLoadComplete?: () => Promise<void>;
+
+  /**
+   * 获取底层原始视图状态。
+   */
+  getViewState: () => Record<string, unknown> | null;
+
+  /**
+   * 应用或恢复视图状态。
+   */
+  applyViewState: (state: Record<string, unknown>) => Promise<unknown>;
 }
 
 export type AtengFileViewerInstance = ComponentPublicInstance<

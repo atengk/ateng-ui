@@ -5,7 +5,7 @@
  * @since 2026-10-26
  */
 
-import type { App } from 'vue';
+import type { App, Plugin } from 'vue';
 import AtengFileViewer from './components/AtengFileViewer.vue';
 
 export { AtengFileViewer };
@@ -27,6 +27,18 @@ export type { WatermarkInstance } from './utils/watermark';
 export { setupDlpProtection } from './utils/dlp';
 export type { DlpOptions, DlpController } from './utils/dlp';
 
+export {
+  saveViewStateHistory,
+  restoreViewStateHistory,
+  clearViewStateHistory,
+  resolveViewStateKey,
+  getViewStateHistorySize,
+} from './utils/viewStateHistory';
+export type { StoredViewState, ResolveViewStateKeyInput } from './utils/viewStateHistory';
+
+export { useFileViewer } from './composables/useFileViewer';
+export type { UseFileViewerOptions, UseFileViewerReturn } from './composables/useFileViewer';
+
 export type {
   AtengFileViewerProps,
   AtengFileViewerEmits,
@@ -36,6 +48,8 @@ export type {
   FileViewerTheme,
   WatermarkOptions,
   FileViewerWatermark,
+  FileViewerDocumentAnchor,
+  FileViewerSheet,
 } from './types';
 
 /**
@@ -49,12 +63,8 @@ export function install(app: App): void {
   app.component('AtengFileViewer', AtengFileViewer);
 }
 
-export interface AtengFileViewerPlugin {
-  install(app: App): void;
-}
-
-const plugin: AtengFileViewerPlugin = {
+const fileViewerPlugin: Plugin = {
   install,
 };
 
-export default plugin;
+export default fileViewerPlugin;
