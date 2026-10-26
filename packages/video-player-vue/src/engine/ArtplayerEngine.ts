@@ -11,7 +11,12 @@ import Artplayer, { type Option } from 'artplayer';
 import { defaultTokenInjector } from '../security';
 import { HlsDriver } from '../drivers/HlsDriver';
 import { MpegtsDriver } from '../drivers/MpegtsDriver';
-import type { IVideoPlayerEngine, VideoPlayerOptions, VideoPlayerType } from '../types';
+import type {
+  IVideoPlayerEngine,
+  VideoMarkerItem,
+  VideoPlayerOptions,
+  VideoPlayerType,
+} from '../types';
 
 /**
  * 引擎事件监听回调集合。
@@ -25,6 +30,7 @@ export interface PlayerEngineEventHandlers {
   onError?: (error: unknown) => void;
   onFullscreen?: (isFullscreen: boolean) => void;
   onFullscreenWeb?: (isFullscreenWeb: boolean) => void;
+  onMarkerClick?: (marker: VideoMarkerItem) => void;
 }
 
 export class ArtplayerEngine implements IVideoPlayerEngine {
@@ -90,6 +96,17 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
       artOptions.highlight = highlight;
     }
 
+    if (options.thumbnails && options.thumbnails.url) {
+      artOptions.thumbnails = {
+        url: options.thumbnails.url,
+        number: options.thumbnails.number ?? 60,
+        column: options.thumbnails.column ?? 10,
+        width: options.thumbnails.width ?? 160,
+        height: options.thumbnails.height ?? 90,
+        scale: options.thumbnails.scale ?? 1,
+      };
+    }
+
     if (options.isLive) {
       artOptions.isLive = true;
     }
@@ -137,6 +154,141 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
     // 实例化内核并挂载事件
     this.artInstance = new Artplayer(artOptions as unknown as Option);
     this.bindEvents();
+    this.bindHotkeys(container, options);
+    this.bindMarkers(container, options);
+  }
+
+  /**
+   * 绑定键盘全局快捷键体系。
+   */
+  private bindHotkeys(container: HTMLElement, options: VideoPlayerOptions): void {
+    if (options.hotkey === false || !this.artInstance) {
+      return;
+    }
+
+    // 1. 为 Artplayer 内部快捷键字典注册扩展按键
+    try {
+      this.artInstance.hotkey.add('70', () => {
+        // 'F' 键切换全屏
+        this.toggleFullscreen();
+      });
+      this.artInstance.hotkey.add('77', () => {
+        // 'M' 键切换静音
+        this.setMuted(!this.muted);
+      });
+      this.artInstance.hotkey.add('219', () => {
+        // '[' 键后退单帧
+        this.stepFrame(-1);
+      });
+      this.artInstance.hotkey.add('221', () => {
+        // ']' 键前进单帧
+        this.stepFrame(1);
+      });
+      this.artInstance.hotkey.add('188', () => {
+        // ',' 键后退单帧
+        this.stepFrame(-1);
+      });
+      this.artInstance.hotkey.add('190', () => {
+        // '.' 键前进单帧
+        this.stepFrame(1);
+      });
+    } catch {
+      // 容错处理
+    }
+
+    // 2. 容器级键盘事件监听（保障失焦或单测环境下能够精准触发）
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === ' ' || key === 'spacebar') {
+        event.preventDefault();
+        this.toggle();
+      } else if (key === 'arrowleft') {
+        event.preventDefault();
+        this.step(-5);
+      } else if (key === 'arrowright') {
+        event.preventDefault();
+        this.step(5);
+      } else if (key === 'arrowup') {
+        event.preventDefault();
+        this.setVolume(this.volume + 0.1);
+      } else if (key === 'arrowdown') {
+        event.preventDefault();
+        this.setVolume(this.volume - 0.1);
+      } else if (key === 'f') {
+        event.preventDefault();
+        this.toggleFullscreen();
+      } else if (key === 'm') {
+        event.preventDefault();
+        this.setMuted(!this.muted);
+      } else if (key === '[' || key === ',') {
+        event.preventDefault();
+        this.stepFrame(-1);
+      } else if (key === ']' || key === '.') {
+        event.preventDefault();
+        this.stepFrame(1);
+      }
+    };
+
+    container.addEventListener('keydown', handleKeyDown);
+    this.registerTeardownHook(() => {
+      container.removeEventListener('keydown', handleKeyDown);
+    });
+  }
+
+  /**
+   * 绑定时间轴打点高亮与点击跳帧监听。
+   */
+  private bindMarkers(container: HTMLElement, options: VideoPlayerOptions): void {
+    if (!options.markers || options.markers.length === 0 || !this.artInstance) {
+      return;
+    }
+
+    const markers = options.markers;
+
+    // 监听时间轴打点元素点击实现精准跳帧跳转
+    const handleMarkerClick = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const highlightEl = target?.closest(
+        '.art-progress-highlight, .art-highlight',
+      ) as HTMLElement | null;
+      if (highlightEl) {
+        const text = highlightEl.innerText || highlightEl.getAttribute('title') || '';
+        const matched = markers.find(m => m.text === text) || markers[0];
+        if (matched) {
+          this.seek(matched.time);
+          this.handlers.onMarkerClick?.(matched);
+        }
+      }
+    };
+
+    container.addEventListener('click', handleMarkerClick);
+    this.registerTeardownHook(() => {
+      container.removeEventListener('click', handleMarkerClick);
+    });
+
+    // ready 时注入打点颜色定制
+    this.artInstance.on('ready', () => {
+      const els = container.querySelectorAll<HTMLElement>(
+        '.art-progress-highlight, .art-highlight',
+      );
+      els.forEach((el, index) => {
+        const m = markers[index];
+        if (m?.color) {
+          el.style.backgroundColor = m.color;
+        }
+      });
+    });
   }
 
   /**
@@ -246,6 +398,17 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
     if (this.artInstance) {
       this.artInstance.seek = time;
     }
+  }
+
+  step(seconds: number): void {
+    const current = this.currentTime;
+    const target = Math.max(0, current + seconds);
+    this.seek(target);
+  }
+
+  stepFrame(frames = 1, fps = 30): void {
+    const frameRate = fps > 0 ? fps : 30;
+    this.step(frames / frameRate);
   }
 
   setVolume(volume: number): void {

@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ArtplayerEngine } from '../engine/ArtplayerEngine';
 import { BlobJsonGuard } from '../security';
 import { useStreamReconnect } from '../composables/useStreamReconnect';
+import { useVideoPlaybackHistory } from '../composables/useVideoPlaybackHistory';
 import type {
   AtengVideoPlayerEmits,
   AtengVideoPlayerProps,
@@ -44,6 +45,9 @@ const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
   reconnect: false,
   quality: () => [],
   markers: () => [],
+  thumbnails: undefined,
+  autoResume: false,
+  autoPlayResume: false,
   customType: undefined,
 });
 
@@ -74,12 +78,28 @@ defineSlots<{
    * 重连达到最大上限硬失败时的插槽。
    */
   'reconnect-failed'?: (props: { error: unknown; retry: () => void }) => unknown;
+  /**
+   * 记忆续播浮层提示插槽。
+   */
+  'resume-prompt'?: (props: {
+    time: number;
+    formattedTime: string;
+    replay: () => void;
+    close: () => void;
+  }) => unknown;
 }>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const engineRef = ref<IVideoPlayerEngine | null>(null);
 const isReady = ref(false);
 const errorState = ref<unknown | null>(null);
+
+// 记忆续播状态机
+const historyState = useVideoPlaybackHistory(
+  () => props.url,
+  () => props.autoResume,
+  () => props.autoPlayResume,
+);
 
 // 直播流判定
 const isLiveStream = computed(() => {
@@ -152,6 +172,7 @@ const initPlayer = async (): Promise<void> => {
         screenshot: props.screenshot,
         quality: props.quality,
         markers: props.markers,
+        thumbnails: props.thumbnails,
         customType: props.customType,
         auth: props.auth,
         probeStream: props.probeStream,
@@ -164,12 +185,32 @@ const initPlayer = async (): Promise<void> => {
           isReady.value = true;
           // 连接成功重置重连状态
           reconnectState.reset();
+
+          // 记忆续播尝试恢复
+          const restored = historyState.checkAndApplyResume(eng, eng.duration);
+          if (restored !== null) {
+            emit('resume', restored);
+          }
+
           emit('ready', eng);
         },
         onPlay: () => emit('play'),
-        onPause: () => emit('pause'),
-        onTimeUpdate: time => emit('timeupdate', time),
-        onEnded: () => emit('ended'),
+        onPause: () => {
+          if (engineRef.value) {
+            historyState.saveProgress(engineRef.value.currentTime, engineRef.value.duration);
+          }
+          emit('pause');
+        },
+        onTimeUpdate: time => {
+          if (engineRef.value) {
+            historyState.saveProgress(time, engineRef.value.duration);
+          }
+          emit('timeupdate', time);
+        },
+        onEnded: () => {
+          historyState.clearHistory();
+          emit('ended');
+        },
         onError: err => {
           const businessErr = BlobJsonGuard.toBusinessException(err);
           errorState.value = businessErr;
@@ -182,6 +223,10 @@ const initPlayer = async (): Promise<void> => {
         },
         onFullscreen: state => emit('fullscreen', state),
         onFullscreenWeb: state => emit('fullscreenWeb', state),
+        onMarkerClick: marker => {
+          emit('marker-click', marker);
+          emit('markerClick', marker);
+        },
       },
     );
 
@@ -206,6 +251,17 @@ const destroyPlayer = (): void => {
     engineRef.value = null;
   }
   isReady.value = false;
+};
+
+/**
+ * 从头重新开始播放并关闭续播提示条。
+ */
+const handleReplayFromBeginning = async (): Promise<void> => {
+  historyState.closePrompt();
+  if (engineRef.value) {
+    engineRef.value.seek(0);
+    await engineRef.value.play();
+  }
 };
 
 // 监听 URL 变化平滑切流
@@ -245,6 +301,12 @@ defineExpose({
   seek: (time: number): void => {
     engineRef.value?.seek(time);
   },
+  step: (seconds: number): void => {
+    engineRef.value?.step(seconds);
+  },
+  stepFrame: (frames = 1, fps = 30): void => {
+    engineRef.value?.stepFrame(frames, fps);
+  },
   setVolume: (vol: number): void => {
     engineRef.value?.setVolume(vol);
   },
@@ -281,6 +343,12 @@ defineExpose({
   retry: (): void => {
     void initPlayer();
   },
+  clearPlaybackHistory: (): void => {
+    historyState.clearHistory();
+  },
+  replay: async (): Promise<void> => {
+    await handleReplayFromBeginning();
+  },
 });
 </script>
 
@@ -294,6 +362,41 @@ defineExpose({
       <span class="live-pulse"></span>
       <span class="live-text">实时直播</span>
     </div>
+
+    <!-- 记忆续播浮层提示卡片 -->
+    <transition name="at-banner-fade">
+      <div v-if="historyState.showPrompt.value" class="at-video-player__resume-banner">
+        <slot
+          v-if="$slots['resume-prompt']"
+          name="resume-prompt"
+          :time="historyState.resumeTime.value"
+          :formatted-time="historyState.formattedResumeTime.value"
+          :replay="handleReplayFromBeginning"
+          :close="historyState.closePrompt"
+        ></slot>
+        <div v-else class="at-video-player__resume-inner">
+          <span class="at-video-player__resume-icon">⏱️</span>
+          <span class="at-video-player__resume-text">
+            已恢复上次播放进度 {{ historyState.formattedResumeTime.value }}
+          </span>
+          <button
+            type="button"
+            class="at-video-player__resume-btn"
+            @click="handleReplayFromBeginning"
+          >
+            重新播放
+          </button>
+          <button
+            type="button"
+            class="at-video-player__resume-close"
+            aria-label="关闭提示"
+            @click="historyState.closePrompt"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </transition>
 
     <!-- 顶部插槽浮层 -->
     <div v-if="$slots.top" class="at-video-player__overlay at-video-player__overlay--top">
@@ -561,5 +664,83 @@ defineExpose({
   font-size: 12px;
   color: #94a3b8;
   font-family: monospace;
+}
+
+/* 记忆续播浮层提示卡片样式 */
+.at-video-player__resume-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  pointer-events: auto;
+}
+
+.at-video-player__resume-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background-color: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.at-video-player__resume-icon {
+  font-size: 14px;
+}
+
+.at-video-player__resume-text {
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.at-video-player__resume-btn {
+  background: none;
+  border: none;
+  color: #38bdf8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.at-video-player__resume-btn:hover {
+  color: #7dd3fc;
+  background-color: rgba(56, 189, 248, 0.15);
+}
+
+.at-video-player__resume-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 50%;
+  transition: color 0.2s;
+}
+
+.at-video-player__resume-close:hover {
+  color: #f1f5f9;
+}
+
+/* 渐隐过渡动画 */
+.at-banner-fade-enter-active,
+.at-banner-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.at-banner-fade-enter-from,
+.at-banner-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
 }
 </style>

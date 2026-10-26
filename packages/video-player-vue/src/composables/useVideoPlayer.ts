@@ -18,6 +18,7 @@ import {
   type MaybeRefOrGetter,
 } from 'vue';
 import { ArtplayerEngine } from '../engine/ArtplayerEngine';
+import { useVideoPlaybackHistory } from './useVideoPlaybackHistory';
 import type {
   IVideoPlayerEngine,
   UseVideoPlayerOptions,
@@ -41,6 +42,13 @@ export function useVideoPlayer(
   const buffered = ref(0);
   const loading = ref(false);
   const error = shallowRef<unknown | null>(null);
+
+  // 记忆续播状态机联动
+  const historyState = useVideoPlaybackHistory(
+    () => toValue(options).url,
+    () => toValue(options).autoResume,
+    () => toValue(options).autoPlayResume,
+  );
 
   /**
    * 初始化播放引擎实例。
@@ -71,18 +79,23 @@ export function useVideoPlayer(
           volume.value = eng.volume;
           muted.value = eng.muted;
           playbackRate.value = eng.playbackRate;
+
+          // 恢复历史进度
+          historyState.checkAndApplyResume(eng, eng.duration);
         },
         onPlay: () => {
           playing.value = true;
         },
         onPause: () => {
           playing.value = false;
+          historyState.saveProgress(currentTime.value, duration.value);
         },
         onTimeUpdate: time => {
           currentTime.value = time;
           if (engine.value) {
             duration.value = engine.value.duration;
           }
+          historyState.saveProgress(time, duration.value);
         },
         onEnded: () => {
           playing.value = false;
@@ -137,6 +150,41 @@ export function useVideoPlayer(
   const seek = (time: number): void => {
     engine.value?.seek(time);
     currentTime.value = time;
+  };
+
+  /**
+   * 相对快进或快退指定秒数。
+   */
+  const step = (seconds: number): void => {
+    engine.value?.step(seconds);
+    if (engine.value) {
+      currentTime.value = engine.value.currentTime;
+    }
+  };
+
+  /**
+   * 逐帧微调步进。
+   */
+  const stepFrame = (frames = 1, fps = 30): void => {
+    engine.value?.stepFrame(frames, fps);
+    if (engine.value) {
+      currentTime.value = engine.value.currentTime;
+    }
+  };
+
+  /**
+   * 清除本地播放历史。
+   */
+  const clearPlaybackHistory = (): void => {
+    historyState.clearHistory();
+  };
+
+  /**
+   * 从头重新开始播放。
+   */
+  const replay = async (): Promise<void> => {
+    seek(0);
+    await play();
   };
 
   /**
@@ -288,6 +336,8 @@ export function useVideoPlayer(
     pause,
     toggle,
     seek,
+    step,
+    stepFrame,
     setVolume,
     setMuted,
     setPlaybackRate,
@@ -301,5 +351,7 @@ export function useVideoPlayer(
     exitWebFullscreen,
     toggleWebFullscreen,
     destroy,
+    clearPlaybackHistory,
+    replay,
   };
 }

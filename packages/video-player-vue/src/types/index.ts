@@ -51,6 +51,70 @@ export interface VideoMarkerItem {
 }
 
 /**
+ * 进度条缩略图悬浮卡片配置契约（雪碧图切片或 WebVTT 格式）。
+ */
+export interface VideoThumbnailOptions {
+  /**
+   * 缩略图图片地址（雪碧图 URL 或 VTT 资源地址）。
+   */
+  url: string;
+  /**
+   * 雪碧图切片总图片数量（如 60 或 100）。
+   */
+  number?: number;
+  /**
+   * 雪碧图每行切片列数（如 10）。
+   */
+  column?: number;
+  /**
+   * 缩略图单帧宽度（像素）。默认 160。
+   */
+  width?: number;
+  /**
+   * 缩略图单帧高度（像素）。默认 90。
+   */
+  height?: number;
+  /**
+   * 缩略图放大缩放倍数。默认 1。
+   */
+  scale?: number;
+}
+
+/**
+ * 本地播放历史记忆续播配置契约。
+ */
+export interface VideoPlaybackHistoryOptions {
+  /**
+   * 是否启用播放历史记忆续播。默认 false。
+   */
+  enabled?: boolean;
+  /**
+   * 自定义本地存储 Storage Key。默认按 `at_video_resume_${url}` 生成。
+   */
+  storageKey?: string;
+  /**
+   * 最小记忆与恢复时间阈值（秒）。播放进度小于该值时不予恢复，默认 5 秒。
+   */
+  minTime?: number;
+  /**
+   * 临近播放结束的时间阈值（秒）。剩余时长小于该值时不恢复，默认 5 秒。
+   */
+  maxTimeThreshold?: number;
+  /**
+   * 恢复历史进度后是否自动开始播放。默认 false。
+   */
+  autoPlay?: boolean;
+  /**
+   * 是否在播放器界面展示浮动提示卡片（如 "已恢复上次播放进度 01:23 [重新播放]"）。默认 true。
+   */
+  showPrompt?: boolean;
+  /**
+   * 浮动提示展示时长（毫秒）。默认 3000ms。
+   */
+  promptDuration?: number;
+}
+
+/**
  * 底层播放驱动适配器抽象接口 (SPI)。
  *
  * 定义播放控制、生命周期管理与事件订阅的标准规范，屏蔽底层具体播放器内核实现。
@@ -136,6 +200,21 @@ export interface IVideoPlayerEngine {
    * @param time 目标时间秒数
    */
   seek(time: number): void;
+
+  /**
+   * 相对快进或快退指定时间步长（秒）。正数快进，负数快退。
+   *
+   * @param seconds 步进秒数
+   */
+  step(seconds: number): void;
+
+  /**
+   * 逐帧精确微调步进。
+   *
+   * @param frames 步进帧数（默认 1，正数向前，负数向后）
+   * @param fps 视频估计帧率（默认 30 帧/秒）
+   */
+  stepFrame(frames?: number, fps?: number): void;
 
   /**
    * 调整音量。
@@ -315,6 +394,18 @@ export interface VideoPlayerOptions {
    */
   markers?: VideoMarkerItem[];
   /**
+   * 进度条悬浮预览缩略图配置（雪碧图或 VTT 地址）。
+   */
+  thumbnails?: VideoThumbnailOptions;
+  /**
+   * 记忆续播配置（布尔值快捷开启或高级配置选项）。默认 false。
+   */
+  autoResume?: boolean | VideoPlaybackHistoryOptions;
+  /**
+   * 恢复历史记忆进度后是否自动播放。默认 false。
+   */
+  autoPlayResume?: boolean;
+  /**
    * 自定义流媒体解封装加载器（扩展 SPI）。
    */
   customType?: Record<string, (video: HTMLVideoElement, url: string, art: unknown) => void>;
@@ -421,6 +512,18 @@ export interface AtengVideoPlayerProps {
    */
   markers?: VideoMarkerItem[];
   /**
+   * 进度条悬浮预览缩略图配置（雪碧图或 VTT 地址）。
+   */
+  thumbnails?: VideoThumbnailOptions;
+  /**
+   * 记忆续播配置（布尔值快捷开启或高级配置选项）。默认 false。
+   */
+  autoResume?: boolean | VideoPlaybackHistoryOptions;
+  /**
+   * 恢复历史记忆进度后是否自动播放。默认 false。
+   */
+  autoPlayResume?: boolean;
+  /**
    * 自定义流媒体解复用器钩子（如 hls.js、mpegts.js 挂载）。
    */
   customType?: Record<string, (video: HTMLVideoElement, url: string, art: unknown) => void>;
@@ -462,6 +565,18 @@ export interface AtengVideoPlayerEmits {
    * 网页全屏状态变化事件。
    */
   (e: 'fullscreenWeb', isFullscreenWeb: boolean): void;
+  /**
+   * 记忆续播历史进度恢复事件。
+   */
+  (e: 'resume', time: number): void;
+  /**
+   * 时间轴事件打点标记点击跳帧事件。
+   */
+  (e: 'marker-click', marker: VideoMarkerItem): void;
+  /**
+   * 时间轴事件打点标记点击跳帧事件 (驼峰命名)。
+   */
+  (e: 'markerClick', marker: VideoMarkerItem): void;
 }
 
 /**
@@ -537,6 +652,21 @@ export interface UseVideoPlayerReturn {
    * 精准快进/快退到目标时间戳。
    */
   seek(time: number): void;
+
+  /**
+   * 相对快进或快退指定时间步长（秒）。正数快进，负数快退。
+   *
+   * @param seconds 步进秒数
+   */
+  step(seconds: number): void;
+
+  /**
+   * 逐帧精确微调步进。
+   *
+   * @param frames 步进帧数（默认 1，正数向前，负数向后）
+   * @param fps 视频估计帧率（默认 30 帧/秒）
+   */
+  stepFrame(frames?: number, fps?: number): void;
   /**
    * 调整音量。
    */
@@ -589,6 +719,14 @@ export interface UseVideoPlayerReturn {
    * 确定性销毁播放器并释放资源。
    */
   destroy(): void;
+  /**
+   * 清除当前视频本地持久化的播放历史进度记录。
+   */
+  clearPlaybackHistory(): void;
+  /**
+   * 从头重新开始播放（跳转至第 0 秒并开始播放）。
+   */
+  replay(): Promise<void>;
 }
 
 /**
@@ -612,6 +750,21 @@ export type AtengVideoPlayerInstance = ComponentPublicInstance<
     pause(): void;
     toggle(): void;
     seek(time: number): void;
+
+    /**
+     * 相对快进或快退指定时间步长（秒）。正数快进，负数快退。
+     *
+     * @param seconds 步进秒数
+     */
+    step(seconds: number): void;
+
+    /**
+     * 逐帧精确微调步进。
+     *
+     * @param frames 步进帧数（默认 1，正数向前，负数向后）
+     * @param fps 视频估计帧率（默认 30 帧/秒）
+     */
+    stepFrame(frames?: number, fps?: number): void;
     setVolume(vol: number): void;
     setMuted(muted: boolean): void;
     setPlaybackRate(rate: number): void;
@@ -624,6 +777,8 @@ export type AtengVideoPlayerInstance = ComponentPublicInstance<
     toggleWebFullscreen(): void;
     destroy(): void;
     retry(): void;
+    clearPlaybackHistory(): void;
+    replay(): Promise<void>;
   }
 >;
 
