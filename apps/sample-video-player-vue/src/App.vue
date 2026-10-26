@@ -11,6 +11,7 @@ import VodDemo from './components/VodDemo.vue';
 import DeepVodDemo from './components/DeepVodDemo.vue';
 import AuthSecurityDemo from './components/AuthSecurityDemo.vue';
 import LiveDemo from './components/LiveDemo.vue';
+import WatermarkDemo from './components/WatermarkDemo.vue';
 
 const activeTab = ref<
   'vod' | 'deep-vod' | 'security' | 'live' | 'grid' | 'ptz' | 'watermark' | 'danmaku'
@@ -76,6 +77,10 @@ const tabs = [
 
       <div v-else-if="activeTab === 'live'">
         <LiveDemo />
+      </div>
+
+      <div v-else-if="activeTab === 'watermark'">
+        <WatermarkDemo />
       </div>
 
       <div v-else class="sample-placeholder">

@@ -8,7 +8,7 @@
  */
 
 import type { App, Plugin } from 'vue';
-import { AtengVideoPlayer } from './components';
+import { AtengVideoPlayer, AtengVideoWatermark } from './components';
 
 // 1. 组件导出
 export * from './components';
@@ -35,6 +35,7 @@ export * from './drivers';
  */
 export function install(app: App): void {
   app.component('AtengVideoPlayer', AtengVideoPlayer);
+  app.component('AtengVideoWatermark', AtengVideoWatermark);
 }
 
 const plugin: Plugin = { install };

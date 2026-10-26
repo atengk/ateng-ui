@@ -6,3 +6,4 @@
  */
 
 export { default as AtengVideoPlayer } from './AtengVideoPlayer.vue';
+export { default as AtengVideoWatermark } from './AtengVideoWatermark.vue';

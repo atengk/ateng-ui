@@ -8,21 +8,22 @@
 
 ## 0. 特性与公共 API 全景速查矩阵
 
-| 特性分类         | 特性名称             | 核心门面 / 组件 / Hook                                         | 关键参数 / Props / Emits                                              | 核心行为说明                                                                           | 锚定验证源头 (*Test / Sample)                                         |
-| :--------------- | :------------------- | :------------------------------------------------------------- | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-| **基础渲染**     | 单路视频播放容器     | `<AtengVideoPlayer />`                                         | `url`, `type`, `isLive`, `reconnect`, `liveBufferLatencyChasing`      | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                                   | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
-| **无头状态机**   | 响应式播放状态机     | `useVideoPlayer(options)`                                      | `url`, `autoplay`, `volume`, `loop`                                   | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                                     | `AtengVideoPlayer.test.ts`                                            |
-| **断流重连**     | 指数退避重连状态机   | `useStreamReconnect(options)`                                  | `maxRetries`, `baseDelay`, `maxDelay`, `jitter`, `triggerReconnect`   | 工业级指数退避重连算法与 ±20% 抖动抗惊群，硬失败转接与定时器确定性清理                 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **记忆续播**     | 本地历史与续播状态机 | `useVideoPlaybackHistory()`                                    | `url`, `autoResume`, `autoPlayResume`, `clearHistory`, `saveProgress` | 基于 localStorage 记忆播放进度，支持弹窗提示、恢复后自动播放、防抖写入与一键重放       | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **热键与步进**   | 键盘热键与逐帧微调   | `engine.step()`, `engine.stepFrame()`                          | `hotkey: boolean`, `step(seconds)`, `stepFrame(frames, fps)`          | 支持空格播放暂停、方向键快进快退音量、F全屏、M静音、[,]/[,]逐帧微调，输入框安全防穿透  | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **时间轴打点**   | 关键帧标注与点击跳帧 | `<AtengVideoPlayer />`                                         | `markers: VideoMarkerItem[]`, `@marker-click`                         | 时间轴高亮打点、悬浮卡片提示、颜色定制，点击打点实现精准快速跳帧                       | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **缩略图预览**   | 进度条 Hover 预览    | `<AtengVideoPlayer />`                                         | `thumbnails: VideoThumbnailOptions`                                   | 支持传入雪碧图切片配置或 WebVTT 格式，鼠标悬浮进度条展示动态帧预览卡片                 | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **底层引擎 SPI** | Artplayer 适配引擎   | `ArtplayerEngine`                                              | `container`, `options`, `handlers`                                    | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                             | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
-| **流媒体驱动**   | HLS 播放驱动         | `HlsDriver`                                                    | `video`, `url`, `options`                                             | 基于 hls.js 驱动，支持 ABR 码率自适应、Safari 降级与 xhrSetup 鉴权拦截                 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **流媒体驱动**   | HTTP-FLV 播放驱动    | `MpegtsDriver`                                                 | `video`, `url`, `options`                                             | 基于 mpegts.js 驱动，支持低延迟直播、智能毫秒追帧与 autoCleanupSourceBuffer 防内存泄漏 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **安全鉴权**     | 企业凭据双轨注入器   | `TokenInjector`                                                | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`      | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`        | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **白屏守卫**     | ADR-0004 双态探测    | `BlobJsonGuard`                                                | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()`     | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁       | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **类型契约**     | 核心强类型全量定义   | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions` | 详见 `types/index.ts`                                                 | 100% 强类型覆盖，零裸 `any`                                                            | `types/index.ts`                                                      |
+| 特性分类         | 特性名称             | 核心门面 / 组件 / Hook                                         | 关键参数 / Props / Emits                                                         | 核心行为说明                                                                               | 锚定验证源头 (*Test / Sample)                                         |
+| :--------------- | :------------------- | :------------------------------------------------------------- | :------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **基础渲染**     | 单路视频播放容器     | `<AtengVideoPlayer />`                                         | `url`, `type`, `isLive`, `reconnect`, `liveBufferLatencyChasing`                 | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                                       | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
+| **无头状态机**   | 响应式播放状态机     | `useVideoPlayer(options)`                                      | `url`, `autoplay`, `volume`, `loop`                                              | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                                         | `AtengVideoPlayer.test.ts`                                            |
+| **断流重连**     | 指数退避重连状态机   | `useStreamReconnect(options)`                                  | `maxRetries`, `baseDelay`, `maxDelay`, `jitter`, `triggerReconnect`              | 工业级指数退避重连算法与 ±20% 抖动抗惊群，硬失败转接与定时器确定性清理                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **记忆续播**     | 本地历史与续播状态机 | `useVideoPlaybackHistory()`                                    | `url`, `autoResume`, `autoPlayResume`, `clearHistory`, `saveProgress`            | 基于 localStorage 记忆播放进度，支持弹窗提示、恢复后自动播放、防抖写入与一键重放           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **热键与步进**   | 键盘热键与逐帧微调   | `engine.step()`, `engine.stepFrame()`                          | `hotkey: boolean`, `step(seconds)`, `stepFrame(frames, fps)`                     | 支持空格播放暂停、方向键快进快退音量、F全屏、M静音、[,]/[,]逐帧微调，输入框安全防穿透      | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **时间轴打点**   | 关键帧标注与点击跳帧 | `<AtengVideoPlayer />`                                         | `markers: VideoMarkerItem[]`, `@marker-click`                                    | 时间轴高亮打点、悬浮卡片提示、颜色定制，点击打点实现精准快速跳帧                           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **缩略图预览**   | 进度条 Hover 预览    | `<AtengVideoPlayer />`                                         | `thumbnails: VideoThumbnailOptions`                                              | 支持传入雪碧图切片配置或 WebVTT 格式，鼠标悬浮进度条展示动态帧预览卡片                     | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **安全水印**     | 防录屏安全水印容器   | `<AtengVideoWatermark />`                                      | `content`, `opacity`, `rotate`, `floating`, `tamperProof`, `@watermark-tampered` | Canvas/SVG 矢量平铺，动态微位移随机浮动破坏录屏反算法，MutationObserver 审查防篡改毫秒自愈 | `watermark.test.ts` / `sample-video-player-vue/WatermarkDemo.vue`     |
+| **底层引擎 SPI** | Artplayer 适配引擎   | `ArtplayerEngine`                                              | `container`, `options`, `handlers`                                               | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                                 | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
+| **流媒体驱动**   | HLS 播放驱动         | `HlsDriver`                                                    | `video`, `url`, `options`                                                        | 基于 hls.js 驱动，支持 ABR 码率自适应、Safari 降级与 xhrSetup 鉴权拦截                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **流媒体驱动**   | HTTP-FLV 播放驱动    | `MpegtsDriver`                                                 | `video`, `url`, `options`                                                        | 基于 mpegts.js 驱动，支持低延迟直播、智能毫秒追帧与 autoCleanupSourceBuffer 防内存泄漏     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **安全鉴权**     | 企业凭据双轨注入器   | `TokenInjector`                                                | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`                 | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`            | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **白屏守卫**     | ADR-0004 双态探测    | `BlobJsonGuard`                                                | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()`                | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁           | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **类型契约**     | 核心强类型全量定义   | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions` | 详见 `types/index.ts`                                                            | 100% 强类型覆盖，零裸 `any`                                                                | `types/index.ts`                                                      |
 
 ---
 
@@ -150,6 +151,26 @@ const signedUrl = TokenInjector.injectUrl('https://stream.example.com/live.m3u8'
 </template>
 ```
 
+### 2.5 涉密视频安全水印与 F12 审查防篡改自愈
+
+```vue
+<template>
+  <AtengVideoPlayer url="https://video.example.com/confidential.mp4">
+    <!-- 安全水印浮层 -->
+    <template #watermark>
+      <AtengVideoWatermark
+        :content="['内部涉密 截屏追责', '工号: SEC-9527', 'IP: 192.168.1.108']"
+        :opacity="0.18"
+        :rotate="-22"
+        :floating="true"
+        :tamper-proof="true"
+        @watermark-tampered="detail => console.warn('捕获恶意篡改告警:', detail)"
+      />
+    </template>
+  </AtengVideoPlayer>
+</template>
+```
+
 ---
 
 ## 3. 核心生产边界与非功能语义 (Production Boundary)
@@ -177,9 +198,14 @@ const signedUrl = TokenInjector.injectUrl('https://stream.example.com/live.m3u8'
 5. **清理定时器**：彻底清空组件与引擎挂载的所有物理定时器；
 6. **销毁内核**：调用 Artplayer 原生 `destroy(true)` 彻底卸载 DOM 节点与事件代理。
 
-### 3.2 ADR-0004 Blob-JSON 双态异常识别防线
+### 3.4 ADR-0004 Blob-JSON 双态异常识别防线
 
 当音视频文件直链接口鉴权失效或资源下架时，服务端通常返回 `Content-Type: application/json` 的报错文本而非标准媒体二进制流。若将其直接交由二进制解封装器解析，会发生无声黑屏或解码锁死。本模块在探测流（`probeStream: true`）中前置执行双态嗅探，精准拦截 401/403/500 JSON 错误并转译为业务异常抛出。
+
+### 3.5 容器级全屏穿越不变量与 MutationObserver 审查防篡改
+
+- **容器级全屏穿越**：原生 HTML5 `video.requestFullscreen()` 会将媒体元素提升到独立的合成层，导致外层所有的 DOM 浮层（水印、自定义控制栏、弹幕）在原生全屏下被浏览器底层无情丢弃。本套件统一通过播放器最外层根容器发起 `container.requestFullscreen()`，确保在原生全屏与网页全屏下水印 100% 牢固覆盖不脱落；
+- **防审查自愈状态机**：挂载 `MutationObserver` 双重监听，一旦黑客在浏览器 F12 中注入 `display: none`、`opacity: 0` 或通过 `remove()` 强行物理删除水印节点，状态机在毫秒级自动就地自愈重建，并向外派发 `@watermark-tampered` 安全告警事件以供安全审计留痕。
 
 ---
 
@@ -188,4 +214,7 @@ const signedUrl = TokenInjector.injectUrl('https://stream.example.com/live.m3u8'
 本仓库所有特性在 `apps/sample-video-player-vue` 1:1 自验展厅中均提供可交互验证用例：
 
 - `sample-video-player-vue/VodDemo.vue`：标准点播实机体验；
-- `sample-video-player-vue/AuthSecurityDemo.vue`：鉴权注入、401/403 故障注入与六步销毁显存追踪实测。
+- `sample-video-player-vue/DeepVodDemo.vue`：精准 Seek、逐帧微调、记忆续播与时间轴打点实测；
+- `sample-video-player-vue/LiveDemo.vue`：低延迟 HLS/FLV 直播、断流指数退避重连与毫秒追帧实测；
+- `sample-video-player-vue/AuthSecurityDemo.vue`：鉴权注入、401/403 故障注入与六步销毁显存追踪实测；
+- `sample-video-player-vue/WatermarkDemo.vue`：防录屏水印动态浮动、F12 攻防自愈沙箱与容器级全屏实测。

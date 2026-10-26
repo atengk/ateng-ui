@@ -90,9 +90,11 @@ defineSlots<{
 }>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
+const playerWrapperRef = ref<HTMLDivElement | null>(null);
 const engineRef = ref<IVideoPlayerEngine | null>(null);
 const isReady = ref(false);
 const errorState = ref<unknown | null>(null);
+const isFullscreenState = ref(false);
 
 // 记忆续播状态机
 const historyState = useVideoPlaybackHistory(
@@ -264,6 +266,66 @@ const handleReplayFromBeginning = async (): Promise<void> => {
   }
 };
 
+/**
+ * 容器级全屏穿越：由播放器最外层根容器发起 requestFullscreen，
+ * 彻底杜绝浏览器原生全屏仅提升 video 元素导致丢失 DOM 水印、控制栏和插槽的缺陷。
+ */
+const enterFullscreen = async (): Promise<void> => {
+  const root = playerWrapperRef.value;
+  if (!root) {
+    return;
+  }
+  try {
+    if (root.requestFullscreen) {
+      await root.requestFullscreen();
+    } else if ('webkitRequestFullscreen' in root) {
+      await (
+        root as HTMLElement & { webkitRequestFullscreen(): Promise<void> }
+      ).webkitRequestFullscreen();
+    } else {
+      engineRef.value?.enterFullscreen();
+    }
+  } catch {
+    engineRef.value?.enterFullscreen();
+  }
+};
+
+const exitFullscreen = async (): Promise<void> => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else if (
+      'webkitFullscreenElement' in document &&
+      (document as Document & { webkitExitFullscreen(): Promise<void> }).webkitExitFullscreen
+    ) {
+      await (
+        document as Document & { webkitExitFullscreen(): Promise<void> }
+      ).webkitExitFullscreen();
+    } else {
+      engineRef.value?.exitFullscreen();
+    }
+  } catch {
+    engineRef.value?.exitFullscreen();
+  }
+};
+
+const toggleFullscreen = async (): Promise<void> => {
+  const isCurrentlyFull =
+    isFullscreenState.value || document.fullscreenElement === playerWrapperRef.value;
+
+  if (isCurrentlyFull) {
+    await exitFullscreen();
+  } else {
+    await enterFullscreen();
+  }
+};
+
+const handleFullscreenChange = (): void => {
+  const isRootFull = document.fullscreenElement === playerWrapperRef.value;
+  isFullscreenState.value = isRootFull;
+  emit('fullscreen', isRootFull);
+};
+
 // 监听 URL 变化平滑切流
 watch(
   () => props.url,
@@ -276,10 +338,14 @@ watch(
 
 onMounted(() => {
   void initPlayer();
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 });
 
 onBeforeUnmount(() => {
   destroyPlayer();
+  document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
 });
 
 /**
@@ -320,13 +386,13 @@ defineExpose({
     return (await engineRef.value?.screenshot()) ?? '';
   },
   enterFullscreen: (): void => {
-    engineRef.value?.enterFullscreen();
+    void enterFullscreen();
   },
   exitFullscreen: (): void => {
-    engineRef.value?.exitFullscreen();
+    void exitFullscreen();
   },
   toggleFullscreen: (): void => {
-    engineRef.value?.toggleFullscreen();
+    void toggleFullscreen();
   },
   enterWebFullscreen: (): void => {
     engineRef.value?.enterWebFullscreen();
@@ -353,7 +419,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="at-video-player" :class="{ 'at-video-player--ready': isReady }">
+  <div
+    ref="playerWrapperRef"
+    class="at-video-player"
+    :class="{ 'at-video-player--ready': isReady, 'at-video-player--fullscreen': isFullscreenState }"
+  >
     <!-- Artplayer 挂载的物理渲染容器 -->
     <div ref="containerRef" class="at-video-player__art-container"></div>
 
@@ -476,6 +546,14 @@ defineExpose({
   user-select: none;
   display: flex;
   flex-direction: column;
+}
+
+.at-video-player:fullscreen,
+.at-video-player:-webkit-full-screen,
+.at-video-player--fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
 }
 
 .at-video-player__art-container {

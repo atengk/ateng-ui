@@ -919,3 +919,106 @@ export interface MpegtsDriverOptions {
    */
   onError?: (error: unknown) => void;
 }
+
+/**
+ * 水印篡改告警事件详情契约。
+ */
+export interface WatermarkTamperDetail {
+  /**
+   * 篡改类型：'style' (样式被篡改) 或 'removal' (节点被移出 DOM)。
+   */
+  type: 'style' | 'removal';
+  /**
+   * 篡改发生的时间戳。
+   */
+  timestamp: number;
+}
+
+/**
+ * AtengVideoWatermark 组件 Props 契约。
+ */
+export interface VideoWatermarkProps {
+  /**
+   * 水印文本内容。若传入字符串数组，则按多行文本渲染。
+   */
+  content?: string | string[];
+  /**
+   * 水印字体大小（像素），默认 16。
+   */
+  fontSize?: number;
+  /**
+   * 水印字体族，默认 'sans-serif'。
+   */
+  fontFamily?: string;
+  /**
+   * 水印字体颜色（十六进制或 CSS 颜色串），默认 '#ffffff'。
+   */
+  color?: string;
+  /**
+   * 水印整体透明度（0.0 ~ 1.0），默认 0.15。
+   */
+  opacity?: number;
+  /**
+   * 水印倾斜旋转角度（度），默认 -22。
+   */
+  rotate?: number;
+  /**
+   * 水印单元水平间距（像素），默认 160。
+   */
+  gapX?: number;
+  /**
+   * 水印单元垂直间距（像素），默认 120。
+   */
+  gapY?: number;
+  /**
+   * 是否开启防审查与防删除篡改自愈（MutationObserver 监听）。默认 true。
+   */
+  tamperProof?: boolean;
+  /**
+   * 是否开启动态微位移浮动（对抗录屏去除算法）。默认 true。
+   */
+  floating?: boolean;
+  /**
+   * 动态微位移刷新间隔周期（毫秒）。默认 3000ms。
+   */
+  floatInterval?: number;
+  /**
+   * 动态微位移随机漂移幅度（像素）。默认 15px。
+   */
+  floatDistance?: number;
+  /**
+   * 水印层级 z-index。默认 30。
+   */
+  zIndex?: number;
+}
+
+/**
+ * AtengVideoWatermark 组件 Emits 事件契约。
+ */
+export interface VideoWatermarkEmits {
+  /**
+   * 水印节点被修改或删除时触发的安全告警事件。
+   */
+  (e: 'watermark-tampered', details: WatermarkTamperDetail): void;
+  /**
+   * 水印节点被修改或删除时触发的安全告警事件 (驼峰命名)。
+   */
+  (e: 'watermarkTampered', details: WatermarkTamperDetail): void;
+}
+
+/**
+ * AtengVideoWatermark 组件 Ref 实例类型。
+ */
+export type AtengVideoWatermarkInstance = ComponentPublicInstance<
+  VideoWatermarkProps,
+  {
+    /**
+     * 手动触发水印重绘刷新。
+     */
+    refresh(): void;
+    /**
+     * 手动销毁水印实例与防篡改监听器。
+     */
+    destroy(): void;
+  }
+>;
