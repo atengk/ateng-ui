@@ -36,6 +36,30 @@ export {
 } from './utils/viewStateHistory';
 export type { StoredViewState, ResolveViewStateKeyInput } from './utils/viewStateHistory';
 
+export {
+  configureFileViewer,
+  getFileViewerConfig,
+  resetFileViewerConfig,
+  resolveThreeTierAssetBaseUrl,
+  createTieredAssetOptions,
+  DEFAULT_LOCAL_ASSET_BASE_URL,
+  DEFAULT_PUBLIC_CDN_BASE_URL,
+} from './utils/assets';
+export type { FileViewerGlobalConfig, ResolveAssetBaseUrlOptions } from './utils/assets';
+
+export {
+  registerPreset,
+  unregisterPreset,
+  getRegisteredPresets,
+  clearPresets,
+  resolvePresets,
+} from './utils/presets';
+export type {
+  FileViewerPreset,
+  FileViewerPresetRenderer,
+  FileViewerPresetRendererDefinition,
+} from './utils/presets';
+
 export { useFileViewer } from './composables/useFileViewer';
 export type { UseFileViewerOptions, UseFileViewerReturn } from './composables/useFileViewer';
 

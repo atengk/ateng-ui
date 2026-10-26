@@ -10,7 +10,14 @@
  */
 
 import { ref, computed, readonly, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue';
-import type { AtengFileViewerInstance, FileViewerDocumentAnchor, FileViewerSheet } from '../types';
+import type {
+  AtengFileViewerInstance,
+  FileViewerDocumentAnchor,
+  FileViewerSheet,
+  FileViewerPreset,
+} from '../types';
+import { resolveThreeTierAssetBaseUrl } from '../utils/assets';
+import { resolvePresets } from '../utils/presets';
 
 export interface UseFileViewerOptions {
   /**
@@ -49,6 +56,16 @@ export interface UseFileViewerOptions {
   viewerRef?: MaybeRefOrGetter<AtengFileViewerInstance | null | undefined>;
 
   /**
+   * 静态资产基地址覆盖 (遵循三级弹性寻址)。
+   */
+  assetBaseUrl?: MaybeRefOrGetter<string | URL | null | undefined>;
+
+  /**
+   * 动态重载扩展预设 (如 CAD、3D 模型、OFD 等)。
+   */
+  preset?: MaybeRefOrGetter<FileViewerPreset | FileViewerPreset[] | undefined>;
+
+  /**
    * 是否允许下载 (DLP 控制)。
    */
   downloadable?: MaybeRefOrGetter<boolean | undefined>;
@@ -79,6 +96,8 @@ export interface UseFileViewerReturn {
   // 绑定与底层实例访问
   bindViewer: (instance: AtengFileViewerInstance | null) => void;
   getViewerInstance: () => AtengFileViewerInstance | null;
+  getAssetBaseUrl: () => string;
+  getPresets: () => FileViewerPreset[];
 
   // 控制指令集
   zoomIn: () => void;
@@ -351,6 +370,16 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     // 绑定与实例获取
     bindViewer,
     getViewerInstance,
+    getAssetBaseUrl: () => {
+      const fromInstance = activeInstance.value?.getAssetBaseUrl?.();
+      if (fromInstance) return fromInstance;
+      return resolveThreeTierAssetBaseUrl({ localOverride: toValue(options.assetBaseUrl) });
+    },
+    getPresets: () => {
+      const fromInstance = activeInstance.value?.getPresets?.();
+      if (fromInstance) return fromInstance;
+      return resolvePresets(toValue(options.preset));
+    },
 
     // 指令集
     zoomIn,

@@ -436,4 +436,39 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
       wrapper.unmount();
     });
   });
+
+  describe('离线内网静态资产寻址与动态重型预设扩展契约测试 (#135)', () => {
+    it('支持局部传入 assetBaseUrl 覆盖且通过 getAssetBaseUrl() 正确暴露', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/doc.pdf',
+          assetBaseUrl: 'https://intranet.corp.com/file-viewer',
+        },
+      });
+
+      expect(wrapper.vm.getAssetBaseUrl()).toBe('https://intranet.corp.com/file-viewer/');
+      wrapper.unmount();
+    });
+
+    it('支持通过 :preset 属性动态挂载重型扩展预设', async () => {
+      const cadPreset = {
+        id: 'preset-cad-test',
+        label: 'CAD 预设',
+        renderers: [{ id: 'cad-renderer' }],
+      };
+
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/drawing.dwg',
+          preset: cadPreset,
+        },
+      });
+
+      const presets = wrapper.vm.getPresets();
+      expect(presets.length).toBeGreaterThanOrEqual(1);
+      expect(presets.some(p => p.id === 'preset-cad-test')).toBe(true);
+
+      wrapper.unmount();
+    });
+  });
 });

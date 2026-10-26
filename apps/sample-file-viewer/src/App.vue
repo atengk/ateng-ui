@@ -54,6 +54,29 @@ const preserveViewState = ref<boolean>(true);
 const isViewerMounted = ref<boolean>(true);
 const viewerInstanceRef = ref<AtengFileViewerInstance | null>(null);
 
+// 工单 #135 新增：三级弹性资产寻址与动态重型预设插拔
+const assetStrategy = ref<'local' | 'intranet' | 'cdn'>('local');
+const enableCadPreset = ref<boolean>(true);
+const enableModelPreset = ref<boolean>(false);
+
+const dynamicPresets = computed(() => {
+  const list = [];
+  if (enableCadPreset.value) {
+    list.push({ id: 'preset-cad', label: 'CAD 工程图纸预设' });
+  }
+  if (enableModelPreset.value) {
+    list.push({ id: 'preset-3d', label: 'Three.js 3D 模型预设' });
+  }
+  return list;
+});
+
+const resolvedAssetBaseUrl = computed(() => {
+  if (assetStrategy.value === 'intranet') return 'http://192.168.10.88:9000/minio/file-viewer/';
+  if (assetStrategy.value === 'cdn')
+    return 'https://cdn.jsdelivr.net/npm/@file-viewer/assets@3.2.2/dist/';
+  return '/file-viewer/';
+});
+
 // 模拟 Excel 多工作表
 const sampleSheets = computed<FileViewerSheet[]>(() => {
   if (currentType.value === 'xlsx' || currentType.value === 'xls') {
@@ -281,6 +304,31 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
       </div>
     </div>
 
+    <!-- 工单 #135 控制栏：三级弹性资产寻址与动态重型预设扩展 -->
+    <div class="feature-bar">
+      <div class="feature-group">
+        <span class="feature-label">🌐 离线资产寻址 (三级优先级):</span>
+        <select v-model="assetStrategy" class="dlp-select">
+          <option value="local">本地同源 (public/file-viewer/) [默认/完全离线]</option>
+          <option value="intranet">内网私有化基地址 (MinIO/局域网)</option>
+          <option value="cdn">公共 CDN 高可用镜像 (JsDelivr 兜底)</option>
+        </select>
+        <span class="status-msg">[{{ resolvedAssetBaseUrl }}]</span>
+      </div>
+
+      <div class="feature-group">
+        <span class="feature-label">🧩 动态重型预设按需插拔:</span>
+        <label class="dlp-checkbox">
+          <input v-model="enableCadPreset" type="checkbox" />
+          <span>CAD 工程图纸预设</span>
+        </label>
+        <label class="dlp-checkbox">
+          <input v-model="enableModelPreset" type="checkbox" />
+          <span>Three.js 3D 模型预设</span>
+        </label>
+      </div>
+    </div>
+
     <div class="sample-status-bar">
       <span
         >当前文件: <strong>{{ currentName }}</strong></span
@@ -312,6 +360,8 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         :file-type="currentType"
         :sheets="sampleSheets"
         :toc-list="sampleTocList"
+        :preset="dynamicPresets"
+        :asset-base-url="resolvedAssetBaseUrl"
         :preserve-view-state="preserveViewState"
         :downloadable="downloadable"
         :printable="printable"

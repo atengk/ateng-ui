@@ -6,6 +6,10 @@
  */
 
 import type { ComponentPublicInstance } from 'vue';
+import type { FileViewerPreset } from './utils/presets';
+
+export type { FileViewerPreset } from './utils/presets';
+export type { FileViewerGlobalConfig } from './utils/assets';
 
 export type FileViewerTheme = 'light' | 'dark' | 'auto';
 
@@ -230,6 +234,16 @@ export interface AtengFileViewerProps {
   contextMenu?: boolean;
 
   /**
+   * 静态资产基地址覆盖 (遵循三级弹性寻址：局部覆盖 ➔ 全局配置 ➔ 本地 public)。
+   */
+  assetBaseUrl?: string | URL | null;
+
+  /**
+   * 动态重载扩展预设 (如 CAD、3D 模型、OFD 等重型预设，支持单个或数组)。
+   */
+  preset?: FileViewerPreset | FileViewerPreset[];
+
+  /**
    * 防泄密动态安全倾斜水印配置 (支持传入文本字符串或结构化对象，具备 MutationObserver 反篡改监视)。
    */
   watermark?: FileViewerWatermark;
@@ -411,6 +425,16 @@ export interface AtengFileViewerExpose {
    * 获取底层原始视图状态。
    */
   getViewState: () => Record<string, unknown> | null;
+
+  /**
+   * 获取当前生效的静态资产基地址。
+   */
+  getAssetBaseUrl: () => string;
+
+  /**
+   * 获取当前生效的所有预设列表。
+   */
+  getPresets: () => FileViewerPreset[];
 
   /**
    * 应用或恢复视图状态。

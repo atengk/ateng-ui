@@ -44,6 +44,8 @@ import {
   saveViewStateHistory,
   restoreViewStateHistory,
 } from '../utils/viewStateHistory';
+import { resolveThreeTierAssetBaseUrl, createTieredAssetOptions } from '../utils/assets';
+import { resolvePresets, type FileViewerPreset } from '../utils/presets';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -89,6 +91,8 @@ const props = withDefaults(defineProps<AtengFileViewerProps>(), {
   copyable: true,
   contextMenu: true,
   watermark: undefined,
+  assetBaseUrl: undefined,
+  preset: undefined,
 });
 
 const emit = defineEmits<AtengFileViewerEmits>();
@@ -226,14 +230,39 @@ function getStorageKey(): unknown {
   });
 }
 
+// 计算当前生效的三级弹性资产基地址
+const effectiveAssetBaseUrl = computed<string>(() => {
+  return resolveThreeTierAssetBaseUrl({ localOverride: props.assetBaseUrl });
+});
+
+// 计算当前生效的动态预设列表 (去重合并全局预设与局部预设)
+const effectivePresets = computed<FileViewerPreset[]>(() => {
+  return resolvePresets(props.preset);
+});
+
+// 计算根据基地址自动生成的各重型内核 options
+const tieredAssetOptions = computed(() => {
+  return createTieredAssetOptions(effectiveAssetBaseUrl.value);
+});
+
 // 计算传递给底层渲染器的 options
 const mergedOptions = computed(() => {
+  // 聚合各动态预设中的默认 options
+  const presetOptions = effectivePresets.value.reduce<Record<string, unknown>>((acc, p) => {
+    if (p.options) {
+      return { ...acc, ...p.options };
+    }
+    return acc;
+  }, {});
+
   return {
     theme: props.theme,
     styleIsolation: 'shadow',
     toolbar: {
       position: 'bottom-right',
     },
+    ...tieredAssetOptions.value,
+    ...presetOptions,
     ...props.options,
   };
 });
@@ -750,6 +779,8 @@ defineExpose<AtengFileViewerExpose>({
   closeToc,
   scrollToAnchor,
   handleLoadComplete,
+  getAssetBaseUrl: () => effectiveAssetBaseUrl.value,
+  getPresets: () => effectivePresets.value,
   getViewState: () => innerFileViewerRef.value?.getViewState?.() || null,
   applyViewState: state =>
     innerFileViewerRef.value?.applyViewState?.(state) || Promise.resolve(null),

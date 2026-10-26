@@ -186,4 +186,15 @@ describe('useFileViewer 无头 Hook 状态响应与指令派发测试', () => {
 
     await expect(controller.scrollToAnchor('anchor-1')).resolves.toBe(false);
   });
+
+  it('支持传入 assetBaseUrl 与 preset 并通过对应方法读取', () => {
+    const cadPreset = { id: 'preset-cad-headless' };
+    const controller = useFileViewer({
+      assetBaseUrl: 'https://intranet.corp.com/assets',
+      preset: cadPreset,
+    });
+
+    expect(controller.getAssetBaseUrl()).toBe('https://intranet.corp.com/assets/');
+    expect(controller.getPresets().some(p => p.id === 'preset-cad-headless')).toBe(true);
+  });
 });
