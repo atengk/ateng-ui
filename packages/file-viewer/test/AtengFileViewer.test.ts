@@ -337,20 +337,29 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
       expect(wrapper.find('.at-file-viewer__toc-drawer').exists()).toBe(true);
       expect(wrapper.emitted('update:toc-open')?.[0]).toEqual([true]);
 
-      // 注入模拟大纲列表并测试锚点定位
+      // 注入模拟大纲列表并测试层级样式与锚点定位
       const mockAnchors: FileViewerDocumentAnchor[] = [
-        { id: 'sec-1', index: 0, label: '第 1 节 概述', page: 1 },
-        { id: 'sec-2', index: 1, label: '第 2 节 架构设计', page: 5 },
+        { id: 'sec-1', index: 0, label: '第 1 节 概述', level: 1, page: 1 },
+        { id: 'sec-2', index: 1, label: '第 2 节 架构设计', level: 2, page: 5 },
       ];
       await wrapper.setProps({ tocList: mockAnchors });
 
       const tocItems = wrapper.findAll('.at-file-viewer__toc-item');
       expect(tocItems.length).toBe(2);
       expect(tocItems[0].text()).toContain('第 1 节 概述');
+      expect(tocItems[0].classes()).toContain('at-file-viewer__toc-item--level-1');
       expect(tocItems[1].text()).toContain('P5');
+      expect(tocItems[1].classes()).toContain('at-file-viewer__toc-item--level-2');
+      expect(wrapper.find('.at-file-viewer__toc-bullet').exists()).toBe(true);
 
-      // 点击第 2 个章节锚点，自动同步页码
-      await tocItems[1].trigger('click');
+      // 清空大纲并验证优雅空状态提示
+      await wrapper.setProps({ tocList: [] });
+      expect(wrapper.find('.at-file-viewer__toc-empty').text()).toContain('当前文档未设置大纲标题');
+
+      // 重新赋回以完成点击定位测试
+      await wrapper.setProps({ tocList: mockAnchors });
+      const reTocItems = wrapper.findAll('.at-file-viewer__toc-item');
+      await reTocItems[1].trigger('click');
       await nextTick();
       expect(wrapper.vm.getPage()).toBe(5);
 

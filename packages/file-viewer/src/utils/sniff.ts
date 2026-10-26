@@ -71,6 +71,7 @@ const MIME_MAP: Record<string, string> = {
   'application/x-tar': 'tar',
   'text/plain': 'txt',
   'text/markdown': 'md',
+  'text/x-markdown': 'md',
   'text/html': 'html',
   'application/json': 'json',
 };
@@ -87,7 +88,8 @@ function extractExt(name: string): string {
   const baseName = lastSlash >= 0 ? clean.slice(lastSlash + 1) : clean;
   const dotIndex = baseName.lastIndexOf('.');
   if (dotIndex > 0 && dotIndex < baseName.length - 1) {
-    return baseName.slice(dotIndex + 1).toLowerCase();
+    const rawExt = baseName.slice(dotIndex + 1).toLowerCase();
+    return rawExt === 'markdown' ? 'md' : rawExt;
   }
   return '';
 }
@@ -207,7 +209,7 @@ export function detectFileType(options: SniffOptions): string {
   // 一阶判定：显式参数优先
   if (options.explicitType) {
     const clean = options.explicitType.trim().toLowerCase().replace(/^\./, '');
-    if (clean) return clean;
+    if (clean) return clean === 'markdown' ? 'md' : clean;
   }
   if (options.fileName) {
     const ext = extractExt(options.fileName);

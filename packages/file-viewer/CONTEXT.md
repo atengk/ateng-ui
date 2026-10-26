@@ -24,13 +24,25 @@ _Avoid_: useDocViewer, usePreviewSession, useViewerController
 
 ## 预设与静态资源治理
 
+**HeadingSemanticExtractor (标题语义提取器)**:
+从渲染完成的真实 DOM 树（Word / Markdown / HTML）中精准提取有效章节标题并生成层级大纲（TOC）的专有提取器，严格过滤复合容器与正文段落，杜绝全文拼接与伪标题污染。
+_Avoid_: domSearch, anchorCollector, rawTocParser
+
+**TableOfContents (文档目录大纲, TOC)**:
+文档阅读器的章节导航目录，支持多级树状缩进、层级指示与平滑滚动锚点联动定位，纯正文文档具备优雅空状态保底。
+_Avoid_: docIndex, chapterMenu, sectionBar
+
 **Preset**:
-渲染器支持的格式插件预设集合。分为默认内置的高频 Office 预设（Office Preset，覆盖 docx、xlsx、pptx、pdf、图片）与外部按需注入的重型扩展预设（Heavy Presets，覆盖 CAD、3D、OFD、压缩包）。
+渲染器支持的格式插件预设集合。分为默认内置的高频文档预设（Office & Text Preset，覆盖 docx、xlsx、pptx、pdf、md、markdown、txt、图片）与外部按需注入的重型扩展预设（Heavy Presets，覆盖 CAD、3D、OFD、压缩包）。
 _Avoid_: Plugin, Addon, FormatBundle
 
 **AssetBaseUrl**:
 用于在企业专网或私有云中离线托管 Web Worker、WASM 及 CJK 字体包的三级弹性静态资产根寻址路径。
 _Avoid_: workerPath, cdnHost, publicPath
+
+**FetchStreamTransport (Fetch 原生流式管道)**:
+基于标准 W3C Fetch API 与 ReadableStream 构建的文件流拉取管道，彻底隔离 XHR 原型链污染并原生防御 ADR-0004 双态 JSON 异常。
+_Avoid_: axiosBlob, xhrDownload, rawAjax
 
 ## 契约防御与安全控制
 

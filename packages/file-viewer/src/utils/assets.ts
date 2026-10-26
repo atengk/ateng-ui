@@ -154,7 +154,7 @@ export function createTieredAssetOptions(
     pdf: {
       workerUrl: buildUrl('pdf.worker.js'),
       cMapUrl: buildUrl('cmaps/'),
-      wasmUrl: buildUrl('pdf.wasm'),
+      wasmUrl: buildUrl('wasm/'),
       standardFontDataUrl: buildUrl('standard_fonts/'),
       cjkFontFallbackPath: buildUrl('fonts/cjk/'),
     },
@@ -170,7 +170,7 @@ export function createTieredAssetOptions(
       pptWorkerUrl: buildUrl('pptx.worker.js'),
       pptWasmUrl: buildUrl('ppt-native.wasm'),
       pptFontUrl: buildUrl('ppt-font-cjk.otf'),
-      workerUrl: buildUrl('presentation.worker.js'),
+      workerUrl: buildUrl('pptx.worker.js'),
     },
     cad: {
       wasmPath: buildUrl('cad.wasm'),

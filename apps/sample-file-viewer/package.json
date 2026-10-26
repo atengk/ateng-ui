@@ -15,6 +15,7 @@
     "@atengk/file-viewer": "workspace:*",
     "@atengk/vue": "workspace:*",
     "@file-viewer/preset-office": "^3.2.2",
+    "@file-viewer/renderer-text": "^3.2.2",
     "@file-viewer/vue3": "^3.2.2",
     "vue": "^3.5.44"
   },

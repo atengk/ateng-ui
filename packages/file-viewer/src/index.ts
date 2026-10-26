@@ -84,6 +84,8 @@ export type {
   DiagnoseContext,
 } from './utils/diagnostic';
 
+export { extractDocumentHeadings, resolveHeadingLevel } from './utils/toc';
+
 export { useFileViewer } from './composables/useFileViewer';
 export type { UseFileViewerOptions, UseFileViewerReturn } from './composables/useFileViewer';
 

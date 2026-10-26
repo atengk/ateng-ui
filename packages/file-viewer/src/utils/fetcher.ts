@@ -1,28 +1,18 @@
 /**
  * 企业级网络文件流获取与双态异常防御。
  *
+ * 采用原生标准 Fetch API + ReadableStream 流式管道，
+ * 彻底杜绝三方脚本 (如 inspector.js) 侵入 XMLHttpRequest 读取 responseText 抛出的 InvalidStateError。
  * 原生对接 @atengk/core 的 AuthManager（自动注入双轨 Token Header）、
- * AbortController 请求取消，并严格遵循 ADR-0004 防御 Blob 中的 JSON 错误体。
+ * AbortController 优雅取消，并严格遵循 ADR-0004 防御 application/json 错误体。
  *
  * @author Ateng
  * @since 2026-10-26
  */
 
-import {
-  http,
-  checkBlobForJsonError,
-  getBlobDisposition,
-  parseContentDispositionFilename,
-  type Result,
-} from '@atengk/core';
+import { authManager, BusinessException, parseContentDispositionFilename } from '@atengk/core';
 import { detectFileType } from './sniff';
 import { calculateProgress, type FileViewerDownloadProgress } from './sizeGuard';
-
-interface StreamProgressEvent {
-  loaded?: number;
-  total?: number;
-  rate?: number;
-}
 
 export interface RemoteFileFetchOptions {
   /**
@@ -94,58 +84,121 @@ export async function fetchRemoteFileStream(
   url: string,
   options: RemoteFileFetchOptions = {},
 ): Promise<RemoteFileFetchResult> {
-  const { signal, fileName, fileType, headers = {} } = options;
+  const { signal, fileName, fileType, headers = {}, auth = true } = options;
 
-  // 1. 发起网络请求获取二进制 Blob 流
-  const rawResponse = await http.request<Blob>({
-    url,
-    method: 'GET',
-    responseType: 'blob',
-    signal,
-    headers,
-    unwrap: false,
-    onDownloadProgress: (progressEvent: StreamProgressEvent) => {
-      if (options.onProgress) {
-        const loaded = progressEvent.loaded || 0;
-        const total = progressEvent.total;
-        const bytesPerSec = progressEvent.rate || 0;
-        const progress = calculateProgress({
-          loaded,
-          total,
-          bytesPerSec,
-        });
-        options.onProgress(progress);
+  // 1. 构建标准化请求头（注入鉴权凭据）
+  const requestHeaders: Record<string, string> = { ...headers };
+  if (auth) {
+    const authHeaders = authManager.getHeaders();
+    for (const [key, val] of Object.entries(authHeaders)) {
+      if (val !== undefined && val !== null && !requestHeaders[key]) {
+        requestHeaders[key] = String(val);
       }
-    },
+    }
+  }
+
+  // 2. 发起标准 Fetch 请求
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: requestHeaders,
+    signal,
   });
 
-  const blob = (
-    rawResponse && typeof rawResponse === 'object' && 'data' in rawResponse
-      ? (rawResponse as Result<Blob>).data
-      : rawResponse
-  ) as Blob;
+  const contentType = response.headers.get('content-type') || '';
+  const disposition = response.headers.get('content-disposition') || '';
 
-  // 2. 提取响应头与检查是否为服务端 JSON 错误体 (遵循 ADR-0004)
-  const responseHeaders =
-    rawResponse && typeof rawResponse === 'object' && 'headers' in rawResponse
-      ? (rawResponse as { headers?: Record<string, string> }).headers
-      : undefined;
+  // 3. ADR-0004 双态异常识别：若状态码非 2xx 或响应头指示为 JSON，拦截解析并抛出业务异常
+  if (!response.ok || contentType.includes('application/json')) {
+    const text = await response.text();
+    let errorPayload: { code?: number; msg?: string; traceId?: string } | undefined;
+    try {
+      errorPayload = JSON.parse(text);
+    } catch {
+      // 非法 JSON 字符串，保留原样
+    }
 
-  const disposition = getBlobDisposition(blob) || responseHeaders?.['content-disposition'];
-  const contentType = responseHeaders?.['content-type'] || blob.type;
+    if (
+      errorPayload &&
+      typeof errorPayload === 'object' &&
+      ('code' in errorPayload || 'msg' in errorPayload)
+    ) {
+      throw new BusinessException(
+        Number(errorPayload.code) || response.status,
+        errorPayload.msg || `文件流获取失败: HTTP ${response.status}`,
+        errorPayload.traceId,
+      );
+    }
 
-  await checkBlobForJsonError(blob, contentType);
+    throw new BusinessException(
+      response.status,
+      `文件流获取失败 (HTTP ${response.status})${text ? `: ${text.slice(0, 120)}` : ''}`,
+    );
+  }
 
-  // 3. 读取前 2048 字节用于三阶魔数匹配
+  // 4. 流式读取二进制数据并计算传输速率与进度
+  const contentLengthHeader = response.headers.get('content-length');
+  const total = contentLengthHeader ? parseInt(contentLengthHeader, 10) : undefined;
+  let loaded = 0;
+  const chunks: BlobPart[] = [];
+
+  if (response.body) {
+    const reader = response.body.getReader();
+    let lastTime = Date.now();
+    let lastLoaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        loaded += value.byteLength;
+
+        if (options.onProgress) {
+          const now = Date.now();
+          const elapsedSec = (now - lastTime) / 1000;
+          let bytesPerSec = 0;
+          if (elapsedSec >= 0.1) {
+            bytesPerSec = Math.round((loaded - lastLoaded) / elapsedSec);
+            lastTime = now;
+            lastLoaded = loaded;
+          }
+          options.onProgress(
+            calculateProgress({
+              loaded,
+              total,
+              bytesPerSec,
+            }),
+          );
+        }
+      }
+    }
+  } else {
+    const arrayBuffer = await response.arrayBuffer();
+    chunks.push(new Uint8Array(arrayBuffer));
+    loaded = arrayBuffer.byteLength;
+    if (options.onProgress) {
+      options.onProgress(
+        calculateProgress({
+          loaded,
+          total: loaded,
+          bytesPerSec: 0,
+        }),
+      );
+    }
+  }
+
+  const blob = new Blob(chunks, { type: contentType || 'application/octet-stream' });
+
+  // 5. 读取前 2048 字节用于三阶魔数匹配
   let buffer: ArrayBuffer | undefined;
   try {
     const slice = blob.slice(0, 2048);
     buffer = await slice.arrayBuffer();
   } catch {
-    // 忽略读取失败
+    // 忽略切片读取失败
   }
 
-  // 4. 解析文件名与扩展名
+  // 6. 解析文件名与扩展名
   const headerFileName = disposition ? parseContentDispositionFilename(disposition, '') : '';
   const resolvedFileName =
     fileName ||
@@ -176,7 +229,7 @@ export async function fetchRemoteFileStream(
     ? resolvedFileName
     : `${resolvedFileName}.${detectedExt || 'bin'}`;
 
-  // 5. 包装为具名 File 对象与 ObjectURL
+  // 7. 包装为具名 File 对象与 ObjectURL
   const file = new File([blob], finalFileName, { type: blob.type });
   const objectUrl = typeof URL !== 'undefined' ? URL.createObjectURL(blob) : '';
 

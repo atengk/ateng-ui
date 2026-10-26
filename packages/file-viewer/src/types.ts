@@ -106,6 +106,10 @@ export interface FileViewerDocumentAnchor {
   text?: string;
   page?: number;
   line?: number;
+  /**
+   * 标题层级深度 (1 表示一级主章节 H1，2 表示二级小节 H2，依此类推)。
+   */
+  level?: number;
   type?: 'page' | 'line' | 'block' | 'heading';
   top?: number;
   left?: number;

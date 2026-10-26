@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.turbo/**',
       '**/.changeset/**',
+      '**/public/**',
       'pnpm-lock.yaml',
       '*.min.js',
     ],

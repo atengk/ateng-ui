@@ -32,6 +32,12 @@ interface PresetItem {
 
 const presets: PresetItem[] = [
   { label: 'Word 文档 (.docx)', url: '/sample.docx', name: '企业合同规范.docx', type: 'docx' },
+  {
+    label: 'Markdown 规范 (.md)',
+    url: '/sample.md',
+    name: '现代前端工业级架构实践指南.md',
+    type: 'md',
+  },
   { label: 'Excel 报表 (.xlsx)', url: '/sample.xlsx', name: '财务季度对账表.xlsx', type: 'xlsx' },
   { label: 'PPT 幻灯片 (.pptx)', url: '/sample.pptx', name: '产品架构推演.pptx', type: 'pptx' },
   { label: 'PDF 文档 (.pdf)', url: '/sample.pdf', name: '技术规格说明书.pdf', type: 'pdf' },
@@ -121,14 +127,36 @@ const sampleSheets = computed<FileViewerSheet[]>(() => {
   return [];
 });
 
-// 模拟文档大纲 TOC 列表
+// 外部自定义大纲 Mock 测试开关 (默认关闭，关闭时 100% 自动扫描当前文档真实标题)
+const useCustomToc = ref<boolean>(false);
+
+// 模拟文档大纲 TOC 列表 (仅在显式开启且非本地文件上传时作为外部注入覆盖测试)
 const sampleTocList = computed<FileViewerDocumentAnchor[]>(() => {
-  if (currentType.value === 'pdf' || currentType.value === 'docx') {
+  if (
+    useCustomToc.value &&
+    !selectedFile.value &&
+    (currentType.value === 'pdf' || currentType.value === 'docx')
+  ) {
     return [
-      { id: 'sec-1', index: 0, label: '第 1 章：项目业务背景与目标', page: 1 },
-      { id: 'sec-2', index: 1, label: '第 2 章：四层无环单向拓扑架构设计', page: 3 },
-      { id: 'sec-3', index: 2, label: '第 3 章：三阶智能类型嗅探与流式拉取', page: 6 },
-      { id: 'sec-4', index: 3, label: '第 4 章：四维 DLP 数据防泄密与防篡改水印', page: 9 },
+      { id: 'sec-1', index: 0, label: '第 1 章：项目业务背景与目标 (外部注入 Mock)', page: 1 },
+      {
+        id: 'sec-2',
+        index: 1,
+        label: '第 2 章：四层无环单向拓扑架构设计 (外部注入 Mock)',
+        page: 3,
+      },
+      {
+        id: 'sec-3',
+        index: 2,
+        label: '第 3 章：三阶智能类型嗅探与流式拉取 (外部注入 Mock)',
+        page: 6,
+      },
+      {
+        id: 'sec-4',
+        index: 3,
+        label: '第 4 章：四维 DLP 数据防泄密与防篡改水印 (外部注入 Mock)',
+        page: 9,
+      },
     ];
   }
   return [];
@@ -400,6 +428,13 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         <button type="button" class="mini-btn" @click="headlessViewer.toggleToc()">
           📖 切换目录大纲 (Hook 指令)
         </button>
+        <label
+          class="dlp-checkbox"
+          title="勾选后将强制覆盖为外部静态 Mock 章节；取消勾选将 100% 自动提取文档真实大纲"
+        >
+          <input v-model="useCustomToc" type="checkbox" />
+          <span>外部 Mock 大纲注入测试</span>
+        </label>
       </div>
     </div>
 

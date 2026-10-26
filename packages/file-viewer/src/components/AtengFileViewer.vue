@@ -22,7 +22,22 @@ import {
 } from 'vue';
 import { FileViewer } from '@file-viewer/vue3';
 import '@file-viewer/preset-office';
+import { registerFileViewerAutoRendererPreset } from '@file-viewer/core';
+import { textRenderer } from '@file-viewer/renderer-text';
 import { BusinessException } from '@atengk/core';
+
+// 注册纯文本与 Markdown 原生流式渲染预设
+registerFileViewerAutoRendererPreset(
+  {
+    id: 'file-viewer-preset-text',
+    label: 'File Viewer text and markdown renderer preset',
+    renderers: [textRenderer],
+  },
+  {
+    id: 'text',
+    packageName: '@file-viewer/renderer-text',
+  },
+);
 import type {
   AtengFileViewerProps,
   AtengFileViewerEmits,
@@ -54,6 +69,7 @@ import {
   type FileViewerDownloadProgress,
 } from '../utils/sizeGuard';
 import { diagnoseFileViewerError, type FileViewerDiagnostic } from '../utils/diagnostic';
+import { extractDocumentHeadings } from '../utils/toc';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -290,10 +306,8 @@ const mergedOptions = computed(() => {
 
   return {
     theme: props.theme,
-    styleIsolation: 'shadow',
-    toolbar: {
-      position: 'bottom-right',
-    },
+    styleIsolation: (props.options?.styleIsolation as string) || 'none',
+    toolbar: false,
     ...tieredAssetOptions.value,
     ...presetOptions,
     ...(currentPassword.value ? { password: currentPassword.value } : {}),
@@ -617,18 +631,8 @@ async function handleLoadComplete() {
   }
   currentDiagnostic.value = null;
 
-  // 1. 尝试收集目录大纲
-  if (innerFileViewerRef.value?.collectDocumentAnchors) {
-    try {
-      const anchors = await innerFileViewerRef.value.collectDocumentAnchors();
-      if (Array.isArray(anchors) && anchors.length > 0) {
-        internalTocList.value = anchors;
-        emit('toc-change', anchors);
-      }
-    } catch {
-      // 容错兜底
-    }
-  }
+  // 1. 尝试收集目录大纲 (底层 API 优先，DOM 深度扫描兜底)
+  await updateDocumentAnchors();
 
   // 2. 自动恢复阅读历史
   await restoreSavedViewState();
@@ -799,6 +803,20 @@ function closeToc(): void {
   toggleToc(false);
 }
 
+async function updateDocumentAnchors(): Promise<void> {
+  await nextTick();
+  const container = containerRef.value;
+  if (!container) return;
+
+  let headings = extractDocumentHeadings(container);
+  if (headings.length === 0) {
+    await new Promise(resolve => setTimeout(resolve, 80));
+    headings = extractDocumentHeadings(container);
+  }
+  internalTocList.value = headings;
+  emit('toc-change', headings);
+}
+
 async function scrollToAnchor(anchor: FileViewerDocumentAnchor | string): Promise<boolean> {
   if (typeof anchor === 'object' && anchor !== null && anchor.page) {
     await setPage(anchor.page);
@@ -812,6 +830,20 @@ async function scrollToAnchor(anchor: FileViewerDocumentAnchor | string): Promis
       success = false;
     }
   }
+
+  // 若底层未成功滚动，尝试在 DOM 容器中查找锚点并平滑滚动
+  if (!success) {
+    const anchorId = typeof anchor === 'string' ? anchor : anchor.id;
+    if (anchorId) {
+      const container = containerRef.value;
+      const targetEl = container?.querySelector<HTMLElement>(`#${CSS.escape(anchorId)}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        success = true;
+      }
+    }
+  }
+
   return success;
 }
 
@@ -1239,9 +1271,12 @@ defineExpose<AtengFileViewerExpose>({
                   v-for="(anchor, idx) in resolvedTocList"
                   :key="anchor.id || idx"
                   class="at-file-viewer__toc-item"
+                  :class="`at-file-viewer__toc-item--level-${anchor.level || 1}`"
+                  :style="{ paddingLeft: `${Math.max(0, ((anchor.level || 1) - 1) * 14) + 10}px` }"
                   @click="scrollToAnchor(anchor)"
                 >
-                  <span class="at-file-viewer__toc-label">{{
+                  <span class="at-file-viewer__toc-bullet" aria-hidden="true"></span>
+                  <span class="at-file-viewer__toc-label" :title="anchor.label || anchor.text">{{
                     anchor.label || anchor.text || `章节 ${idx + 1}`
                   }}</span>
                   <span v-if="anchor.page" class="at-file-viewer__toc-page"
@@ -1250,7 +1285,7 @@ defineExpose<AtengFileViewerExpose>({
                 </li>
               </ul>
               <div v-else class="at-file-viewer__toc-empty">
-                <span>暂无文档大纲目录</span>
+                <span>当前文档未设置大纲标题</span>
               </div>
             </div>
           </slot>
@@ -1259,41 +1294,43 @@ defineExpose<AtengFileViewerExpose>({
 
       <!-- 主渲染容器 -->
       <main class="at-file-viewer__body">
-        <!-- 加载中遮罩 -->
-        <div v-if="isLoading" class="at-file-viewer__loading">
-          <slot
-            name="loading"
-            :percent="downloadProgress.percent"
-            :loaded="downloadProgress.loaded"
-            :total="downloadProgress.total"
-            :speed="downloadProgress.speed"
-            :formatted-loaded="downloadProgress.formattedLoaded"
-            :formatted-total="downloadProgress.formattedTotal"
-            :formatted-speed="downloadProgress.formattedSpeed"
-          >
-            <div class="at-file-viewer__spinner" aria-hidden="true"></div>
-            <span class="at-file-viewer__loading-text">正在解析并渲染文档...</span>
-            <div v-if="downloadProgress.percent > 0" class="at-file-viewer__progress-wrapper">
-              <div class="at-file-viewer__progress-bar">
-                <div
-                  class="at-file-viewer__progress-inner"
-                  :style="{ width: `${downloadProgress.percent}%` }"
-                ></div>
+        <!-- 加载中遮罩 (平滑淡入淡出过渡，避免瞬切闪烁) -->
+        <Transition name="at-fv-fade">
+          <div v-if="isLoading" class="at-file-viewer__loading">
+            <slot
+              name="loading"
+              :percent="downloadProgress.percent"
+              :loaded="downloadProgress.loaded"
+              :total="downloadProgress.total"
+              :speed="downloadProgress.speed"
+              :formatted-loaded="downloadProgress.formattedLoaded"
+              :formatted-total="downloadProgress.formattedTotal"
+              :formatted-speed="downloadProgress.formattedSpeed"
+            >
+              <div class="at-file-viewer__spinner" aria-hidden="true"></div>
+              <span class="at-file-viewer__loading-text">正在解析并渲染文档...</span>
+              <div v-if="downloadProgress.percent > 0" class="at-file-viewer__progress-wrapper">
+                <div class="at-file-viewer__progress-bar">
+                  <div
+                    class="at-file-viewer__progress-inner"
+                    :style="{ width: `${downloadProgress.percent}%` }"
+                  ></div>
+                </div>
+                <div class="at-file-viewer__progress-info">
+                  <span class="at-file-viewer__progress-percent"
+                    >{{ downloadProgress.percent }}%</span
+                  >
+                  <span class="at-file-viewer__progress-size">
+                    ({{ downloadProgress.formattedLoaded }} / {{ downloadProgress.formattedTotal }})
+                  </span>
+                  <span v-if="downloadProgress.speed > 0" class="at-file-viewer__progress-speed">
+                    {{ downloadProgress.formattedSpeed }}
+                  </span>
+                </div>
               </div>
-              <div class="at-file-viewer__progress-info">
-                <span class="at-file-viewer__progress-percent"
-                  >{{ downloadProgress.percent }}%</span
-                >
-                <span class="at-file-viewer__progress-size">
-                  ({{ downloadProgress.formattedLoaded }} / {{ downloadProgress.formattedTotal }})
-                </span>
-                <span v-if="downloadProgress.speed > 0" class="at-file-viewer__progress-speed">
-                  {{ downloadProgress.formattedSpeed }}
-                </span>
-              </div>
-            </div>
-          </slot>
-        </div>
+            </slot>
+          </div>
+        </Transition>
 
         <!-- 大文件防崩护栏 (SizeGuard) 拦截卡片 -->
         <div v-if="isSizeGuarded" class="at-file-viewer__size-guard">
@@ -1586,6 +1623,17 @@ defineExpose<AtengFileViewerExpose>({
 
 <style scoped>
 .at-file-viewer {
+  --at-fv-bg: #ffffff;
+  --at-fv-border: #e4e7ed;
+  --at-fv-toolbar-bg: #f8fafc;
+  --at-fv-body-bg: #e2e8f0;
+  --at-fv-text: #1e293b;
+  --at-fv-text-subtle: #475569;
+  --at-fv-btn-hover-bg: #e2e8f0;
+  --at-fv-badge-bg: #e2e8f0;
+  --at-fv-badge-color: #475569;
+  --file-viewer-render-surface-background: transparent;
+
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1794,13 +1842,14 @@ defineExpose<AtengFileViewerExpose>({
 .at-file-viewer__toc-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 7px 10px;
   border-radius: 6px;
   font-size: 13px;
   color: #334155;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
 .at-file-viewer__toc-item:hover {
@@ -1808,7 +1857,44 @@ defineExpose<AtengFileViewerExpose>({
   color: #2563eb;
 }
 
+.at-file-viewer__toc-bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #94a3b8;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.at-file-viewer__toc-item:hover .at-file-viewer__toc-bullet {
+  background-color: #2563eb;
+  transform: scale(1.3);
+}
+
+.at-file-viewer__toc-item--level-1 {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.at-file-viewer__toc-item--level-1 .at-file-viewer__toc-bullet {
+  width: 6px;
+  height: 6px;
+  background-color: #3b82f6;
+}
+
+.at-file-viewer__toc-item--level-2 {
+  font-weight: 500;
+  color: #334155;
+}
+
+.at-file-viewer__toc-item--level-3 {
+  font-weight: 400;
+  color: #475569;
+}
+
 .at-file-viewer__toc-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1818,7 +1904,8 @@ defineExpose<AtengFileViewerExpose>({
   font-size: 11px;
   color: #94a3b8;
   font-weight: 500;
-  margin-left: 8px;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .at-file-viewer__toc-empty {
@@ -1847,8 +1934,79 @@ defineExpose<AtengFileViewerExpose>({
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--at-fv-body-bg, #f1f5f9);
+  background-color: var(--at-fv-body-bg, #e2e8f0);
   min-height: 200px;
+}
+
+/* 淡入淡出过渡，避免加载遮罩与渲染内容瞬切闪烁 */
+.at-fv-fade-enter-active,
+.at-fv-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.at-fv-fade-enter-from,
+.at-fv-fade-leave-to {
+  opacity: 0;
+}
+
+/* 隐藏底层自带的冗余 loading 遮罩，消除内外双重 loading 竞争导致的白屏闪烁 */
+.at-file-viewer__body :deep(.state-panel.loading-panel),
+.at-file-viewer__body :deep(.loading-visual) {
+  display: none !important;
+}
+
+/* 1. 将第三方 fit-viewer / wrapper / stage 的灰色背景全部透明化，融入工作台衬底 */
+.at-file-viewer__body :deep(.docx-fit-viewer),
+.at-file-viewer__body :deep(.docx-wrapper),
+.at-file-viewer__body :deep(.viewer-stage),
+.at-file-viewer__body :deep(.file-render-host),
+.at-file-viewer__body :deep(.file-render-shadow-target),
+.at-file-viewer__body :deep(.file-viewer-vue3-shadow-mount) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 2. 外部 docx-wrapper 增加居中上下外边距，提供舒适的实体文档阅读舞台 */
+.at-file-viewer__body :deep(.docx-wrapper) {
+  padding: 32px 16px !important;
+}
+
+/* 3. 中间各页 frame 透明化 */
+.at-file-viewer__body :deep(.docx-page-frame),
+.at-file-viewer__body :deep(.docx-flow-frame) {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin-bottom: 24px !important;
+}
+
+/* 4. 纸张核心实体化：纯白底色、清晰的纸张边缘微边框与环境光高阶立体投影 */
+.at-file-viewer__body :deep(section.docx),
+.at-file-viewer__body :deep(.docx) {
+  background-color: #ffffff !important;
+  box-shadow:
+    0 4px 20px -2px rgba(15, 23, 42, 0.12),
+    0 2px 8px -1px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(15, 23, 42, 0.06) !important;
+  border-radius: 4px !important;
+  margin: 0 auto !important;
+  transition: box-shadow 0.2s ease;
+}
+
+.at-file-viewer__body :deep(section.docx:hover),
+.at-file-viewer__body :deep(.docx:hover) {
+  box-shadow:
+    0 10px 25px -4px rgba(15, 23, 42, 0.16),
+    0 4px 10px -2px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* 5. 暗黑模式下，纸张保持柔和护眼实体质感，深邃立体投影 */
+.at-file-viewer--theme-dark .at-file-viewer__body :deep(section.docx),
+.at-file-viewer--theme-dark .at-file-viewer__body :deep(.docx) {
+  box-shadow:
+    0 8px 24px -2px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.1) !important;
 }
 
 .at-file-viewer__loading {
@@ -2365,11 +2523,12 @@ defineExpose<AtengFileViewerExpose>({
   --at-fv-bg: #0f172a;
   --at-fv-border: #334155;
   --at-fv-toolbar-bg: #1e293b;
-  --at-fv-body-bg: #0b0f19;
+  --at-fv-body-bg: #0f172a;
   --at-fv-text: #f8fafc;
   --at-fv-text-subtle: #94a3b8;
   --at-fv-btn-hover-bg: #334155;
   --at-fv-badge-bg: #334155;
   --at-fv-badge-color: #cbd5e1;
+  --file-viewer-render-surface-background: transparent;
 }
 </style>

@@ -90,6 +90,8 @@ describe('assets 静态资产寻址与三级弹性解析器测试', () => {
     // PDF 资产
     expect(options.pdf?.workerUrl).toBe('https://intranet.corp.com/file-viewer/pdf.worker.js');
     expect(options.pdf?.cMapUrl).toBe('https://intranet.corp.com/file-viewer/cmaps/');
+    expect(options.pdf?.wasmUrl).toBe('https://intranet.corp.com/file-viewer/wasm/');
+    expect(options.pdf?.wasmUrl.endsWith('/')).toBe(true);
 
     // CAD 资产
     expect(options.cad?.wasmPath).toBe('https://intranet.corp.com/file-viewer/cad.wasm');
