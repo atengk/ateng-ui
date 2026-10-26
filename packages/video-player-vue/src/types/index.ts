@@ -283,6 +283,22 @@ export interface VideoPlayerOptions {
    */
   screenshot?: boolean;
   /**
+   * 是否为直播流（直播态隐藏点播进度条，展示实时直播标记）。默认 false。
+   */
+  isLive?: boolean;
+  /**
+   * 是否开启直播低延迟毫秒级追帧。默认 true。
+   */
+  liveBufferLatencyChasing?: boolean;
+  /**
+   * 直播追帧触发阈值（秒）。缓冲区落后超过此值触发追帧，默认 3。
+   */
+  chaseThreshold?: number;
+  /**
+   * 断流自动重连配置选项（设为 false 可显式关闭）。
+   */
+  reconnect?: boolean | StreamReconnectOptions;
+  /**
    * 是否自动注入当前 Token 鉴权凭据。默认 true。
    */
   auth?: boolean;
@@ -372,6 +388,22 @@ export interface AtengVideoPlayerProps {
    * 是否展示截图抓拍按钮。默认 true。
    */
   screenshot?: boolean;
+  /**
+   * 是否为直播流（直播态隐藏点播进度条，展示实时直播标记）。默认 false。
+   */
+  isLive?: boolean;
+  /**
+   * 是否开启直播低延迟毫秒级追帧。默认 true。
+   */
+  liveBufferLatencyChasing?: boolean;
+  /**
+   * 直播追帧触发阈值（秒）。缓冲区落后超过此值触发追帧，默认 3。
+   */
+  chaseThreshold?: number;
+  /**
+   * 断流自动重连配置选项（设为 false 可显式关闭）。
+   */
+  reconnect?: boolean | StreamReconnectOptions;
   /**
    * 是否自动注入当前 Token 鉴权凭据。默认 true。
    */
@@ -591,5 +623,144 @@ export type AtengVideoPlayerInstance = ComponentPublicInstance<
     exitWebFullscreen(): void;
     toggleWebFullscreen(): void;
     destroy(): void;
+    retry(): void;
   }
 >;
+
+/**
+ * 流媒体断流重连状态机配置。
+ */
+export interface StreamReconnectOptions {
+  /**
+   * 最大重连尝试次数。超过后将转入硬失败态。默认 5 次。
+   */
+  maxRetries?: MaybeRefOrGetter<number>;
+  /**
+   * 基础重连延迟基数（毫秒）。默认 1000ms。
+   */
+  baseDelay?: MaybeRefOrGetter<number>;
+  /**
+   * 最大延迟上限封顶（毫秒）。默认 10000ms (10s)。
+   */
+  maxDelay?: MaybeRefOrGetter<number>;
+  /**
+   * 是否在重试间隔中引入轻微随机抖动因子 (Jitter) 以防网络惊群风暴。默认 true。
+   */
+  jitter?: boolean;
+  /**
+   * 单次重连动作触发回调。
+   */
+  onRetry?: (attempt: number, delay: number, error?: unknown) => void;
+  /**
+   * 重连达到最大限制依然失败时的终止回调。
+   */
+  onFail?: (error?: unknown) => void;
+}
+
+/**
+ * useStreamReconnect 状态机对外暴露的响应式门面。
+ */
+export interface StreamReconnectReturn {
+  /**
+   * 当前是否正在执行重连等待或正在尝试连接中。
+   */
+  isReconnecting: Ref<boolean>;
+  /**
+   * 当前已经重连的尝试次数。
+   */
+  retryCount: Ref<number>;
+  /**
+   * 是否已达到最大重试次数并彻底失败。
+   */
+  hasFailed: Ref<boolean>;
+  /**
+   * 最近一次触发断流重连的异常上下文。
+   */
+  lastError: ShallowRef<unknown | null>;
+  /**
+   * 下一次重试的预计剩余等待时间（毫秒倒计时）。
+   */
+  remainingTime: Ref<number>;
+  /**
+   * 手动触发一次重连。
+   *
+   * @param err 异常上下文
+   */
+  triggerReconnect(err?: unknown): void;
+  /**
+   * 重置重试计数器与状态机。
+   */
+  reset(): void;
+  /**
+   * 手动强制立即重试（重置失败状态并即刻调度）。
+   */
+  manualRetry(): void;
+}
+
+/**
+ * HlsDriver 流驱动初始化配置契约。
+ */
+export interface HlsDriverOptions {
+  /**
+   * 是否自动开始播放。默认 false。
+   */
+  autoplay?: boolean;
+  /**
+   * 是否注入鉴权 Token。默认 true。
+   */
+  auth?: boolean;
+  /**
+   * 自定义请求头。
+   */
+  headers?: Record<string, string>;
+  /**
+   * 是否开启低延迟追帧同步。默认 true。
+   */
+  liveSync?: boolean;
+  /**
+   * 异常回调。
+   */
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * MpegtsDriver 流驱动初始化配置契约。
+ */
+export interface MpegtsDriverOptions {
+  /**
+   * 是否为直播流。默认 true。
+   */
+  isLive?: boolean;
+  /**
+   * 是否跨域请求。默认 true。
+   */
+  cors?: boolean;
+  /**
+   * 是否自动开始播放。默认 false。
+   */
+  autoplay?: boolean;
+  /**
+   * 是否注入鉴权 Token。默认 true。
+   */
+  auth?: boolean;
+  /**
+   * 自定义请求头。
+   */
+  headers?: Record<string, string>;
+  /**
+   * 是否开启内存泄漏防御与自动清理 SourceBuffer。默认 true。
+   */
+  autoCleanupSourceBuffer?: boolean;
+  /**
+   * 是否开启毫秒级低延迟追帧（积压超阈值时加速或跳帧）。默认 true。
+   */
+  liveBufferLatencyChasing?: boolean;
+  /**
+   * 追帧触发阈值（秒）。默认 3。
+   */
+  chaseThreshold?: number;
+  /**
+   * 异常回调。
+   */
+  onError?: (error: unknown) => void;
+}

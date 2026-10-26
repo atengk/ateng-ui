@@ -25,6 +25,9 @@ export * from './types';
 // 5. 企业级安全与鉴权防线导出
 export * from './security';
 
+// 6. 流媒体驱动器全量具名导出
+export * from './drivers';
+
 /**
  * Vue 插件安装器。
  *

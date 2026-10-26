@@ -9,6 +9,7 @@
 import { ref } from 'vue';
 import VodDemo from './components/VodDemo.vue';
 import AuthSecurityDemo from './components/AuthSecurityDemo.vue';
+import LiveDemo from './components/LiveDemo.vue';
 
 const activeTab = ref<'vod' | 'security' | 'live' | 'grid' | 'ptz' | 'watermark' | 'danmaku'>(
   'vod',
@@ -65,6 +66,10 @@ const tabs = [
 
       <div v-else-if="activeTab === 'security'">
         <AuthSecurityDemo />
+      </div>
+
+      <div v-else-if="activeTab === 'live'">
+        <LiveDemo />
       </div>
 
       <div v-else class="sample-placeholder">

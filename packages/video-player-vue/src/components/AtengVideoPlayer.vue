@@ -12,7 +12,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ArtplayerEngine } from '../engine/ArtplayerEngine';
 import { BlobJsonGuard } from '../security';
-import type { AtengVideoPlayerEmits, AtengVideoPlayerProps, IVideoPlayerEngine } from '../types';
+import { useStreamReconnect } from '../composables/useStreamReconnect';
+import type {
+  AtengVideoPlayerEmits,
+  AtengVideoPlayerProps,
+  IVideoPlayerEngine,
+  StreamReconnectOptions,
+} from '../types';
 
 const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
   type: 'auto',
@@ -32,6 +38,10 @@ const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
   screenshot: true,
   auth: true,
   probeStream: false,
+  isLive: false,
+  liveBufferLatencyChasing: true,
+  chaseThreshold: 3,
+  reconnect: false,
   quality: () => [],
   markers: () => [],
   customType: undefined,
@@ -60,12 +70,38 @@ defineSlots<{
    * 异常错误缺省插槽。
    */
   error?: (props: { error: unknown; retry: () => void }) => unknown;
+  /**
+   * 重连达到最大上限硬失败时的插槽。
+   */
+  'reconnect-failed'?: (props: { error: unknown; retry: () => void }) => unknown;
 }>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const engineRef = ref<IVideoPlayerEngine | null>(null);
 const isReady = ref(false);
 const errorState = ref<unknown | null>(null);
+
+// 直播流判定
+const isLiveStream = computed(() => {
+  return (
+    props.isLive ||
+    props.type === 'flv' ||
+    (props.url.includes('.m3u8') && props.isLive) ||
+    props.url.includes('.flv')
+  );
+});
+
+// 断流重连状态机装配
+const reconnectConfig = computed<StreamReconnectOptions>(() => {
+  if (typeof props.reconnect === 'object') {
+    return props.reconnect;
+  }
+  return {};
+});
+
+const reconnectState = useStreamReconnect(reconnectConfig.value, async () => {
+  await initPlayer();
+});
 
 const formattedError = computed(() => {
   if (!errorState.value) {
@@ -119,10 +155,15 @@ const initPlayer = async (): Promise<void> => {
         customType: props.customType,
         auth: props.auth,
         probeStream: props.probeStream,
+        isLive: isLiveStream.value,
+        liveBufferLatencyChasing: props.liveBufferLatencyChasing,
+        chaseThreshold: props.chaseThreshold,
       },
       {
         onReady: eng => {
           isReady.value = true;
+          // 连接成功重置重连状态
+          reconnectState.reset();
           emit('ready', eng);
         },
         onPlay: () => emit('play'),
@@ -133,6 +174,11 @@ const initPlayer = async (): Promise<void> => {
           const businessErr = BlobJsonGuard.toBusinessException(err);
           errorState.value = businessErr;
           emit('error', businessErr);
+
+          // 若开启重连且未达上限，触发自动指数退避重试
+          if (props.reconnect !== false && !reconnectState.hasFailed.value) {
+            reconnectState.triggerReconnect(businessErr);
+          }
         },
         onFullscreen: state => emit('fullscreen', state),
         onFullscreenWeb: state => emit('fullscreenWeb', state),
@@ -144,6 +190,10 @@ const initPlayer = async (): Promise<void> => {
     const businessErr = BlobJsonGuard.toBusinessException(err);
     errorState.value = businessErr;
     emit('error', businessErr);
+
+    if (props.reconnect !== false && !reconnectState.hasFailed.value) {
+      reconnectState.triggerReconnect(businessErr);
+    }
   }
 };
 
@@ -239,6 +289,12 @@ defineExpose({
     <!-- Artplayer 挂载的物理渲染容器 -->
     <div ref="containerRef" class="at-video-player__art-container"></div>
 
+    <!-- 实时直播状态徽标 -->
+    <div v-if="isLiveStream" class="at-video-player__live-badge">
+      <span class="live-pulse"></span>
+      <span class="live-text">实时直播</span>
+    </div>
+
     <!-- 顶部插槽浮层 -->
     <div v-if="$slots.top" class="at-video-player__overlay at-video-player__overlay--top">
       <slot name="top" :engine="engineRef" :title="title"></slot>
@@ -257,9 +313,33 @@ defineExpose({
     <!-- 默认自由插槽图层 -->
     <slot :engine="engineRef"></slot>
 
-    <!-- ADR-0004 异常错误缺省插槽 -->
-    <div v-if="formattedError" class="at-video-player__error-layer">
-      <slot name="error" :error="formattedError" :retry="initPlayer">
+    <!-- 断流自动指数退避重连状态浮层 -->
+    <div v-if="reconnectState.isReconnecting.value" class="at-video-player__reconnect-layer">
+      <div class="at-video-player__reconnect-box">
+        <span class="reconnect-spinner"></span>
+        <p class="reconnect-text">
+          网络连接中断，正在第 {{ reconnectState.retryCount.value + 1 }} 次自动重连...
+        </p>
+        <span class="reconnect-timer">
+          倒计时 {{ (reconnectState.remainingTime.value / 1000).toFixed(1) }}s
+        </span>
+      </div>
+    </div>
+
+    <!-- ADR-0004 异常错误缺省插槽与重连硬失败插槽 -->
+    <div
+      v-else-if="
+        formattedError && (!reconnectState.isReconnecting.value || reconnectState.hasFailed.value)
+      "
+      class="at-video-player__error-layer"
+    >
+      <slot
+        v-if="reconnectState.hasFailed.value && $slots['reconnect-failed']"
+        name="reconnect-failed"
+        :error="formattedError"
+        :retry="reconnectState.manualRetry"
+      ></slot>
+      <slot v-else name="error" :error="formattedError" :retry="initPlayer">
         <div class="at-video-player__error-box">
           <span class="at-video-player__error-icon">⚠️</span>
           <p class="at-video-player__error-title">{{ formattedError.msg }}</p>
@@ -269,8 +349,12 @@ defineExpose({
               >TraceId: {{ formattedError.traceId }}</span
             >
           </div>
-          <button type="button" class="at-video-player__error-retry-btn" @click="initPlayer">
-            重新尝试连接
+          <button
+            type="button"
+            class="at-video-player__error-retry-btn"
+            @click="reconnectState.hasFailed.value ? reconnectState.manualRetry() : initPlayer()"
+          >
+            {{ reconnectState.hasFailed.value ? '已达最大重连次数，点击手动重试' : '重新尝试连接' }}
           </button>
         </div>
       </slot>
@@ -383,5 +467,99 @@ defineExpose({
 
 .at-video-player__error-retry-btn:hover {
   background-color: #2563eb;
+}
+
+.at-video-player__live-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.live-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: live-pulse-anim 1.5s infinite;
+}
+
+@keyframes live-pulse-anim {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+.live-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.at-video-player__reconnect-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(3px);
+  z-index: 25;
+}
+
+.at-video-player__reconnect-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  text-align: center;
+}
+
+.reconnect-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.reconnect-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.reconnect-timer {
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: monospace;
 }
 </style>

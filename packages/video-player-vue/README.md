@@ -8,14 +8,17 @@
 
 ## 0. 特性与公共 API 全景速查矩阵
 
-| 特性分类         | 特性名称           | 核心门面 / 组件 / Hook                                         | 关键参数 / Props / Emits                                          | 核心行为说明                                                                     | 锚定验证源头 (*Test / Sample)                                         |
-| :--------------- | :----------------- | :------------------------------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-| **基础渲染**     | 单路视频播放容器   | `<AtengVideoPlayer />`                                         | `url`, `type`, `poster`, `title`, `auth`, `probeStream`           | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                             | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
-| **无头状态机**   | 响应式播放状态机   | `useVideoPlayer(options)`                                      | `url`, `autoplay`, `volume`, `loop`                               | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                               | `AtengVideoPlayer.test.ts`                                            |
-| **底层引擎 SPI** | Artplayer 适配引擎 | `ArtplayerEngine`                                              | `container`, `options`, `handlers`                                | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                       | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
-| **安全鉴权**     | 企业凭据双轨注入器 | `TokenInjector`                                                | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`  | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`  | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **白屏守卫**     | ADR-0004 双态探测  | `BlobJsonGuard`                                                | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()` | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁 | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **类型契约**     | 核心强类型全量定义 | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions` | 详见 `types/index.ts`                                             | 100% 强类型覆盖，零裸 `any`                                                      | `types/index.ts`                                                      |
+| 特性分类         | 特性名称           | 核心门面 / 组件 / Hook                                         | 关键参数 / Props / Emits                                            | 核心行为说明                                                                           | 锚定验证源头 (*Test / Sample)                                         |
+| :--------------- | :----------------- | :------------------------------------------------------------- | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **基础渲染**     | 单路视频播放容器   | `<AtengVideoPlayer />`                                         | `url`, `type`, `isLive`, `reconnect`, `liveBufferLatencyChasing`    | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                                   | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
+| **无头状态机**   | 响应式播放状态机   | `useVideoPlayer(options)`                                      | `url`, `autoplay`, `volume`, `loop`                                 | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                                     | `AtengVideoPlayer.test.ts`                                            |
+| **断流重连**     | 指数退避重连状态机 | `useStreamReconnect(options)`                                  | `maxRetries`, `baseDelay`, `maxDelay`, `jitter`, `triggerReconnect` | 工业级指数退避重连算法与 ±20% 抖动抗惊群，硬失败转接与定时器确定性清理                 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **底层引擎 SPI** | Artplayer 适配引擎 | `ArtplayerEngine`                                              | `container`, `options`, `handlers`                                  | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                             | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
+| **流媒体驱动**   | HLS 播放驱动       | `HlsDriver`                                                    | `video`, `url`, `options`                                           | 基于 hls.js 驱动，支持 ABR 码率自适应、Safari 降级与 xhrSetup 鉴权拦截                 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **流媒体驱动**   | HTTP-FLV 播放驱动  | `MpegtsDriver`                                                 | `video`, `url`, `options`                                           | 基于 mpegts.js 驱动，支持低延迟直播、智能毫秒追帧与 autoCleanupSourceBuffer 防内存泄漏 | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **安全鉴权**     | 企业凭据双轨注入器 | `TokenInjector`                                                | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`    | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`        | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **白屏守卫**     | ADR-0004 双态探测  | `BlobJsonGuard`                                                | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()`   | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁       | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **类型契约**     | 核心强类型全量定义 | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions` | 详见 `types/index.ts`                                               | 100% 强类型覆盖，零裸 `any`                                                            | `types/index.ts`                                                      |
 
 ---
 
@@ -89,11 +92,51 @@ const signedUrl = TokenInjector.injectUrl('https://stream.example.com/live.m3u8'
 </template>
 ```
 
+### 2.3 低延迟流媒体直播与断流指数退避重连
+
+```vue
+<template>
+  <AtengVideoPlayer
+    url="https://live.example.com/cctv.flv"
+    type="flv"
+    :is-live="true"
+    :live-buffer-latency-chasing="true"
+    :chase-threshold="3"
+    :reconnect="{
+      maxRetries: 5,
+      baseDelay: 1000,
+      maxDelay: 8000,
+      jitter: true,
+    }"
+  >
+    <!-- 自定义断流重连彻底硬失败插槽 -->
+    <template #reconnect-failed="{ error, retry }">
+      <div class="stream-fail-card">
+        <p>直播信号源中断，重试多次失败</p>
+        <button @click="retry">手动重新拉流</button>
+      </div>
+    </template>
+  </AtengVideoPlayer>
+</template>
+```
+
 ---
 
 ## 3. 核心生产边界与非功能语义 (Production Boundary)
 
-### 3.1 确定性销毁六步防线 (Deterministic Lifecycle)
+### 3.1 FLV 内存泄露防爆防线与智能毫秒追帧
+
+针对企业级安防监控 HTTP-FLV / WebSocket-FLV 持续拉流场景：
+
+- **SourceBuffer 内存防爆**：底层通过 `mpegts.js` 强制激活 `autoCleanupSourceBuffer: true`，严格将后向保留缓冲控制在 30~60 秒的滑动窗口内，彻底杜绝长时间连续推流导致的浏览器标签页爆内存崩溃；
+- **智能毫秒追帧**：当网络波动或页面切入后台导致客户端缓冲滞后超过门限（默认 3 秒）时，状态机自动启动追赶算法（轻度滞后 1.25x 加速追赶，严重滞后 >6s 瞬移至最新关键帧），确保音视频时延保持在毫秒级水准。
+
+### 3.2 断流指数退避重连与 Jitter 防惊群
+
+- 针对弱网环境下的推流中断或分片 404，`useStreamReconnect` 采用指数退避算法：$delay = \min(baseDelay \times 2^{attempt}, maxDelay)$；
+- 引入 $\pm 20\%$ 随机抖动因子，彻底规避机房交换机重启或网络割接时全量终端同一时刻并发重连引发的雷暴雪崩。
+
+### 3.3 确定性销毁六步防线 (Deterministic Lifecycle)
 
 在大型 SPA 与安防监控多路分屏场景中，浏览器频繁创建与销毁视频解码器极易导致 GPU 显存泄漏与页面卡顿崩溃。本套件在 `ArtplayerEngine.destroy()` 中严格固化六步销毁防线：
 

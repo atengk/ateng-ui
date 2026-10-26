@@ -9,6 +9,8 @@
 
 import Artplayer, { type Option } from 'artplayer';
 import { defaultTokenInjector } from '../security';
+import { HlsDriver } from '../drivers/HlsDriver';
+import { MpegtsDriver } from '../drivers/MpegtsDriver';
 import type { IVideoPlayerEngine, VideoPlayerOptions, VideoPlayerType } from '../types';
 
 /**
@@ -88,9 +90,45 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
       artOptions.highlight = highlight;
     }
 
-    if (options.customType) {
-      artOptions.customType = options.customType;
+    if (options.isLive) {
+      artOptions.isLive = true;
     }
+
+    // 默认内置 HLS 与 FLV 解封装驱动器，支持用户自定义 customType 扩展或覆盖
+    const defaultCustomType: Record<string, (video: HTMLVideoElement, url: string) => void> = {
+      m3u8: (video: HTMLVideoElement, url: string) => {
+        const driver = new HlsDriver(video, url, {
+          autoplay: options.autoplay,
+          auth: options.auth !== false,
+          onError: err => this.handlers.onError?.(err),
+        });
+        this.registerTeardownHook(() => driver.destroy());
+      },
+      hls: (video: HTMLVideoElement, url: string) => {
+        const driver = new HlsDriver(video, url, {
+          autoplay: options.autoplay,
+          auth: options.auth !== false,
+          onError: err => this.handlers.onError?.(err),
+        });
+        this.registerTeardownHook(() => driver.destroy());
+      },
+      flv: (video: HTMLVideoElement, url: string) => {
+        const driver = new MpegtsDriver(video, url, {
+          isLive: options.isLive ?? true,
+          autoplay: options.autoplay,
+          auth: options.auth !== false,
+          liveBufferLatencyChasing: options.liveBufferLatencyChasing !== false,
+          chaseThreshold: options.chaseThreshold ?? 3,
+          onError: err => this.handlers.onError?.(err),
+        });
+        this.registerTeardownHook(() => driver.destroy());
+      },
+    };
+
+    artOptions.customType = {
+      ...defaultCustomType,
+      ...options.customType,
+    };
 
     if (options.type && options.type !== 'auto') {
       artOptions.type = options.type;
