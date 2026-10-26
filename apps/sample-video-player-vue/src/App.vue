@@ -13,6 +13,7 @@ import AuthSecurityDemo from './components/AuthSecurityDemo.vue';
 import LiveDemo from './components/LiveDemo.vue';
 import WatermarkDemo from './components/WatermarkDemo.vue';
 import GridDemo from './components/GridDemo.vue';
+import PtzDemo from './components/PtzDemo.vue';
 
 const activeTab = ref<
   'vod' | 'deep-vod' | 'security' | 'live' | 'grid' | 'ptz' | 'watermark' | 'danmaku'
@@ -86,6 +87,10 @@ const tabs = [
 
       <div v-else-if="activeTab === 'grid'">
         <GridDemo />
+      </div>
+
+      <div v-else-if="activeTab === 'ptz'">
+        <PtzDemo />
       </div>
 
       <div v-else class="sample-placeholder">

@@ -1310,3 +1310,281 @@ export type AtengVideoGridInstance = ComponentPublicInstance<
     prevTourPage(): void;
   }
 >;
+
+/**
+ * 云台动作指令枚举类型。
+ */
+export type PtzAction =
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'up-left'
+  | 'up-right'
+  | 'down-left'
+  | 'down-right'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'focus-in'
+  | 'focus-out'
+  | 'iris-in'
+  | 'iris-out'
+  | 'stop'
+  | 'preset-goto'
+  | 'preset-set'
+  | 'preset-delete';
+
+/**
+ * 语义化云台控制指令载荷契约（与底层具体网络协议 100% 解耦）。
+ */
+export interface PtzCommand {
+  /**
+   * 云台动作指令。
+   */
+  action: PtzAction;
+  /**
+   * 调控步进速度（通常 1~10 或 1~255）。
+   */
+  speed?: number;
+  /**
+   * 目标预置位编号索引。
+   */
+  presetIndex?: number;
+  /**
+   * 预置位显示别名。
+   */
+  presetName?: string;
+  /**
+   * 指令触发时间戳（毫秒）。
+   */
+  timestamp?: number;
+  /**
+   * 自定义扩展协议载荷（如 GB28181/ONVIF 通道 ID、设备编码等）。
+   */
+  payload?: Record<string, unknown>;
+}
+
+/**
+ * 云台预置位项数据契约。
+ */
+export interface PtzPresetItem {
+  /**
+   * 预置位编号（1 起始）。
+   */
+  index: number;
+  /**
+   * 预置位自定义标题（如 '东大门全景'、'车牌卡口'）。
+   */
+  name: string;
+}
+
+/**
+ * AtengPtzControl 组件 Props 契约。
+ */
+export interface PtzControlProps {
+  /**
+   * 当前云台步进调速档位（默认 5）。
+   */
+  speed?: number;
+  /**
+   * 最小调速档位（默认 1）。
+   */
+  minSpeed?: number;
+  /**
+   * 最大调速档位（默认 10）。
+   */
+  maxSpeed?: number;
+  /**
+   * 云台预置位列表。
+   */
+  presets?: PtzPresetItem[];
+  /**
+   * 是否整体禁用云台控制。
+   */
+  disabled?: boolean;
+  /**
+   * 是否展示预置位管理与快捷调用面板（默认 true）。
+   */
+  showPresets?: boolean;
+  /**
+   * 是否展示云台速度滑块调节（默认 true）。
+   */
+  showSpeed?: boolean;
+  /**
+   * 是否展示光学调节按键（变焦 Zoom、变倍 Focus、光圈 Iris，默认 true）。
+   */
+  showOptical?: boolean;
+  /**
+   * 罗盘与高亮主题色（默认 '#38bdf8'）。
+   */
+  themeColor?: string;
+}
+
+/**
+ * AtengPtzControl 组件 Emits 事件契约。
+ */
+export interface PtzControlEmits {
+  /**
+   * 派发语义化云台动作指令（转动、缩放、聚焦、光圈、预置位等）。
+   */
+  (e: 'command', cmd: PtzCommand): void;
+  /**
+   * 云台调速档位变更事件。
+   */
+  (e: 'speed-change', speed: number): void;
+  /**
+   * 双向绑定云台调速档位。
+   */
+  (e: 'update:speed', speed: number): void;
+  /**
+   * 新增/保存当前点位预置位。
+   */
+  (e: 'preset-add', preset: PtzPresetItem): void;
+  /**
+   * 删除指定预置位。
+   */
+  (e: 'preset-delete', index: number): void;
+}
+
+/**
+ * useDigitalZoom 电子放大状态机配置选项。
+ */
+export interface DigitalZoomOptions {
+  /**
+   * 初始缩放倍率（默认 1.0）。
+   */
+  initialScale?: number;
+  /**
+   * 最小允许缩放倍率（默认 1.0）。
+   */
+  minScale?: number;
+  /**
+   * 最大允许缩放倍率（默认 5.0）。
+   */
+  maxScale?: number;
+  /**
+   * 每次滚轮或调用 zoomIn/Out 的步进增量（默认 0.25）。
+   */
+  step?: number;
+  /**
+   * 挂载平移拖拽与缩放的容器节点引用（可选）。
+   */
+  containerRef?: MaybeRefOrGetter<HTMLElement | null>;
+  /**
+   * 缩放或偏移变化回调。
+   */
+  onZoomChange?: (scale: number, offset: { x: number; y: number }) => void;
+}
+
+/**
+ * useDigitalZoom 电子放大状态机返回值契约。
+ */
+export interface UseDigitalZoomReturn {
+  /**
+   * 当前电子放大倍率（1.0 ~ 5.0）。
+   */
+  scale: Ref<number>;
+  /**
+   * X 轴平移偏移量（px）。
+   */
+  offsetX: Ref<number>;
+  /**
+   * Y 轴平移偏移量（px）。
+   */
+  offsetY: Ref<number>;
+  /**
+   * 当前是否处于鼠标按住拖拽平移状态。
+   */
+  isDragging: Ref<boolean>;
+  /**
+   * 计算得出的硬件加速 CSS Transform 样式对象。
+   */
+  transformStyle: ComputedRef<Record<string, string>>;
+  /**
+   * 电子放大放大步进。
+   */
+  zoomIn(delta?: number): void;
+  /**
+   * 电子放大缩小步进。
+   */
+  zoomOut(delta?: number): void;
+  /**
+   * 重置电子放大至 1.0x 原始居中视角。
+   */
+  resetZoom(): void;
+  /**
+   * 直接设置目标缩放倍率与焦点中心。
+   */
+  setZoom(scale: number, origin?: { x: number; y: number }): void;
+  /**
+   * 设置平移偏移量（内部自动执行边界防脱框阻尼）。
+   */
+  setOffset(x: number, y: number): void;
+  /**
+   * 鼠标滚轮缩放事件处理器。
+   */
+  handleWheel(event: WheelEvent): void;
+  /**
+   * 鼠标拖拽平移按下事件处理器。
+   */
+  startDrag(event: MouseEvent): void;
+}
+
+/**
+ * usePtzGesture 画面手势联动配置契约。
+ */
+export interface PtzGestureOptions {
+  /**
+   * 拖拽位移触发云台转动的最小像素门限（默认 15px）。
+   */
+  threshold?: number;
+  /**
+   * 当前云台移动步进速度（默认 5）。
+   */
+  speed?: MaybeRefOrGetter<number>;
+  /**
+   * 云台语义化指令派发回调。
+   */
+  onCommand?: (cmd: PtzCommand) => void;
+}
+
+/**
+ * usePtzGesture 画面手势联动状态机返回值契约。
+ */
+export interface UsePtzGestureReturn {
+  /**
+   * 是否正在通过手势与云台交互。
+   */
+  isInteracting: Ref<boolean>;
+  /**
+   * 当前手势驱动的动作指令（无交互时为 null）。
+   */
+  activeAction: Ref<PtzAction | null>;
+  /**
+   * 鼠标按下事件处理器。
+   */
+  handleMouseDown(event: MouseEvent): void;
+  /**
+   * 鼠标移动事件处理器。
+   */
+  handleMouseMove(event: MouseEvent): void;
+  /**
+   * 鼠标抬起/离开事件处理器。
+   */
+  handleMouseUp(event?: MouseEvent): void;
+  /**
+   * 滚轮手势调焦事件处理器。
+   */
+  handleWheel(event: WheelEvent): void;
+}
+
+/**
+ * AtengPtzControl 组件 Ref 实例类型。
+ */
+export type AtengPtzControlInstance = ComponentPublicInstance<
+  PtzControlProps,
+  {
+    sendCommand(action: PtzAction, extra?: Partial<PtzCommand>): void;
+    setSpeed(speed: number): void;
+  }
+>;

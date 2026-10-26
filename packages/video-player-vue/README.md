@@ -8,25 +8,29 @@
 
 ## 0. 特性与公共 API 全景速查矩阵
 
-| 特性分类         | 特性名称                    | 核心门面 / 组件 / Hook                                                                                                               | 关键参数 / Props / Emits                                                                       | 核心行为说明                                                                               | 锚定验证源头 (*Test / Sample)                                         |
-| :--------------- | :-------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-| **基础渲染**     | 单路视频播放容器            | `<AtengVideoPlayer />`                                                                                                               | `url`, `type`, `isLive`, `reconnect`, `liveBufferLatencyChasing`                               | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                                       | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
-| **无头状态机**   | 响应式播放状态机            | `useVideoPlayer(options)`                                                                                                            | `url`, `autoplay`, `volume`, `loop`                                                            | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                                         | `AtengVideoPlayer.test.ts`                                            |
-| **断流重连**     | 指数退避重连状态机          | `useStreamReconnect(options)`                                                                                                        | `maxRetries`, `baseDelay`, `maxDelay`, `jitter`, `triggerReconnect`                            | 工业级指数退避重连算法与 ±20% 抖动抗惊群，硬失败转接与定时器确定性清理                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **记忆续播**     | 本地历史与续播状态机        | `useVideoPlaybackHistory()`                                                                                                          | `url`, `autoResume`, `autoPlayResume`, `clearHistory`, `saveProgress`                          | 基于 localStorage 记忆播放进度，支持弹窗提示、恢复后自动播放、防抖写入与一键重放           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **热键与步进**   | 键盘热键与逐帧微调          | `engine.step()`, `engine.stepFrame()`                                                                                                | `hotkey: boolean`, `step(seconds)`, `stepFrame(frames, fps)`                                   | 支持空格播放暂停、方向键快进快退音量、F全屏、M静音、[,]/[,]逐帧微调，输入框安全防穿透      | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **时间轴打点**   | 关键帧标注与点击跳帧        | `<AtengVideoPlayer />`                                                                                                               | `markers: VideoMarkerItem[]`, `@marker-click`                                                  | 时间轴高亮打点、悬浮卡片提示、颜色定制，点击打点实现精准快速跳帧                           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **缩略图预览**   | 进度条 Hover 预览           | `<AtengVideoPlayer />`                                                                                                               | `thumbnails: VideoThumbnailOptions`                                                            | 支持传入雪碧图切片配置或 WebVTT 格式，鼠标悬浮进度条展示动态帧预览卡片                     | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
-| **多路分屏矩阵** | `<AtengVideoGrid />`        | `channels`, `layout`, `activeId`, `autoSubStream`, `audioExclusive`, `gap`, `themeColor`, `@select`, `@channel-dblclick`, `@restore` | 原生 CSS Grid 驱动，支持 1/4/9/16 对称宫格及 1+5/1+7 广播级主从分屏，自适应窗口缩放            | `grid.test.ts` / `sample-video-player-vue/GridDemo.vue`                                    |
-| **分屏状态机**   | `useVideoGrid(options)`     | `channels`, `layout`, `autoSubStream`, `audioExclusive`, `activeId`                                                                  | 纯无头分屏编排状态机，内置通道容量推导、选路聚焦、双击独占放大、主次码流自适应与自动轮巡调度器 | `grid.test.ts` / `sample-video-player-vue/GridDemo.vue`                                    |
-| **分屏容量推导** | `getLayoutCapacity(layout)` | `layout: VideoGridLayout`                                                                                                            | 纯函数计算布局最大容纳通道数（1x1->1, 2x2->4, 3x3->9, 4x4->16, 1+5->6, 1+7->8）                | `grid.test.ts`                                                                             |
-| **安全水印**     | 防录屏安全水印容器          | `<AtengVideoWatermark />`                                                                                                            | `content`, `opacity`, `rotate`, `floating`, `tamperProof`, `@watermark-tampered`               | Canvas/SVG 矢量平铺，动态微位移随机浮动破坏录屏反算法，MutationObserver 审查防篡改毫秒自愈 | `watermark.test.ts` / `sample-video-player-vue/WatermarkDemo.vue`     |
-| **底层引擎 SPI** | Artplayer 适配引擎          | `ArtplayerEngine`                                                                                                                    | `container`, `options`, `handlers`                                                             | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                                 | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
-| **流媒体驱动**   | HLS 播放驱动                | `HlsDriver`                                                                                                                          | `video`, `url`, `options`                                                                      | 基于 hls.js 驱动，支持 ABR 码率自适应、Safari 降级与 xhrSetup 鉴权拦截                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **流媒体驱动**   | HTTP-FLV 播放驱动           | `MpegtsDriver`                                                                                                                       | `video`, `url`, `options`                                                                      | 基于 mpegts.js 驱动，支持低延迟直播、智能毫秒追帧与 autoCleanupSourceBuffer 防内存泄漏     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
-| **安全鉴权**     | 企业凭据双轨注入器          | `TokenInjector`                                                                                                                      | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`                               | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`            | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **白屏守卫**     | ADR-0004 双态探测           | `BlobJsonGuard`                                                                                                                      | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()`                              | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁           | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
-| **类型契约**     | 核心强类型全量定义          | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions`                                                                       | 详见 `types/index.ts`                                                                          | 100% 强类型覆盖，零裸 `any`                                                                | `types/index.ts`                                                      |
+| 特性分类         | 特性名称                        | 核心门面 / 组件 / Hook                                                                                                                  | 关键参数 / Props / Emits                                                                       | 核心行为说明                                                                               | 锚定验证源头 (*Test / Sample)                                         |
+| :--------------- | :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **基础渲染**     | 单路视频播放容器                | `<AtengVideoPlayer />`                                                                                                                  | `url`, `type`, `isLive`, `reconnect`, `liveBufferLatencyChasing`                               | 开箱即用视频播放器，内置六步销毁、错误退化与插槽浮层                                       | `AtengVideoPlayer.test.ts` / `sample-video-player-vue/VodDemo.vue`    |
+| **无头状态机**   | 响应式播放状态机                | `useVideoPlayer(options)`                                                                                                               | `url`, `autoplay`, `volume`, `loop`                                                            | 纯无头播放状态编排，抗竞态且具备响应式生命周期回收                                         | `AtengVideoPlayer.test.ts`                                            |
+| **断流重连**     | 指数退避重连状态机              | `useStreamReconnect(options)`                                                                                                           | `maxRetries`, `baseDelay`, `maxDelay`, `jitter`, `triggerReconnect`                            | 工业级指数退避重连算法与 ±20% 抖动抗惊群，硬失败转接与定时器确定性清理                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **记忆续播**     | 本地历史与续播状态机            | `useVideoPlaybackHistory()`                                                                                                             | `url`, `autoResume`, `autoPlayResume`, `clearHistory`, `saveProgress`                          | 基于 localStorage 记忆播放进度，支持弹窗提示、恢复后自动播放、防抖写入与一键重放           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **热键与步进**   | 键盘热键与逐帧微调              | `engine.step()`, `engine.stepFrame()`                                                                                                   | `hotkey: boolean`, `step(seconds)`, `stepFrame(frames, fps)`                                   | 支持空格播放暂停、方向键快进快退音量、F全屏、M静音、[,]/[,]逐帧微调，输入框安全防穿透      | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **时间轴打点**   | 关键帧标注与点击跳帧            | `<AtengVideoPlayer />`                                                                                                                  | `markers: VideoMarkerItem[]`, `@marker-click`                                                  | 时间轴高亮打点、悬浮卡片提示、颜色定制，点击打点实现精准快速跳帧                           | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **缩略图预览**   | 进度条 Hover 预览               | `<AtengVideoPlayer />`                                                                                                                  | `thumbnails: VideoThumbnailOptions`                                                            | 支持传入雪碧图切片配置或 WebVTT 格式，鼠标悬浮进度条展示动态帧预览卡片                     | `deepVOD.test.ts` / `sample-video-player-vue/DeepVodDemo.vue`         |
+| **多路分屏矩阵** | `<AtengVideoGrid />`            | `channels`, `layout`, `activeId`, `autoSubStream`, `audioExclusive`, `gap`, `themeColor`, `@select`, `@channel-dblclick`, `@restore`    | 原生 CSS Grid 驱动，支持 1/4/9/16 对称宫格及 1+5/1+7 广播级主从分屏，自适应窗口缩放            | `grid.test.ts` / `sample-video-player-vue/GridDemo.vue`                                    |
+| **分屏状态机**   | `useVideoGrid(options)`         | `channels`, `layout`, `autoSubStream`, `audioExclusive`, `activeId`                                                                     | 纯无头分屏编排状态机，内置通道容量推导、选路聚焦、双击独占放大、主次码流自适应与自动轮巡调度器 | `grid.test.ts` / `sample-video-player-vue/GridDemo.vue`                                    |
+| **分屏容量推导** | `getLayoutCapacity(layout)`     | `layout: VideoGridLayout`                                                                                                               | 纯函数计算布局最大容纳通道数（1x1->1, 2x2->4, 3x3->9, 4x4->16, 1+5->6, 1+7->8）                | `grid.test.ts`                                                                             |
+| **云台控制盘**   | `<AtengPtzControl />`           | `speed`, `presets`, `disabled`, `showOptical`, `showSpeed`, `showPresets`, `@command`, `@speed-change`, `@preset-add`, `@preset-delete` | 八方向罗盘、光学变焦/变倍/光圈调控、预置位管理，纯语义化指令派发与具体协议 100% 解耦           | `ptz.test.ts` / `sample-video-player-vue/PtzDemo.vue`                                      |
+| **电子放大**     | `useDigitalZoom(options)`       | `initialScale`, `minScale`, `maxScale`, `step`, `containerRef`, `onZoomChange`                                                          | 纯前端 CSS Transform 硬件加速实现 1.0x~5.0x 滚轮无级缩放与平移拖拽，具备防脱框边界阻尼         | `ptz.test.ts` / `sample-video-player-vue/PtzDemo.vue`                                      |
+| **手势联动**     | `usePtzGesture(options)`        | `threshold`, `speed`, `onCommand`                                                                                                       | 捕获画面拖拽向量并基于角度数学模型推导 8 方位云台指令，滚轮变焦，松手自动发送 stop 脉冲        | `ptz.test.ts` / `sample-video-player-vue/PtzDemo.vue`                                      |
+| **方位向量推导** | `calculatePtzDirection(dx, dy)` | `dx: number`, `dy: number`                                                                                                              | 纯数学函数，将屏幕位移向量精准映射到 8 个 45° 象限扇区（up/down/left/right 及四对角）          | `ptz.test.ts`                                                                              |
+| **安全水印**     | 防录屏安全水印容器              | `<AtengVideoWatermark />`                                                                                                               | `content`, `opacity`, `rotate`, `floating`, `tamperProof`, `@watermark-tampered`               | Canvas/SVG 矢量平铺，动态微位移随机浮动破坏录屏反算法，MutationObserver 审查防篡改毫秒自愈 | `watermark.test.ts` / `sample-video-player-vue/WatermarkDemo.vue`     |
+| **底层引擎 SPI** | Artplayer 适配引擎              | `ArtplayerEngine`                                                                                                                       | `container`, `options`, `handlers`                                                             | 适配 Artplayer 内核，固化确定性销毁六步防线与 GPU 缓冲回收                                 | `invariants.test.ts` / `ArtplayerEngine.ts`                           |
+| **流媒体驱动**   | HLS 播放驱动                    | `HlsDriver`                                                                                                                             | `video`, `url`, `options`                                                                      | 基于 hls.js 驱动，支持 ABR 码率自适应、Safari 降级与 xhrSetup 鉴权拦截                     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **流媒体驱动**   | HTTP-FLV 播放驱动               | `MpegtsDriver`                                                                                                                          | `video`, `url`, `options`                                                                      | 基于 mpegts.js 驱动，支持低延迟直播、智能毫秒追帧与 autoCleanupSourceBuffer 防内存泄漏     | `stream.test.ts` / `sample-video-player-vue/LiveDemo.vue`             |
+| **安全鉴权**     | 企业凭据双轨注入器              | `TokenInjector`                                                                                                                         | `injectHeaders()`, `injectXhr()`, `injectFetch()`, `injectUrl()`                               | 全链路对接 `@atengk/core` 的 `AuthManager`，双轨注入 `token` 与 `Authorization`            | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **白屏守卫**     | ADR-0004 双态探测               | `BlobJsonGuard`                                                                                                                         | `probeMediaStream()`, `parseJsonError()`, `toBusinessException()`                              | 嗅探 401/403/500 JSON 异常并转译为强类型 `BusinessException`，避免解复用白屏死锁           | `invariants.test.ts` / `sample-video-player-vue/AuthSecurityDemo.vue` |
+| **类型契约**     | 核心强类型全量定义              | `IVideoPlayerEngine`, `VideoPlayerProps`, `VideoPlayerOptions`                                                                          | 详见 `types/index.ts`                                                                          | 100% 强类型覆盖，零裸 `any`                                                                | `types/index.ts`                                                      |
 
 ---
 
@@ -232,6 +236,71 @@ const handleTour = () => {
 </template>
 ```
 
+### 2.7 安防云台八方向控制盘、画面手势联动与硬件加速电子放大
+
+提供纯语义化解耦的云台调控套件 `<AtengPtzControl />`、画面手势联动 `usePtzGesture` 以及纯前端 1.0x~5.0x 滚轮硬件加速电子放大 `useDigitalZoom`：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengPtzControl,
+  AtengVideoPlayer,
+  useDigitalZoom,
+  usePtzGesture,
+  type PtzCommand,
+} from '@atengk/video-player-vue';
+
+const videoContainerRef = ref<HTMLElement | null>(null);
+
+// 1. 纯前端硬件加速电子放大 (1.0x ~ 5.0x 无级缩放与平移拖拽)
+const zoom = useDigitalZoom({
+  minScale: 1.0,
+  maxScale: 5.0,
+  containerRef: videoContainerRef,
+});
+
+// 2. 视频画面手势联动 (按住拖拽八方向、滚轮变焦)
+const gesture = usePtzGesture({
+  threshold: 15,
+  speed: 5,
+  onCommand: cmd => handlePtzCommand(cmd),
+});
+
+// 3. 业务层统一处理语义化指令 (可无缝对接 GB28181、ONVIF 或 WebSocket)
+const handlePtzCommand = (cmd: PtzCommand) => {
+  console.log('派发云台指令:', cmd.action, '档位:', cmd.speed);
+};
+</script>
+
+<template>
+  <div style="display: flex; gap: 20px;">
+    <!-- 视频视口 (支持电子放大与手势驱动) -->
+    <div
+      ref="videoContainerRef"
+      style="width: 640px; height: 360px; overflow: hidden; position: relative;"
+      @mousedown="zoom.startDrag"
+      @wheel.passive="zoom.handleWheel"
+      @dblclick="zoom.resetZoom"
+    >
+      <div :style="zoom.transformStyle.value">
+        <AtengVideoPlayer url="https://stream.example.com/live.m3u8" />
+      </div>
+    </div>
+
+    <!-- 八方向云台调谐盘 -->
+    <AtengPtzControl
+      :speed="5"
+      :presets="[
+        { index: 1, name: '园区东门' },
+        { index: 2, name: '车辆卡口' },
+      ]"
+      @command="handlePtzCommand"
+    />
+  </div>
+</template>
+```
+
 ---
 
 ## 3. 核心生产边界与非功能语义 (Production Boundary)
@@ -273,6 +342,11 @@ const handleTour = () => {
 - **主次码流自适应 (Sub-Stream Adaptive)**：在 4/9/16 路等对称分屏大矩阵下，若各通道盲目全量拉取 1080P/4K 主码流，极易瞬时耗尽下行带宽并造成浏览器 GPU/CPU 硬件解码器过载崩溃。状态机在容量 $>1$ 且非独占放大时，默认自动选用低码率 `subUrl`（通常为 360P/D1 码流），节约超过 70% 带宽与算力；双击独占放大时瞬间无缝切换回高清 `url`；
 - **多路音频互斥不变量 (Audio Exclusive)**：多路监控同时放音会引发严重的杂音干扰与声学混响。状态机默认开启音频互斥，保证在整个视口中**仅有当前被用户选中的聚焦激活路（`activeChannelId`）允许发声**，其余所有背景路强制 `isMuted: true`。
 
+### 3.7 纯前端硬件加速电子放大与 PTZ 协议彻底解耦架构
+
+- **纯前端 CSS Transform 硬件加速 (Digital Zoom)**：安防场景中，前端操作者经常需要对画面特定区域（如车牌、人脸、仪表盘）进行局部微距观察。传统方案往往重新向云台请求光学变焦拉近，耗时且改变了主监控视角。`useDigitalZoom` 采用纯前端 GPU 合成层硬件加速（`translate3d` + `scale`），不仅支持 1.0x~5.0x 滚轮无级缩放与拖拽漫游，而且内置精确的边界阻尼约束算法（限制偏移量在 $(scale - 1) \times dimension / 2$ 范围），彻底杜绝画面被拖出黑边视口脱框；
+- **语义化事件与网络协议 100% 彻底解耦**：`<AtengPtzControl />` 与 `usePtzGesture` 恪守工业级分层原则，组件内部绝不耦合任何 GB28181 (XML/SIP)、ONVIF (SOAP) 或特定后端 API。所有转动、变倍、聚焦、光圈与预置位操作均统一收敛为标准 `PtzCommand` 载荷派发，业务层可直接将其映射为任意私有 WebSocket 或 HTTP 网关请求。
+
 ---
 
 ## 4. 物理排版与代码全真验证
@@ -284,4 +358,5 @@ const handleTour = () => {
 - `sample-video-player-vue/LiveDemo.vue`：低延迟 HLS/FLV 直播、断流指数退避重连与毫秒追帧实测；
 - `sample-video-player-vue/AuthSecurityDemo.vue`：鉴权注入、401/403 故障注入与六步销毁显存追踪实测；
 - `sample-video-player-vue/WatermarkDemo.vue`：防录屏水印动态浮动、F12 攻防自愈沙箱与容器级全屏实测；
-- `sample-video-player-vue/GridDemo.vue`：1~16 路多通道分屏矩阵、选路聚焦、双击独占放大、主次码流自适应与自动轮巡调度实测。
+- `sample-video-player-vue/GridDemo.vue`：1~16 路多通道分屏矩阵、选路聚焦、双击独占放大、主次码流自适应与自动轮巡调度实测；
+- `sample-video-player-vue/PtzDemo.vue`：八方向云台罗盘、光学变焦/聚焦/光圈、预置位管理、画面手势联动与 1.0x~5.0x 硬件加速电子放大实测。
