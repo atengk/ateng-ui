@@ -129,19 +129,20 @@
 // ========================================================
 // 3. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
 // ========================================================
-html.dark {
+:root.dark,
+.dark {
   .el-slider {
     .el-slider__runway {
-      background-color: #1e293b;
+      background-color: var(--el-fill-color-dark);
     }
 
     .el-slider__button {
-      background-color: #0c1017;
+      background-color: var(--el-bg-color);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
     }
 
     .el-slider__stop {
-      background-color: #0c1017;
+      background-color: var(--el-bg-color);
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
     }
   }

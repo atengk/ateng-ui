@@ -85,11 +85,16 @@ import {
   ElAnchor,
   ElAnchorLink,
   ElLoading,
+  ElPageHeader,
+  ElBacktop,
+  ElCheckTag,
+  ElStatistic,
 } from 'element-plus';
-import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
+import { AtengCard, AtengDialog, setThemeColor, initTheme } from '@atengk/element-plus';
 
 // 1. 暗黑模式监听与主动感知
 const isDark = ref(false);
+const checkTagChecked = ref(true);
 let darkObserver: MutationObserver | null = null;
 
 // 2. 预设主题控制
@@ -274,26 +279,30 @@ const cascaderOptions = [
 const treeData = [
   {
     id: 'root-1',
+    value: 'root-1',
     label: '分布式微服务拓扑网格',
     children: [
       {
         id: 'svc-auth',
+        value: 'svc-auth',
         label: 'auth-jwt-service (鉴权认证集群)',
         children: [
-          { id: 'pod-auth-1', label: 'pod-auth-01 (Healthy)' },
-          { id: 'pod-auth-2', label: 'pod-auth-02 (Healthy)' },
+          { id: 'pod-auth-1', value: 'pod-auth-1', label: 'pod-auth-01 (Healthy)' },
+          { id: 'pod-auth-2', value: 'pod-auth-2', label: 'pod-auth-02 (Healthy)' },
         ],
       },
       {
         id: 'svc-order',
+        value: 'svc-order',
         label: 'order-settle-service (订单结算网格)',
         children: [
-          { id: 'pod-order-1', label: 'pod-order-01 (High Load)' },
-          { id: 'pod-order-2', label: 'pod-order-02 (Healthy)' },
+          { id: 'pod-order-1', value: 'pod-order-1', label: 'pod-order-01 (High Load)' },
+          { id: 'pod-order-2', value: 'pod-order-2', label: 'pod-order-02 (Healthy)' },
         ],
       },
       {
         id: 'svc-gateway',
+        value: 'svc-gateway',
         label: 'api-gateway-edge (边缘安全网关)',
       },
     ],
@@ -661,12 +670,20 @@ onUnmounted(() => {
               <ElTag class="is-dot" type="danger">Critical 熔断报警</ElTag>
               <ElTag class="is-dot" type="info">Standby 离线冷备</ElTag>
             </div>
-            <div class="tag-cluster">
+            <div class="tag-cluster mb-3">
               <ElTag type="primary" closable>动态换肤</ElTag>
               <ElTag type="success" closable>健康状态</ElTag>
               <ElTag type="danger" round>胶囊圆角</ElTag>
               <ElTag effect="dark" type="primary">Dark 沉稳</ElTag>
               <ElTag effect="plain" type="primary">Plain 微描边</ElTag>
+            </div>
+            <div class="tag-cluster">
+              <span class="text-xs text-muted mr-2">可选中标签 (ElCheckTag)：</span>
+              <ElCheckTag :checked="checkTagChecked" @change="checkTagChecked = !checkTagChecked">
+                {{ checkTagChecked ? '已勾选 (Active)' : '未勾选 (Inactive)' }}
+              </ElCheckTag>
+              <ElCheckTag :checked="true">系统常驻服务</ElCheckTag>
+              <ElCheckTag :checked="false">冷备节点</ElCheckTag>
             </div>
           </AtengCard>
 
@@ -857,6 +874,8 @@ onUnmounted(() => {
                 <ElTreeSelect
                   v-model="treeSelectValue"
                   :data="treeData"
+                  node-key="id"
+                  value-key="id"
                   check-strictly
                   style="width: 100%"
                 />
@@ -1213,6 +1232,19 @@ onUnmounted(() => {
                 </ElSkeleton>
               </div>
 
+              <!-- 页头体系 -->
+              <div>
+                <span class="text-xs text-muted mb-2 block">现代轻量页头 (ElPageHeader)：</span>
+                <ElPageHeader content="分布式微服务集群控制台" title="返回上级" class="mb-3">
+                  <template #extra>
+                    <div class="flex items-center gap-2">
+                      <ElButton size="small">刷新指标</ElButton>
+                      <ElButton type="primary" size="small">导出报表</ElButton>
+                    </div>
+                  </template>
+                </ElPageHeader>
+              </div>
+
               <!-- 面包屑体系 -->
               <div>
                 <span class="text-xs text-muted mb-2 block">高反差层级面包屑 (ElBreadcrumb)：</span>
@@ -1275,6 +1307,27 @@ onUnmounted(() => {
                   </ElCollapseItem>
                 </ElCollapse>
               </div>
+            </div>
+          </AtengCard>
+
+          <!-- 统计数值面板 -->
+          <AtengCard title="📈 精密等宽统计指标 (Statistic)" class="mb-3">
+            <div class="section-desc mb-3">
+              支持 tabular-nums 等宽排版、前缀/后缀图标与深浅模式自适应对比度。
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-2">
+              <ElStatistic title="全局 QPS 峰值吞吐" :value="128560">
+                <template #suffix>req/s</template>
+              </ElStatistic>
+              <ElStatistic title="集群平均响应延迟 (P99)" :value="12.4" :precision="1">
+                <template #suffix>ms</template>
+              </ElStatistic>
+              <ElStatistic title="活跃节点健康度" :value="99.98" :precision="2">
+                <template #suffix>%</template>
+              </ElStatistic>
+              <ElStatistic title="实时拦截告警总数" :value="32">
+                <template #prefix>🛡️</template>
+              </ElStatistic>
             </div>
           </AtengCard>
 
@@ -1383,7 +1436,7 @@ onUnmounted(() => {
                   <ElLink type="warning">警告链接</ElLink>
                   <ElLink type="danger">危险链接</ElLink>
                   <ElLink type="info">信息链接</ElLink>
-                  <ElLink :underline="false">无下划线</ElLink>
+                  <ElLink underline="never">无下划线 (never)</ElLink>
                   <ElLink disabled>禁用链接</ElLink>
                 </ElSpace>
               </div>
@@ -1637,6 +1690,9 @@ onUnmounted(() => {
       :url-list="mediaPreviewList"
       @close="showImageViewer = false"
     />
+
+    <!-- 回到顶部 (ElBacktop) -->
+    <ElBacktop :right="40" :bottom="40" />
   </div>
 </template>
 

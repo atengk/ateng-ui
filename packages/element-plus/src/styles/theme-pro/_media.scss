@@ -58,7 +58,7 @@
     cursor: pointer;
 
     &:not(:first-child) {
-      margin-left: -8px;
+      margin-inline-start: -8px;
     }
 
     &:hover {
@@ -83,7 +83,7 @@
       box-shadow: 0 0 0 2px var(--el-bg-color);
 
       &:not(:first-child) {
-        margin-left: 4px;
+        margin-inline-start: 4px;
       }
 
       &:hover {
@@ -316,19 +316,19 @@
 // 4. 暗黑模式 (Dark Mode) 深度适配
 // ========================================================
 
-html.dark,
+:root.dark,
 .dark {
   .el-image-viewer__mask {
     background-color: rgba(2, 6, 23, 0.88);
   }
 
   .el-image-viewer__actions {
-    background-color: rgba(2, 6, 23, 0.82);
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   .el-image-viewer__btn {
-    background-color: rgba(2, 6, 23, 0.8);
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
     border-color: rgba(255, 255, 255, 0.1);
 
     &:hover {
@@ -341,7 +341,7 @@ html.dark,
   }
 
   .el-image-viewer__progress {
-    background-color: rgba(2, 6, 23, 0.82);
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
     border-color: rgba(255, 255, 255, 0.1);
   }
 }

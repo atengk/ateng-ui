@@ -58,18 +58,21 @@
 }
 
 // 暗黑模式下 Checkbox
-html.dark .el-checkbox {
-  .el-checkbox__inner {
-    background-color: #121824;
-    border-color: rgba(255, 255, 255, 0.14);
-  }
-
-  &.is-checked,
-  &.is-indeterminate {
+:root.dark,
+.dark {
+  .el-checkbox {
     .el-checkbox__inner {
-      background-color: var(--el-color-primary);
-      border-color: transparent;
-      box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.5);
+      background-color: var(--el-bg-color-overlay);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    &.is-checked,
+    &.is-indeterminate {
+      .el-checkbox__inner {
+        background-color: var(--el-color-primary);
+        border-color: transparent;
+        box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.5);
+      }
     }
   }
 }
@@ -120,20 +123,23 @@ html.dark .el-checkbox {
 }
 
 // 暗黑模式下 Radio
-html.dark .el-radio {
-  .el-radio__inner {
-    background-color: #121824;
-    border-color: rgba(255, 255, 255, 0.14);
-  }
-
-  &.is-checked {
+:root.dark,
+.dark {
+  .el-radio {
     .el-radio__inner {
-      background-color: #121824;
-      border-color: var(--el-color-primary);
-      box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.45);
+      background-color: var(--el-bg-color-overlay);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
 
-      &::after {
-        background-color: var(--el-color-primary-light-3);
+    &.is-checked {
+      .el-radio__inner {
+        background-color: var(--el-bg-color-overlay);
+        border-color: var(--el-color-primary);
+        box-shadow: 0 0 12px rgba(var(--el-color-primary-rgb), 0.45);
+
+        &::after {
+          background-color: var(--el-color-primary-light-3);
+        }
       }
     }
   }

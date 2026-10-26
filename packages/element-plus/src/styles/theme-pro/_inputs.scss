@@ -48,10 +48,12 @@
   }
 }
 
-// 暗黑模式下输入框微调
-html.dark .el-input__wrapper,
-html.dark .el-range-editor.el-input__wrapper {
-  background-color: #121824;
+// 暗黑模式下输入框微调 (支持局部子树 .dark)
+:root.dark .el-input__wrapper,
+.dark .el-input__wrapper,
+:root.dark .el-range-editor.el-input__wrapper,
+.dark .el-range-editor.el-input__wrapper {
+  background-color: var(--el-bg-color-overlay);
   border: none;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
@@ -67,7 +69,7 @@ html.dark .el-range-editor.el-input__wrapper {
   }
 
   &.is-disabled {
-    background-color: #0f1522;
+    background-color: var(--el-fill-color-light);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   }
 }
@@ -101,8 +103,9 @@ html.dark .el-range-editor.el-input__wrapper {
   }
 }
 
-html.dark .el-select__wrapper {
-  background-color: #121824;
+:root.dark .el-select__wrapper,
+.dark .el-select__wrapper {
+  background-color: var(--el-bg-color-overlay);
   border: none;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
@@ -117,7 +120,7 @@ html.dark .el-select__wrapper {
   }
 
   &.is-disabled {
-    background-color: #0f1522;
+    background-color: var(--el-fill-color-light);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   }
 }
@@ -146,8 +149,9 @@ html.dark .el-select__wrapper {
   }
 }
 
-html.dark .el-textarea__inner {
-  background-color: #121824;
+:root.dark .el-textarea__inner,
+.dark .el-textarea__inner {
+  background-color: var(--el-bg-color-overlay);
   border: none;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
@@ -349,8 +353,9 @@ html.dark .el-input-number {
   }
 }
 
-html.dark .el-input-tag {
-  background-color: #121824;
+:root.dark .el-input-tag,
+.dark .el-input-tag {
+  background-color: var(--el-bg-color-overlay);
   border-color: rgba(255, 255, 255, 0.09);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 
@@ -400,9 +405,10 @@ html.dark .el-input-tag {
   }
 }
 
-html.dark .el-input-otp {
+:root.dark .el-input-otp,
+.dark .el-input-otp {
   .el-input-otp__input-field {
-    background-color: #121824;
+    background-color: var(--el-bg-color-overlay);
     border-color: rgba(255, 255, 255, 0.09);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 
@@ -467,9 +473,11 @@ html.dark .el-input-otp {
   }
 }
 
-html.dark .el-autocomplete__popper.el-popper,
-html.dark .el-mention__popper.el-popper {
-  background-color: rgba(18, 24, 36, 0.95);
+:root.dark .el-autocomplete__popper.el-popper,
+.dark .el-autocomplete__popper.el-popper,
+:root.dark .el-mention__popper.el-popper,
+.dark .el-mention__popper.el-popper {
+  background-color: var(--at-bg-overlay-translucent);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 

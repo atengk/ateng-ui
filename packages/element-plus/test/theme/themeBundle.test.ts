@@ -5,7 +5,10 @@
  * 1. dist/theme-pro.css 产物存在且包含完整样式规则；
  * 2. 100% 恪守零 !important 铁律，不破坏业务层自然特异度；
  * 3. 极窄冷钛滚动条、文本链接与排版文本规则正确编译；
- * 4. 核心科技预设与 Slate 暗黑模式基底变量完整。
+ * 4. 核心科技预设与 Slate 暗黑模式基底变量完整；
+ * 5. 覆盖全量官方组件（新增 ElPageHeader, ElBacktop, ElCheckTag, ElStatistic）；
+ * 6. 覆盖媒体查询全景（prefers-reduced-motion, forced-colors, print, pointer: coarse）；
+ * 7. 严格消除组件选择器中的硬编码暗黑背景色 (#0c1017) 泄露。
  *
  * @author Ateng
  * @since 2026-10-22
@@ -98,6 +101,7 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
       '.el-tree',
       '.el-tree-select',
       '.el-tag',
+      '.el-check-tag',
       '.el-switch',
       '.el-segmented',
       '.el-collapse',
@@ -126,7 +130,10 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
       '.el-menu',
       '.el-dropdown',
       '.el-breadcrumb',
+      '.el-page-header',
       '.el-anchor',
+      '.el-backtop',
+      '.el-statistic',
       '.el-avatar',
       '.el-avatar-group',
       '.el-image',
@@ -141,6 +148,37 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     for (const selector of fullComponentSelectors) {
       expect(content).toContain(selector);
     }
+  });
+
+  it('媒体查询全景守卫：覆盖减弱动效、高对比模式、打印模式与触屏优化', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('prefers-reduced-motion');
+    expect(content).toContain('forced-colors');
+    expect(content).toContain('@media print');
+    expect(content).toContain('pointer: coarse');
+    expect(content).toContain('html.is-theme-switching');
+  });
+
+  it('新增缺位官方组件全量入驻 (ElPageHeader, ElBacktop, ElCheckTag, ElStatistic)', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-page-header');
+    expect(content).toContain('.el-backtop');
+    expect(content).toContain('.el-check-tag');
+    expect(content).toContain('.el-statistic');
+  });
+
+  it('全局设计令牌与圆角变量正确编译注入', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('--at-radius-card');
+    expect(content).toContain('--at-radius-dialog');
+    expect(content).toContain('--at-z-index-base');
+    expect(content).toContain('--at-bg-overlay-translucent');
+  });
+
+  it('暗黑模式 SSOT 治理：组件规则中无硬编码 #0c1017 泄露', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    const matches = content.match(/background-color:#0c1017/g);
+    expect(matches).toBeNull();
   });
 
   it('包含 5 款科技预设与 Slate 暗黑模式变量', () => {

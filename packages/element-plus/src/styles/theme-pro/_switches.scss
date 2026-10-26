@@ -82,27 +82,30 @@
 // ========================================================
 // 5. 暗黑模式冷钛黑曜石基底 (Dark Mode - Slate Switch)
 // ========================================================
-html.dark .el-switch {
-  .el-switch__core {
-    background-color: #334155;
-    border-color: rgba(255, 255, 255, 0.1);
-
-    .el-switch__action {
-      background-color: #f1f5f9;
-      box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.6),
-        0 0 1px rgba(0, 0, 0, 0.4);
-    }
-  }
-
-  &.is-checked {
+:root.dark,
+.dark {
+  .el-switch {
     .el-switch__core {
-      background-color: var(--el-color-primary);
-      border-color: transparent;
-      box-shadow: 0 0 16px rgba(var(--el-color-primary-rgb), 0.45);
+      background-color: var(--el-fill-color-darker, #334155);
+      border-color: rgba(255, 255, 255, 0.1);
 
       .el-switch__action {
-        color: var(--el-color-primary-dark-2);
+        background-color: #f1f5f9;
+        box-shadow:
+          0 1px 3px rgba(0, 0, 0, 0.6),
+          0 0 1px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    &.is-checked {
+      .el-switch__core {
+        background-color: var(--el-color-primary);
+        border-color: transparent;
+        box-shadow: 0 0 16px rgba(var(--el-color-primary-rgb), 0.45);
+
+        .el-switch__action {
+          color: var(--el-color-primary-dark-2);
+        }
       }
     }
   }

@@ -43,6 +43,12 @@
       color: var(--el-color-primary);
       font-weight: 600;
     }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--at-shadow-focus-ring);
+      border-radius: var(--el-border-radius-small);
+    }
   }
 
   // 卡片变体 (type="card")
@@ -102,33 +108,36 @@
   }
 }
 
-// 暗黑模式下选项卡微调
-html.dark .el-tabs {
-  &--card > .el-tabs__header {
-    border-bottom-color: rgba(255, 255, 255, 0.07);
+// 暗黑模式下选项卡微调 (支持局部 .dark)
+:root.dark,
+.dark {
+  .el-tabs {
+    &--card > .el-tabs__header {
+      border-bottom-color: rgba(255, 255, 255, 0.07);
 
-    .el-tabs__nav {
-      border-color: rgba(255, 255, 255, 0.08);
-      background-color: #090e17;
-    }
-
-    .el-tabs__item.is-active {
-      background-color: #0c1017;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-    }
-  }
-
-  &--border-card {
-    border-color: rgba(255, 255, 255, 0.08);
-
-    > .el-tabs__header {
-      background-color: #0f1522;
-      border-bottom-color: rgba(255, 255, 255, 0.08);
+      .el-tabs__nav {
+        border-color: rgba(255, 255, 255, 0.08);
+        background-color: var(--el-fill-color-extra-light);
+      }
 
       .el-tabs__item.is-active {
-        background-color: #0c1017;
-        border-right-color: rgba(255, 255, 255, 0.08);
-        border-left-color: rgba(255, 255, 255, 0.08);
+        background-color: var(--el-bg-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+    }
+
+    &--border-card {
+      border-color: rgba(255, 255, 255, 0.08);
+
+      > .el-tabs__header {
+        background-color: var(--el-fill-color-light);
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+
+        .el-tabs__item.is-active {
+          background-color: var(--el-bg-color);
+          border-right-color: rgba(255, 255, 255, 0.08);
+          border-left-color: rgba(255, 255, 255, 0.08);
+        }
       }
     }
   }
@@ -225,33 +234,6 @@ html.dark .el-tabs {
   }
 }
 
-html.dark .el-menu--popup {
-  background-color: #121824;
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
-}
-
-// 暗黑模式下菜单
-html.dark .el-menu {
-  border-right-color: rgba(255, 255, 255, 0.06);
-
-  .el-menu-item,
-  .el-sub-menu__title {
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.05);
-    }
-  }
-
-  .el-menu-item.is-active {
-    background-color: rgba(var(--el-color-primary-rgb), 0.15);
-    color: var(--el-color-primary-light-3);
-
-    &::before {
-      background-color: var(--el-color-primary-light-3);
-    }
-  }
-}
-
 // ========================================================
 // 3. 下拉菜单与浮动项 (ElDropdown)
 // ========================================================
@@ -280,17 +262,46 @@ html.dark .el-menu {
   }
 }
 
-html.dark .el-dropdown-menu {
-  background-color: rgba(12, 16, 23, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
+:root.dark,
+.dark {
+  .el-menu--popup {
+    background-color: var(--at-bg-overlay-translucent);
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+  }
 
-  .el-dropdown-menu__item {
-    color: #cbd5e1;
+  .el-menu {
+    border-right-color: rgba(255, 255, 255, 0.06);
 
-    &:hover,
-    &:focus {
-      background-color: rgba(var(--el-color-primary-rgb), 0.16);
-      color: #f1f5f9;
+    .el-menu-item,
+    .el-sub-menu__title {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    .el-menu-item.is-active {
+      background-color: rgba(var(--el-color-primary-rgb), 0.15);
+      color: var(--el-color-primary-light-3);
+
+      &::before {
+        background-color: var(--el-color-primary-light-3);
+      }
+    }
+  }
+
+  .el-dropdown-menu {
+    background-color: var(--at-bg-overlay-translucent);
+    border-color: rgba(255, 255, 255, 0.1);
+
+    .el-dropdown-menu__item {
+      color: #cbd5e1;
+
+      &:hover,
+      &:focus {
+        background-color: rgba(var(--el-color-primary-rgb), 0.16);
+        color: #f1f5f9;
+      }
     }
   }
 }
@@ -408,12 +419,68 @@ html.dark .el-dropdown-menu {
       color: var(--el-color-primary);
       font-weight: 600;
     }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--at-shadow-focus-ring);
+      border-radius: var(--el-border-radius-small);
+    }
   }
 }
 
-html.dark .el-anchor {
-  &.el-anchor--vertical.el-anchor--underline::before,
-  &.el-anchor--horizontal.el-anchor--underline::before {
-    background-color: rgba(255, 255, 255, 0.08);
+:root.dark,
+.dark {
+  .el-anchor {
+    &.el-anchor--vertical.el-anchor--underline::before,
+    &.el-anchor--horizontal.el-anchor--underline::before {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+}
+
+// ========================================================
+// 6. 页头导航体系 (ElPageHeader)
+// ========================================================
+.el-page-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+
+  .el-page-header__left {
+    align-items: center;
+
+    .el-page-header__back {
+      transition:
+        color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &:hover {
+        color: var(--el-color-primary);
+        transform: translateX(-2px);
+      }
+    }
+  }
+
+  .el-page-header__title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--el-text-color-regular);
+  }
+
+  .el-page-header__content {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--el-text-color-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .el-page-header__breadcrumb {
+    margin-bottom: 8px;
+  }
+}
+
+:root.dark,
+.dark {
+  .el-page-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
   }
 }

@@ -8,6 +8,24 @@
 :root {
   --at-namespace: 'at';
   --at-transition-duration: var(--el-transition-duration, 0.3s);
+
+  // 基础设计令牌保底 (Safe Fallbacks for standalone style.css)
+  --at-radius-card: var(--el-border-radius-base, 6px);
+  --at-radius-dialog: var(--el-border-radius-base, 16px);
+  --at-shadow-floating: var(--el-box-shadow-light);
+  --at-shadow-focus-ring:
+    0 0 0 1px var(--el-color-primary, #409eff), 0 0 0 4px rgba(64, 158, 255, 0.18);
+  --at-ambient-glow: rgba(64, 158, 255, 0.14);
+  --at-bg-overlay-translucent: var(--el-bg-color-overlay, #ffffff);
+  --at-font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  // Z-Index 标尺令牌保底 (Z-Index Hierarchy Scale)
+  --at-z-index-base: 1;
+  --at-z-index-sticky: 100;
+  --at-z-index-overlay: 1000;
+  --at-z-index-fullscreen: 2000;
+  --at-z-index-top-bar: 9999;
 }
 
 // ========================================================

@@ -74,8 +74,9 @@
   scrollbar-color: var(--el-border-color-dark) transparent;
 }
 
-// 1.4 暗黑模式下滚动条微质感
-html.dark {
+// 1.4 暗黑模式下滚动条微质感 (支持局部 .dark)
+:root.dark,
+.dark {
   .el-scrollbar {
     --el-scrollbar-opacity: 0.3;
     --el-scrollbar-hover-opacity: 0.8;
@@ -93,6 +94,14 @@ html.dark {
 
   * {
     scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+}
+
+// 1.5 触控设备滚动条微放宽 (Touch Screen Device Adaptation)
+@media (pointer: coarse) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 }
 
@@ -137,7 +146,8 @@ html.dark {
   }
 }
 
-html.dark .el-text {
+:root.dark .el-text,
+.dark .el-text {
   &.el-text--primary {
     color: var(--el-color-primary-light-3);
   }
@@ -149,4 +159,134 @@ html.dark .el-text {
 
 .el-space {
   vertical-align: middle;
+}
+
+// ========================================================
+// 5. 返回顶部悬浮钮 (ElBacktop - 黑曜石浮岛圆钮)
+// ========================================================
+
+.el-backtop {
+  border-radius: var(--el-border-radius-round);
+  background-color: var(--el-bg-color-overlay);
+  color: var(--el-text-color-regular);
+  box-shadow: var(--at-shadow-floating);
+  border: 1px solid var(--el-border-color);
+  width: 42px;
+  height: 42px;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    box-shadow:
+      0 0 12px var(--at-ambient-glow),
+      var(--at-shadow-floating);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+:root.dark,
+.dark {
+  .el-backtop {
+    background-color: var(--at-bg-overlay-translucent);
+    border-color: var(--el-border-color);
+    color: var(--el-text-color-primary);
+
+    &:hover {
+      background-color: var(--el-fill-color-dark);
+      color: var(--el-color-primary-light-3);
+      border-color: var(--el-color-primary);
+    }
+  }
+}
+
+// ========================================================
+// 6. 无障碍动效减弱偏好降级 (Reduced-Motion Invariant)
+// ========================================================
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+}
+
+// ========================================================
+// 7. Windows 高对比度强制色彩防隐形轮廓 (Forced-Colors)
+// ========================================================
+
+@media (forced-colors: active) {
+  .el-input__wrapper,
+  .el-select__wrapper,
+  .el-textarea__inner,
+  .el-button,
+  .el-card,
+  .at-card,
+  .el-dialog,
+  .el-drawer {
+    outline: 1px solid transparent;
+  }
+}
+
+// ========================================================
+// 8. 主题极速切换防撕裂过渡锁 (Transition Storm Defense)
+// ========================================================
+
+html.is-theme-switching,
+html.is-theme-switching * {
+  transition-property: none;
+  transition-duration: 0s;
+}
+
+// ========================================================
+// 9. 企业级单据与报表纯净打印样式基线 (@media print)
+// ========================================================
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    background-color: transparent;
+    color: #000000;
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  html,
+  body {
+    background-color: #ffffff;
+    color: #000000;
+  }
+
+  .el-pagination,
+  .at-table__batch-bar,
+  .at-footer-bar,
+  .el-backtop,
+  .el-button:not(.is-print-keep),
+  .el-tabs__header {
+    display: none;
+  }
+
+  .el-table,
+  .el-card,
+  .at-card,
+  .el-descriptions {
+    border-color: #cbd5e1;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }

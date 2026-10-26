@@ -407,6 +407,7 @@ defineExpose<AtengFooterBarExpose>({
   background-color: var(--el-bg-color);
   color: var(--el-text-color-primary);
   box-shadow: var(--el-box-shadow-lighter);
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
   transition:
     background-color 0.25s,
     border-color 0.25s;

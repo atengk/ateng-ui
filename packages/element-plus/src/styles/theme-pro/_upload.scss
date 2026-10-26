@@ -88,20 +88,23 @@
 }
 
 // 暗黑模式下拖拽框
-html.dark .el-upload-dragger {
-  background-color: #0c1017;
-  border-color: rgba(255, 255, 255, 0.12);
+:root.dark,
+.dark {
+  .el-upload-dragger {
+    background-color: var(--el-bg-color);
+    border-color: rgba(255, 255, 255, 0.12);
 
-  &:hover {
-    border-color: var(--el-color-primary-light-3);
-    box-shadow:
-      0 6px 24px -4px rgba(var(--el-color-primary-rgb), 0.3),
-      0 0 0 1px rgba(var(--el-color-primary-rgb), 0.25);
-  }
+    &:hover {
+      border-color: var(--el-color-primary-light-3);
+      box-shadow:
+        0 6px 24px -4px rgba(var(--el-color-primary-rgb), 0.3),
+        0 0 0 1px rgba(var(--el-color-primary-rgb), 0.25);
+    }
 
-  &.is-dragover {
-    background-color: #121824;
-    border-color: var(--el-color-primary-light-3);
+    &.is-dragover {
+      background-color: var(--el-fill-color-light);
+      border-color: var(--el-color-primary-light-3);
+    }
   }
 }
 
@@ -257,12 +260,15 @@ html.dark {
 }
 
 // 暗黑模式下文件列表
-html.dark .el-upload-list .el-upload-list__item {
-  &:hover {
-    background-color: #162032;
-  }
+:root.dark,
+.dark {
+  .el-upload-list .el-upload-list__item {
+    &:hover {
+      background-color: var(--el-fill-color-light);
+    }
 
-  .el-upload-list__item-name {
-    color: #cbd5e1;
+    .el-upload-list__item-name {
+      color: #cbd5e1;
+    }
   }
 }

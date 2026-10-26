@@ -170,13 +170,14 @@
 // ========================================================
 // 3. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
 // ========================================================
-html.dark {
+:root.dark,
+.dark {
   .el-transfer-panel {
     background-color: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.08);
 
     .el-transfer-panel__header {
-      background-color: rgba(15, 21, 34, 0.7);
+      background-color: var(--el-fill-color-extra-light);
       border-bottom-color: rgba(255, 255, 255, 0.06);
     }
   }

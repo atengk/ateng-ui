@@ -22,7 +22,8 @@
   background-color: rgba(15, 23, 42, 0.5);
 }
 
-html.dark .el-overlay {
+:root.dark .el-overlay,
+.dark .el-overlay {
   background-color: rgba(7, 9, 14, 0.72);
 }
 
@@ -88,9 +89,10 @@ html.dark .el-overlay {
   }
 }
 
-// 暗黑模式下弹窗微调
-html.dark .el-dialog {
-  background-color: #0c1017;
+// 暗黑模式下弹窗微调 (支持局部 .dark)
+:root.dark .el-dialog,
+.dark .el-dialog {
+  background-color: var(--el-bg-color);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow:
     0 24px 56px -12px rgba(0, 0, 0, 0.95),
@@ -106,7 +108,7 @@ html.dark .el-dialog {
 
   .el-dialog__footer {
     border-top-color: rgba(255, 255, 255, 0.08);
-    background-color: #090e17;
+    background-color: var(--el-fill-color-extra-light);
   }
 }
 
@@ -168,21 +170,24 @@ html.dark .el-dialog {
 }
 
 // 暗黑模式下抽屉
-html.dark .el-drawer {
-  background-color: #0c1017;
-  border-color: rgba(255, 255, 255, 0.08);
+:root.dark,
+.dark {
+  .el-drawer {
+    background-color: var(--el-bg-color);
+    border-color: rgba(255, 255, 255, 0.08);
 
-  .el-drawer__header {
-    border-bottom-color: rgba(255, 255, 255, 0.06);
+    .el-drawer__header {
+      border-bottom-color: rgba(255, 255, 255, 0.06);
 
-    .el-drawer__close-btn:hover {
-      background-color: rgba(255, 255, 255, 0.08);
+      .el-drawer__close-btn:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
     }
-  }
 
-  .el-drawer__footer {
-    border-top-color: rgba(255, 255, 255, 0.06);
-    background-color: #090e17;
+    .el-drawer__footer {
+      border-top-color: rgba(255, 255, 255, 0.06);
+      background-color: var(--el-fill-color-extra-light);
+    }
   }
 }
 
@@ -197,7 +202,7 @@ html.dark .el-drawer {
   box-shadow:
     0 12px 32px -4px rgba(15, 23, 42, 0.12),
     0 4px 12px -2px rgba(15, 23, 42, 0.04);
-  background-color: #ffffff;
+  background-color: var(--el-bg-color-overlay);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   .el-message__content {
@@ -232,36 +237,39 @@ html.dark .el-drawer {
 }
 
 // 暗黑模式下药丸 Message
-html.dark .el-message {
-  background-color: rgba(12, 16, 23, 0.9);
-  border-color: rgba(255, 255, 255, 0.14);
-  box-shadow:
-    0 16px 36px -4px rgba(0, 0, 0, 0.8),
-    0 0 20px -2px rgba(var(--el-color-primary-rgb), 0.3);
-
-  .el-message__content {
-    color: #f1f5f9;
-  }
-
-  &--success {
-    border-color: rgba(var(--el-color-success-rgb), 0.4);
+:root.dark,
+.dark {
+  .el-message {
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
+    border-color: rgba(255, 255, 255, 0.14);
     box-shadow:
       0 16px 36px -4px rgba(0, 0, 0, 0.8),
-      0 0 20px -2px rgba(var(--el-color-success-rgb), 0.3);
-  }
+      0 0 20px -2px rgba(var(--el-color-primary-rgb), 0.3);
 
-  &--warning {
-    border-color: rgba(var(--el-color-warning-rgb), 0.4);
-    box-shadow:
-      0 16px 36px -4px rgba(0, 0, 0, 0.8),
-      0 0 20px -2px rgba(var(--el-color-warning-rgb), 0.3);
-  }
+    .el-message__content {
+      color: #f1f5f9;
+    }
 
-  &--error {
-    border-color: rgba(var(--el-color-danger-rgb), 0.4);
-    box-shadow:
-      0 16px 36px -4px rgba(0, 0, 0, 0.8),
-      0 0 20px -2px rgba(var(--el-color-danger-rgb), 0.3);
+    &--success {
+      border-color: rgba(var(--el-color-success-rgb), 0.4);
+      box-shadow:
+        0 16px 36px -4px rgba(0, 0, 0, 0.8),
+        0 0 20px -2px rgba(var(--el-color-success-rgb), 0.3);
+    }
+
+    &--warning {
+      border-color: rgba(var(--el-color-warning-rgb), 0.4);
+      box-shadow:
+        0 16px 36px -4px rgba(0, 0, 0, 0.8),
+        0 0 20px -2px rgba(var(--el-color-warning-rgb), 0.3);
+    }
+
+    &--error {
+      border-color: rgba(var(--el-color-danger-rgb), 0.4);
+      box-shadow:
+        0 16px 36px -4px rgba(0, 0, 0, 0.8),
+        0 0 20px -2px rgba(var(--el-color-danger-rgb), 0.3);
+    }
   }
 }
 
@@ -272,7 +280,7 @@ html.dark .el-message {
   border-radius: var(--at-radius-card, 10px);
   border: 1px solid var(--el-border-color);
   box-shadow: var(--at-shadow-floating);
-  background-color: #ffffff;
+  background-color: var(--el-bg-color-overlay);
   padding: 16px 20px;
 
   .el-notification__title {
@@ -288,17 +296,20 @@ html.dark .el-message {
   }
 }
 
-html.dark .el-notification {
-  background-color: #151b26;
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.85);
+:root.dark,
+.dark {
+  .el-notification {
+    background-color: var(--el-bg-color-overlay);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.85);
 
-  .el-notification__title {
-    color: #f1f5f9;
-  }
+    .el-notification__title {
+      color: #f1f5f9;
+    }
 
-  .el-notification__content {
-    color: #cbd5e1;
+    .el-notification__content {
+      color: #cbd5e1;
+    }
   }
 }
 
@@ -345,18 +356,21 @@ html.dark .el-notification {
   }
 }
 
-html.dark .el-popover.el-popper {
-  background-color: rgba(18, 24, 36, 0.95);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #f1f5f9;
-}
+:root.dark,
+.dark {
+  .el-popover.el-popper {
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f1f5f9;
+  }
 
-html.dark .el-popper.is-dark {
-  background-color: rgba(2, 6, 23, 0.92);
-  border-color: rgba(255, 255, 255, 0.08);
-
-  .el-popper__arrow::before {
-    background-color: rgba(2, 6, 23, 0.92);
+  .el-popper.is-dark {
+    background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
     border-color: rgba(255, 255, 255, 0.08);
+
+    .el-popper__arrow::before {
+      background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.95));
+      border-color: rgba(255, 255, 255, 0.08);
+    }
   }
 }

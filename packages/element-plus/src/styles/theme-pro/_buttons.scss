@@ -86,37 +86,39 @@
 }
 
 // 暗黑模式下：深邃天鹅绒色阶微调
-html.dark
+:root.dark,
+.dark {
   .el-button--primary:not(.is-link):not(.is-text):not(.is-dashed):not([dashed]):not(.is-contrast) {
-  --el-button-bg-color: var(--el-color-primary-dark-2);
-  --el-button-text-color: #f1f5f9;
-  --el-button-border-color: rgba(255, 255, 255, 0.12);
-  --el-button-hover-bg-color: var(--el-color-primary);
-  --el-button-hover-text-color: #ffffff;
-  --el-button-hover-border-color: rgba(255, 255, 255, 0.2);
+    --el-button-bg-color: var(--el-color-primary-dark-2);
+    --el-button-text-color: #f1f5f9;
+    --el-button-border-color: rgba(255, 255, 255, 0.12);
+    --el-button-hover-bg-color: var(--el-color-primary);
+    --el-button-hover-text-color: #ffffff;
+    --el-button-hover-border-color: rgba(255, 255, 255, 0.2);
 
-  background-color: var(--el-color-primary-dark-2);
-  color: #f1f5f9;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 0 16px -2px rgba(var(--el-color-primary-rgb), 0.35);
+    background-color: var(--el-color-primary-dark-2);
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 0 16px -2px rgba(var(--el-color-primary-rgb), 0.35);
 
-  &:not(.is-disabled):not(.is-loading) {
-    &:hover {
-      background-color: var(--el-color-primary);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
-      box-shadow:
-        0 2px 10px rgba(0, 0, 0, 0.5),
-        0 0 22px -1px rgba(var(--el-color-primary-rgb), 0.5);
-    }
+    &:not(.is-disabled):not(.is-loading) {
+      &:hover {
+        background-color: var(--el-color-primary);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        box-shadow:
+          0 2px 10px rgba(0, 0, 0, 0.5),
+          0 0 22px -1px rgba(var(--el-color-primary-rgb), 0.5);
+      }
 
-    &:active {
-      background-color: var(--el-color-primary-dark-2);
-      border-color: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      &:active {
+        background-color: var(--el-color-primary-dark-2);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
     }
   }
 }
@@ -165,39 +167,42 @@ html.dark
 }
 
 // 暗黑模式下：纯白底 + 纯黑文字 (极致反差与权威感)
-html.dark .el-button.el-button--contrast,
-html.dark .el-button.el-button--primary.is-contrast,
-html.dark .el-button.is-contrast {
-  --el-button-bg-color: #f8fafc;
-  --el-button-text-color: #07090e;
-  --el-button-border-color: #ffffff;
-  --el-button-hover-bg-color: #e2e8f0;
-  --el-button-hover-text-color: #07090e;
-  --el-button-hover-border-color: #e2e8f0;
-  --el-button-active-bg-color: #cbd5e1;
-  --el-button-active-border-color: #cbd5e1;
+:root.dark,
+.dark {
+  .el-button.el-button--contrast,
+  .el-button.el-button--primary.is-contrast,
+  .el-button.is-contrast {
+    --el-button-bg-color: #f8fafc;
+    --el-button-text-color: #07090e;
+    --el-button-border-color: #ffffff;
+    --el-button-hover-bg-color: #e2e8f0;
+    --el-button-hover-text-color: #07090e;
+    --el-button-hover-border-color: #e2e8f0;
+    --el-button-active-bg-color: #cbd5e1;
+    --el-button-active-border-color: #cbd5e1;
 
-  background-color: #f8fafc;
-  color: #07090e;
-  border-color: #ffffff;
-  box-shadow:
-    0 0 20px -3px rgba(255, 255, 255, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.5);
+    background-color: #f8fafc;
+    color: #07090e;
+    border-color: #ffffff;
+    box-shadow:
+      0 0 20px -3px rgba(255, 255, 255, 0.3),
+      0 1px 2px rgba(0, 0, 0, 0.5);
 
-  &:not(.is-disabled):not(.is-loading) {
-    &:hover {
-      background-color: #e2e8f0;
-      border-color: #e2e8f0;
-      color: #07090e;
-      box-shadow:
-        0 0 24px -2px rgba(255, 255, 255, 0.45),
-        0 2px 8px rgba(0, 0, 0, 0.4);
-    }
+    &:not(.is-disabled):not(.is-loading) {
+      &:hover {
+        background-color: #e2e8f0;
+        border-color: #e2e8f0;
+        color: #07090e;
+        box-shadow:
+          0 0 24px -2px rgba(255, 255, 255, 0.45),
+          0 2px 8px rgba(0, 0, 0, 0.4);
+      }
 
-    &:active {
-      background-color: #cbd5e1;
-      border-color: #cbd5e1;
-      color: #07090e;
+      &:active {
+        background-color: #cbd5e1;
+        border-color: #cbd5e1;
+        color: #07090e;
+      }
     }
   }
 }
@@ -226,22 +231,25 @@ html.dark .el-button.is-contrast {
 }
 
 // 暗黑模式上次级按钮微调 (Titanium Milled)
-html.dark .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
-  background-color: #121824;
-  border-color: rgba(255, 255, 255, 0.09);
-  color: #f1f5f9;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+:root.dark,
+.dark {
+  .el-button--default:not(.is-link):not(.is-text):not(.is-dashed) {
+    background-color: var(--el-bg-color-overlay);
+    border-color: rgba(255, 255, 255, 0.09);
+    color: #f1f5f9;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 
-  &:not(.is-disabled):not(.is-loading) {
-    &:hover {
-      background-color: #162032;
-      border-color: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
+    &:not(.is-disabled):not(.is-loading) {
+      &:hover {
+        background-color: var(--el-fill-color);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      }
 
-    &:active {
-      background-color: #0f1522;
+      &:active {
+        background-color: var(--el-fill-color-dark);
+      }
     }
   }
 }

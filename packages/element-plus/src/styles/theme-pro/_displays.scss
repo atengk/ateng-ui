@@ -284,15 +284,50 @@
 }
 
 // ========================================================
-// 8. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// 8. 统计与倒计时 (Statistic & Countdown)
 // ========================================================
-html.dark {
+.el-statistic {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+
+  .el-statistic__head {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
+    margin-bottom: 6px;
+    line-height: 20px;
+  }
+
+  .el-statistic__content {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--el-text-color-primary);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 32px;
+  }
+
+  .el-statistic__prefix,
+  .el-statistic__suffix {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
+    margin: 0 4px;
+    vertical-align: middle;
+  }
+}
+
+// ========================================================
+// 9. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
+// ========================================================
+:root.dark,
+.dark {
   .el-segmented {
-    background-color: #162032;
+    background-color: var(--el-fill-color);
     border-color: rgba(255, 255, 255, 0.08);
 
     .el-segmented__item-selected {
-      background-color: #0c1017;
+      background-color: var(--el-bg-color);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
     }
   }
@@ -301,7 +336,7 @@ html.dark {
     border-color: rgba(255, 255, 255, 0.08);
 
     .el-collapse-item .el-collapse-item__header {
-      background-color: rgba(18, 24, 36, 0.7);
+      background-color: var(--el-fill-color-light);
       border-bottom-color: rgba(255, 255, 255, 0.06);
     }
   }

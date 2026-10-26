@@ -255,7 +255,8 @@
 // ========================================================
 // 4. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
 // ========================================================
-html.dark {
+:root.dark,
+.dark {
   .el-steps {
     .el-step__head {
       .el-step__line {
@@ -263,13 +264,13 @@ html.dark {
       }
 
       &.is-wait .el-step__icon.is-text {
-        background-color: #162032;
+        background-color: var(--el-fill-color);
         border-color: rgba(255, 255, 255, 0.08);
       }
     }
 
     &.el-steps--simple {
-      background-color: rgba(18, 24, 36, 0.7);
+      background-color: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.7));
       border-color: rgba(255, 255, 255, 0.08);
     }
   }
@@ -280,12 +281,12 @@ html.dark {
     }
 
     .el-timeline-item__node {
-      box-shadow: 0 0 0 2px #0c1017;
+      box-shadow: 0 0 0 2px var(--el-bg-color);
     }
   }
 
   .el-tour .el-tour__content {
-    background: rgba(18, 24, 36, 0.9);
+    background: var(--at-bg-overlay-translucent, rgba(18, 24, 36, 0.9));
     border-color: rgba(255, 255, 255, 0.08);
   }
 }

@@ -347,21 +347,22 @@
 // ========================================================
 // 6. 暗黑模式 Slate 深空适配 (Dark Mode Overrides)
 // ========================================================
-html.dark {
+:root.dark,
+.dark {
   .el-picker-panel,
   .el-cascader__dropdown,
   .el-color-dropdown {
-    background: #151b26;
+    background: var(--at-bg-overlay-translucent, #151b26);
     border-color: rgba(255, 255, 255, 0.08);
   }
 
   .el-picker-panel__sidebar {
-    background-color: rgba(15, 21, 34, 0.8);
+    background-color: var(--el-fill-color-extra-light);
     border-right-color: rgba(255, 255, 255, 0.06);
   }
 
   .el-picker-panel__footer {
-    background-color: rgba(15, 21, 34, 0.8);
+    background-color: var(--el-fill-color-extra-light);
     border-top-color: rgba(255, 255, 255, 0.06);
   }
 

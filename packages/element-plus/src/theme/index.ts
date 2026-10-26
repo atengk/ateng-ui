@@ -6,3 +6,4 @@
  */
 
 export * from './setThemeColor';
+export * from './initTheme';
