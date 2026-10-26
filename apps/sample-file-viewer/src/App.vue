@@ -35,6 +35,7 @@ const presets: PresetItem[] = [
   { label: 'Excel 报表 (.xlsx)', url: '/sample.xlsx', name: '财务季度对账表.xlsx', type: 'xlsx' },
   { label: 'PPT 幻灯片 (.pptx)', url: '/sample.pptx', name: '产品架构推演.pptx', type: 'pptx' },
   { label: 'PDF 文档 (.pdf)', url: '/sample.pdf', name: '技术规格说明书.pdf', type: 'pdf' },
+  { label: 'SVG 矢量图片 (.svg)', url: '/sample.svg', name: '系统架构矢量图.svg', type: 'svg' },
   { label: '无后缀接口流 (魔数嗅探)', url: '/sample.docx', name: '', type: '' },
 ];
 
@@ -211,6 +212,16 @@ function simulateLegacyDoc() {
   lastEventMsg.value = '已载入早期二进制格式 (.doc)，已触发结构化升级建议';
 }
 
+function simulateAuthStream() {
+  selectedFile.value = undefined;
+  currentUrl.value = '/sample.docx?token=Bearer-jwt-token-' + Date.now().toString(36);
+  currentName.value = '机密合同(带双轨Token鉴权).docx';
+  currentType.value = 'docx';
+  currentPage.value = 1;
+  currentSheet.value = 0;
+  lastEventMsg.value = '已模拟向网关注入双轨 Token 鉴权凭据流';
+}
+
 function handleSizeGuard(payload: { size: number; maxSize: number }) {
   lastEventMsg.value = `SizeGuard 拦截触发: 当前文件 ${(payload.size / (1024 * 1024)).toFixed(1)} MB 超过阈值 ${(payload.maxSize / (1024 * 1024)).toFixed(0)} MB`;
 }
@@ -308,6 +319,9 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         </button>
         <button type="button" class="ctrl-btn ctrl-btn--info" @click="simulateLegacyDoc">
           📜 模拟老旧 .doc 二进制 (升级建议)
+        </button>
+        <button type="button" class="ctrl-btn ctrl-btn--auth" @click="simulateAuthStream">
+          🔑 模拟双轨 Token 鉴权流
         </button>
         <label class="ctrl-btn ctrl-btn--upload">
           <span>📁 选择任意本地文件</span>
@@ -680,6 +694,16 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
 
 .ctrl-btn--info:hover {
   background-color: #e0f2fe;
+}
+
+.ctrl-btn--auth {
+  background-color: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.ctrl-btn--auth:hover {
+  background-color: #ede9fe;
 }
 
 .diag-badge-item {
