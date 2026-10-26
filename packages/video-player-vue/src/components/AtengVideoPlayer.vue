@@ -9,8 +9,9 @@
  * @since 2026-10-26
  */
 
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ArtplayerEngine } from '../engine/ArtplayerEngine';
+import { BlobJsonGuard } from '../security';
 import type { AtengVideoPlayerEmits, AtengVideoPlayerProps, IVideoPlayerEngine } from '../types';
 
 const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
@@ -29,6 +30,8 @@ const props = withDefaults(defineProps<AtengVideoPlayerProps>(), {
   theme: '#409EFF',
   hotkey: true,
   screenshot: true,
+  auth: true,
+  probeStream: false,
   quality: () => [],
   markers: () => [],
   customType: undefined,
@@ -64,19 +67,33 @@ const engineRef = ref<IVideoPlayerEngine | null>(null);
 const isReady = ref(false);
 const errorState = ref<unknown | null>(null);
 
+const formattedError = computed(() => {
+  if (!errorState.value) {
+    return null;
+  }
+  return BlobJsonGuard.toBusinessException(errorState.value);
+});
+
 /**
  * 初始化底层播放引擎。
  */
-const initPlayer = (): void => {
+const initPlayer = async (): Promise<void> => {
   if (!containerRef.value) {
     return;
   }
 
-  // 1. 若存量已存在引擎实例，先彻底销毁清理
+  // 1. 若存量已存在引擎实例，先彻底销毁清理（六步防线）
   destroyPlayer();
 
   try {
     errorState.value = null;
+
+    // 2. 若开启前置流媒体双态探测，主动检测 401/403/500 JSON 异常
+    if (props.probeStream && props.url) {
+      await BlobJsonGuard.probeMediaStream(props.url, {
+        auth: props.auth,
+      });
+    }
 
     const engine = new ArtplayerEngine(
       containerRef.value,
@@ -100,6 +117,8 @@ const initPlayer = (): void => {
         quality: props.quality,
         markers: props.markers,
         customType: props.customType,
+        auth: props.auth,
+        probeStream: props.probeStream,
       },
       {
         onReady: eng => {
@@ -111,8 +130,9 @@ const initPlayer = (): void => {
         onTimeUpdate: time => emit('timeupdate', time),
         onEnded: () => emit('ended'),
         onError: err => {
-          errorState.value = err;
-          emit('error', err);
+          const businessErr = BlobJsonGuard.toBusinessException(err);
+          errorState.value = businessErr;
+          emit('error', businessErr);
         },
         onFullscreen: state => emit('fullscreen', state),
         onFullscreenWeb: state => emit('fullscreenWeb', state),
@@ -120,14 +140,15 @@ const initPlayer = (): void => {
     );
 
     engineRef.value = engine;
-  } catch (err) {
-    errorState.value = err;
-    emit('error', err);
+  } catch (err: unknown) {
+    const businessErr = BlobJsonGuard.toBusinessException(err);
+    errorState.value = businessErr;
+    emit('error', businessErr);
   }
 };
 
 /**
- * 确定性销毁当前播放器内核。
+ * 确定性销毁当前播放器内核（固化确定性销毁六步防线）。
  */
 const destroyPlayer = (): void => {
   if (engineRef.value) {
@@ -148,7 +169,7 @@ watch(
 );
 
 onMounted(() => {
-  initPlayer();
+  void initPlayer();
 });
 
 onBeforeUnmount(() => {
@@ -208,7 +229,7 @@ defineExpose({
     destroyPlayer();
   },
   retry: (): void => {
-    initPlayer();
+    void initPlayer();
   },
 });
 </script>
@@ -236,9 +257,23 @@ defineExpose({
     <!-- 默认自由插槽图层 -->
     <slot :engine="engineRef"></slot>
 
-    <!-- 异常错误缺省插槽 -->
-    <div v-if="errorState && $slots.error" class="at-video-player__error-layer">
-      <slot name="error" :error="errorState" :retry="initPlayer"></slot>
+    <!-- ADR-0004 异常错误缺省插槽 -->
+    <div v-if="formattedError" class="at-video-player__error-layer">
+      <slot name="error" :error="formattedError" :retry="initPlayer">
+        <div class="at-video-player__error-box">
+          <span class="at-video-player__error-icon">⚠️</span>
+          <p class="at-video-player__error-title">{{ formattedError.msg }}</p>
+          <div class="at-video-player__error-meta">
+            <span v-if="formattedError.code" class="meta-tag">Code: {{ formattedError.code }}</span>
+            <span v-if="formattedError.traceId" class="meta-tag"
+              >TraceId: {{ formattedError.traceId }}</span
+            >
+          </div>
+          <button type="button" class="at-video-player__error-retry-btn" @click="initPlayer">
+            重新尝试连接
+          </button>
+        </div>
+      </slot>
     </div>
   </div>
 </template>
@@ -289,9 +324,64 @@ defineExpose({
   position: absolute;
   inset: 0;
   z-index: 40;
-  background-color: rgba(0, 0, 0, 0.85);
+  background-color: rgba(15, 23, 42, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+}
+
+.at-video-player__error-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  max-width: 420px;
+  color: #ffffff;
+}
+
+.at-video-player__error-icon {
+  font-size: 36px;
+}
+
+.at-video-player__error-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f87171;
+  line-height: 1.5;
+}
+
+.at-video-player__error-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.meta-tag {
+  font-size: 11px;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.at-video-player__error-retry-btn {
+  margin-top: 8px;
+  background-color: #3b82f6;
+  border: none;
+  color: #ffffff;
+  padding: 6px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.at-video-player__error-retry-btn:hover {
+  background-color: #2563eb;
 }
 </style>

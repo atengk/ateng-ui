@@ -22,6 +22,9 @@ export * from './engine';
 // 4. 强类型契约全量具名导出
 export * from './types';
 
+// 5. 企业级安全与鉴权防线导出
+export * from './security';
+
 /**
  * Vue 插件安装器。
  *

@@ -8,11 +8,15 @@
 
 import { ref } from 'vue';
 import VodDemo from './components/VodDemo.vue';
+import AuthSecurityDemo from './components/AuthSecurityDemo.vue';
 
-const activeTab = ref<'vod' | 'live' | 'grid' | 'ptz' | 'watermark' | 'danmaku'>('vod');
+const activeTab = ref<'vod' | 'security' | 'live' | 'grid' | 'ptz' | 'watermark' | 'danmaku'>(
+  'vod',
+);
 
 const tabs = [
   { id: 'vod', name: '标准富媒体点播 (VOD)' },
+  { id: 'security', name: '企业鉴权与防线 (ADR-0004)' },
   { id: 'live', name: '流媒体低延迟直播 (HLS/FLV)' },
   { id: 'grid', name: '多路分屏监控矩阵 (1~16屏)' },
   { id: 'ptz', name: '安防云台控制 (PTZ)' },
@@ -57,6 +61,10 @@ const tabs = [
     <main class="sample-content">
       <div v-if="activeTab === 'vod'">
         <VodDemo />
+      </div>
+
+      <div v-else-if="activeTab === 'security'">
+        <AuthSecurityDemo />
       </div>
 
       <div v-else class="sample-placeholder">

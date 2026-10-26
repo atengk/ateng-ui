@@ -62,6 +62,11 @@ export interface IVideoPlayerEngine {
   readonly rawInstance: unknown;
 
   /**
+   * 关联的 AbortSignal 取消信号。
+   */
+  readonly abortSignal: AbortSignal;
+
+  /**
    * 当前是否处于播放中状态。
    */
   readonly playing: boolean;
@@ -90,6 +95,25 @@ export interface IVideoPlayerEngine {
    * 当前播放倍速（如 1.0、1.5、2.0）。
    */
   readonly playbackRate: number;
+
+  /**
+   * 底层 HTMLVideoElement 媒体元素实例引用。
+   */
+  readonly videoElement: HTMLVideoElement | null;
+
+  /**
+   * 注册外部解复用器或插件的协同销毁钩子。
+   *
+   * @param hook 销毁回调函数
+   */
+  registerTeardownHook(hook: () => void): void;
+
+  /**
+   * 注册待受管回收的物理定时器。
+   *
+   * @param timer 定时器标识
+   */
+  registerTimer(timer: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>): void;
 
   /**
    * 开始播放。
@@ -255,9 +279,17 @@ export interface VideoPlayerOptions {
    */
   hotkey?: boolean;
   /**
-   * 是否支持截图按钮。默认 true。
+   * 是否展示截图按钮。默认 true。
    */
   screenshot?: boolean;
+  /**
+   * 是否自动注入当前 Token 鉴权凭据。默认 true。
+   */
+  auth?: boolean;
+  /**
+   * 是否在播放前进行 Blob-JSON 双态安全嗅探。默认 false。
+   */
+  probeStream?: boolean;
   /**
    * 清晰度画质切换列表。
    */
@@ -340,6 +372,14 @@ export interface AtengVideoPlayerProps {
    * 是否展示截图抓拍按钮。默认 true。
    */
   screenshot?: boolean;
+  /**
+   * 是否自动注入当前 Token 鉴权凭据。默认 true。
+   */
+  auth?: boolean;
+  /**
+   * 是否在播放前进行 Blob-JSON 双态安全嗅探。默认 false。
+   */
+  probeStream?: boolean;
   /**
    * 画质切换选项清单。
    */
