@@ -8,3 +8,4 @@
 export * from './useVideoPlayer';
 export * from './useStreamReconnect';
 export * from './useVideoPlaybackHistory';
+export * from './useVideoGrid';

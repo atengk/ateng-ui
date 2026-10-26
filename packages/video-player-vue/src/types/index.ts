@@ -7,7 +7,7 @@
  * @since 2026-10-26
  */
 
-import type { ComponentPublicInstance, MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
+import type { ComponentPublicInstance, ComputedRef, MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
 
 /**
  * 视频播放流协议与媒体类型。
@@ -1020,5 +1020,293 @@ export type AtengVideoWatermarkInstance = ComponentPublicInstance<
      * 手动销毁水印实例与防篡改监听器。
      */
     destroy(): void;
+  }
+>;
+
+/**
+ * 分屏矩阵支持的布局模式：
+ * - '1x1': 单画面
+ * - '2x2': 4分屏对称宫格
+ * - '3x3': 9分屏对称宫格
+ * - '4x4': 16分屏对称宫格
+ * - '1+5': 6分屏广播级主从布局（1个大画面+5个小画面）
+ * - '1+7': 8分屏广播级主从布局（1个大画面+7个小画面）
+ */
+export type VideoGridLayout = '1x1' | '2x2' | '3x3' | '4x4' | '1+5' | '1+7';
+
+/**
+ * 分屏矩阵视频通道模型契约。
+ */
+export interface VideoGridChannel {
+  /**
+   * 通道唯一标识。
+   */
+  id: string | number;
+  /**
+   * 通道名称或监控点位描述。
+   */
+  title?: string;
+  /**
+   * 主码流视频播放地址（高清/超清，如 1080P/4K）。
+   */
+  url: string;
+  /**
+   * 次码流视频播放地址（标清/流畅，如 360P/D1）。
+   * 在多路小宫格模式下拉取以节约带宽，放大独占时自动切为主码流 url。
+   */
+  subUrl?: string;
+  /**
+   * 媒体流协议类型。
+   */
+  type?: VideoPlayerType;
+  /**
+   * 封面海报图地址。
+   */
+  poster?: string;
+  /**
+   * 是否为直播流。默认 true。
+   */
+  isLive?: boolean;
+  /**
+   * 是否注入 Token 鉴权凭据。默认 true。
+   */
+  auth?: boolean;
+  /**
+   * 用户显式配置的静音状态。
+   */
+  muted?: boolean;
+}
+
+/**
+ * 经过状态机解析后当前视口正在展示的通道实体。
+ */
+export interface VideoGridDisplayItem extends VideoGridChannel {
+  /**
+   * 经过主次码流自适应决策后实际加载的流地址。
+   */
+  effectiveUrl: string;
+  /**
+   * 经过多路音频互斥算法决策后实际生效的静音状态。
+   */
+  isMuted: boolean;
+  /**
+   * 当前通道是否处于聚焦高亮态。
+   */
+  isActive: boolean;
+  /**
+   * 当前通道是否处于独占放大全屏态。
+   */
+  isMaximized: boolean;
+}
+
+/**
+ * 自动轮巡调度器配置契约。
+ */
+export interface VideoGridTourOptions {
+  /**
+   * 轮巡单页驻留时间（毫秒）。默认 10000ms (10秒)。
+   */
+  interval?: number;
+  /**
+   * 参与自动轮巡的完整通道池。若未提供则使用当前状态机传入的 channels。
+   */
+  pool?: VideoGridChannel[];
+  /**
+   * 轮巡翻页触发时的回调函数。
+   */
+  onStep?: (pageIndex: number, currentChannels: VideoGridChannel[]) => void;
+}
+
+/**
+ * useVideoGrid 无头状态机入参配置。
+ */
+export interface UseVideoGridOptions {
+  /**
+   * 初始通道列表或通道池。
+   */
+  channels?: MaybeRefOrGetter<VideoGridChannel[]>;
+  /**
+   * 初始布局模式。默认 '2x2'。
+   */
+  layout?: MaybeRefOrGetter<VideoGridLayout | undefined>;
+  /**
+   * 默认聚焦选中的通道 ID。
+   */
+  activeId?: MaybeRefOrGetter<string | number | null | undefined>;
+  /**
+   * 是否开启主次码流动态自适应切换。默认 true。
+   */
+  autoSubStream?: MaybeRefOrGetter<boolean | undefined>;
+  /**
+   * 是否开启多路音频互斥不变量（仅当前激活路出声，其余强制静音）。默认 true。
+   */
+  audioExclusive?: MaybeRefOrGetter<boolean | undefined>;
+}
+
+/**
+ * useVideoGrid 无头状态机返回的响应式状态与调度指令门面。
+ */
+export interface UseVideoGridReturn {
+  /**
+   * 当前通道全量列表。
+   */
+  channels: Ref<VideoGridChannel[]>;
+  /**
+   * 当前聚焦激活选中的通道 ID。
+   */
+  activeChannelId: Ref<string | number | null>;
+  /**
+   * 当前网格布局模式。
+   */
+  layout: Ref<VideoGridLayout>;
+  /**
+   * 当前独占全屏放大的通道 ID（null 表示正常网格展示）。
+   */
+  maximizedChannelId: Ref<string | number | null>;
+  /**
+   * 是否处于自动轮巡调度状态。
+   */
+  isTouring: Ref<boolean>;
+  /**
+   * 当前轮巡批次/页码索引（0 起始）。
+   */
+  tourPageIndex: Ref<number>;
+  /**
+   * 当前网格布局最大可容纳的路数容量。
+   */
+  capacity: ComputedRef<number>;
+  /**
+   * 经过布局裁剪、主次码流自适应与音频互斥计算后，实际渲染的通道视图列表。
+   */
+  displayedChannels: ComputedRef<VideoGridDisplayItem[]>;
+
+  /**
+   * 聚焦选中指定通道。
+   */
+  selectChannel(id: string | number): void;
+  /**
+   * 切换通道的独占放大与宫格还原。
+   */
+  toggleMaximize(id?: string | number): void;
+  /**
+   * 退出独占放大，平滑恢复原有宫格。
+   */
+  restoreGrid(): void;
+  /**
+   * 切换分屏布局模式。
+   */
+  setLayout(layout: VideoGridLayout): void;
+  /**
+   * 启动自动轮巡调度器。
+   */
+  startTour(options?: VideoGridTourOptions): void;
+  /**
+   * 停止自动轮巡调度器。
+   */
+  stopTour(): void;
+  /**
+   * 立即调度至下一批轮巡通道。
+   */
+  nextTourPage(): void;
+  /**
+   * 立即调度至上一批轮巡通道。
+   */
+  prevTourPage(): void;
+}
+
+/**
+ * AtengVideoGrid 组件 Props 契约。
+ */
+export interface VideoGridProps {
+  /**
+   * 通道列表。
+   */
+  channels: VideoGridChannel[];
+  /**
+   * 布局模式。默认 '2x2'。
+   */
+  layout?: VideoGridLayout;
+  /**
+   * 当前聚焦选中的通道 ID。
+   */
+  activeId?: string | number | null;
+  /**
+   * 是否开启主次码流自适应切换（宫格取 subUrl，放大取 url）。默认 true。
+   */
+  autoSubStream?: boolean;
+  /**
+   * 是否开启多路音频互斥（仅当前聚焦激活路出声）。默认 true。
+   */
+  audioExclusive?: boolean;
+  /**
+   * 通道聚焦激活时的高亮边框颜色。默认 '#38bdf8'。
+   */
+  themeColor?: string;
+  /**
+   * 通道之间的网格间距（像素）。默认 4。
+   */
+  gap?: number;
+}
+
+/**
+ * AtengVideoGrid 组件 Emits 事件契约。
+ */
+export interface VideoGridEmits {
+  /**
+   * 通道被点击选中聚焦事件。
+   */
+  (e: 'channel-select', channel: VideoGridChannel): void;
+  /**
+   * 通道被点击选中聚焦事件 (驼峰命名)。
+   */
+  (e: 'channelSelect', channel: VideoGridChannel): void;
+  /**
+   * 通道被双击独占放大事件。
+   */
+  (e: 'channel-maximize', channel: VideoGridChannel): void;
+  /**
+   * 通道被双击独占放大事件 (驼峰命名)。
+   */
+  (e: 'channelMaximize', channel: VideoGridChannel): void;
+  /**
+   * 退出独占放大平滑恢复宫格事件。
+   */
+  (e: 'channel-restore'): void;
+  /**
+   * 退出独占放大平滑恢复宫格事件 (驼峰命名)。
+   */
+  (e: 'channelRestore'): void;
+  /**
+   * 分屏布局切换事件。
+   */
+  (e: 'layout-change', layout: VideoGridLayout): void;
+  /**
+   * 分屏布局切换事件 (驼峰命名)。
+   */
+  (e: 'layoutChange', layout: VideoGridLayout): void;
+  /**
+   * 轮巡调度器启停状态变更事件。
+   */
+  (e: 'tour-change', isTouring: boolean): void;
+}
+
+/**
+ * AtengVideoGrid 组件 Ref 实例类型。
+ */
+export type AtengVideoGridInstance = ComponentPublicInstance<
+  VideoGridProps,
+  {
+    /**
+     * 当前状态机门面。
+     */
+    gridState: UseVideoGridReturn;
+    selectChannel(id: string | number): void;
+    toggleMaximize(id?: string | number): void;
+    restoreGrid(): void;
+    setLayout(layout: VideoGridLayout): void;
+    startTour(options?: VideoGridTourOptions): void;
+    stopTour(): void;
+    nextTourPage(): void;
+    prevTourPage(): void;
   }
 >;
