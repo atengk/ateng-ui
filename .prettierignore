@@ -6,3 +6,9 @@ coverage
 .changeset
 *.min.js
 pnpm-lock.yaml
+**/public/file-viewer/**
+apps/*/public/**
+*.worker.js
+*.wasm
+*.bcmap
+*.pfb
