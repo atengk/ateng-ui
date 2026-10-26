@@ -3,21 +3,25 @@
  * AtengFileViewer 核心文档与工程图纸浏览器原生渲染容器。
  *
  * 封装上游专业渲染核心与常用 Office 预设（Word/Excel/PPT/PDF），
- * 提供轻量纯 CSS/SVG 默认操作栏、插槽全量接管以及基础错误/加载状态。
+ * 提供三阶智能类型嗅探、双轨 Token 注入、ADR-0004 Blob-JSON 双态拦截、
+ * 确定性请求取消与轻量纯 CSS/SVG 默认操作栏。
  *
  * @author Ateng
  * @since 2026-10-26
  */
 
-import { computed, ref, watch, type ComponentPublicInstance } from 'vue';
+import { computed, ref, watch, onUnmounted, type ComponentPublicInstance } from 'vue';
 import { FileViewer } from '@file-viewer/vue3';
 import '@file-viewer/preset-office';
+import { BusinessException } from '@atengk/core';
 import type {
   AtengFileViewerProps,
   AtengFileViewerEmits,
   AtengFileViewerSlots,
   AtengFileViewerExpose,
 } from '../types';
+import { detectFileType } from '../utils/sniff';
+import { fetchRemoteFileStream } from '../utils/fetcher';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -38,6 +42,8 @@ const props = withDefaults(defineProps<AtengFileViewerProps>(), {
   width: '100%',
   showToolbar: true,
   theme: 'auto',
+  auth: true,
+  headers: () => ({}),
   options: () => ({}),
   customClass: '',
 });
@@ -53,24 +59,44 @@ const reloadKey = ref<number>(0);
 const zoomScale = ref<number>(1);
 const rotationDegree = ref<number>(0);
 
-// 计算有效文件名
+// 远程拉取结果
+const resolvedFile = ref<File | undefined>(undefined);
+const resolvedFileName = ref<string>('');
+const resolvedFileType = ref<string>('');
+const createdObjectUrl = ref<string>('');
+let activeAbortController: AbortController | null = null;
+
+// 释放前序创建的 ObjectURL
+function releaseObjectUrl() {
+  if (createdObjectUrl.value && typeof URL !== 'undefined') {
+    URL.revokeObjectURL(createdObjectUrl.value);
+    createdObjectUrl.value = '';
+  }
+}
+
+// 计算当前展示的文件名
 const computedFileName = computed<string>(() => {
   if (props.fileName) return props.fileName;
+  if (resolvedFileName.value) return resolvedFileName.value;
   if (props.file instanceof File) return props.file.name;
   if (props.url) {
-    const clean = props.url.split('?')[0].split('#')[0];
-    const slashIdx = clean.lastIndexOf('/');
-    if (slashIdx >= 0) {
-      const extracted = clean.slice(slashIdx + 1);
-      if (extracted) return decodeURIComponent(extracted);
+    const part0 = props.url.split('?')[0];
+    const clean = part0 ? part0.split('#')[0] : '';
+    if (clean) {
+      const slashIdx = clean.lastIndexOf('/');
+      if (slashIdx >= 0) {
+        const extracted = clean.slice(slashIdx + 1);
+        if (extracted) return decodeURIComponent(extracted);
+      }
     }
   }
   return 'document';
 });
 
-// 计算有效扩展名/类型
+// 计算当前展示的文件类型/扩展名
 const computedFileType = computed<string>(() => {
   if (props.fileType) return props.fileType.toLowerCase().replace(/^\./, '');
+  if (resolvedFileType.value) return resolvedFileType.value;
   const name = computedFileName.value;
   const dotIdx = name.lastIndexOf('.');
   if (dotIdx >= 0) {
@@ -91,6 +117,7 @@ const containerStyle = computed(() => {
 
 // 规范化文件来源对象: Blob 自动包装为带文件名的 File
 const normalizedFile = computed<File | Blob | undefined>(() => {
+  if (resolvedFile.value) return resolvedFile.value;
   if (!props.file) return undefined;
   if (props.file instanceof File) return props.file;
   if (props.file instanceof Blob && typeof File !== 'undefined') {
@@ -114,17 +141,120 @@ const mergedOptions = computed(() => {
   };
 });
 
-// 监听文件来源变化时重置状态
+// 错误信息展示计算
+const errorMessage = computed<string>(() => {
+  if (!loadError.value) return '';
+  if (loadError.value instanceof BusinessException) {
+    return loadError.value.msg || loadError.value.message || '业务接口异常';
+  }
+  if (loadError.value instanceof Error) {
+    return loadError.value.message;
+  }
+  return '文档预览加载失败';
+});
+
+const errorTraceId = computed<string>(() => {
+  if (loadError.value instanceof BusinessException && loadError.value.traceId) {
+    return loadError.value.traceId;
+  }
+  return '';
+});
+
+// 异步加载与类型嗅探流程
+async function loadSource() {
+  // 1. 中断前序未决请求与释放旧 ObjectURL
+  if (activeAbortController) {
+    activeAbortController.abort();
+    activeAbortController = null;
+  }
+  releaseObjectUrl();
+
+  resolvedFile.value = undefined;
+  resolvedFileName.value = '';
+  resolvedFileType.value = '';
+  loadError.value = null;
+  isLoading.value = true;
+  zoomScale.value = 1;
+  rotationDegree.value = 0;
+
+  // 2. 本地文件模式
+  if (props.file) {
+    if (props.file instanceof Blob) {
+      try {
+        const slice = props.file.slice(0, 2048);
+        const buf = await slice.arrayBuffer();
+        const detected = detectFileType({
+          explicitType: props.fileType,
+          fileName: props.fileName || (props.file instanceof File ? props.file.name : undefined),
+          buffer: buf,
+        });
+        if (detected) {
+          resolvedFileType.value = detected;
+        }
+      } catch {
+        // 忽略嗅探异常
+      }
+    }
+    isLoading.value = false;
+    return;
+  }
+
+  // 3. 远程 URL 模式
+  if (props.url) {
+    const isHttpUrl = /^(?:https?:\/\/|\/)/i.test(props.url);
+    if (!isHttpUrl) {
+      // 纯相对路径或非 HTTP 协议直接让底层处理
+      isLoading.value = false;
+      return;
+    }
+
+    activeAbortController = new AbortController();
+    try {
+      const result = await fetchRemoteFileStream(props.url, {
+        signal: activeAbortController.signal,
+        fileName: props.fileName,
+        fileType: props.fileType,
+        headers: props.headers,
+        auth: props.auth,
+      });
+
+      resolvedFile.value = result.file;
+      resolvedFileName.value = result.fileName;
+      resolvedFileType.value = result.fileType;
+      createdObjectUrl.value = result.objectUrl;
+      isLoading.value = false;
+    } catch (err: unknown) {
+      // 若为主动中断则不处理为错误
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      isLoading.value = false;
+      loadError.value = err;
+      emit('error', err);
+    }
+    return;
+  }
+
+  // 4. 无输入
+  isLoading.value = false;
+}
+
+// 监听文件来源变化
 watch(
   () => [props.url, props.file, reloadKey.value],
   () => {
-    isLoading.value = true;
-    loadError.value = null;
-    zoomScale.value = 1;
-    rotationDegree.value = 0;
+    loadSource();
   },
   { immediate: true },
 );
+
+onUnmounted(() => {
+  if (activeAbortController) {
+    activeAbortController.abort();
+    activeAbortController = null;
+  }
+  releaseObjectUrl();
+});
 
 function handleLoadComplete() {
   isLoading.value = false;
@@ -180,8 +310,9 @@ function rotate() {
 }
 
 function download() {
-  if (props.file instanceof Blob && typeof window !== 'undefined') {
-    const blobUrl = URL.createObjectURL(props.file);
+  const fileToDownload = normalizedFile.value;
+  if (fileToDownload instanceof Blob && typeof window !== 'undefined') {
+    const blobUrl = URL.createObjectURL(fileToDownload);
     const a = document.createElement('a');
     a.href = blobUrl;
     a.download = computedFileName.value;
@@ -356,7 +487,7 @@ defineExpose<AtengFileViewerExpose>({
         </slot>
       </div>
 
-      <!-- 渲染失败状态 -->
+      <!-- 渲染失败状态 (包含 ADR-0004 异常卡片与 traceId 展示) -->
       <div v-if="loadError" class="at-file-viewer__error">
         <slot name="error" :error="loadError" :retry="retry" :download="download">
           <svg
@@ -371,7 +502,8 @@ defineExpose<AtengFileViewerExpose>({
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="at-file-viewer__error-msg">文档预览加载失败</p>
+          <p class="at-file-viewer__error-msg">{{ errorMessage }}</p>
+          <p v-if="errorTraceId" class="at-file-viewer__error-trace">TraceId: {{ errorTraceId }}</p>
           <div class="at-file-viewer__error-actions">
             <button type="button" class="at-file-viewer__error-btn" @click="retry">重试加载</button>
             <button
@@ -387,7 +519,7 @@ defineExpose<AtengFileViewerExpose>({
 
       <!-- 底层多格式渲染引擎 -->
       <div
-        v-if="url || file"
+        v-if="(url || file || resolvedFile) && !loadError"
         :key="reloadKey"
         class="at-file-viewer__engine"
         :style="{
@@ -398,7 +530,6 @@ defineExpose<AtengFileViewerExpose>({
       >
         <FileViewer
           ref="innerFileViewerRef"
-          :url="url || undefined"
           :file="normalizedFile"
           :options="mergedOptions"
           @load-complete="handleLoadComplete"
@@ -408,7 +539,7 @@ defineExpose<AtengFileViewerExpose>({
       </div>
 
       <!-- 空状态 -->
-      <div v-else class="at-file-viewer__empty">
+      <div v-else-if="!loadError && !isLoading" class="at-file-viewer__empty">
         <p>暂无文件输入</p>
       </div>
     </main>
@@ -558,6 +689,14 @@ defineExpose<AtengFileViewerExpose>({
   font-size: 14px;
   color: #f56c6c;
   margin: 0;
+  font-weight: 500;
+}
+
+.at-file-viewer__error-trace {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace;
+  margin: -4px 0 0 0;
 }
 
 .at-file-viewer__error-actions {

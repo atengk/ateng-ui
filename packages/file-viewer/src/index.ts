@@ -10,6 +10,12 @@ import AtengFileViewer from './components/AtengFileViewer.vue';
 
 export { AtengFileViewer };
 
+export { detectFileType, sniffMagicNumber } from './utils/sniff';
+export type { SniffOptions } from './utils/sniff';
+
+export { fetchRemoteFileStream } from './utils/fetcher';
+export type { RemoteFileFetchOptions, RemoteFileFetchResult } from './utils/fetcher';
+
 export type {
   AtengFileViewerProps,
   AtengFileViewerEmits,

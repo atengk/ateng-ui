@@ -23,6 +23,7 @@ const presets: PresetItem[] = [
   { label: 'Excel 报表 (.xlsx)', url: '/sample.xlsx', name: '财务季度对账表.xlsx', type: 'xlsx' },
   { label: 'PPT 幻灯片 (.pptx)', url: '/sample.pptx', name: '产品架构推演.pptx', type: 'pptx' },
   { label: 'PDF 文档 (.pdf)', url: '/sample.pdf', name: '技术规格说明书.pdf', type: 'pdf' },
+  { label: '无后缀接口流 (魔数嗅探)', url: '/sample.docx', name: '', type: '' },
 ];
 
 const currentUrl = ref<string>('/sample.docx');
@@ -36,7 +37,21 @@ function selectPreset(item: PresetItem) {
   currentUrl.value = item.url;
   currentName.value = item.name;
   currentType.value = item.type;
-  lastEventMsg.value = `切换至预设: ${item.name}`;
+  lastEventMsg.value = `切换至预设: ${item.label}`;
+}
+
+function simulateBlobError() {
+  const errorJson = JSON.stringify({
+    code: 403,
+    msg: '您无权查看该机密财务审计报告',
+    traceId: 'tr-sec-403-' + Date.now().toString(36),
+  });
+  const errorBlob = new Blob([errorJson], { type: 'application/json' });
+  selectedFile.value = errorBlob as File;
+  currentUrl.value = '';
+  currentName.value = 'confidential_report.xlsx';
+  currentType.value = 'xlsx';
+  lastEventMsg.value = '已载入模拟 403 JSON 错误流，触发 ADR-0004 异常防御拦截';
 }
 
 function handleFileInput(e: Event) {
@@ -88,6 +103,9 @@ function handleError(err: unknown) {
       </div>
 
       <div class="local-upload">
+        <button type="button" class="ctrl-btn ctrl-btn--danger" @click="simulateBlobError">
+          🛡️ 模拟 403 错误流 (ADR-0004)
+        </button>
         <label class="ctrl-btn ctrl-btn--upload">
           <span>📁 选择任意本地文件</span>
           <input type="file" style="display: none" @change="handleFileInput" />
@@ -221,6 +239,17 @@ function handleError(err: unknown) {
 .ctrl-btn--upload:hover {
   background-color: #059669;
   border-color: #059669;
+}
+
+.ctrl-btn--danger {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.ctrl-btn--danger:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
 }
 
 .sample-status-bar {

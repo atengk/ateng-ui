@@ -56,6 +56,16 @@ export interface AtengFileViewerProps {
   options?: Record<string, unknown>;
 
   /**
+   * 是否自动注入当前登录态凭据与双轨 Token 请求头 (默认 true)。
+   */
+  auth?: boolean;
+
+  /**
+   * 自定义请求头映射。
+   */
+  headers?: Record<string, string>;
+
+  /**
    * 自定义根容器 CSS 类名。
    */
   customClass?: string;

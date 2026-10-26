@@ -132,4 +132,54 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
 
     wrapper.unmount();
   });
+
+  it('远程加载报错且为 BusinessException 时展示结构化错误信息与 traceId', async () => {
+    const wrapper = mount(AtengFileViewer, {
+      props: {
+        url: 'https://example.com/api/files/stream?id=fail',
+      },
+    });
+
+    // 触发内部报错
+    const customError = new (await import('@atengk/core')).BusinessException(
+      403,
+      '当前附件无权限查看',
+      'trace-403-assert-id',
+    );
+
+    type TestViewerVm = {
+      handleError: (err: unknown) => void;
+      createdObjectUrl: string | null;
+    };
+
+    // 派发错误或模拟内部错误状态
+    (wrapper.vm as unknown as TestViewerVm).handleError(customError);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('.at-file-viewer__error').exists()).toBe(true);
+    expect(wrapper.find('.at-file-viewer__error-msg').text()).toBe('当前附件无权限查看');
+    expect(wrapper.find('.at-file-viewer__error-trace').text()).toContain('trace-403-assert-id');
+
+    wrapper.unmount();
+  });
+
+  it('组件卸载时确定性释放资源并撤销 ObjectURL', async () => {
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+    const wrapper = mount(AtengFileViewer, {
+      props: {
+        url: 'https://example.com/test.docx',
+      },
+    });
+
+    type TestViewerVm = {
+      createdObjectUrl: string | null;
+    };
+
+    // 挂载一个模拟 objectUrl
+    (wrapper.vm as unknown as TestViewerVm).createdObjectUrl = 'blob:http://localhost/mock-uuid';
+
+    wrapper.unmount();
+
+    expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/mock-uuid');
+  });
 });
