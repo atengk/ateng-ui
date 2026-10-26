@@ -1,0 +1,280 @@
+/**
+ * 基于 Artplayer.js 封装的工业级播放引擎适配器。
+ *
+ * 实现了 IVideoPlayerEngine 接口，收敛事件监听、指令分发与确定性资源清理。
+ *
+ * @author Ateng
+ * @since 2026-10-26
+ */
+
+import Artplayer, { type Option } from 'artplayer';
+import type { IVideoPlayerEngine, VideoPlayerOptions, VideoPlayerType } from '../types';
+
+/**
+ * 引擎事件监听回调集合。
+ */
+export interface PlayerEngineEventHandlers {
+  onReady?: (engine: IVideoPlayerEngine) => void;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onTimeUpdate?: (currentTime: number) => void;
+  onEnded?: () => void;
+  onError?: (error: unknown) => void;
+  onFullscreen?: (isFullscreen: boolean) => void;
+  onFullscreenWeb?: (isFullscreenWeb: boolean) => void;
+}
+
+export class ArtplayerEngine implements IVideoPlayerEngine {
+  private artInstance: Artplayer | null = null;
+  private handlers: PlayerEngineEventHandlers;
+  private isDestroyed = false;
+
+  constructor(
+    container: HTMLElement,
+    options: VideoPlayerOptions,
+    handlers: PlayerEngineEventHandlers = {},
+  ) {
+    this.handlers = handlers;
+    this.initArtplayer(container, options);
+  }
+
+  /**
+   * 初始化 Artplayer 底层内核。
+   */
+  private initArtplayer(container: HTMLElement, options: VideoPlayerOptions): void {
+    // 映射时间轴打点配置至 Artplayer highlight
+    const highlight = options.markers?.map(m => ({
+      time: m.time,
+      text: m.text,
+    }));
+
+    const artOptions: Record<string, unknown> = {
+      container,
+      url: options.url,
+      poster: options.poster ?? '',
+      title: options.title ?? '',
+      autoplay: options.autoplay ?? false,
+      muted: options.muted ?? false,
+      loop: options.loop ?? false,
+      volume: options.volume ?? 0.7,
+      playbackRate: true,
+      setting: true,
+      hotkey: options.hotkey ?? true,
+      pip: options.pip ?? true,
+      fullscreen: options.fullscreen ?? true,
+      fullscreenWeb: options.fullscreenWeb ?? true,
+      miniProgressBar: options.miniProgressBar ?? true,
+      theme: options.theme ?? '#409EFF',
+      screenshot: options.screenshot ?? true,
+    };
+
+    if (options.playbackRates && options.playbackRates.length > 0) {
+      artOptions.playbackRates = options.playbackRates;
+    }
+
+    if (options.quality && options.quality.length > 0) {
+      artOptions.quality = options.quality;
+    }
+
+    if (highlight && highlight.length > 0) {
+      artOptions.highlight = highlight;
+    }
+
+    if (options.customType) {
+      artOptions.customType = options.customType;
+    }
+
+    if (options.type && options.type !== 'auto') {
+      artOptions.type = options.type;
+    }
+
+    // 实例化内核并挂载事件
+    this.artInstance = new Artplayer(artOptions as unknown as Option);
+    this.bindEvents();
+  }
+
+  /**
+   * 绑定底层播放器事件流。
+   */
+  private bindEvents(): void {
+    if (!this.artInstance) {
+      return;
+    }
+
+    const art = this.artInstance;
+
+    art.on('ready', () => {
+      if (!this.isDestroyed) {
+        this.handlers.onReady?.(this);
+      }
+    });
+
+    art.on('play', () => {
+      this.handlers.onPlay?.();
+    });
+
+    art.on('pause', () => {
+      this.handlers.onPause?.();
+    });
+
+    art.on('video:timeupdate', () => {
+      this.handlers.onTimeUpdate?.(this.currentTime);
+    });
+
+    art.on('video:ended', () => {
+      this.handlers.onEnded?.();
+    });
+
+    art.on('error', (err: unknown) => {
+      this.handlers.onError?.(err);
+    });
+
+    art.on('fullscreen', (state: boolean) => {
+      this.handlers.onFullscreen?.(state);
+    });
+
+    art.on('fullscreenWeb', (state: boolean) => {
+      this.handlers.onFullscreenWeb?.(state);
+    });
+  }
+
+  get rawInstance(): Artplayer | null {
+    return this.artInstance;
+  }
+
+  get playing(): boolean {
+    return Boolean(this.artInstance?.playing);
+  }
+
+  get currentTime(): number {
+    return this.artInstance?.currentTime ?? 0;
+  }
+
+  get duration(): number {
+    return this.artInstance?.duration ?? 0;
+  }
+
+  get volume(): number {
+    return this.artInstance?.volume ?? 0;
+  }
+
+  get muted(): boolean {
+    return Boolean(this.artInstance?.muted);
+  }
+
+  get playbackRate(): number {
+    return this.artInstance?.playbackRate ?? 1.0;
+  }
+
+  async play(): Promise<void> {
+    if (this.artInstance) {
+      await this.artInstance.play();
+    }
+  }
+
+  pause(): void {
+    this.artInstance?.pause();
+  }
+
+  toggle(): void {
+    this.artInstance?.toggle();
+  }
+
+  seek(time: number): void {
+    if (this.artInstance) {
+      this.artInstance.seek = time;
+    }
+  }
+
+  setVolume(volume: number): void {
+    if (this.artInstance) {
+      this.artInstance.volume = Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  setMuted(muted: boolean): void {
+    if (this.artInstance) {
+      this.artInstance.muted = muted;
+    }
+  }
+
+  setPlaybackRate(rate: number): void {
+    if (this.artInstance) {
+      this.artInstance.playbackRate = rate;
+    }
+  }
+
+  async switchQuality(url: string): Promise<void> {
+    if (this.artInstance) {
+      await this.artInstance.switchQuality(url);
+    }
+  }
+
+  async switchUrl(url: string, type?: VideoPlayerType): Promise<void> {
+    if (this.artInstance) {
+      if (type && type !== 'auto') {
+        this.artInstance.type = type;
+      }
+      await this.artInstance.switchUrl(url);
+    }
+  }
+
+  async screenshot(): Promise<string> {
+    if (!this.artInstance) {
+      return '';
+    }
+    const dataUrl = await this.artInstance.getDataURL();
+    return dataUrl ?? '';
+  }
+
+  enterFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreen = true;
+    }
+  }
+
+  exitFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreen = false;
+    }
+  }
+
+  toggleFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreen = !this.artInstance.fullscreen;
+    }
+  }
+
+  enterWebFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreenWeb = true;
+    }
+  }
+
+  exitWebFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreenWeb = false;
+    }
+  }
+
+  toggleWebFullscreen(): void {
+    if (this.artInstance) {
+      this.artInstance.fullscreenWeb = !this.artInstance.fullscreenWeb;
+    }
+  }
+
+  destroy(): void {
+    if (this.isDestroyed) {
+      return;
+    }
+    this.isDestroyed = true;
+    if (this.artInstance) {
+      try {
+        this.artInstance.destroy(true);
+      } catch {
+        // 防御性忽略销毁期间的异常
+      }
+      this.artInstance = null;
+    }
+  }
+}

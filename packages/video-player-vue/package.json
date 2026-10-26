@@ -1,0 +1,61 @@
+{
+  "name": "@atengk/video-player-vue",
+  "version": "0.1.0",
+  "description": "面向现代 Web 应用与企业级安防物联网的工业级流媒体与多路视频播放扩展套件",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "vue": ">=3.5.0"
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "artplayer": "^5.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.44"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "vue3",
+    "streaming",
+    "hls",
+    "flv",
+    "cctv",
+    "artplayer"
+  ],
+  "author": "Ateng",
+  "license": "MIT"
+}

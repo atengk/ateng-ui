@@ -25,4 +25,20 @@ export default defineWorkspace([
       include: ['test/**/*.{test,spec}.ts'],
     },
   },
+  {
+    test: {
+      name: 'file-viewer',
+      root: './packages/file-viewer',
+      environment: 'happy-dom',
+      include: ['test/**/*.{test,spec}.ts'],
+    },
+  },
+  {
+    test: {
+      name: 'video-player-vue',
+      root: './packages/video-player-vue',
+      environment: 'happy-dom',
+      include: ['test/**/*.{test,spec}.ts'],
+    },
+  },
 ]);
