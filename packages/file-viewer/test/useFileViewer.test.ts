@@ -234,4 +234,36 @@ describe('useFileViewer 无头 Hook 状态响应与指令派发测试', () => {
     expect(mockForceRender).toHaveBeenCalledTimes(1);
     expect(controller.isSizeGuarded.value).toBe(false);
   });
+
+  it('支持结构化诊断状态同步与 submitPassword 解密指令派发 (#137)', async () => {
+    const mockSubmitPassword = vi.fn().mockResolvedValue(true);
+    const mockDiagnostic = {
+      category: 'ENCRYPTED' as const,
+      title: '文档受密码保护',
+      message: '需要密码',
+      suggestion: '请输入密码',
+      canRetry: true,
+      needsPassword: true,
+    };
+
+    const mockInstance = {
+      isPasswordRequired: () => true,
+      getDiagnostic: () => mockDiagnostic,
+      submitPassword: mockSubmitPassword,
+    } as unknown as AtengFileViewerInstance;
+
+    const controller = useFileViewer();
+
+    expect(controller.isPasswordRequired.value).toBe(false);
+    expect(controller.diagnostic.value).toBeNull();
+
+    // 绑定实例
+    controller.bindViewer(mockInstance);
+    expect(controller.isPasswordRequired.value).toBe(true);
+    expect(controller.diagnostic.value?.category).toBe('ENCRYPTED');
+
+    // 提交密码
+    await controller.submitPassword('UnlockKey999');
+    expect(mockSubmitPassword).toHaveBeenCalledWith('UnlockKey999');
+  });
 });

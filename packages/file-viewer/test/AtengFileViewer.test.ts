@@ -575,4 +575,121 @@ describe('AtengFileViewer 基础容器组件挂载与契约测试', () => {
       wrapper.unmount();
     });
   });
+
+  describe('结构化异常诊断与加密文档原地密码解密重试契约测试 (#137)', () => {
+    it('捕获到加密密码保护时，原地弹出密码输入浮层并派发 password-error 与 diagnostic 事件', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/protected.pdf',
+        },
+      });
+
+      await nextTick();
+
+      // 模拟底层触发密码保护异常
+      const innerViewer = wrapper.findComponent({ name: 'FileViewer' });
+      expect(innerViewer.exists()).toBe(true);
+
+      const passwordErr = new Error('Password required to decrypt document');
+      passwordErr.name = 'PasswordException';
+      innerViewer.vm.$emit('error', passwordErr);
+
+      await nextTick();
+
+      // 验证状态
+      expect(wrapper.vm.isPasswordRequired()).toBe(true);
+      const diag = wrapper.vm.getDiagnostic();
+      expect(diag).toBeTruthy();
+      expect(diag?.category).toBe('ENCRYPTED');
+      expect(diag?.needsPassword).toBe(true);
+
+      // 验证浮层元素渲染
+      expect(wrapper.find('.at-file-viewer__password-card').exists()).toBe(true);
+      expect(wrapper.find('.at-file-viewer__password-title').text()).toContain('文档受密码保护');
+
+      // 验证事件派发
+      expect(wrapper.emitted('password-error')).toBeTruthy();
+      const diagEmits = wrapper.emitted('diagnostic');
+      expect(diagEmits).toBeTruthy();
+      expect((diagEmits![0][0] as { category: string }).category).toBe('ENCRYPTED');
+
+      // 原地提交密码
+      const pwdInput = wrapper.find('.at-file-viewer__password-input');
+      await pwdInput.setValue('Secret123456');
+      await wrapper.find('.at-file-viewer__password-submit-btn').trigger('click');
+      await nextTick();
+
+      const submitEmits = wrapper.emitted('password-submit');
+      expect(submitEmits).toBeTruthy();
+      expect(submitEmits![0][0]).toBe('Secret123456');
+
+      // 模拟底层解密成功回调 (此时通过 handleLoadComplete 触发)
+      await wrapper.vm.handleLoadComplete?.();
+      await nextTick();
+
+      expect(wrapper.vm.isPasswordRequired()).toBe(false);
+      expect(wrapper.emitted('password-success')).toBeTruthy();
+
+      wrapper.unmount();
+    });
+
+    it('老旧二进制 .doc 格式解析失败时输出 LEGACY_BINARY 结构化诊断建议', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/legacy_contract.doc',
+          fileType: 'doc',
+        },
+      });
+
+      await nextTick();
+      const innerViewer = wrapper.findComponent({ name: 'FileViewer' });
+
+      // 模拟解析失败
+      innerViewer.vm.$emit('error', new Error('Not a valid OpenXML format'));
+      await nextTick();
+
+      const diag = wrapper.vm.getDiagnostic();
+      expect(diag).toBeTruthy();
+      expect(diag?.category).toBe('LEGACY_BINARY');
+      expect(diag?.title).toContain('早期二进制');
+      expect(diag?.suggestion).toContain('.docx');
+
+      // 验证诊断卡片渲染
+      expect(wrapper.find('.at-file-viewer__diag-card--legacy-binary').exists()).toBe(true);
+      expect(wrapper.find('.at-file-viewer__diag-title').text()).toContain('早期二进制');
+
+      wrapper.unmount();
+    });
+
+    it('支持通过 #password 自定义插槽接管密码输入界面', async () => {
+      const wrapper = mount(AtengFileViewer, {
+        props: {
+          url: 'https://example.com/locked.pdf',
+        },
+        slots: {
+          password: `
+            <template #password="{ submitPassword, isDecrypting }">
+              <div class="custom-pwd-box">
+                <span class="custom-status">{{ isDecrypting ? '正在解密' : '请输入密码' }}</span>
+                <button class="custom-pwd-submit" @click="submitPassword('MyCustomPass')">自定义解锁</button>
+              </div>
+            </template>
+          `,
+        },
+      });
+
+      await nextTick();
+      const innerViewer = wrapper.findComponent({ name: 'FileViewer' });
+      innerViewer.vm.$emit('error', new Error('Need password'));
+      await nextTick();
+
+      expect(wrapper.find('.custom-pwd-box').exists()).toBe(true);
+      await wrapper.find('.custom-pwd-submit').trigger('click');
+      await nextTick();
+
+      expect(wrapper.emitted('password-submit')![0][0]).toBe('MyCustomPass');
+
+      wrapper.unmount();
+    });
+  });
 });

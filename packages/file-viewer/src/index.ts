@@ -70,6 +70,13 @@ export {
 } from './utils/sizeGuard';
 export type { FileViewerDownloadProgress, CalculateProgressInput } from './utils/sizeGuard';
 
+export { diagnoseFileViewerError } from './utils/diagnostic';
+export type {
+  FileViewerErrorCategory,
+  FileViewerDiagnostic,
+  DiagnoseContext,
+} from './utils/diagnostic';
+
 export { useFileViewer } from './composables/useFileViewer';
 export type { UseFileViewerOptions, UseFileViewerReturn } from './composables/useFileViewer';
 

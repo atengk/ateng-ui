@@ -18,6 +18,7 @@ import {
   type FileViewerDocumentAnchor,
   type AtengFileViewerInstance,
   type FileViewerDownloadProgress,
+  type FileViewerDiagnostic,
 } from '@atengk/file-viewer';
 
 interface PresetItem {
@@ -63,6 +64,10 @@ const enableModelPreset = ref<boolean>(false);
 // 工单 #136 新增：大文件渐进进度指示与百兆内存防崩护栏 (SizeGuard)
 const maxSizeLimit = ref<string>('50MB');
 const lastProgressMsg = ref<string>('');
+
+// 工单 #137 新增：结构化异常诊断与加密文档原地密码解密重试
+const lastDiagnostic = ref<FileViewerDiagnostic | null>(null);
+const currentPasswordProp = ref<string>('');
 
 const dynamicPresets = computed(() => {
   const list = [];
@@ -117,6 +122,7 @@ const headlessViewer = useFileViewer({
   downloadable: () => downloadable.value,
   printable: () => printable.value,
   maxSize: () => maxSizeLimit.value,
+  password: () => currentPasswordProp.value,
 });
 
 const watermarkConfig = computed(() => {
@@ -168,8 +174,33 @@ function simulateLargeFile() {
   lastEventMsg.value = '已载入 120MB 超大虚拟文件，已触发 SizeGuard 护栏拦截！';
 }
 
+function simulateEncryptedDoc() {
+  selectedFile.value = undefined;
+  currentUrl.value = 'https://example.com/protected.pdf';
+  currentName.value = '企业机密财务报表(加密).pdf';
+  currentType.value = 'pdf';
+  lastEventMsg.value = '已载入模拟加密文档，正在触发原地密码解密重试浮层';
+}
+
+function simulateLegacyDoc() {
+  selectedFile.value = undefined;
+  currentUrl.value = 'https://example.com/legacy_contract.doc';
+  currentName.value = '1998年历史合同档案.doc';
+  currentType.value = 'doc';
+  lastEventMsg.value = '已载入早期二进制格式 (.doc)，已触发结构化升级建议';
+}
+
 function handleSizeGuard(payload: { size: number; maxSize: number }) {
   lastEventMsg.value = `SizeGuard 拦截触发: 当前文件 ${(payload.size / (1024 * 1024)).toFixed(1)} MB 超过阈值 ${(payload.maxSize / (1024 * 1024)).toFixed(0)} MB`;
+}
+
+function handleDiagnostic(diag: FileViewerDiagnostic) {
+  lastDiagnostic.value = diag;
+  lastEventMsg.value = `[${diag.category}] ${diag.title}: ${diag.message}`;
+}
+
+function handlePasswordSubmit(pwd: string) {
+  lastEventMsg.value = `密码提交: 已尝试使用密码 "${pwd}" 原地解密`;
 }
 
 function handleProgress(progress: FileViewerDownloadProgress) {
@@ -250,6 +281,12 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         </button>
         <button type="button" class="ctrl-btn ctrl-btn--warning" @click="simulateLargeFile">
           🛑 模拟 120MB 超大图纸 (SizeGuard)
+        </button>
+        <button type="button" class="ctrl-btn ctrl-btn--amber" @click="simulateEncryptedDoc">
+          🔒 模拟加密 PDF (原地解密)
+        </button>
+        <button type="button" class="ctrl-btn ctrl-btn--info" @click="simulateLegacyDoc">
+          📜 模拟老旧 .doc 二进制 (升级建议)
         </button>
         <label class="ctrl-btn ctrl-btn--upload">
           <span>📁 选择任意本地文件</span>
@@ -356,7 +393,27 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
       </div>
     </div>
 
-    <!-- 工单 #136 控制栏：大文件防崩护栏 (SizeGuard) 与渐进进度 -->
+    <!-- 工单 #137 控制栏：结构化异常诊断与加密文档原地密码解密重试 -->
+    <div class="feature-bar">
+      <div class="feature-group">
+        <span class="feature-label">🔍 结构化诊断:</span>
+        <span v-if="lastDiagnostic" class="diag-badge-item">
+          [{{ lastDiagnostic.category }}] {{ lastDiagnostic.title }}
+        </span>
+        <span v-else class="status-msg">暂无异常 (健康就绪)</span>
+      </div>
+
+      <div v-if="headlessViewer.isPasswordRequired.value" class="feature-group">
+        <span class="feature-label">🔑 密码状态机联动:</span>
+        <button
+          type="button"
+          class="mini-btn mini-btn--primary"
+          @click="headlessViewer.submitPassword('123456')"
+        >
+          一键代填密码 "123456" 并解密 (Hook 指令)
+        </button>
+      </div>
+    </div>
     <div class="feature-bar">
       <div class="feature-group">
         <span class="feature-label">🛑 防崩阈值 (SizeGuard):</span>
@@ -422,6 +479,7 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         :context-menu="contextMenu"
         :watermark="watermarkConfig"
         :max-size="maxSizeLimit"
+        :password="currentPasswordProp"
         height="100%"
         @load="handleLoad"
         @error="handleError"
@@ -429,6 +487,8 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
         @sheet-change="handleSheetChange"
         @size-guard="handleSizeGuard"
         @progress="handleProgress"
+        @diagnostic="handleDiagnostic"
+        @password-submit="handlePasswordSubmit"
       />
       <div v-else class="remount-placeholder">
         <div class="remount-spinner"></div>
@@ -545,6 +605,35 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
 .ctrl-btn--warning:hover {
   background-color: #fef3c7;
   border-color: #fcd34d;
+}
+
+.ctrl-btn--amber {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.ctrl-btn--amber:hover {
+  background-color: #fef3c7;
+}
+
+.ctrl-btn--info {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0369a1;
+}
+
+.ctrl-btn--info:hover {
+  background-color: #e0f2fe;
+}
+
+.diag-badge-item {
+  font-weight: 600;
+  color: #dc2626;
+  background-color: #fef2f2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
 }
 
 .ctrl-btn--upload {

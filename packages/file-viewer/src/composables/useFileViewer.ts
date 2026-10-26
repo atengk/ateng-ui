@@ -16,6 +16,7 @@ import type {
   FileViewerSheet,
   FileViewerPreset,
   FileViewerDownloadProgress,
+  FileViewerDiagnostic,
 } from '../types';
 import { resolveThreeTierAssetBaseUrl } from '../utils/assets';
 import { resolvePresets } from '../utils/presets';
@@ -85,12 +86,18 @@ export interface UseFileViewerOptions {
    * 最大允许直接渲染的文件体积上限 (支持整数字节或 '100MB', '50M', '1GB' 等)。
    */
   maxSize?: MaybeRefOrGetter<string | number | undefined>;
+
+  /**
+   * 初始或受控文档解密密码 (针对受密码保护的 PDF / Office)。
+   */
+  password?: MaybeRefOrGetter<string | undefined>;
 }
 
 export interface UseFileViewerReturn {
   // 只读响应式状态
   isLoading: Readonly<Ref<boolean>>;
   error: Readonly<Ref<unknown>>;
+  diagnostic: Readonly<Ref<FileViewerDiagnostic | null>>;
   fileName: Readonly<Ref<string>>;
   fileType: Readonly<Ref<string>>;
   page: Readonly<Ref<number>>;
@@ -106,6 +113,7 @@ export interface UseFileViewerReturn {
   isSizeGuarded: Readonly<Ref<boolean>>;
   downloadProgress: Readonly<Ref<FileViewerDownloadProgress>>;
   fileSize: Readonly<Ref<number>>;
+  isPasswordRequired: Readonly<Ref<boolean>>;
 
   // 绑定与底层实例访问
   bindViewer: (instance: AtengFileViewerInstance | null) => void;
@@ -128,6 +136,7 @@ export interface UseFileViewerReturn {
   scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => Promise<boolean>;
   forceRender: () => void;
   isFileSizeExceeded: () => boolean;
+  submitPassword: (password: string) => Promise<boolean>;
   download: () => void;
   print: () => void;
   retry: () => void;
@@ -155,6 +164,8 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
   const isTocOpen = ref<boolean>(false);
   const isSizeGuarded = ref<boolean>(false);
   const currentFileSize = ref<number>(0);
+  const diagnostic = ref<FileViewerDiagnostic | null>(null);
+  const isPasswordRequired = ref<boolean>(false);
   const downloadProgress = ref<FileViewerDownloadProgress>({
     loaded: 0,
     total: undefined,
@@ -269,6 +280,8 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
       if (instance.isSizeGuarded) isSizeGuarded.value = instance.isSizeGuarded();
       if (instance.getProgress) downloadProgress.value = instance.getProgress();
       if (instance.getFileSize) currentFileSize.value = instance.getFileSize();
+      if (instance.getDiagnostic) diagnostic.value = instance.getDiagnostic();
+      if (instance.isPasswordRequired) isPasswordRequired.value = instance.isPasswordRequired();
     }
   }
 
@@ -369,6 +382,14 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     return checkExceeded(size, limit);
   }
 
+  async function submitPassword(pwd: string): Promise<boolean> {
+    const instance = activeInstance.value;
+    if (instance?.submitPassword) {
+      return instance.submitPassword(pwd);
+    }
+    return false;
+  }
+
   function print(): void {
     activeInstance.value?.print();
   }
@@ -395,6 +416,7 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     // 只读响应式状态
     isLoading: readonly(isLoading) as Readonly<Ref<boolean>>,
     error: readonly(error) as Readonly<Ref<unknown>>,
+    diagnostic: readonly(diagnostic) as Readonly<Ref<FileViewerDiagnostic | null>>,
     fileName: readonly(fileName) as Readonly<Ref<string>>,
     fileType: readonly(fileType) as Readonly<Ref<string>>,
     page: readonly(page) as Readonly<Ref<number>>,
@@ -410,6 +432,7 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     isSizeGuarded: readonly(isSizeGuarded) as Readonly<Ref<boolean>>,
     downloadProgress: readonly(downloadProgress) as Readonly<Ref<FileViewerDownloadProgress>>,
     fileSize: readonly(currentFileSize) as Readonly<Ref<number>>,
+    isPasswordRequired: readonly(isPasswordRequired) as Readonly<Ref<boolean>>,
 
     // 绑定与实例获取
     bindViewer,
@@ -440,6 +463,7 @@ export function useFileViewer(options: UseFileViewerOptions = {}): UseFileViewer
     scrollToAnchor,
     forceRender,
     isFileSizeExceeded,
+    submitPassword,
     download,
     print,
     retry,

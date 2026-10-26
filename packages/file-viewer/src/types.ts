@@ -8,10 +8,16 @@
 import type { ComponentPublicInstance } from 'vue';
 import type { FileViewerPreset } from './utils/presets';
 import type { FileViewerDownloadProgress } from './utils/sizeGuard';
+import type { FileViewerDiagnostic } from './utils/diagnostic';
 
 export type { FileViewerPreset } from './utils/presets';
 export type { FileViewerGlobalConfig } from './utils/assets';
 export type { FileViewerDownloadProgress, CalculateProgressInput } from './utils/sizeGuard';
+export type {
+  FileViewerErrorCategory,
+  FileViewerDiagnostic,
+  DiagnoseContext,
+} from './utils/diagnostic';
 
 export type FileViewerTheme = 'light' | 'dark' | 'auto';
 
@@ -255,6 +261,11 @@ export interface AtengFileViewerProps {
    * 超过该阈值时触发 SizeGuard 防崩护栏，阻止默认自动渲染并弹出确认卡片。
    */
   maxSize?: number | string;
+
+  /**
+   * 初始或受控解密密码 (针对受密码保护的 PDF / Office 文档)。
+   */
+  password?: string;
 }
 
 export interface AtengFileViewerEmits {
@@ -270,6 +281,10 @@ export interface AtengFileViewerEmits {
   (e: 'view-state-change', change: Record<string, unknown>): void;
   (e: 'progress', progress: FileViewerDownloadProgress): void;
   (e: 'size-guard', payload: { size: number; maxSize: number }): void;
+  (e: 'diagnostic', diagnostic: FileViewerDiagnostic): void;
+  (e: 'password-submit', password: string): void;
+  (e: 'password-success'): void;
+  (e: 'password-error', error: unknown): void;
 }
 
 export interface AtengFileViewerSlots {
@@ -319,7 +334,18 @@ export interface AtengFileViewerSlots {
     forceRender: () => void;
     download: () => void;
   }) => unknown;
-  error?: (scope: { error: unknown; retry: () => void; download: () => void }) => unknown;
+  error?: (scope: {
+    diagnostic: FileViewerDiagnostic;
+    error: unknown;
+    retry: () => void;
+    download: () => void;
+  }) => unknown;
+  password?: (scope: {
+    submitPassword: (pwd: string) => Promise<boolean>;
+    isDecrypting: boolean;
+    errorMessage?: string;
+    download: () => void;
+  }) => unknown;
 }
 
 export interface AtengFileViewerExpose {
@@ -377,6 +403,21 @@ export interface AtengFileViewerExpose {
    * 获取当前文件体积字节数。
    */
   getFileSize: () => number;
+
+  /**
+   * 获取当前发生的结构化诊断实体 (若无异常则返回 null)。
+   */
+  getDiagnostic: () => FileViewerDiagnostic | null;
+
+  /**
+   * 原地提交密码重试解密。
+   */
+  submitPassword: (password: string) => Promise<boolean>;
+
+  /**
+   * 获取当前是否处于需要输入密码解密状态。
+   */
+  isPasswordRequired: () => boolean;
 
   /**
    * 获取解析出的当前文件名。

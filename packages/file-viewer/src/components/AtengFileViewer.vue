@@ -53,6 +53,7 @@ import {
   isFileSizeExceeded,
   type FileViewerDownloadProgress,
 } from '../utils/sizeGuard';
+import { diagnoseFileViewerError, type FileViewerDiagnostic } from '../utils/diagnostic';
 
 defineOptions({
   name: 'AtengFileViewer',
@@ -101,6 +102,7 @@ const props = withDefaults(defineProps<AtengFileViewerProps>(), {
   assetBaseUrl: undefined,
   preset: undefined,
   maxSize: DEFAULT_MAX_SIZE,
+  password: '',
 });
 
 const emit = defineEmits<AtengFileViewerEmits>();
@@ -128,6 +130,15 @@ const downloadProgress = ref<FileViewerDownloadProgress>({
   formattedLoaded: '0 B',
   formattedTotal: '未知大小',
 });
+
+// 结构化异常诊断与加密文档原地密码解密状态 (#137)
+const currentDiagnostic = ref<FileViewerDiagnostic | null>(null);
+const isPasswordRequired = ref<boolean>(false);
+const currentPassword = ref<string>(props.password || '');
+const passwordInputVal = ref<string>('');
+const showPasswordText = ref<boolean>(false);
+const isDecrypting = ref<boolean>(false);
+const passwordErrorMessage = ref<string>('');
 
 // 多页受控状态
 const currentPage = ref<number>(props.page ?? 1);
@@ -285,6 +296,7 @@ const mergedOptions = computed(() => {
     },
     ...tieredAssetOptions.value,
     ...presetOptions,
+    ...(currentPassword.value ? { password: currentPassword.value } : {}),
     ...props.options,
   };
 });
@@ -482,9 +494,7 @@ async function loadSource() {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
-      isLoading.value = false;
-      loadError.value = err;
-      emit('error', err);
+      handleError(err);
     }
     return;
   }
@@ -597,6 +607,15 @@ onUnmounted(() => {
 async function handleLoadComplete() {
   isLoading.value = false;
   loadError.value = null;
+  isDecrypting.value = false;
+
+  // 密码解密成功恢复
+  if (isPasswordRequired.value) {
+    isPasswordRequired.value = false;
+    passwordErrorMessage.value = '';
+    emit('password-success');
+  }
+  currentDiagnostic.value = null;
 
   // 1. 尝试收集目录大纲
   if (innerFileViewerRef.value?.collectDocumentAnchors) {
@@ -622,8 +641,43 @@ async function handleLoadComplete() {
 
 function handleError(err: unknown) {
   isLoading.value = false;
+  isDecrypting.value = false;
   loadError.value = err;
+
+  const diag = diagnoseFileViewerError(err, {
+    fileName: computedFileName.value,
+    fileType: computedFileType.value,
+    url: props.url,
+  });
+  currentDiagnostic.value = diag;
+
+  if (diag.needsPassword) {
+    isPasswordRequired.value = true;
+    if (currentPassword.value) {
+      passwordErrorMessage.value = '密码不正确，请重新输入';
+    }
+    emit('password-error', err);
+  }
+
   emit('error', err);
+  emit('diagnostic', diag);
+}
+
+/**
+ * 原地提交密码进行解密重试。
+ */
+async function submitPassword(pwd: string): Promise<boolean> {
+  if (!pwd) {
+    passwordErrorMessage.value = '请输入文档访问密码';
+    return false;
+  }
+  isDecrypting.value = true;
+  passwordErrorMessage.value = '';
+  currentPassword.value = pwd;
+  emit('password-submit', pwd);
+
+  retry();
+  return true;
 }
 
 function handleUnloadComplete(event?: { reason?: string }) {
@@ -839,6 +893,9 @@ defineExpose<AtengFileViewerExpose>({
   isSizeGuarded: () => isSizeGuarded.value,
   getProgress: () => downloadProgress.value,
   getFileSize: () => currentFileSize.value,
+  getDiagnostic: () => currentDiagnostic.value,
+  submitPassword,
+  isPasswordRequired: () => isPasswordRequired.value,
   getFileName: () => computedFileName.value,
   getFileType: () => computedFileType.value,
   getPage: () => currentPage.value,
@@ -1291,44 +1348,177 @@ defineExpose<AtengFileViewerExpose>({
           </slot>
         </div>
 
-        <!-- 渲染失败状态 (包含 ADR-0004 异常卡片与 traceId 展示) -->
-        <div v-if="loadError" class="at-file-viewer__error">
-          <slot name="error" :error="loadError" :retry="retry" :download="download">
-            <svg
-              viewBox="0 0 24 24"
-              width="40"
-              height="40"
-              stroke="#f56c6c"
-              fill="none"
-              stroke-width="2"
+        <!-- 加密文档原地密码输入重试交互卡片 (#137) -->
+        <div v-if="isPasswordRequired" class="at-file-viewer__password-overlay">
+          <slot
+            name="password"
+            :submit-password="submitPassword"
+            :is-decrypting="isDecrypting"
+            :error-message="passwordErrorMessage"
+            :download="download"
+          >
+            <div class="at-file-viewer__password-card">
+              <div class="at-file-viewer__password-icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="36"
+                  height="36"
+                  stroke="#d97706"
+                  fill="none"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+              <h3 class="at-file-viewer__password-title">文档受密码保护</h3>
+              <p class="at-file-viewer__password-desc">
+                该文档已设置安全访问密码，请输入密码后进行原地解密阅读。
+              </p>
+              <div class="at-file-viewer__password-form">
+                <div class="at-file-viewer__password-input-wrapper">
+                  <input
+                    v-model="passwordInputVal"
+                    :type="showPasswordText ? 'text' : 'password'"
+                    class="at-file-viewer__password-input"
+                    placeholder="请输入文档解密密码"
+                    :disabled="isDecrypting"
+                    @keyup.enter="submitPassword(passwordInputVal)"
+                  />
+                  <button
+                    type="button"
+                    class="at-file-viewer__password-eye-btn"
+                    :title="showPasswordText ? '隐藏密码' : '显示密码'"
+                    aria-label="切换密码明暗文显示"
+                    @click="showPasswordText = !showPasswordText"
+                  >
+                    <svg
+                      v-if="showPasswordText"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      stroke="currentColor"
+                      fill="none"
+                      stroke-width="2"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg
+                      v-else
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      stroke="currentColor"
+                      fill="none"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      ></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
+                <p v-if="passwordErrorMessage" class="at-file-viewer__password-err">
+                  {{ passwordErrorMessage }}
+                </p>
+                <div class="at-file-viewer__password-actions">
+                  <button
+                    type="button"
+                    class="at-file-viewer__btn at-file-viewer__btn--primary at-file-viewer__password-submit-btn"
+                    :disabled="isDecrypting || !passwordInputVal"
+                    @click="submitPassword(passwordInputVal)"
+                  >
+                    <span v-if="isDecrypting" class="at-file-viewer__inline-spinner"></span>
+                    <span>{{ isDecrypting ? '正在解密...' : '解密并阅读' }}</span>
+                  </button>
+                  <button
+                    v-if="downloadable"
+                    type="button"
+                    class="at-file-viewer__btn at-file-viewer__password-download-btn"
+                    @click="download"
+                  >
+                    下载原文件
+                  </button>
+                </div>
+              </div>
+            </div>
+          </slot>
+        </div>
+
+        <!-- 结构化异常诊断卡片 (#137) -->
+        <div v-if="loadError && !isPasswordRequired" class="at-file-viewer__error">
+          <slot
+            name="error"
+            :diagnostic="currentDiagnostic || diagnoseFileViewerError(loadError)"
+            :error="loadError"
+            :retry="retry"
+            :download="download"
+          >
+            <div
+              class="at-file-viewer__diag-card"
+              :class="`at-file-viewer__diag-card--${(currentDiagnostic?.category || 'CORRUPTED').toLowerCase().replace('_', '-')}`"
             >
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <p class="at-file-viewer__error-msg">{{ errorMessage }}</p>
-            <p v-if="errorTraceId" class="at-file-viewer__error-trace">
-              TraceId: {{ errorTraceId }}
-            </p>
-            <div class="at-file-viewer__error-actions">
-              <button type="button" class="at-file-viewer__error-btn" @click="retry">
-                重试加载
-              </button>
-              <button
-                v-if="downloadable"
-                type="button"
-                class="at-file-viewer__error-btn at-file-viewer__error-btn--primary"
-                @click="download"
+              <div class="at-file-viewer__diag-header">
+                <span class="at-file-viewer__diag-badge">
+                  {{ currentDiagnostic?.category || 'ERROR' }}
+                </span>
+                <span class="at-file-viewer__diag-title">{{
+                  currentDiagnostic?.title || '文档预览失败'
+                }}</span>
+              </div>
+              <p class="at-file-viewer__diag-msg">
+                {{ currentDiagnostic?.message || errorMessage }}
+              </p>
+              <div v-if="currentDiagnostic?.suggestion" class="at-file-viewer__diag-suggestion">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  stroke="currentColor"
+                  fill="none"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <span>{{ currentDiagnostic.suggestion }}</span>
+              </div>
+              <p
+                v-if="currentDiagnostic?.traceId || errorTraceId"
+                class="at-file-viewer__error-trace"
               >
-                下载原文件
-              </button>
+                TraceId: {{ currentDiagnostic?.traceId || errorTraceId }}
+              </p>
+              <div class="at-file-viewer__error-actions">
+                <button
+                  v-if="currentDiagnostic?.canRetry !== false"
+                  type="button"
+                  class="at-file-viewer__error-btn"
+                  @click="retry"
+                >
+                  重试加载
+                </button>
+                <button
+                  v-if="downloadable"
+                  type="button"
+                  class="at-file-viewer__error-btn at-file-viewer__error-btn--primary"
+                  @click="download"
+                >
+                  下载原文件
+                </button>
+              </div>
             </div>
           </slot>
         </div>
 
         <!-- 底层多格式渲染引擎 -->
         <div
-          v-if="(url || file || resolvedFile) && !loadError && !isSizeGuarded"
+          v-if="
+            (url || file || resolvedFile) && !loadError && !isSizeGuarded && !isPasswordRequired
+          "
           :key="reloadKey"
           class="at-file-viewer__engine"
           :style="{
@@ -1349,7 +1539,10 @@ defineExpose<AtengFileViewerExpose>({
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="!loadError && !isLoading && !isSizeGuarded" class="at-file-viewer__empty">
+        <div
+          v-else-if="!loadError && !isLoading && !isSizeGuarded && !isPasswordRequired"
+          class="at-file-viewer__empty"
+        >
           <p>暂无文件输入</p>
         </div>
       </main>
@@ -1808,11 +2001,247 @@ defineExpose<AtengFileViewerExpose>({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.96);
   z-index: 10;
   padding: 24px;
   text-align: center;
   box-sizing: border-box;
+}
+
+/* 密码输入浮层卡片 (#137) */
+.at-file-viewer__password-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
+  z-index: 25;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.at-file-viewer__password-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.06),
+    0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.at-file-viewer__password-icon {
+  margin-bottom: 8px;
+}
+
+.at-file-viewer__password-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 8px 0;
+}
+
+.at-file-viewer__password-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.at-file-viewer__password-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.at-file-viewer__password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.at-file-viewer__password-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 36px 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.at-file-viewer__password-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.at-file-viewer__password-eye-btn {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #94a3b8;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.at-file-viewer__password-eye-btn:hover {
+  color: #475569;
+}
+
+.at-file-viewer__password-err {
+  font-size: 12px;
+  color: #dc2626;
+  margin: -4px 0 0;
+  text-align: left;
+}
+
+.at-file-viewer__password-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.at-file-viewer__password-submit-btn {
+  height: 36px;
+  padding: 0 18px;
+}
+
+.at-file-viewer__password-download-btn {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+}
+
+.at-file-viewer__password-download-btn:hover {
+  background-color: #f8fafc;
+}
+
+.at-file-viewer__inline-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: at-fv-spin 0.6s linear infinite;
+  margin-right: 6px;
+}
+
+/* 结构化诊断卡片 (#137) */
+.at-file-viewer__diag-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 520px;
+  padding: 28px 24px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+.at-file-viewer__diag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.at-file-viewer__diag-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.at-file-viewer__diag-card--encrypted .at-file-viewer__diag-badge {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.at-file-viewer__diag-card--legacy-binary .at-file-viewer__diag-badge {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.at-file-viewer__diag-card--network-cors .at-file-viewer__diag-badge {
+  background-color: #ede9fe;
+  color: #6d28d9;
+}
+
+.at-file-viewer__diag-card--business-error .at-file-viewer__diag-badge {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.at-file-viewer__diag-card--corrupted .at-file-viewer__diag-badge {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.at-file-viewer__diag-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.at-file-viewer__diag-msg {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 12px;
+  max-width: 460px;
+}
+
+.at-file-viewer__diag-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 16px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.at-file-viewer__diag-suggestion svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #3b82f6;
 }
 
 .at-file-viewer__error-msg {
