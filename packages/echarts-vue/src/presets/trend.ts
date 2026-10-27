@@ -135,6 +135,10 @@ export function createTrendOption(config: TrendChartConfig): EChartsOption {
   const leftAxis: YAXisComponentOption = {
     type: 'value',
     name: leftYConfig?.name,
+    nameTextStyle: {
+      color: '#909399',
+      padding: [0, 0, 4, 0],
+    },
     min: leftYConfig?.min,
     max: leftYConfig?.max,
     splitLine:
@@ -158,6 +162,10 @@ export function createTrendOption(config: TrendChartConfig): EChartsOption {
     const rightAxis: YAXisComponentOption = {
       type: 'value',
       name: rightYConfig?.name,
+      nameTextStyle: {
+        color: '#909399',
+        padding: [0, 0, 4, 0],
+      },
       min: rightYConfig?.min,
       max: rightYConfig?.max,
       splitLine: rightYConfig?.splitLine
@@ -350,12 +358,31 @@ export function createTrendOption(config: TrendChartConfig): EChartsOption {
     }
   }
 
-  // 8. 默认网格边距
+  // 8. 默认网格边距（根据坐标轴与图例情况动态分配安全视距，杜绝元素重叠与气泡溢出）
+  const hasAxisName = Boolean(
+    dimConfig.name ||
+    (Array.isArray(config.yAxis)
+      ? config.yAxis.some(y => Boolean(y?.name))
+      : Boolean(config.yAxis?.name)),
+  );
+  const hasMarkPoint = metricConfigs.some(m => Boolean(m.markPoint));
+  const hasLegend = config.legend !== false;
+
+  let defaultTop = 52;
+  if (hasAxisName && hasRightAxis) {
+    defaultTop = hasLegend ? 76 : 64;
+  } else if (hasAxisName || hasRightAxis) {
+    defaultTop = hasLegend ? 68 : 56;
+  }
+
+  // 右侧安全视距：双 Y 轴或末端气泡留出防截断视距
+  const defaultRight = hasRightAxis ? 36 : hasMarkPoint ? 32 : 16;
+
   const grid: GridComponentOption = {
-    top: 48,
+    top: defaultTop,
     left: 16,
-    right: hasRightAxis ? 24 : 16,
-    bottom: config.dataZoom ? 48 : 16,
+    right: defaultRight,
+    bottom: config.dataZoom ? 52 : 20,
     containLabel: true,
     ...config.grid,
   };

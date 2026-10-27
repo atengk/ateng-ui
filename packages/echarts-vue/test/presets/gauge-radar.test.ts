@@ -74,6 +74,62 @@ describe('createGaugeOption 纯函数转换契约测试', () => {
     const option = createGaugeOption(config);
     expect(option.backgroundColor).toBe('#fafafa');
   });
+
+  it('4. 极值标注：正确生成 Min/Max 两端刻度极值标注', () => {
+    const config: GaugeChartConfig = {
+      value: 75,
+      min: 10,
+      max: 90,
+      showExtremities: true,
+      extremities: {
+        minLabel: '最低 10分',
+        maxLabel: '最高 90分',
+      },
+    };
+
+    const option = createGaugeOption(config);
+    const series = Array.isArray(option.series) ? option.series[0] : option.series;
+    const axisLabel = series?.axisLabel as { formatter?: (val: number) => string };
+    expect(typeof axisLabel?.formatter).toBe('function');
+
+    expect(axisLabel.formatter!(10)).toBe('最低 10分');
+    expect(axisLabel.formatter!(90)).toBe('最高 90分');
+    expect(axisLabel.formatter!(50)).toBe('50');
+  });
+
+  it('5. 双模自适应动态空间编排：指针模式大数字避让沉降，无指针模式居中对齐', () => {
+    // 指针模式 (默认 pointer: true)
+    const pointerOption = createGaugeOption({ value: 65, pointer: true });
+    const pointerSeries = Array.isArray(pointerOption.series)
+      ? pointerOption.series[0]
+      : pointerOption.series;
+    const pointerDetail = pointerSeries?.detail as {
+      offsetCenter?: [number | string, number | string];
+    };
+    const pointerTitle = pointerSeries?.title as {
+      offsetCenter?: [number | string, number | string];
+    };
+    expect(pointerDetail.offsetCenter).toEqual([0, '42%']);
+    expect(pointerTitle.offsetCenter).toEqual([0, '68%']);
+
+    // 纯环形进度条模式 (pointer: false)
+    const ringOption = createGaugeOption({ value: 65, pointer: false, progress: true });
+    const ringSeries = Array.isArray(ringOption.series) ? ringOption.series[0] : ringOption.series;
+    const ringDetail = ringSeries?.detail as { offsetCenter?: [number | string, number | string] };
+    const ringTitle = ringSeries?.title as { offsetCenter?: [number | string, number | string] };
+    expect(ringDetail.offsetCenter).toEqual([0, '-5%']);
+    expect(ringTitle.offsetCenter).toEqual([0, '25%']);
+
+    // 刻度文字呼吸空间与对比度
+    const axisLabel = ringSeries?.axisLabel as {
+      distance?: number;
+      color?: string;
+      fontSize?: number;
+    };
+    expect(axisLabel.distance).toBe(26);
+    expect(axisLabel.color).toBe('#4E5969');
+    expect(axisLabel.fontSize).toBe(12);
+  });
 });
 
 describe('createRadarOption 纯函数转换契约测试', () => {
@@ -147,6 +203,26 @@ describe('createRadarOption 纯函数转换契约测试', () => {
 
     const option = createRadarOption(config);
     expect((option.title as { text?: string })?.text).toBe('综合能力雷达评估');
+  });
+
+  it('4. 半透明渐变区域填充：当设置 item.color 时应自动构建 LinearGradient', () => {
+    const config: RadarChartConfig = {
+      indicators: sampleIndicators,
+      data: [{ name: '渐变序列', value: [80, 90, 85, 70, 95], color: '#409EFF' }],
+      area: true,
+    };
+
+    const option = createRadarOption(config);
+    const series = Array.isArray(option.series) ? option.series[0] : option.series;
+    const seriesData = series?.data as Array<{
+      name: string;
+      value: number[];
+      areaStyle?: { color?: unknown; opacity?: number };
+    }>;
+
+    expect(seriesData[0].areaStyle).toBeDefined();
+    expect(seriesData[0].areaStyle?.opacity).toBe(0.3);
+    expect(seriesData[0].areaStyle?.color).toBeDefined();
   });
 });
 

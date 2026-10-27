@@ -39,7 +39,7 @@ describe('createDonutOption 纯函数转换契约测试', () => {
     expect(option.series).toBeDefined();
     const series = Array.isArray(option.series) ? option.series[0] : option.series;
     expect(series?.type).toBe('pie');
-    expect(series?.radius).toEqual(['45%', '70%']);
+    expect(series?.radius).toEqual(['42%', '66%']);
 
     const seriesData = series?.data as Array<{ name: string; value: number }>;
     expect(seriesData).toHaveLength(4);
@@ -65,7 +65,7 @@ describe('createDonutOption 纯函数转换契约测试', () => {
     expect(title?.text).toBe('3,000,000 元');
     expect(title?.subtext).toBe('总营收');
     expect(title?.left).toBe('center');
-    expect(title?.top).toBe('center');
+    expect(title?.top).toBe('45%');
   });
 
   it('3. 南丁格尔玫瑰图模式切换 (roseType: radius / area)', () => {
@@ -192,6 +192,40 @@ describe('createFunnelOption 纯函数转换契约测试', () => {
 
     const option = createFunnelOption(config);
     expect((option.legend as { show?: boolean })?.show).toBe(false);
+  });
+
+  it('4. 漏斗排序模式与时序流向自适应：升序与无序数据下环节转化率正确对应视觉流向', () => {
+    const unorderedData = [
+      { stage: '完成支付', users: 2000 },
+      { stage: '首页访问', users: 10000 },
+      { stage: '加入购物车', users: 5000 },
+    ];
+
+    const config: FunnelChartConfig = {
+      data: unorderedData,
+      nameKey: 'stage',
+      valueKey: 'users',
+      sort: 'descending',
+    };
+
+    const option = createFunnelOption(config);
+    const tooltip = option.tooltip as { formatter?: (params: unknown) => string };
+
+    // 验证降序时，加入购物车（5000）的前序是首页访问（10000），转化率应为 50.0%
+    const cartHtml = tooltip.formatter!({
+      marker: '<span>●</span>',
+      name: '加入购物车',
+      value: 5000,
+    });
+    expect(cartHtml).toContain('50.0%');
+
+    // 验证首环节（首页访问）转化率应为 100.0%
+    const homeHtml = tooltip.formatter!({
+      marker: '<span>●</span>',
+      name: '首页访问',
+      value: 10000,
+    });
+    expect(homeHtml).toContain('100.0%');
   });
 });
 

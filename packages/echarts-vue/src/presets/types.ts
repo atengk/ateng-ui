@@ -14,7 +14,34 @@ import type {
   MarkPointComponentOption,
   MarkLineComponentOption,
 } from 'echarts';
-import type { AtengEChartsEmits, AtengEChartsProps } from '../types';
+import type { AtengEChartsEmits, AtengEChartsProps, AtengEChartsSlots } from '../types';
+
+/**
+ * 预设组件通用插槽类型别名。
+ */
+export type AtengTrendChartSlots = AtengEChartsSlots;
+export type AtengDonutChartSlots = AtengEChartsSlots;
+export type AtengFunnelChartSlots = AtengEChartsSlots;
+export type AtengGaugeChartSlots = AtengEChartsSlots;
+export type AtengRadarChartSlots = AtengEChartsSlots;
+
+/**
+ * AtengMapChart 插槽契约声明。
+ */
+export interface AtengMapChartSlots extends AtengEChartsSlots {
+  /**
+   * 自定义顶部面包屑导航插槽。
+   */
+  breadcrumb?: (scope: {
+    breadcrumbs: MapNode[];
+    currentNode: MapNode;
+    currentLevel: number;
+    canBack: boolean;
+    drillTo: (target: MapNode) => Promise<boolean>;
+    back: () => Promise<boolean>;
+    reset: () => Promise<boolean>;
+  }) => unknown;
+}
 
 /**
  * 维度（X 轴）字段结构化配置。
@@ -759,6 +786,20 @@ export interface GaugeChartConfig {
   precision?: number;
 
   /**
+   * 是否显示仪表盘两端极值标注（如 Min: 0 / Max: 100 刻度标签或自定义文案）。
+   * @default true
+   */
+  showExtremities?: boolean;
+
+  /**
+   * 极值标注自定义文案配置。
+   */
+  extremities?: {
+    minLabel?: string;
+    maxLabel?: string;
+  };
+
+  /**
    * 是否启用数值千分位展示。
    * @default true
    */
@@ -824,6 +865,20 @@ export interface AtengGaugeChartProps extends Omit<AtengEChartsProps, 'option'> 
    * @default true
    */
   pointer?: boolean | { width?: number; length?: string };
+
+  /**
+   * 是否显示仪表盘两端极值标注。
+   * @default true
+   */
+  showExtremities?: boolean;
+
+  /**
+   * 极值标注自定义文案配置。
+   */
+  extremities?: {
+    minLabel?: string;
+    maxLabel?: string;
+  };
 
   /**
    * 起始角度。
@@ -910,10 +965,10 @@ export interface RadarChartConfig {
   data: RadarSeriesItem[];
 
   /**
-   * 是否启用半透明区域填充。
+   * 是否启用半透明区域填充（支持布尔值或细化渐变配置）。
    * @default true
    */
-  area?: boolean;
+  area?: boolean | { opacity?: number; gradient?: boolean };
 
   /**
    * 坐标系网格形状：'polygon'（多边形，默认）或 'circle'（圆形网状）。
@@ -926,6 +981,18 @@ export interface RadarChartConfig {
    * @default 5
    */
   splitNumber?: number;
+
+  /**
+   * 雷达图中心坐标位置。
+   * @default ['50%', '56%']
+   */
+  center?: [string | number, string | number];
+
+  /**
+   * 雷达图半径大小。
+   * @default '60%'
+   */
+  radius?: string | number;
 
   /**
    * 图例开关或配置。
@@ -960,10 +1027,10 @@ export interface AtengRadarChartProps extends Omit<AtengEChartsProps, 'option'> 
   data: RadarSeriesItem[];
 
   /**
-   * 是否启用半透明区域填充。
+   * 是否启用半透明区域填充（支持布尔值或细化渐变配置）。
    * @default true
    */
-  area?: boolean;
+  area?: boolean | { opacity?: number; gradient?: boolean };
 
   /**
    * 网格形状。
@@ -976,6 +1043,18 @@ export interface AtengRadarChartProps extends Omit<AtengEChartsProps, 'option'> 
    * @default 5
    */
   splitNumber?: number;
+
+  /**
+   * 雷达图中心坐标位置。
+   * @default ['50%', '56%']
+   */
+  center?: [string | number, string | number];
+
+  /**
+   * 雷达图半径大小。
+   * @default '60%'
+   */
+  radius?: string | number;
 
   /**
    * 图例开关或配置。
@@ -1095,6 +1174,11 @@ export interface UseMapDrillDownReturn {
    * 是否可执行向上一级回退操作。
    */
   canBack: ComputedRef<boolean>;
+
+  /**
+   * 当前下钻层级深度（根节点为 0，依次递增）。
+   */
+  currentLevel: ComputedRef<number>;
 
   /**
    * 触发下钻至指定目标节点。

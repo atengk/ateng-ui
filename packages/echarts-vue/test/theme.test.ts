@@ -216,4 +216,48 @@ describe('ECharts 主题与暗黑模式无损热切换测试', () => {
 
     expect(vm.currentTheme).toBe('ateng-dark');
   });
+
+  it('5. dataZoom 交互缩放选区在暗黑主题切换重建时应无损还原', async () => {
+    const option: echarts.EChartsOption = {
+      dataZoom: [{ start: 25, end: 75 }],
+      series: [{ type: 'pie', data: [{ value: 10, name: 'A' }] }],
+    };
+
+    wrapper = mount(AtengECharts, {
+      props: {
+        option,
+        theme: 'auto',
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+
+    const vm = wrapper.vm as unknown as {
+      currentTheme: string;
+      getInstance: () => echarts.ECharts | null;
+    };
+
+    const firstInstance = vm.getInstance();
+    expect(firstInstance).not.toBeNull();
+
+    // 模拟暗黑模式类名注入
+    document.documentElement.classList.add('dark');
+    for (const cb of mutationCallbacks) {
+      cb();
+    }
+    await nextTick();
+
+    const secondInstance = vm.getInstance();
+    expect(secondInstance).not.toBeNull();
+    expect(secondInstance).not.toBe(firstInstance);
+
+    // 验证新实例的 option 中保留并无损恢复了原有的 dataZoom 范围
+    const newOpt = secondInstance!.getOption() as {
+      dataZoom?: Array<{ start?: number; end?: number }>;
+    };
+    expect(newOpt.dataZoom).toBeDefined();
+    expect(newOpt.dataZoom?.[0].start).toBe(25);
+    expect(newOpt.dataZoom?.[0].end).toBe(75);
+  });
 });

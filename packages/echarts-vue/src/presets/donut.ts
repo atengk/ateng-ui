@@ -12,7 +12,7 @@ import type {
   TooltipComponentOption,
   LegendComponentOption,
 } from 'echarts';
-import { formatCurrency } from '@atengk/core';
+import { formatChartValue } from './format';
 import type { DonutChartConfig, DonutCenterSummaryConfig } from './types';
 
 /**
@@ -32,7 +32,33 @@ export function createDonutOption(config: DonutChartConfig): EChartsOption {
     value: Number(item[valueKey] ?? 0),
   }));
 
-  // 2. 计算中心指标卡总和
+  // 2. 判定图例排版并计算饼图与中心指标卡的协同中心（默认底部水平居中，彻底消除横向碰撞）
+  const isLegendEnabled = config.legend !== false;
+  const userLegend = typeof config.legend === 'object' ? config.legend : {};
+  const isExplicitVertical = userLegend.orient === 'vertical';
+
+  let defaultCenterX = '50%';
+  let defaultCenterY = isLegendEnabled ? '45%' : '50%';
+  let defaultRadius: [string, string] = ['42%', '66%'];
+
+  if (isExplicitVertical && (userLegend.left === 'left' || !userLegend.left)) {
+    // 若用户显式要求左侧垂直图例，收敛饼图尺寸并右移至 65%，留出充足图例视距
+    defaultCenterX = '65%';
+    defaultCenterY = '50%';
+    defaultRadius = ['36%', '56%'];
+  }
+
+  const resolvedCenter = config.center ?? [defaultCenterX, defaultCenterY];
+  const resolvedRadius = config.radius ?? defaultRadius;
+
+  const titleLeft = config.center ? config.center[0] : isExplicitVertical ? '65%' : 'center';
+  const titleTop = config.center
+    ? config.center[1]
+    : isLegendEnabled && !isExplicitVertical
+      ? '45%'
+      : 'center';
+
+  // 3. 计算中心指标卡总和
   const totalSum = seriesData.reduce((acc, cur) => {
     return acc + (Number.isNaN(cur.value) ? 0 : cur.value);
   }, 0);
@@ -46,22 +72,22 @@ export function createDonutOption(config: DonutChartConfig): EChartsOption {
     if (summaryConfig.formatter) {
       formattedSum = summaryConfig.formatter(totalSum);
     } else {
-      const precision = config.precision ?? (Number.isInteger(totalSum) ? 0 : 2);
-      const valStr =
-        config.formatThousands !== false
-          ? formatCurrency(totalSum, { symbol: '', precision })
-          : String(totalSum);
-      const unitStr = config.unit ? ` ${config.unit}` : '';
-      formattedSum = `${valStr}${unitStr}`;
+      formattedSum = formatChartValue(totalSum, {
+        formatThousands: config.formatThousands,
+        precision: config.precision,
+        unit: config.unit,
+      });
     }
 
     title = {
       text: summaryConfig.showSum !== false ? formattedSum : '',
       subtext: summaryConfig.title ?? '总计',
-      left: 'center',
-      top: 'center',
+      left: titleLeft,
+      top: titleTop,
+      textAlign: 'center',
+      textVerticalAlign: 'middle',
       textStyle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
         color: '#303133',
       },
@@ -92,18 +118,17 @@ export function createDonutOption(config: DonutChartConfig): EChartsOption {
         const rawVal = Number(p.value ?? 0);
         const percent = p.percent !== undefined ? Number(p.percent).toFixed(1) : '-';
 
-        const precision = config.precision ?? (Number.isInteger(rawVal) ? 0 : 2);
-        const valStr =
-          config.formatThousands !== false
-            ? formatCurrency(rawVal, { symbol: '', precision })
-            : String(rawVal);
-        const unitStr = config.unit ? ` ${config.unit}` : '';
+        const valStr = formatChartValue(rawVal, {
+          formatThousands: config.formatThousands,
+          precision: config.precision,
+          unit: config.unit,
+        });
 
         return `<div style="font-size:13px;line-height:1.5;">
           <div style="font-weight:600;margin-bottom:4px;color:#303133;">${name}</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <span style="color:#606266;">${marker}数值</span>
-            <span style="font-weight:600;color:#303133;">${valStr}${unitStr}</span>
+            <span style="font-weight:600;color:#303133;">${valStr}</span>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:2px;">
             <span style="color:#606266;">占比</span>
@@ -115,14 +140,14 @@ export function createDonutOption(config: DonutChartConfig): EChartsOption {
     };
   }
 
-  // 4. 构建图例 Legend
+  // 4. 构建图例 Legend（默认底部水平居中，现代中后台主流规范）
   let legend: LegendComponentOption | undefined;
   if (config.legend !== false) {
     legend = {
       show: true,
-      orient: 'vertical',
-      left: 'left',
-      top: 'middle',
+      orient: 'horizontal',
+      bottom: 8,
+      left: 'center',
       textStyle: { color: '#606266' },
       ...(typeof config.legend === 'object' ? config.legend : {}),
     };
@@ -138,8 +163,8 @@ export function createDonutOption(config: DonutChartConfig): EChartsOption {
 
   const series: PieSeriesOption = {
     type: 'pie',
-    radius: config.radius ?? ['45%', '70%'],
-    center: config.center ?? ['50%', '50%'],
+    radius: resolvedRadius,
+    center: resolvedCenter,
     roseType: roseTypeValue,
     avoidLabelOverlap: true,
     itemStyle: {

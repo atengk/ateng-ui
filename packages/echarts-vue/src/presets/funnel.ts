@@ -11,7 +11,7 @@ import type {
   TooltipComponentOption,
   LegendComponentOption,
 } from 'echarts';
-import { formatCurrency } from '@atengk/core';
+import { formatChartValue } from './format';
 import type { FunnelChartConfig } from './types';
 
 /**
@@ -31,6 +31,15 @@ export function createFunnelOption(config: FunnelChartConfig): EChartsOption {
     value: Number(item[valueKey] ?? 0),
   }));
 
+  // 计算视觉展示的逻辑顺序，确保环节转化率计算与漏斗流向一致
+  const sortMode = config.sort ?? 'descending';
+  const displaySequence = [...seriesData];
+  if (sortMode === 'descending') {
+    displaySequence.sort((a, b) => b.value - a.value);
+  } else if (sortMode === 'ascending') {
+    displaySequence.sort((a, b) => a.value - b.value);
+  }
+
   // 2. 构建提示框 Tooltip（阶段转化率与总转化率）
   let tooltip: TooltipComponentOption | undefined;
   if (config.tooltip !== false) {
@@ -46,31 +55,45 @@ export function createFunnelOption(config: FunnelChartConfig): EChartsOption {
         }
 
         const p = params as Record<string, unknown>;
-        const idx = Number(p.dataIndex ?? 0);
         const name = String(p.name ?? '');
         const marker = String(p.marker ?? '');
         const rawVal = Number(p.value ?? 0);
 
-        const prevItem = idx > 0 ? seriesData[idx - 1] : undefined;
+        const seqIdx = displaySequence.findIndex(item => item.name === name);
+        const prevItem = seqIdx > 0 ? displaySequence[seqIdx - 1] : undefined;
         const prevVal = prevItem ? prevItem.value : rawVal;
-        const firstItem = seriesData[0];
+        const firstItem = displaySequence[0];
         const firstVal = firstItem ? firstItem.value : 0;
 
-        const stepRate = prevVal > 0 ? ((rawVal / prevVal) * 100).toFixed(1) : '100.0';
-        const totalRate = firstVal > 0 ? ((rawVal / firstVal) * 100).toFixed(1) : '100.0';
+        let stepRate = '-';
+        if (seqIdx === 0) {
+          stepRate = '100.0';
+        } else if (prevVal > 0) {
+          stepRate = ((rawVal / prevVal) * 100).toFixed(1);
+        } else if (rawVal === 0) {
+          stepRate = '0.0';
+        }
 
-        const precision = config.precision ?? (Number.isInteger(rawVal) ? 0 : 2);
-        const valStr =
-          config.formatThousands !== false
-            ? formatCurrency(rawVal, { symbol: '', precision })
-            : String(rawVal);
-        const unitStr = config.unit ? ` ${config.unit}` : '';
+        let totalRate = '-';
+        if (seqIdx === 0) {
+          totalRate = '100.0';
+        } else if (firstVal > 0) {
+          totalRate = ((rawVal / firstVal) * 100).toFixed(1);
+        } else if (rawVal === 0) {
+          totalRate = '0.0';
+        }
+
+        const valDisplay = formatChartValue(rawVal, {
+          formatThousands: config.formatThousands,
+          precision: config.precision,
+          unit: config.unit,
+        });
 
         return `<div style="font-size:13px;line-height:1.5;">
           <div style="font-weight:600;margin-bottom:4px;color:#303133;">${name}</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <span style="color:#606266;">${marker}转化量</span>
-            <span style="font-weight:600;color:#303133;">${valStr}${unitStr}</span>
+            <span style="font-weight:600;color:#303133;">${valDisplay}</span>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:2px;">
             <span style="color:#606266;">环节转化率</span>
@@ -97,14 +120,14 @@ export function createFunnelOption(config: FunnelChartConfig): EChartsOption {
     };
   }
 
-  // 4. 构建 Funnel 系列
+  // 4. 构建 Funnel 系列（配置保底 minSize 与 overflow 截断防线，杜绝末端文字穿透与溢出）
   const series: FunnelSeriesOption = {
     type: 'funnel',
     left: '10%',
     top: 60,
     bottom: 24,
     width: '80%',
-    minSize: config.minSize ?? '0%',
+    minSize: config.minSize ?? '16%',
     maxSize: config.maxSize ?? '80%',
     sort: config.sort ?? 'descending',
     gap: config.gap ?? 2,
@@ -113,6 +136,7 @@ export function createFunnelOption(config: FunnelChartConfig): EChartsOption {
       position: 'inside',
       formatter: '{b}: {c}',
       color: '#fff',
+      overflow: 'truncate',
     },
     emphasis: {
       label: {

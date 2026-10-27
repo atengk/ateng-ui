@@ -53,6 +53,7 @@ export function useECharts(
 
   let resizeObserver: ResizeObserver | null = null;
   let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  let resizeRafId: number | null = null;
 
   const debounceMs = options?.resizeDebounce ?? 150;
 
@@ -146,10 +147,26 @@ export function useECharts(
       return;
     }
 
-    // 1. 提取当前图表的实时 Option 数据与状态
+    // 1. 提取当前图表的实时 Option 数据与交互缩放选区状态
     let currentOption: EChartsOption | null = null;
+    let savedDataZoom: Array<{
+      start?: number;
+      end?: number;
+      startValue?: unknown;
+      endValue?: unknown;
+    }> | null = null;
+
     try {
       currentOption = instance.value.getOption() as EChartsOption;
+      const rawDz = (currentOption as Record<string, unknown> | null)?.dataZoom;
+      if (Array.isArray(rawDz)) {
+        savedDataZoom = rawDz.map((dz: Record<string, unknown>) => ({
+          start: typeof dz.start === 'number' ? dz.start : undefined,
+          end: typeof dz.end === 'number' ? dz.end : undefined,
+          startValue: dz.startValue,
+          endValue: dz.endValue,
+        }));
+      }
     } catch {
       currentOption = pendingOption.value;
     }
@@ -166,6 +183,21 @@ export function useECharts(
     // 4. 平滑恢复原有数据与视图
     if (newChart && (currentOption || pendingOption.value)) {
       newChart.setOption((currentOption || pendingOption.value)!, true);
+
+      // 5. 无损还原交互缩放选区 (dataZoom 范围)
+      if (savedDataZoom && savedDataZoom.length > 0) {
+        try {
+          newChart.dispatchAction({
+            type: 'dataZoom',
+            batch: savedDataZoom.map((dz, idx) => ({
+              dataZoomIndex: idx,
+              ...dz,
+            })),
+          });
+        } catch {
+          // 容错防守：若目标图表无对应缩放维度则静默忽略
+        }
+      }
     }
 
     options?.onThemeChange?.(currentTheme.value);
@@ -175,7 +207,11 @@ export function useECharts(
    * 彻底安全销毁图表实例并回收所有物理监听器。
    */
   const dispose = (): void => {
-    // 清理 Resize 调度定时器
+    // 清理 Resize rAF 调度与防抖定时器
+    if (resizeRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(resizeRafId);
+      resizeRafId = null;
+    }
     if (resizeTimer) {
       clearTimeout(resizeTimer);
       resizeTimer = null;
@@ -250,11 +286,12 @@ export function useECharts(
   const resize = (opts?: echarts.ResizeOpts): void => {
     if (instance.value && !instance.value.isDisposed()) {
       instance.value.resize(opts);
+      options?.onResize?.();
     }
   };
 
   /**
-   * 容器几何变化监听回调（集成零尺寸自愈与防抖调度）。
+   * 容器几何变化监听回调（集成零尺寸自愈与 150ms 防抖 + requestAnimationFrame 调度）。
    */
   const handleResize = (): void => {
     const el = toValue(elRef);
@@ -279,16 +316,41 @@ export function useECharts(
           instance.value.setOption(pendingOption.value);
         }
       }
+      options?.onResize?.();
       return;
     }
 
-    // 3. 常规尺寸微变防抖重排
+    // 3. 常规尺寸微变防抖与 requestAnimationFrame 调度重排
     if (resizeTimer) {
       clearTimeout(resizeTimer);
+      resizeTimer = null;
     }
-    resizeTimer = setTimeout(() => {
+    if (resizeRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(resizeRafId);
+      resizeRafId = null;
+    }
+
+    const triggerResize = () => {
       if (instance.value && !instance.value.isDisposed()) {
         instance.value.resize();
+        options?.onResize?.();
+      }
+    };
+
+    resizeTimer = setTimeout(() => {
+      resizeTimer = null;
+      // 在浏览器运行环境中通过 requestAnimationFrame 对齐重排渲染帧；测试环境下直接调度
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.requestAnimationFrame === 'function' &&
+        process.env.NODE_ENV !== 'test'
+      ) {
+        resizeRafId = window.requestAnimationFrame(() => {
+          resizeRafId = null;
+          triggerResize();
+        });
+      } else {
+        triggerResize();
       }
     }, debounceMs);
   };
@@ -344,6 +406,16 @@ export function useECharts(
     return '';
   };
 
+  /**
+   * 同步探测并执行暗黑模式主题热切换。
+   */
+  const syncTheme = (): void => {
+    const nextThemeName = detectIsDark() ? 'ateng-dark' : 'ateng-light';
+    if (nextThemeName !== currentTheme.value) {
+      rebuildWithTheme();
+    }
+  };
+
   // 4. 挂载时尝试自动初始化与注册物理监听器
   onMounted(() => {
     const el = toValue(elRef);
@@ -362,10 +434,7 @@ export function useECharts(
       if (!rawTheme || rawTheme === 'auto') {
         if (typeof document !== 'undefined' && 'MutationObserver' in window) {
           themeObserver = new MutationObserver(() => {
-            const nextThemeName = detectIsDark() ? 'ateng-dark' : 'ateng-light';
-            if (nextThemeName !== currentTheme.value) {
-              rebuildWithTheme();
-            }
+            syncTheme();
           });
           themeObserver.observe(document.documentElement, {
             attributes: true,
@@ -376,10 +445,7 @@ export function useECharts(
         if (typeof window !== 'undefined' && window.matchMedia) {
           mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
           mediaListener = () => {
-            const nextThemeName = detectIsDark() ? 'ateng-dark' : 'ateng-light';
-            if (nextThemeName !== currentTheme.value) {
-              rebuildWithTheme();
-            }
+            syncTheme();
           };
           mediaQueryList.addEventListener('change', mediaListener);
         }

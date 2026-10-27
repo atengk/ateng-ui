@@ -6,7 +6,7 @@
  */
 
 import type { EChartsOption, GaugeSeriesOption, TooltipComponentOption } from 'echarts';
-import { formatCurrency } from '@atengk/core';
+import { formatChartValue } from './format';
 import type { GaugeChartConfig } from './types';
 
 /**
@@ -19,6 +19,7 @@ export function createGaugeOption(config: GaugeChartConfig): EChartsOption {
   const min = config.min ?? 0;
   const max = config.max ?? 100;
   const range = max - min > 0 ? max - min : 100;
+  const showExtremities = config.showExtremities ?? true;
 
   // 1. 计算多段色阶阈值
   let lineColors: [number, string][] | undefined = config.colors;
@@ -39,34 +40,42 @@ export function createGaugeOption(config: GaugeChartConfig): EChartsOption {
       }
     : { show: false };
 
-  const pointer =
-    config.pointer !== false
-      ? {
-          show: true,
-          width:
-            typeof config.pointer === 'object' && config.pointer.width ? config.pointer.width : 6,
-          length:
-            typeof config.pointer === 'object' && config.pointer.length
-              ? config.pointer.length
-              : '60%',
-        }
-      : { show: false };
+  const hasPointer = config.pointer !== false;
+  const pointer = hasPointer
+    ? {
+        show: true,
+        width:
+          typeof config.pointer === 'object' && config.pointer.width ? config.pointer.width : 6,
+        length:
+          typeof config.pointer === 'object' && config.pointer.length
+            ? config.pointer.length
+            : '60%',
+      }
+    : { show: false };
 
-  // 3. 构建详细指标数值展示
+  // 3. 构建详细指标数值展示与标题（双模自适应动态空间编排，彻底消灭指针穿模与色带挤压）
+  // 经典指针模式：指针在上半弧自由旋转，大数值与标题沉降避让至转轴底座下方；
+  // 环形进度条模式：拱门内部开阔无遮挡，大数值坐镇黄金腹心，标题居中映衬。
+  const detailOffsetCenter: [number | string, number | string] = hasPointer
+    ? [0, '42%']
+    : [0, '-5%'];
+
+  const titleOffsetCenter: [number | string, number | string] = hasPointer
+    ? [0, '68%']
+    : [0, '25%'];
+
   const detail = {
     valueAnimation: true,
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 'bold' as const,
-    offsetCenter: [0, '70%'],
+    offsetCenter: detailOffsetCenter,
     color: 'inherit',
     formatter: (val: number) => {
-      const precision = config.precision ?? (Number.isInteger(val) ? 0 : 1);
-      const valStr =
-        config.formatThousands !== false
-          ? formatCurrency(val, { symbol: '', precision })
-          : String(val);
-      const unit = config.unit !== undefined ? config.unit : '%';
-      return `${valStr}${unit ? ` ${unit}` : ''}`;
+      return formatChartValue(val, {
+        precision: config.precision ?? (Number.isInteger(val) ? 0 : 1),
+        formatThousands: config.formatThousands,
+        unit: config.unit !== undefined ? config.unit : '%',
+      });
     },
   };
 
@@ -98,8 +107,24 @@ export function createGaugeOption(config: GaugeChartConfig): EChartsOption {
     },
     axisTick: { distance: -18, length: 6, lineStyle: { color: '#DCDFE6' } },
     splitLine: { distance: -22, length: 10, lineStyle: { color: '#DCDFE6', width: 2 } },
-    axisLabel: { color: '#909399', distance: 20, fontSize: 11 },
-    title: { offsetCenter: [0, '95%'], fontSize: 14, color: '#606266' },
+    axisLabel: {
+      color: '#4E5969',
+      distance: 26,
+      fontSize: 12,
+      fontWeight: 500,
+      formatter: (val: number) => {
+        if (showExtremities) {
+          if (val === min) {
+            return config.extremities?.minLabel ?? `${min}`;
+          }
+          if (val === max) {
+            return config.extremities?.maxLabel ?? `${max}`;
+          }
+        }
+        return String(val);
+      },
+    },
+    title: { offsetCenter: titleOffsetCenter, fontSize: 13, color: '#606266' },
     detail,
     data: [{ value: config.value, name: config.name ?? '' }],
   };

@@ -10,9 +10,15 @@
  */
 
 import { computed, ref, onMounted } from 'vue';
+import * as echarts from 'echarts';
 import AtengECharts from './AtengECharts.vue';
 import { useMapDrillDown, createMapOption } from '../presets/map';
-import type { AtengMapChartEmits, AtengMapChartProps, MapNode } from '../presets/types';
+import type {
+  AtengMapChartEmits,
+  AtengMapChartProps,
+  AtengMapChartSlots,
+  MapNode,
+} from '../presets/types';
 import type { EChartsInstance } from '../types';
 
 defineOptions({
@@ -49,6 +55,8 @@ const props = withDefaults(defineProps<AtengMapChartProps>(), {
 
 const emit = defineEmits<AtengMapChartEmits>();
 
+defineSlots<AtengMapChartSlots>();
+
 const echartsRef = ref<InstanceType<typeof AtengECharts> | null>(null);
 
 // 1. 初始化地图下钻受控状态机
@@ -57,25 +65,49 @@ const resolvedInitialNode = computed<MapNode>(() => {
   return { code: props.map ?? 'china', name: '全国' };
 });
 
-const { currentNode, breadcrumbs, isDrilling, canBack, drillTo, back, reset } = useMapDrillDown({
-  initialNode: resolvedInitialNode.value,
-  geoProvider: props.geoProvider,
-  beforeDrillDown: props.beforeDrillDown,
-  onDrillDown: (target, crumbs) => {
-    emit('drill-down', target, crumbs);
-  },
-});
+const { currentNode, breadcrumbs, isDrilling, canBack, currentLevel, drillTo, back, reset } =
+  useMapDrillDown({
+    initialNode: resolvedInitialNode.value,
+    geoProvider: props.geoProvider,
+    beforeDrillDown: props.beforeDrillDown,
+    onDrillDown: (target, crumbs) => {
+      emit('drill-down', target, crumbs);
+    },
+  });
 
-// 2. 初始加载根节点 GeoJSON
-onMounted(async () => {
+// 2. 初始加载根节点 GeoJSON 与错误管理
+const internalError = ref<unknown>(null);
+const resolvedError = computed(() => props.error ?? internalError.value);
+const isMapReady = ref(
+  !props.geoProvider || Boolean(echarts.getMap(resolvedInitialNode.value.code)),
+);
+
+const loadRootGeo = async () => {
   if (props.geoProvider && resolvedInitialNode.value) {
     try {
-      await props.geoProvider(resolvedInitialNode.value.code, resolvedInitialNode.value.name);
+      internalError.value = null;
+      const res = await props.geoProvider(
+        resolvedInitialNode.value.code,
+        resolvedInitialNode.value.name,
+      );
+      if (res && !echarts.getMap(resolvedInitialNode.value.code)) {
+        echarts.registerMap(
+          resolvedInitialNode.value.code,
+          res as Parameters<typeof echarts.registerMap>[1],
+        );
+      }
+      isMapReady.value = true;
     } catch (err) {
       console.error('[AtengMapChart] 根地图 GeoJSON 初始化失败:', err);
+      internalError.value = err;
+      isMapReady.value = false;
     }
+  } else {
+    isMapReady.value = true;
   }
-});
+};
+
+onMounted(loadRootGeo);
 
 // 3. 计算生效的地图编码与 EChartsOption
 const activeMapCode = computed(() => {
@@ -83,6 +115,9 @@ const activeMapCode = computed(() => {
 });
 
 const resolvedOption = computed(() => {
+  if (!isMapReady.value || resolvedError.value || !echarts.getMap(activeMapCode.value)) {
+    return {};
+  }
   return createMapOption({
     map: activeMapCode.value,
     data: props.data,
@@ -103,6 +138,7 @@ const resolvedEmpty = computed(() => {
 
 // 5. 点击地图区域触发下钻代理
 const handleChartClick = async (params: unknown) => {
+  emit('click', params);
   emit('chart-click', params);
 
   const p = params as { name?: string; data?: Record<string, unknown>; componentType?: string };
@@ -113,22 +149,43 @@ const handleChartClick = async (params: unknown) => {
       name: p.name,
       meta: p.data,
     };
-    await drillTo(targetNode);
+    try {
+      await drillTo(targetNode);
+    } catch (err) {
+      console.error('[AtengMapChart] 下钻 GeoJSON 加载失败:', err);
+      internalError.value = err;
+    }
   }
 };
 
 const handleBack = async () => {
-  const success = await back();
-  if (success) {
-    emit('back', currentNode.value, breadcrumbs.value);
+  try {
+    const success = await back();
+    if (success) {
+      emit('back', currentNode.value, breadcrumbs.value);
+    }
+  } catch (err) {
+    console.error('[AtengMapChart] 回退上一级地图失败:', err);
+    internalError.value = err;
   }
 };
 
 const handleReset = async () => {
-  const success = await reset();
-  if (success) {
-    emit('reset', currentNode.value);
+  try {
+    const success = await reset();
+    if (success) {
+      emit('reset', currentNode.value);
+    }
+  } catch (err) {
+    console.error('[AtengMapChart] 重置地图层级失败:', err);
+    internalError.value = err;
   }
+};
+
+const handleRetry = async () => {
+  internalError.value = null;
+  emit('retry');
+  await loadRootGeo();
 };
 
 // 6. 统一暴露实例操作门面与下钻控制方法
@@ -160,6 +217,7 @@ defineExpose({
   currentNode,
   breadcrumbs,
   canBack,
+  currentLevel,
   isDrilling,
 });
 </script>
@@ -172,6 +230,7 @@ defineExpose({
         name="breadcrumb"
         :breadcrumbs="breadcrumbs"
         :current-node="currentNode"
+        :current-level="currentLevel"
         :can-back="canBack"
         :drill-to="drillTo"
         :back="handleBack"
@@ -212,7 +271,7 @@ defineExpose({
       :native-loading="props.nativeLoading"
       :empty="resolvedEmpty"
       :empty-text="props.emptyText"
-      :error="props.error"
+      :error="resolvedError"
       :error-text="props.errorText"
       :allow-fullscreen="props.allowFullscreen"
       :fullscreen-mode="props.fullscreenMode"
@@ -220,6 +279,10 @@ defineExpose({
       :export-options="props.exportOptions"
       @rendered="inst => emit('rendered', inst)"
       @finished="() => emit('finished')"
+      @click="p => emit('click', p)"
+      @dblclick="p => emit('dblclick', p)"
+      @legendselectchanged="p => emit('legendselectchanged', p)"
+      @datazoom="p => emit('datazoom', p)"
       @chart-click="handleChartClick"
       @chart-dblclick="p => emit('chart-dblclick', p)"
       @chart-mouseover="p => emit('chart-mouseover', p)"
@@ -229,7 +292,7 @@ defineExpose({
       @chart-event="(name, p) => emit('chart-event', name, p)"
       @resize="() => emit('resize')"
       @theme-change="t => emit('theme-change', t)"
-      @retry="() => emit('retry')"
+      @retry="handleRetry"
       @fullscreen-change="isFs => emit('fullscreen-change', isFs)"
       @export="payload => emit('export', payload)"
     >
@@ -257,6 +320,27 @@ defineExpose({
   position: relative;
   box-sizing: border-box;
   width: 100%;
+  --at-map-crumb-bg: rgba(255, 255, 255, 0.85);
+  --at-map-crumb-border: var(--at-border-color, #ebeef5);
+  --at-map-crumb-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --at-map-crumb-text: var(--at-text-color-regular, #606266);
+  --at-map-crumb-link: var(--at-color-primary, #409eff);
+  --at-map-crumb-hover: var(--at-color-primary-light-3, #66b1ff);
+  --at-map-crumb-active: var(--at-text-color-primary, #303133);
+  --at-map-crumb-sep: var(--at-text-color-placeholder, #c0c4cc);
+  --at-map-back-hover-bg: var(--at-fill-color-light, #f2f6fc);
+}
+
+:global(.dark) .at-map-chart {
+  --at-map-crumb-bg: rgba(29, 30, 31, 0.85);
+  --at-map-crumb-border: var(--at-border-color-dark, #363637);
+  --at-map-crumb-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --at-map-crumb-text: #a3a6ad;
+  --at-map-crumb-link: #409eff;
+  --at-map-crumb-hover: #79bbff;
+  --at-map-crumb-active: #e5eaf3;
+  --at-map-crumb-sep: #606266;
+  --at-map-back-hover-bg: #262727;
 }
 
 .at-map-chart__breadcrumbs {
@@ -268,11 +352,11 @@ defineExpose({
   align-items: center;
   gap: 12px;
   padding: 6px 14px;
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: var(--at-map-crumb-bg);
   backdrop-filter: blur(6px);
   border-radius: 9999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #ebeef5;
+  box-shadow: var(--at-map-crumb-shadow);
+  border: 1px solid var(--at-map-crumb-border);
   font-size: 13px;
 }
 
@@ -283,7 +367,7 @@ defineExpose({
 }
 
 .at-map-chart__crumb-item {
-  color: #409eff;
+  color: var(--at-map-crumb-link);
   cursor: pointer;
   user-select: none;
   font-weight: 500;
@@ -291,12 +375,12 @@ defineExpose({
 }
 
 .at-map-chart__crumb-item:hover {
-  color: #66b1ff;
+  color: var(--at-map-crumb-hover);
   text-decoration: underline;
 }
 
 .at-map-chart__crumb-item.active {
-  color: #303133;
+  color: var(--at-map-crumb-active);
   cursor: default;
   font-weight: 600;
   text-decoration: none;
@@ -304,14 +388,14 @@ defineExpose({
 
 .at-map-chart__crumb-sep {
   margin-left: 6px;
-  color: #c0c4cc;
+  color: var(--at-map-crumb-sep);
 }
 
 .at-map-chart__back-btn {
   background: none;
   border: none;
   padding: 2px 6px;
-  color: #606266;
+  color: var(--at-map-crumb-text);
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
@@ -319,7 +403,7 @@ defineExpose({
 }
 
 .at-map-chart__back-btn:hover {
-  color: #409eff;
-  background-color: #f2f6fc;
+  color: var(--at-map-crumb-link);
+  background-color: var(--at-map-back-hover-bg);
 }
 </style>

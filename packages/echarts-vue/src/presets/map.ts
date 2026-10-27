@@ -9,6 +9,7 @@ import { ref, computed } from 'vue';
 import * as echarts from 'echarts';
 import type {
   EChartsOption,
+  GeoComponentOption,
   MapSeriesOption,
   ScatterSeriesOption,
   TooltipComponentOption,
@@ -88,6 +89,26 @@ export function useMapDrillDown(options: UseMapDrillDownOptions = {}): UseMapDri
   const isDrilling = ref(false);
 
   const canBack = computed(() => breadcrumbs.value.length > 1);
+  const currentLevel = computed(() => currentNode.value.level ?? breadcrumbs.value.length - 1);
+
+  const transitionTo = async (
+    target: MapNode,
+    updateCrumbs: () => void,
+    onSuccess?: () => void,
+  ): Promise<boolean> => {
+    isDrilling.value = true;
+    try {
+      if (options.geoProvider) {
+        await options.geoProvider(target.code, target.name);
+      }
+      currentNode.value = target;
+      updateCrumbs();
+      onSuccess?.();
+      return true;
+    } finally {
+      isDrilling.value = false;
+    }
+  };
 
   const drillTo = async (target: MapNode): Promise<boolean> => {
     // 1. 执行前置拦截器（如边界越界拦截、鉴权等）
@@ -98,27 +119,21 @@ export function useMapDrillDown(options: UseMapDrillDownOptions = {}): UseMapDri
       }
     }
 
-    isDrilling.value = true;
-    try {
-      if (options.geoProvider) {
-        await options.geoProvider(target.code, target.name);
-      }
-
-      currentNode.value = target;
-
-      // 若点击已存在的面包屑节点，截断前序路径
-      const existingIdx = breadcrumbs.value.findIndex(b => b.code === target.code);
-      if (existingIdx !== -1) {
-        breadcrumbs.value = breadcrumbs.value.slice(0, existingIdx + 1);
-      } else {
-        breadcrumbs.value.push(target);
-      }
-
-      options.onDrillDown?.(target, breadcrumbs.value);
-      return true;
-    } finally {
-      isDrilling.value = false;
-    }
+    return transitionTo(
+      target,
+      () => {
+        // 若点击已存在的面包屑节点，截断前序路径
+        const existingIdx = breadcrumbs.value.findIndex(b => b.code === target.code);
+        if (existingIdx !== -1) {
+          breadcrumbs.value = breadcrumbs.value.slice(0, existingIdx + 1);
+        } else {
+          breadcrumbs.value.push(target);
+        }
+      },
+      () => {
+        options.onDrillDown?.(target, breadcrumbs.value);
+      },
+    );
   };
 
   const back = async (): Promise<boolean> => {
@@ -126,38 +141,21 @@ export function useMapDrillDown(options: UseMapDrillDownOptions = {}): UseMapDri
       return false;
     }
 
-    breadcrumbs.value.pop();
-    const prev = breadcrumbs.value[breadcrumbs.value.length - 1];
+    const prev = breadcrumbs.value[breadcrumbs.value.length - 2];
     if (!prev) {
       return false;
     }
 
-    isDrilling.value = true;
-    try {
-      if (options.geoProvider) {
-        await options.geoProvider(prev.code, prev.name);
-      }
-      currentNode.value = prev;
-      return true;
-    } finally {
-      isDrilling.value = false;
-    }
+    return transitionTo(prev, () => {
+      breadcrumbs.value.pop();
+    });
   };
 
   const reset = async (): Promise<boolean> => {
     const root = breadcrumbs.value[0] ?? rootNode;
-    breadcrumbs.value = [root];
-
-    isDrilling.value = true;
-    try {
-      if (options.geoProvider) {
-        await options.geoProvider(root.code, root.name);
-      }
-      currentNode.value = root;
-      return true;
-    } finally {
-      isDrilling.value = false;
-    }
+    return transitionTo(root, () => {
+      breadcrumbs.value = [root];
+    });
   };
 
   return {
@@ -165,6 +163,7 @@ export function useMapDrillDown(options: UseMapDrillDownOptions = {}): UseMapDri
     breadcrumbs,
     isDrilling,
     canBack,
+    currentLevel,
     drillTo,
     back,
     reset,
@@ -196,9 +195,27 @@ export function createMapOption(config: MapChartConfig): EChartsOption {
     data: config.data ?? [],
   };
 
-  // 2. 组装散点图层（若提供）
-  const series: (MapSeriesOption | ScatterSeriesOption)[] = [mapSeries];
+  // 2. 组装散点图层与通用地理坐标系（若提供散点数据）
+  const series: (MapSeriesOption | ScatterSeriesOption)[] = [];
+  let geo: GeoComponentOption | undefined;
+
   if (config.scatterData && config.scatterData.length > 0) {
+    geo = {
+      map: config.map,
+      roam: config.roam ?? true,
+      emphasis: {
+        label: { color: '#303133', fontWeight: 'bold' },
+        itemStyle: { areaColor: '#C6E2FF' },
+      },
+      itemStyle: {
+        borderColor: '#fff',
+        borderWidth: 1,
+        areaColor: '#E4E7ED',
+      },
+    };
+    mapSeries.geoIndex = 0;
+    series.push(mapSeries);
+
     const scatterSeries: ScatterSeriesOption = {
       type: 'scatter',
       coordinateSystem: 'geo',
@@ -207,6 +224,8 @@ export function createMapOption(config: MapChartConfig): EChartsOption {
       data: config.scatterData,
     };
     series.push(scatterSeries);
+  } else {
+    series.push(mapSeries);
   }
 
   // 3. 构建连续/分段视觉映射
@@ -236,6 +255,7 @@ export function createMapOption(config: MapChartConfig): EChartsOption {
   }
 
   let baseOption: EChartsOption = {
+    geo,
     tooltip,
     visualMap,
     series,

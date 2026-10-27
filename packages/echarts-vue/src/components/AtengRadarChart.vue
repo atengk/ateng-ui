@@ -11,7 +11,11 @@
 import { computed, ref } from 'vue';
 import AtengECharts from './AtengECharts.vue';
 import { createRadarOption } from '../presets/radar';
-import type { AtengRadarChartEmits, AtengRadarChartProps } from '../presets/types';
+import type {
+  AtengRadarChartEmits,
+  AtengRadarChartProps,
+  AtengRadarChartSlots,
+} from '../presets/types';
 import type { EChartsInstance } from '../types';
 
 defineOptions({
@@ -24,6 +28,8 @@ const props = withDefaults(defineProps<AtengRadarChartProps>(), {
   area: true,
   shape: 'polygon',
   splitNumber: 5,
+  center: undefined,
+  radius: undefined,
   legend: true,
   tooltip: true,
   overrideOption: undefined,
@@ -45,6 +51,7 @@ const props = withDefaults(defineProps<AtengRadarChartProps>(), {
 });
 
 const emit = defineEmits<AtengRadarChartEmits>();
+defineSlots<AtengRadarChartSlots>();
 
 const echartsRef = ref<InstanceType<typeof AtengECharts> | null>(null);
 
@@ -56,6 +63,8 @@ const resolvedOption = computed(() => {
     area: props.area,
     shape: props.shape,
     splitNumber: props.splitNumber,
+    center: props.center,
+    radius: props.radius,
     legend: props.legend,
     tooltip: props.tooltip,
     overrideOption: props.overrideOption,
@@ -122,6 +131,12 @@ defineExpose({
       :export-options="props.exportOptions"
       @rendered="inst => emit('rendered', inst)"
       @finished="() => emit('finished')"
+      @click="p => emit('click', p)"
+      @dblclick="p => emit('dblclick', p)"
+      @mouseover="p => emit('mouseover', p)"
+      @mouseout="p => emit('mouseout', p)"
+      @legendselectchanged="p => emit('legendselectchanged', p)"
+      @datazoom="p => emit('datazoom', p)"
       @chart-click="p => emit('chart-click', p)"
       @chart-dblclick="p => emit('chart-dblclick', p)"
       @chart-mouseover="p => emit('chart-mouseover', p)"

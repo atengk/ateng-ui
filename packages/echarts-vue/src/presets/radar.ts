@@ -5,6 +5,7 @@
  * @since 2026-10-27
  */
 
+import * as echarts from 'echarts';
 import type {
   EChartsOption,
   RadarComponentOption,
@@ -39,11 +40,14 @@ export function createRadarOption(config: RadarChartConfig): EChartsOption {
     return ind;
   });
 
-  // 2. 构建雷达坐标系
+  // 2. 构建雷达坐标系（应用黄金比例中心下移与半径收敛，消除与顶部图例重叠并防止文字截断）
   const radar: RadarComponentOption = {
     indicator: indicators,
     shape: config.shape ?? 'polygon',
     splitNumber: config.splitNumber ?? 5,
+    center: config.center ?? ['50%', '56%'],
+    radius: config.radius ?? '60%',
+    axisNameGap: 10,
     axisName: {
       color: '#606266',
       fontSize: 12,
@@ -66,14 +70,36 @@ export function createRadarOption(config: RadarChartConfig): EChartsOption {
     },
   };
 
-  // 3. 构建雷达对比数据系列
-  const seriesData = rawData.map(item => ({
-    name: item.name,
-    value: item.value,
-    itemStyle: item.color ? { color: item.color } : undefined,
-    lineStyle: item.color ? { color: item.color, width: 2 } : { width: 2 },
-    areaStyle: item.areaStyle ?? (config.area !== false ? { opacity: 0.25 } : undefined),
-  }));
+  const isAreaEnabled = config.area !== false;
+  const areaOpts = typeof config.area === 'object' ? config.area : {};
+  const isGradient = areaOpts.gradient ?? true;
+  const areaOpacity = areaOpts.opacity ?? 0.3;
+
+  // 3. 构建雷达对比数据系列（内置半透明渐变区域填充）
+  const seriesData = rawData.map(item => {
+    let computedAreaStyle = item.areaStyle;
+    if (!computedAreaStyle && isAreaEnabled) {
+      if (isGradient && item.color && !item.color.startsWith('linear-gradient')) {
+        computedAreaStyle = {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: item.color },
+            { offset: 1, color: 'transparent' },
+          ]),
+          opacity: areaOpacity,
+        };
+      } else {
+        computedAreaStyle = { opacity: areaOpacity };
+      }
+    }
+
+    return {
+      name: item.name,
+      value: item.value,
+      itemStyle: item.color ? { color: item.color } : undefined,
+      lineStyle: item.color ? { color: item.color, width: 2 } : { width: 2 },
+      areaStyle: computedAreaStyle,
+    };
+  });
 
   const series: RadarSeriesOption = {
     type: 'radar',

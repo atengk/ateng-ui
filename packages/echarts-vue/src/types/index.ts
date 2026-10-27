@@ -46,6 +46,11 @@ export interface UseEChartsOptions {
   onThemeChange?: (theme: string) => void;
 
   /**
+   * 容器几何尺寸调整完成后的回调钩子。
+   */
+  onResize?: () => void;
+
+  /**
    * 是否禁用自动销毁。默认在组件卸载时自动调用 dispose()。
    * @default false
    */
@@ -291,6 +296,40 @@ export interface ChartExportPayload {
 }
 
 /**
+ * AtengECharts 插槽定义契约。
+ */
+export interface AtengEChartsSlots {
+  /**
+   * 默认插槽，与画布同级渲染。
+   */
+  default?: () => unknown;
+
+  /**
+   * 浮动工具栏自定义插槽。
+   */
+  toolbar?: (props: {
+    isFullscreen: boolean;
+    toggleFullscreen: (mode?: 'auto' | 'native' | 'page') => Promise<boolean>;
+    exportImage: (opts?: ChartExportOptions) => boolean;
+  }) => unknown;
+
+  /**
+   * 自定义 DOM 级加载中遮罩插槽。
+   */
+  loading?: () => unknown;
+
+  /**
+   * 自定义 DOM 级空数据遮罩插槽。
+   */
+  empty?: () => unknown;
+
+  /**
+   * 自定义 DOM 级错误重试遮罩插槽。
+   */
+  error?: (props: { error: Error | string | null; retry: () => void }) => unknown;
+}
+
+/**
  * AtengECharts 通用表现容器组件事件契约。
  */
 export interface AtengEChartsEmits {
@@ -305,32 +344,62 @@ export interface AtengEChartsEmits {
   (e: 'finished'): void;
 
   /**
-   * 图表点击事件。
+   * 图表点击事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'click', params: unknown): void;
+
+  /**
+   * 图表双击事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'dblclick', params: unknown): void;
+
+  /**
+   * 鼠标悬浮移入图表事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'mouseover', params: unknown): void;
+
+  /**
+   * 鼠标移出图表事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'mouseout', params: unknown): void;
+
+  /**
+   * 图例选中状态切换事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'legendselectchanged', params: unknown): void;
+
+  /**
+   * 区域缩放 (dataZoom) 事件（对齐 ECharts 原生契约）。
+   */
+  (e: 'datazoom', params: unknown): void;
+
+  /**
+   * 图表点击事件（向后兼容）。
    */
   (e: 'chart-click', params: unknown): void;
 
   /**
-   * 图表双击事件。
+   * 图表双击事件（向后兼容）。
    */
   (e: 'chart-dblclick', params: unknown): void;
 
   /**
-   * 鼠标悬浮移入图表事件。
+   * 鼠标悬浮移入图表事件（向后兼容）。
    */
   (e: 'chart-mouseover', params: unknown): void;
 
   /**
-   * 鼠标移出图表事件。
+   * 鼠标移出图表事件（向后兼容）。
    */
   (e: 'chart-mouseout', params: unknown): void;
 
   /**
-   * 图例选中状态切换事件。
+   * 图例选中状态切换事件（向后兼容）。
    */
   (e: 'legend-change', params: unknown): void;
 
   /**
-   * 区域缩放 (dataZoom) 事件。
+   * 区域缩放 (dataZoom) 事件（向后兼容）。
    */
   (e: 'data-zoom', params: unknown): void;
 
@@ -375,22 +444,27 @@ export type {
   TrendChartConfig,
   AtengTrendChartProps,
   AtengTrendChartEmits,
+  AtengTrendChartSlots,
   DonutChartConfig,
   DonutCenterSummaryConfig,
   AtengDonutChartProps,
   AtengDonutChartEmits,
+  AtengDonutChartSlots,
   FunnelChartConfig,
   AtengFunnelChartProps,
   AtengFunnelChartEmits,
+  AtengFunnelChartSlots,
   GaugeThreshold,
   GaugeChartConfig,
   AtengGaugeChartProps,
   AtengGaugeChartEmits,
+  AtengGaugeChartSlots,
   RadarIndicator,
   RadarSeriesItem,
   RadarChartConfig,
   AtengRadarChartProps,
   AtengRadarChartEmits,
+  AtengRadarChartSlots,
   GeoDataProvider,
   UrlGeoProviderOptions,
   MapNode,
@@ -400,4 +474,5 @@ export type {
   MapChartConfig,
   AtengMapChartProps,
   AtengMapChartEmits,
+  AtengMapChartSlots,
 } from '../presets/types';

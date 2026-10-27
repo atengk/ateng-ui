@@ -78,37 +78,43 @@ describe('useMapDrillDown 状态机测试', () => {
     }));
   });
 
-  it('1. 下钻与回退栈管理：初始为根节点，drillTo 压栈，back 弹栈，reset 重置', async () => {
-    const { currentNode, breadcrumbs, canBack, drillTo, back, reset } = useMapDrillDown({
-      initialNode: rootNode,
-      geoProvider: mockProvider,
-    });
+  it('1. 下钻与回退栈管理：初始为根节点，drillTo 压栈，back 弹栈，reset 重置，currentLevel 联动', async () => {
+    const { currentNode, breadcrumbs, canBack, currentLevel, drillTo, back, reset } =
+      useMapDrillDown({
+        initialNode: rootNode,
+        geoProvider: mockProvider,
+      });
 
     expect(currentNode.value).toEqual(rootNode);
     expect(breadcrumbs.value).toHaveLength(1);
     expect(canBack.value).toBe(false);
+    expect(currentLevel.value).toBe(0);
 
     // 下钻到省
     await drillTo(provinceNode);
     expect(currentNode.value).toEqual(provinceNode);
     expect(breadcrumbs.value).toHaveLength(2);
     expect(canBack.value).toBe(true);
+    expect(currentLevel.value).toBe(1);
 
     // 下钻到市
     await drillTo(cityNode);
     expect(currentNode.value).toEqual(cityNode);
     expect(breadcrumbs.value).toHaveLength(3);
+    expect(currentLevel.value).toBe(2);
 
     // 回退一步
     await back();
     expect(currentNode.value).toEqual(provinceNode);
     expect(breadcrumbs.value).toHaveLength(2);
+    expect(currentLevel.value).toBe(1);
 
     // 重置回到根
     await reset();
     expect(currentNode.value).toEqual(rootNode);
     expect(breadcrumbs.value).toHaveLength(1);
     expect(canBack.value).toBe(false);
+    expect(currentLevel.value).toBe(0);
   });
 
   it('2. beforeDrillDown 拦截器：返回 false 时阻断下钻行为', async () => {
@@ -160,6 +166,35 @@ describe('createMapOption 纯函数配置转换测试', () => {
     expect(vm?.min).toBe(0);
     expect(vm?.max).toBe(1500);
   });
+
+  it('2. 携带 scatterData 时正确生成顶层 geo 组件并为 mapSeries 配置 geoIndex: 0', () => {
+    const option = createMapOption({
+      map: 'china',
+      data: [{ name: '广东省', value: 1200 }],
+      scatterData: [{ name: '广州服务中心', value: [113.2644, 23.1291, 100] }],
+    });
+
+    // 验证生成了统一的顶层 geo 坐标系组件
+    expect(option.geo).toBeDefined();
+    const geoComp = option.geo as { map?: string; roam?: boolean };
+    expect(geoComp.map).toBe('china');
+    expect(geoComp.roam).toBe(true);
+
+    // 验证 map 系列与 scatter 系列
+    expect(Array.isArray(option.series)).toBe(true);
+    const seriesList = option.series as Array<{
+      type?: string;
+      geoIndex?: number;
+      coordinateSystem?: string;
+    }>;
+    expect(seriesList).toHaveLength(2);
+
+    const mapSeries = seriesList.find(s => s.type === 'map');
+    expect(mapSeries?.geoIndex).toBe(0);
+
+    const scatterSeries = seriesList.find(s => s.type === 'scatter');
+    expect(scatterSeries?.coordinateSystem).toBe('geo');
+  });
 });
 
 describe('AtengMapChart 预设组件集成测试', () => {
@@ -196,6 +231,12 @@ describe('AtengMapChart 预设组件集成测试', () => {
       transform: vi.fn(),
       rect: vi.fn(),
       clip: vi.fn(),
+      createLinearGradient: vi.fn().mockReturnValue({
+        addColorStop: vi.fn(),
+      }),
+      createRadialGradient: vi.fn().mockReturnValue({
+        addColorStop: vi.fn(),
+      }),
     };
 
     HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(function (
@@ -270,5 +311,83 @@ describe('AtengMapChart 预设组件集成测试', () => {
     expect(typeof vm.drillTo).toBe('function');
     expect(typeof vm.back).toBe('function');
     expect(typeof vm.reset).toBe('function');
+  });
+
+  it('3. 自定义 breadcrumb 插槽应能获取当前层级 currentLevel 与下钻方法', async () => {
+    wrapper = mount(AtengMapChart, {
+      props: {
+        map: 'test-map',
+        initialNode: { code: 'test-map', name: '全境' },
+      },
+      slots: {
+        breadcrumb: `
+          <template #breadcrumb="{ currentNode, currentLevel, canBack }">
+            <div class="custom-crumb">
+              <span class="custom-name">{{ currentNode.name }}</span>
+              <span class="custom-lvl">{{ currentLevel }}</span>
+              <span class="custom-back">{{ canBack }}</span>
+            </div>
+          </template>
+        `,
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+
+    const customCrumb = wrapper.find('.custom-crumb');
+    expect(customCrumb.exists()).toBe(true);
+    expect(wrapper.find('.custom-name').text()).toBe('全境');
+    expect(wrapper.find('.custom-lvl').text()).toBe('0');
+    expect(wrapper.find('.custom-back').text()).toBe('false');
+
+    const vm = wrapper.vm as unknown as { currentLevel: number };
+    expect(vm.currentLevel).toBe(0);
+  });
+
+  it('4. 根 GeoJSON 加载失败时应激活内部错误状态，重试可重新尝试加载', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    let shouldFail = true;
+    const failingGeoProvider = vi.fn().mockImplementation(async () => {
+      if (shouldFail) {
+        throw new Error('网络超时拉取 GeoJSON 失败');
+      }
+      return {
+        type: 'FeatureCollection',
+        features: [{ properties: { name: 'Region1' } }],
+      };
+    });
+
+    wrapper = mount(AtengMapChart, {
+      props: {
+        map: 'test-map-failing',
+        initialNode: { code: 'test-map-failing', name: '失败测试' },
+        geoProvider: failingGeoProvider,
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    await new Promise(r => setTimeout(r, 10));
+    await nextTick();
+
+    expect(failingGeoProvider).toHaveBeenCalledTimes(1);
+    // 检查底层的 error 遮罩是否渲染
+    const errorOverlay = wrapper.find('.at-echarts__error');
+    expect(errorOverlay.exists()).toBe(true);
+
+    // 模拟重试操作
+    shouldFail = false;
+    const retryBtn = wrapper.find('.at-echarts__retry-btn');
+    if (retryBtn.exists()) {
+      await retryBtn.trigger('click');
+      await nextTick();
+      await new Promise(r => setTimeout(r, 10));
+      await nextTick();
+
+      expect(failingGeoProvider).toHaveBeenCalledTimes(2);
+      expect(wrapper.find('.at-echarts__error').exists()).toBe(false);
+    }
   });
 });

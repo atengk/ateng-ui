@@ -14,6 +14,7 @@ import { useECharts } from '../composables/useECharts';
 import type {
   AtengEChartsEmits,
   AtengEChartsProps,
+  AtengEChartsSlots,
   ChartExportOptions,
   EChartsInstance,
 } from '../types';
@@ -52,6 +53,7 @@ const props = withDefaults(defineProps<AtengEChartsProps>(), {
 });
 
 const emit = defineEmits<AtengEChartsEmits>();
+defineSlots<AtengEChartsSlots>();
 
 const rootRef = ref<HTMLDivElement | null>(null);
 const chartRef = ref<HTMLDivElement | null>(null);
@@ -79,6 +81,9 @@ const {
   autoResize: () => props.autoResize,
   onThemeChange: theme => {
     emit('theme-change', theme);
+  },
+  onResize: () => {
+    emit('resize');
   },
 });
 
@@ -198,41 +203,50 @@ const exportImage = (opts?: ChartExportOptions): boolean => {
 
 // 3. 初始渲染与事件监听绑定
 const bindChartEvents = (chart: EChartsInstance) => {
-  chart.on('click', (params: unknown) => {
-    emit('chart-click', params);
-    emit('chart-event', 'click', params);
-  });
+  const standardEvents = [
+    'click',
+    'dblclick',
+    'mouseover',
+    'mouseout',
+    'legendselectchanged',
+    'datazoom',
+  ] as const;
 
-  chart.on('dblclick', (params: unknown) => {
-    emit('chart-dblclick', params);
-    emit('chart-event', 'dblclick', params);
-  });
-
-  chart.on('mouseover', (params: unknown) => {
-    emit('chart-mouseover', params);
-    emit('chart-event', 'mouseover', params);
-  });
-
-  chart.on('mouseout', (params: unknown) => {
-    emit('chart-mouseout', params);
-    emit('chart-event', 'mouseout', params);
-  });
-
-  chart.on('legendselectchanged', (params: unknown) => {
-    emit('legend-change', params);
-    emit('chart-event', 'legendselectchanged', params);
-  });
-
-  chart.on('datazoom', (params: unknown) => {
-    emit('data-zoom', params);
-    emit('chart-event', 'datazoom', params);
-  });
+  for (const eventName of standardEvents) {
+    chart.on(eventName, (params: unknown) => {
+      // 1. 原生规格对齐 Emits
+      emit(eventName, params);
+      // 2. 向后兼容短横线命名 Emits
+      if (eventName === 'click') emit('chart-click', params);
+      else if (eventName === 'dblclick') emit('chart-dblclick', params);
+      else if (eventName === 'mouseover') emit('chart-mouseover', params);
+      else if (eventName === 'mouseout') emit('chart-mouseout', params);
+      else if (eventName === 'legendselectchanged') emit('legend-change', params);
+      else if (eventName === 'datazoom') emit('data-zoom', params);
+      // 3. 通配事件
+      emit('chart-event', eventName, params);
+    });
+  }
 
   chart.on('finished', () => {
     emit('finished');
     emit('chart-event', 'finished', undefined);
   });
 };
+
+// 4. 监听实例创建/重建（主题热切、零尺寸自愈等），确保事件代理 100% 重新绑定
+let currentBoundInstance: EChartsInstance | null = null;
+watch(
+  instance,
+  newChart => {
+    if (newChart && newChart !== currentBoundInstance && !newChart.isDisposed()) {
+      currentBoundInstance = newChart;
+      bindChartEvents(newChart);
+      emit('rendered', newChart);
+    }
+  },
+  { flush: 'sync' },
+);
 
 onMounted(() => {
   if (typeof document !== 'undefined') {
@@ -251,9 +265,6 @@ onMounted(() => {
     if (props.loading && props.nativeLoading) {
       showLoading();
     }
-
-    bindChartEvents(chart);
-    emit('rendered', chart);
   } else if (props.option) {
     // 若初始处于零尺寸状态，暂存配置待尺寸自愈后应用
     setOption(props.option, props.notMerge, props.lazyUpdate);
@@ -261,6 +272,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  currentBoundInstance = null;
   if (typeof document !== 'undefined') {
     document.removeEventListener('fullscreenchange', handleNativeFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
@@ -416,14 +428,20 @@ defineExpose({
       <slot name="empty">
         <svg class="at-echarts__empty-icon" viewBox="0 0 64 41" xmlns="http://www.w3.org/2000/svg">
           <g transform="translate(0 1)" fill="none" fill-rule="evenodd">
-            <ellipse fill="#F5F5F5" cx="32" cy="33" rx="32" ry="7" />
-            <g fill-rule="nonzero" stroke="#D9D9D9">
+            <ellipse
+              fill="var(--at-echarts-empty-icon-bg, #f5f5f5)"
+              cx="32"
+              cy="33"
+              rx="32"
+              ry="7"
+            />
+            <g fill-rule="nonzero" stroke="var(--at-echarts-empty-icon-border, #d9d9d9)">
               <path
                 d="M55 12.76L44.854 1.258C44.367.474 43.656 0 42.907 0H21.093c-.749 0-1.46.474-1.947 1.257L9 12.761V22h46v-9.24z"
               />
               <path
                 d="M41.613 15.932a2 2 0 0 1-1.613.818H24a2 2 0 0 1-1.613-.818L18 9h28l-4.387 6.932z"
-                fill="#FAFAFA"
+                fill="var(--at-echarts-empty-icon-fill, #fafafa)"
               />
             </g>
           </g>
@@ -448,9 +466,43 @@ defineExpose({
 
 <style scoped>
 .at-echarts {
+  --at-echarts-bg: #ffffff;
+  --at-echarts-primary: #409eff;
+  --at-echarts-primary-hover: #66b1ff;
+  --at-echarts-text-regular: #606266;
+  --at-echarts-text-secondary: #909399;
+  --at-echarts-border-color: #e5e7eb;
+  --at-echarts-danger: #f56c6c;
+  --at-echarts-overlay-bg: rgba(255, 255, 255, 0.85);
+  --at-echarts-toolbar-bg: rgba(255, 255, 255, 0.85);
+  --at-echarts-toolbar-border: rgba(0, 0, 0, 0.08);
+  --at-echarts-toolbar-btn-hover-bg: rgba(0, 0, 0, 0.05);
+  --at-echarts-empty-icon-bg: #f5f5f5;
+  --at-echarts-empty-icon-border: #d9d9d9;
+  --at-echarts-empty-icon-fill: #fafafa;
+  --at-echarts-btn-text: #ffffff;
+
   position: relative;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+:global(.dark) .at-echarts {
+  --at-echarts-bg: #141414;
+  --at-echarts-primary: #409eff;
+  --at-echarts-primary-hover: #66b1ff;
+  --at-echarts-text-regular: #a3a6ad;
+  --at-echarts-text-secondary: #73767a;
+  --at-echarts-border-color: #363637;
+  --at-echarts-danger: #f56c6c;
+  --at-echarts-overlay-bg: rgba(20, 20, 20, 0.85);
+  --at-echarts-toolbar-bg: rgba(30, 30, 30, 0.85);
+  --at-echarts-toolbar-border: rgba(255, 255, 255, 0.12);
+  --at-echarts-toolbar-btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --at-echarts-empty-icon-bg: #262727;
+  --at-echarts-empty-icon-border: #4c4d4f;
+  --at-echarts-empty-icon-fill: #1d1e1f;
+  --at-echarts-btn-text: #ffffff;
 }
 
 /* 页面级脱壳全屏 */
@@ -463,24 +515,16 @@ defineExpose({
   width: 100vw !important;
   height: 100vh !important;
   z-index: 2000 !important;
-  background-color: #ffffff;
+  background-color: var(--at-echarts-bg);
   padding: 16px;
-}
-
-:global(.dark) .at-echarts.is-page-fullscreen {
-  background-color: #141414;
 }
 
 /* 浏览器原生全屏背景与尺寸适配 */
 .at-echarts:fullscreen {
-  background-color: #ffffff;
+  background-color: var(--at-echarts-bg);
   width: 100vw !important;
   height: 100vh !important;
   padding: 16px;
-}
-
-:global(.dark) .at-echarts:fullscreen {
-  background-color: #141414;
 }
 
 /* 浮动工具栏胶囊 */
@@ -492,9 +536,9 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 3px 6px;
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: var(--at-echarts-toolbar-bg);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--at-echarts-toolbar-border);
   border-radius: 6px;
   z-index: 15;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -510,8 +554,6 @@ defineExpose({
 }
 
 :global(.dark) .at-echarts__toolbar {
-  background-color: rgba(30, 30, 30, 0.85);
-  border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -523,7 +565,7 @@ defineExpose({
   height: 26px;
   padding: 0;
   margin: 0;
-  color: #606266;
+  color: var(--at-echarts-text-regular);
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -535,21 +577,12 @@ defineExpose({
 }
 
 .at-echarts__toolbar-btn:hover {
-  color: #409eff;
-  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--at-echarts-primary);
+  background-color: var(--at-echarts-toolbar-btn-hover-bg);
 }
 
 .at-echarts__toolbar-btn:active {
   transform: scale(0.92);
-}
-
-:global(.dark) .at-echarts__toolbar-btn {
-  color: #a3a6ad;
-}
-
-:global(.dark) .at-echarts__toolbar-btn:hover {
-  color: #409eff;
-  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .at-echarts__canvas {
@@ -568,37 +601,24 @@ defineExpose({
   align-items: center;
   justify-content: center;
   z-index: 10;
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: var(--at-echarts-overlay-bg);
   backdrop-filter: blur(2px);
   transition: opacity 0.2s ease;
-}
-
-:global(.dark) .at-echarts__overlay {
-  background-color: rgba(20, 20, 20, 0.85);
 }
 
 .at-echarts__spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #409eff;
+  border: 3px solid var(--at-echarts-border-color);
+  border-top-color: var(--at-echarts-primary);
   border-radius: 50%;
   animation: at-echarts-spin 0.8s linear infinite;
-}
-
-:global(.dark) .at-echarts__spinner {
-  border-color: #363637;
-  border-top-color: #409eff;
 }
 
 .at-echarts__loading-text {
   margin-top: 10px;
   font-size: 13px;
-  color: #606266;
-}
-
-:global(.dark) .at-echarts__loading-text {
-  color: #a3a6ad;
+  color: var(--at-echarts-text-regular);
 }
 
 .at-echarts__empty-icon {
@@ -609,11 +629,7 @@ defineExpose({
 
 .at-echarts__empty-text {
   font-size: 13px;
-  color: #909399;
-}
-
-:global(.dark) .at-echarts__empty-text {
-  color: #73767a;
+  color: var(--at-echarts-text-secondary);
 }
 
 .at-echarts__error-icon {
@@ -624,26 +640,22 @@ defineExpose({
 .at-echarts__error-title {
   font-size: 14px;
   font-weight: 600;
-  color: #f56c6c;
+  color: var(--at-echarts-danger);
 }
 
 .at-echarts__error-msg {
   font-size: 12px;
-  color: #909399;
+  color: var(--at-echarts-text-secondary);
   margin: 4px 0 12px;
   max-width: 80%;
   text-align: center;
 }
 
-:global(.dark) .at-echarts__error-msg {
-  color: #a3a6ad;
-}
-
 .at-echarts__retry-btn {
   padding: 4px 12px;
   font-size: 12px;
-  color: #fff;
-  background-color: #409eff;
+  color: var(--at-echarts-btn-text);
+  background-color: var(--at-echarts-primary);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -651,7 +663,7 @@ defineExpose({
 }
 
 .at-echarts__retry-btn:hover {
-  background-color: #66b1ff;
+  background-color: var(--at-echarts-primary-hover);
 }
 
 @keyframes at-echarts-spin {

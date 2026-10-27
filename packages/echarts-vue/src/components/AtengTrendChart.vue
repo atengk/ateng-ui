@@ -12,7 +12,11 @@
 import { computed, ref } from 'vue';
 import AtengECharts from './AtengECharts.vue';
 import { createTrendOption } from '../presets/trend';
-import type { AtengTrendChartEmits, AtengTrendChartProps } from '../presets/types';
+import type {
+  AtengTrendChartEmits,
+  AtengTrendChartProps,
+  AtengTrendChartSlots,
+} from '../presets/types';
 import type { EChartsInstance } from '../types';
 
 defineOptions({
@@ -45,6 +49,7 @@ const props = withDefaults(defineProps<AtengTrendChartProps>(), {
 });
 
 const emit = defineEmits<AtengTrendChartEmits>();
+defineSlots<AtengTrendChartSlots>();
 
 const echartsRef = ref<InstanceType<typeof AtengECharts> | null>(null);
 
@@ -123,6 +128,12 @@ defineExpose({
       :export-options="props.exportOptions"
       @rendered="inst => emit('rendered', inst)"
       @finished="() => emit('finished')"
+      @click="p => emit('click', p)"
+      @dblclick="p => emit('dblclick', p)"
+      @mouseover="p => emit('mouseover', p)"
+      @mouseout="p => emit('mouseout', p)"
+      @legendselectchanged="p => emit('legendselectchanged', p)"
+      @datazoom="p => emit('datazoom', p)"
       @chart-click="p => emit('chart-click', p)"
       @chart-dblclick="p => emit('chart-dblclick', p)"
       @chart-mouseover="p => emit('chart-mouseover', p)"

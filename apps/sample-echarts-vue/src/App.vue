@@ -37,6 +37,7 @@ const barOption = ref<EChartsOption>({
     text: '月度经营数据看板 (柱线混合)',
     subtext: 'Ticket #151 ~ #154 容器多态遮罩与事件透传',
     left: 'center',
+    top: 8,
   },
   tooltip: {
     trigger: 'axis',
@@ -44,12 +45,13 @@ const barOption = ref<EChartsOption>({
   },
   legend: {
     data: ['销售额 (万元)', '毛利率 (%)'],
-    top: 36,
+    top: 56,
   },
   grid: {
+    top: 92,
     left: '3%',
-    right: '4%',
-    bottom: '3%',
+    right: 48,
+    bottom: '4%',
     containLabel: true,
   },
   xAxis: {
@@ -60,6 +62,7 @@ const barOption = ref<EChartsOption>({
     {
       type: 'value',
       name: '销售额',
+      nameTextStyle: { padding: [0, 0, 4, 0] },
       min: 0,
       max: 250,
       interval: 50,
@@ -68,6 +71,7 @@ const barOption = ref<EChartsOption>({
     {
       type: 'value',
       name: '毛利率',
+      nameTextStyle: { padding: [0, 0, 4, 0] },
       min: 0,
       max: 100,
       interval: 20,
@@ -806,7 +810,7 @@ const toggleMapEmpty = () => {
   log(`已切换地图空状态遮罩为: ${isMapEmpty.value ? '空数据态' : '正常数据态'}`);
 };
 
-// 7. Ticket #159 全屏脱壳与高清导出增强
+// 9. Ticket #159 全屏脱壳与高清导出增强
 const toolbarChartRef = ref<AtengEChartsInstance | null>(null);
 const customToolbarChartRef = ref<AtengTrendChartInstance | null>(null);
 
@@ -836,6 +840,27 @@ const onChartExport = (payload: { filename: string; type: string; pixelRatio: nu
     `触发 export 导出事件: 文件名=${payload.filename}, 格式=${payload.type}, 分辨率=${payload.pixelRatio}x`,
   );
 };
+
+// 10. Ticket #160 全场景演练：侧边栏折叠联动与模态弹窗内渲染
+const isSidebarCollapsed = ref(false);
+const isDialogOpen = ref(false);
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  log(
+    `已切换侧边栏状态为: ${isSidebarCollapsed.value ? '已折叠 (64px)' : '已展开 (220px)'}，验证图表几何自感知自愈`,
+  );
+};
+
+const openDialog = () => {
+  isDialogOpen.value = true;
+  log('已打开模态弹窗：验证 display: none / 初次挂载时图表零尺寸自愈');
+};
+
+const closeDialog = () => {
+  isDialogOpen.value = false;
+  log('已关闭模态弹窗');
+};
 </script>
 
 <template>
@@ -843,15 +868,15 @@ const onChartExport = (payload: { filename: string; type: string; pixelRatio: nu
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #159 自验</span>
+        <span class="badge">Ticket #160 全维准出自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：全屏脱壳放大、高清图片报表导出、浮动工具胶囊、自定义 #toolbar 插槽、
-        高频预设 AtengMapChart、AtengGaugeChart、AtengRadarChart、AtengDonutChart、AtengTrendChart。
+        L2 专用能力扩展层全场景交付：侧边栏折叠平滑联动、Tabs 切换保真、Dialog 弹窗自愈渲染、
+        暗黑模式无损热切换、全部 6 大高频预设卡片、地图多级下钻与脱壳全屏高清导出。
       </p>
     </header>
 
@@ -859,6 +884,10 @@ const onChartExport = (payload: { filename: string; type: string; pixelRatio: nu
       <button class="btn btn-theme" @click="toggleDarkMode">
         {{ isDark ? '☀️ 切换为浅色模式' : '🌙 切换为暗黑模式' }}
       </button>
+      <button class="btn btn-secondary" @click="toggleSidebar">
+        {{ isSidebarCollapsed ? '📂 展开侧边栏 (220px)' : '📁 折叠侧边栏 (64px)' }}
+      </button>
+      <button class="btn btn-info" @click="openDialog">🪟 模态弹窗内渲染图表</button>
       <button class="btn btn-primary" @click="randomizeData">🔄 动态全量同步数据</button>
       <button class="btn btn-info" @click="triggerLoading">⏳ 模拟加载遮罩</button>
       <button class="btn btn-warning" @click="toggleEmptyState">
@@ -872,471 +901,569 @@ const onChartExport = (payload: { filename: string; type: string; pixelRatio: nu
       <span class="tip">当前点击响应：{{ lastClickInfo }}</span>
     </div>
 
-    <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
-    <div class="tab-nav">
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'toolbarPreset' }"
-        @click="activeTab = 'toolbarPreset'"
-      >
-        🖥️ 辅助工具链：全屏脱壳、高清导出与自定义工具栏 (#159)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'mapPreset' }"
-        @click="activeTab = 'mapPreset'"
-      >
-        🗺️ 预设看板：AtengMapChart (GeoJSON SPI 与三级地图下钻)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'gaugeRadarPreset' }"
-        @click="activeTab = 'gaugeRadarPreset'"
-      >
-        🎯 预设看板：AtengGaugeChart & AtengRadarChart (KPI 达成率与能力雷达)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'donutFunnelPreset' }"
-        @click="activeTab = 'donutFunnelPreset'"
-      >
-        🍩 预设看板：AtengDonutChart & AtengFunnelChart (分类占比与漏斗转化)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'trendPreset' }"
-        @click="activeTab = 'trendPreset'"
-      >
-        📈 预设看板：AtengTrendChart (双 Y 轴/柱线混合/渐变/缩放手柄)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'dashboard' }"
-        @click="activeTab = 'dashboard'"
-      >
-        📊 基础大盘 (通用容器与多态遮罩)
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'hiddenTab' }"
-        @click="activeTab = 'hiddenTab'"
-      >
-        ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
-      </button>
-    </div>
+    <!-- 侧边栏折叠联动演练布局 -->
+    <div class="sample-layout">
+      <aside class="sample-sidebar" :class="{ collapsed: isSidebarCollapsed }">
+        <div class="sidebar-header">
+          <span class="sidebar-icon">📐</span>
+          <span v-if="!isSidebarCollapsed" class="sidebar-text">业务中台导航</span>
+        </div>
+        <ul class="sidebar-menu">
+          <li
+            :class="{ active: activeTab === 'toolbarPreset' }"
+            title="全屏脱壳与高清导出"
+            @click="activeTab = 'toolbarPreset'"
+          >
+            <span class="menu-icon">🖥️</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">全屏与导出</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'mapPreset' }"
+            title="地图多级下钻"
+            @click="activeTab = 'mapPreset'"
+          >
+            <span class="menu-icon">🗺️</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">地图多级下钻</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'gaugeRadarPreset' }"
+            title="仪表盘与雷达图"
+            @click="activeTab = 'gaugeRadarPreset'"
+          >
+            <span class="menu-icon">🎯</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">仪表盘与雷达</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'donutFunnelPreset' }"
+            title="环形图与漏斗图"
+            @click="activeTab = 'donutFunnelPreset'"
+          >
+            <span class="menu-icon">🍩</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">环形与漏斗</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'trendPreset' }"
+            title="趋势对比看板"
+            @click="activeTab = 'trendPreset'"
+          >
+            <span class="menu-icon">📈</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">趋势对比看板</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'dashboard' }"
+            title="通用容器大盘"
+            @click="activeTab = 'dashboard'"
+          >
+            <span class="menu-icon">📊</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">通用容器大盘</span>
+          </li>
+          <li
+            :class="{ active: activeTab === 'hiddenTab' }"
+            title="零尺寸自愈测试"
+            @click="activeTab = 'hiddenTab'"
+          >
+            <span class="menu-icon">⚡</span>
+            <span v-if="!isSidebarCollapsed" class="menu-text">零尺寸自愈</span>
+          </li>
+        </ul>
+      </aside>
 
-    <!-- 选项卡：Ticket #159 辅助工具链全屏脱壳与高清导出视图 -->
-    <div v-show="activeTab === 'toolbarPreset'" class="tab-content">
-      <div class="action-bar" style="margin-bottom: 16px">
-        <button class="btn btn-primary" @click="triggerToolbarFullscreen('page')">
-          🖥️ 页面级脱壳全屏 (CSS Fixed 视口无黑边)
-        </button>
-        <button class="btn btn-info" @click="triggerToolbarFullscreen('native')">
-          🪟 浏览器原生系统全屏 (F11 级)
-        </button>
-        <button class="btn btn-secondary" @click="triggerToolbarExport(2)">
-          📷 高清 2x 导出 (默认)
-        </button>
-        <button class="btn btn-warning" @click="triggerToolbarExport(3)">
-          🖼️ 超清 3x 导出 (300 DPI 印刷级)
-        </button>
-      </div>
-
-      <div class="grid-layout">
-        <!-- 卡片 1: 默认内置浮动操作胶囊与事件监听 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              1. 内置轻量浮动操作胶囊 (右上角毛玻璃胶囊：全屏脱壳 + 高清导出)
-            </span>
-            <span class="badge-sub">悬浮右上角浮现工具按钮，可直接点击全屏或下载图片</span>
-          </div>
-          <div class="card-body">
-            <AtengECharts
-              ref="toolbarChartRef"
-              :option="barOption"
-              theme="auto"
-              height="380px"
-              :allow-fullscreen="true"
-              fullscreen-mode="auto"
-              :allow-export="true"
-              :export-options="{ pixelRatio: 2, filename: 'sample_business_overview' }"
-              @chart-click="onChartClick"
-              @fullscreen-change="onFullscreenChange"
-              @export="onChartExport"
-            />
-          </div>
+      <main class="sample-main">
+        <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
+        <div class="tab-nav">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'toolbarPreset' }"
+            @click="activeTab = 'toolbarPreset'"
+          >
+            🖥️ 辅助工具链：全屏脱壳、高清导出与自定义工具栏 (#159)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'mapPreset' }"
+            @click="activeTab = 'mapPreset'"
+          >
+            🗺️ 预设看板：AtengMapChart (GeoJSON SPI 与三级地图下钻)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'gaugeRadarPreset' }"
+            @click="activeTab = 'gaugeRadarPreset'"
+          >
+            🎯 预设看板：AtengGaugeChart & AtengRadarChart (KPI 达成率与能力雷达)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'donutFunnelPreset' }"
+            @click="activeTab = 'donutFunnelPreset'"
+          >
+            🍩 预设看板：AtengDonutChart & AtengFunnelChart (分类占比与漏斗转化)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'trendPreset' }"
+            @click="activeTab = 'trendPreset'"
+          >
+            📈 预设看板：AtengTrendChart (双 Y 轴/柱线混合/渐变/缩放手柄)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'dashboard' }"
+            @click="activeTab = 'dashboard'"
+          >
+            📊 基础大盘 (通用容器与多态遮罩)
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'hiddenTab' }"
+            @click="activeTab = 'hiddenTab'"
+          >
+            ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
+          </button>
         </div>
 
-        <!-- 卡片 2: 自定义 #toolbar 插槽完全替换 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title"> 2. 自定义 #toolbar 插槽 (预设图表扩展定制操作按钮) </span>
-            <span class="badge-sub">通过作用域参数接管 toggleFullscreen 与 exportImage</span>
+        <!-- 选项卡：Ticket #159 辅助工具链全屏脱壳与高清导出视图 -->
+        <div v-show="activeTab === 'toolbarPreset'" class="tab-content">
+          <div class="action-bar" style="margin-bottom: 16px">
+            <button class="btn btn-primary" @click="triggerToolbarFullscreen('page')">
+              🖥️ 页面级脱壳全屏 (CSS Fixed 视口无黑边)
+            </button>
+            <button class="btn btn-info" @click="triggerToolbarFullscreen('native')">
+              🪟 浏览器原生系统全屏 (F11 级)
+            </button>
+            <button class="btn btn-secondary" @click="triggerToolbarExport(2)">
+              📷 高清 2x 导出 (默认)
+            </button>
+            <button class="btn btn-warning" @click="triggerToolbarExport(3)">
+              🖼️ 超清 3x 导出 (300 DPI 印刷级)
+            </button>
           </div>
-          <div class="card-body">
-            <AtengTrendChart
-              ref="customToolbarChartRef"
-              :data="trendData"
-              dimension="month"
-              :metrics="trendMetrics"
-              theme="auto"
-              height="380px"
-              :allow-fullscreen="true"
-              :allow-export="true"
-              @fullscreen-change="onFullscreenChange"
-              @export="onChartExport"
-            >
-              <template #toolbar="{ isFullscreen, toggleFullscreen, exportImage }">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-primary"
-                  style="font-size: 11px; padding: 2px 8px"
-                  @click="toggleFullscreen('page')"
+
+          <div class="grid-layout">
+            <!-- 卡片 1: 默认内置浮动操作胶囊与事件监听 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  1. 内置轻量浮动操作胶囊 (右上角毛玻璃胶囊：全屏脱壳 + 高清导出)
+                </span>
+                <span class="badge-sub">悬浮右上角浮现工具按钮，可直接点击全屏或下载图片</span>
+              </div>
+              <div class="card-body">
+                <AtengECharts
+                  ref="toolbarChartRef"
+                  :option="barOption"
+                  theme="auto"
+                  height="380px"
+                  :allow-fullscreen="true"
+                  fullscreen-mode="auto"
+                  :allow-export="true"
+                  :export-options="{ pixelRatio: 2, filename: 'sample_business_overview' }"
+                  @chart-click="onChartClick"
+                  @fullscreen-change="onFullscreenChange"
+                  @export="onChartExport"
+                />
+              </div>
+            </div>
+
+            <!-- 卡片 2: 自定义 #toolbar 插槽完全替换 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title"> 2. 自定义 #toolbar 插槽 (预设图表扩展定制操作按钮) </span>
+                <span class="badge-sub">通过作用域参数接管 toggleFullscreen 与 exportImage</span>
+              </div>
+              <div class="card-body">
+                <AtengTrendChart
+                  ref="customToolbarChartRef"
+                  :data="trendData"
+                  dimension="month"
+                  :metrics="trendMetrics"
+                  theme="auto"
+                  height="380px"
+                  :allow-fullscreen="true"
+                  :allow-export="true"
+                  @fullscreen-change="onFullscreenChange"
+                  @export="onChartExport"
                 >
-                  {{ isFullscreen ? '↩️ 还原' : '🔍 脱壳全屏' }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-secondary"
-                  style="font-size: 11px; padding: 2px 8px"
-                  @click="exportImage({ pixelRatio: 3, filename: 'custom_trend_report' })"
-                >
-                  💾 导出 3x 报表
-                </button>
-              </template>
-            </AtengTrendChart>
+                  <template #toolbar="{ isFullscreen, toggleFullscreen, exportImage }">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-primary"
+                      style="font-size: 11px; padding: 2px 8px"
+                      @click="toggleFullscreen('page')"
+                    >
+                      {{ isFullscreen ? '↩️ 还原' : '🔍 脱壳全屏' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-secondary"
+                      style="font-size: 11px; padding: 2px 8px"
+                      @click="exportImage({ pixelRatio: 3, filename: 'custom_trend_report' })"
+                    >
+                      💾 导出 3x 报表
+                    </button>
+                  </template>
+                </AtengTrendChart>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+
+        <!-- 选项卡：Ticket #158 高频预设地图下钻视图 -->
+        <div v-show="activeTab === 'mapPreset'" class="tab-content">
+          <div class="action-bar" style="margin-bottom: 16px">
+            <button class="btn btn-primary" @click="drillToGuangdong">
+              📍 下钻至广东省 (440000)
+            </button>
+            <button class="btn btn-info" @click="drillToShenzhen">🏙️ 下钻至深圳市 (440300)</button>
+            <button class="btn btn-secondary" @click="handleMapBack">◀ 返回上一级</button>
+            <button class="btn btn-theme" @click="handleMapReset">🌐 重置回到全国</button>
+            <button class="btn btn-warning" @click="toggleMapEmpty">
+              📭 {{ isMapEmpty ? '恢复地图数据' : '置空地图数据' }}
+            </button>
+          </div>
+
+          <div class="chart-card">
+            <div class="card-header">
+              <span class="card-title">
+                1. AtengMapChart: 全国 ➔ 省 ➔ 市 三级行政区划受控下钻 (GeoDataProvider SPI +
+                渐变面包屑药丸)
+              </span>
+              <span class="badge-sub">点击地图区域或顶部面包屑药丸交互下钻</span>
+            </div>
+            <div class="card-body">
+              <AtengMapChart
+                ref="mapChartRef"
+                :data="isMapEmpty ? [] : currentMapData"
+                :geo-provider="mockGeoProvider"
+                theme="auto"
+                height="500px"
+                @chart-click="onChartClick"
+                @rendered="onRendered"
+                @theme-change="onThemeChange"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 选项卡：Ticket #157 高频预设仪表盘与雷达图视图 -->
+        <div v-show="activeTab === 'gaugeRadarPreset'" class="tab-content">
+          <div class="action-bar" style="margin-bottom: 16px">
+            <button class="btn btn-primary" @click="randomizeGaugeValue">
+              🔄 随机生成 KPI 达成率 ({{ gaugeValue }}%)
+            </button>
+            <button class="btn btn-theme" @click="toggleGaugeProgress">
+              🎛️ {{ isGaugeProgress ? '切换为经典指针模式' : '切换为环形进度条模式' }}
+            </button>
+            <button class="btn btn-warning" @click="toggleGaugeEmpty">
+              📭 {{ isGaugeEmpty ? '恢复仪表盘数据' : '置空仪表盘数据' }}
+            </button>
+            <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
+            <button class="btn btn-primary" @click="randomizeRadarData">⚡ 刷新多维能力分值</button>
+            <button class="btn btn-theme" @click="toggleRadarArea">
+              🎨 {{ isRadarArea ? '切换为纯轮廓线' : '切换为渐变填充' }}
+            </button>
+            <button class="btn btn-warning" @click="toggleRadarEmpty">
+              📭 {{ isRadarEmpty ? '恢复雷达数据' : '置空雷达数据' }}
+            </button>
+          </div>
+
+          <div class="chart-grid">
+            <!-- 预设卡片 1：年度 KPI 目标达成率仪表盘 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  1. AtengGaugeChart: 年度经营 KPI 目标达成率 (多段色阶 + 进度条/指针切换)
+                </span>
+                <span class="badge-sub">开箱即用指标大盘</span>
+              </div>
+              <div class="card-body">
+                <AtengGaugeChart
+                  ref="gaugeChartRef"
+                  :value="isGaugeEmpty ? (null as unknown as number) : gaugeValue"
+                  name="年度目标达成率"
+                  :thresholds="gaugeThresholds"
+                  :progress="isGaugeProgress"
+                  :pointer="!isGaugeProgress"
+                  unit="%"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+
+            <!-- 预设卡片 2：团队工程成熟度画像雷达图 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  2. AtengRadarChart: 工业级研发工程成熟度画像 (多数据集对比 + 渐变填充)
+                </span>
+                <span class="badge-sub">多维能力矩阵</span>
+              </div>
+              <div class="card-body">
+                <AtengRadarChart
+                  ref="radarChartRef"
+                  :indicators="radarIndicators"
+                  :data="isRadarEmpty ? [] : radarData"
+                  :area="isRadarArea"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 选项卡：Ticket #156 高频预设环形图与漏斗图视图 -->
+        <div v-show="activeTab === 'donutFunnelPreset'" class="tab-content">
+          <div class="action-bar" style="margin-bottom: 16px">
+            <button class="btn btn-primary" @click="randomizeDonutData">
+              🔄 刷新分类数据 (求和重算)
+            </button>
+            <button class="btn btn-theme" @click="toggleDonutRose">
+              🌹 {{ isDonutRose ? '切换为标准环形图' : '切换为南丁格尔玫瑰图' }}
+            </button>
+            <button class="btn btn-info" @click="toggleDonutSummary">
+              🎯 {{ isDonutSummary ? '关闭中心指标卡' : '显示中心指标卡' }}
+            </button>
+            <button class="btn btn-warning" @click="toggleDonutEmpty">
+              📭 {{ isDonutEmpty ? '恢复分类数据' : '置空分类数据 (空遮罩)' }}
+            </button>
+            <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
+            <button class="btn btn-primary" @click="randomizeFunnelData">
+              ⚡ 刷新漏斗转化数据
+            </button>
+            <button class="btn btn-secondary" @click="toggleFunnelSort">
+              📐 {{ funnelSort === 'descending' ? '切换为金字塔形 (升序)' : '切换为漏斗形 (降序)' }}
+            </button>
+            <button class="btn btn-secondary" @click="toggleFunnelGap">
+              📏 阶段间隙 (当前: {{ funnelGap }}px)
+            </button>
+            <button class="btn btn-warning" @click="toggleFunnelEmpty">
+              📭 {{ isFunnelEmpty ? '恢复漏斗数据' : '置空漏斗数据' }}
+            </button>
+          </div>
+
+          <div class="chart-grid">
+            <!-- 预设卡片 1：分类占比与中心指标卡 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  1. AtengDonutChart: 业务品类营收环形图 (中心指标卡 + 玫瑰图切换)
+                </span>
+                <span class="badge-sub">千分位 + 自动求和</span>
+              </div>
+              <div class="card-body">
+                <AtengDonutChart
+                  ref="donutChartRef"
+                  :data="isDonutEmpty ? [] : donutData"
+                  name-key="name"
+                  value-key="value"
+                  unit="元"
+                  :rose-type="isDonutRose ? 'radius' : false"
+                  :center-summary="isDonutSummary ? { title: '业务总产值' } : false"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+
+            <!-- 预设卡片 2：电商全链路业务转化漏斗 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  2. AtengFunnelChart: 组件库采纳全链路漏斗 (环节转化率 + 总体转化率)
+                </span>
+                <span class="badge-sub">自动计算前后转化率</span>
+              </div>
+              <div class="card-body">
+                <AtengFunnelChart
+                  ref="funnelChartRef"
+                  :data="isFunnelEmpty ? [] : funnelData"
+                  name-key="stage"
+                  value-key="count"
+                  unit="次"
+                  :sort="funnelSort"
+                  :gap="funnelGap"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 选项卡：Ticket #155 高频预设趋势图视图 -->
+        <div v-show="activeTab === 'trendPreset'" class="tab-content">
+          <div class="action-bar" style="margin-bottom: 16px">
+            <button class="btn btn-primary" @click="randomizeTrendData">
+              🔄 刷新趋势数据 (千分位重排)
+            </button>
+            <button class="btn btn-info" @click="toggleTrendZoom">
+              🔍 {{ isTrendZoom ? '关闭 DataZoom 缩放' : '启用 DataZoom 缩放' }}
+            </button>
+            <button class="btn btn-theme" @click="toggleTrendArea">
+              🎨 {{ isTrendArea ? '切换为纯折线' : '切换为平滑面积渐变' }}
+            </button>
+            <button class="btn btn-warning" @click="toggleTrendEmpty">
+              📭 {{ isTrendEmpty ? '恢复趋势数据' : '置空趋势数据 (空遮罩)' }}
+            </button>
+            <button class="btn btn-secondary" @click="triggerTrendLoading">⏳ 模拟加载遮罩</button>
+          </div>
+
+          <div class="chart-grid">
+            <!-- 预设卡片 1：年度财务双 Y 轴柱线混合趋势看板 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  1. AtengTrendChart: 经营收入/成本/毛利率 (双 Y 轴 + 柱线混合 + 千分位 Tooltip)
+                </span>
+                <span class="badge-sub">开箱即用高频预设</span>
+              </div>
+              <div class="card-body">
+                <AtengTrendChart
+                  ref="trendChartRef"
+                  :data="isTrendEmpty ? [] : trendData"
+                  dimension="date"
+                  :metrics="trendMetrics"
+                  :y-axis="trendYAxis"
+                  :data-zoom="isTrendZoom"
+                  :loading="isTrendLoading"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+
+            <!-- 预设卡片 2：时序平滑面积渐变与基准均线看板 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">
+                  2. AtengTrendChart: 单轴平滑面积渐变走势 (MarkLine 平均线 + MarkPoint 极值)
+                </span>
+                <span class="badge-sub">极简字段声明</span>
+              </div>
+              <div class="card-body">
+                <AtengTrendChart
+                  :data="isTrendEmpty ? [] : trendData"
+                  dimension="date"
+                  :metrics="areaMetrics"
+                  :data-zoom="isTrendZoom"
+                  :loading="isTrendLoading"
+                  theme="auto"
+                  height="380px"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 选项卡 1：主看板视图 -->
+        <div v-show="activeTab === 'dashboard'" class="tab-content">
+          <div class="chart-grid" :class="{ compact: isCompact }">
+            <!-- 柱线混合图表卡片 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">1. 柱状/折线混合图表 (支持 Loading / Error 遮罩)</span>
+              </div>
+              <div class="card-body">
+                <AtengECharts
+                  ref="barChartRef"
+                  :option="barOption"
+                  height="380px"
+                  theme="auto"
+                  :loading="isBarLoading"
+                  :error="barError"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @rendered="onRendered"
+                  @theme-change="onThemeChange"
+                  @retry="onRetry"
+                />
+              </div>
+            </div>
+
+            <!-- 环形饼图卡片 -->
+            <div class="chart-card">
+              <div class="card-header">
+                <span class="card-title">2. 环形品类占比图 (支持 Empty 空状态遮罩)</span>
+              </div>
+              <div class="card-body">
+                <AtengECharts
+                  :option="pieOption"
+                  theme="auto"
+                  :empty="isPieEmpty"
+                  empty-text="当前筛选周期内暂无品类销售明细"
+                  @chart-click="onChartClick"
+                  @legend-change="onLegendChange"
+                  @theme-change="onThemeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 选项卡 7：初始隐藏选项卡 (v-show 导致初始化时为 0x0 尺寸) -->
+        <div v-show="activeTab === 'hiddenTab'" class="tab-content">
+          <div class="chart-card">
+            <div class="card-header">
+              <span class="card-title">3. 初始隐藏容器图表 (零尺寸挂起与切回自愈测试)</span>
+              <span class="badge-sub">挂载时 display: none 0x0 尺寸</span>
+            </div>
+            <div class="card-body">
+              <AtengECharts
+                :option="areaOption"
+                height="380px"
+                theme="auto"
+                @chart-click="onChartClick"
+                @theme-change="onThemeChange"
+              />
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
-    <!-- 选项卡：Ticket #158 高频预设地图下钻视图 -->
-    <div v-show="activeTab === 'mapPreset'" class="tab-content">
-      <div class="action-bar" style="margin-bottom: 16px">
-        <button class="btn btn-primary" @click="drillToGuangdong">📍 下钻至广东省 (440000)</button>
-        <button class="btn btn-info" @click="drillToShenzhen">🏙️ 下钻至深圳市 (440300)</button>
-        <button class="btn btn-secondary" @click="handleMapBack">◀ 返回上一级</button>
-        <button class="btn btn-theme" @click="handleMapReset">🌐 重置回到全国</button>
-        <button class="btn btn-warning" @click="toggleMapEmpty">
-          📭 {{ isMapEmpty ? '恢复地图数据' : '置空地图数据' }}
-        </button>
-      </div>
-
-      <div class="chart-card">
-        <div class="card-header">
-          <span class="card-title">
-            1. AtengMapChart: 全国 ➔ 省 ➔ 市 三级行政区划受控下钻 (GeoDataProvider SPI +
-            渐变面包屑药丸)
-          </span>
-          <span class="badge-sub">点击地图区域或顶部面包屑药丸交互下钻</span>
+    <!-- 模态弹窗内渲染图表自洽演练 (Ticket #160) -->
+    <div v-if="isDialogOpen" class="sample-dialog-backdrop" @click.self="closeDialog">
+      <div class="sample-dialog-content">
+        <div class="sample-dialog-header">
+          <h3>🪟 模态弹窗图表渲染自验 (Ticket #160)</h3>
+          <button type="button" class="sample-dialog-close" @click="closeDialog">✕</button>
         </div>
-        <div class="card-body">
-          <AtengMapChart
-            ref="mapChartRef"
-            :data="isMapEmpty ? [] : currentMapData"
-            :geo-provider="mockGeoProvider"
+        <div class="sample-dialog-body">
+          <p style="font-size: 13px; color: #6b7280; margin-bottom: 12px">
+            验证模态弹窗打开时的初始零尺寸过渡动画与 ResizeObserver 几何自愈防线。
+          </p>
+          <AtengTrendChart
+            :data="trendData"
+            dimension="month"
+            :metrics="trendMetrics"
+            height="320px"
             theme="auto"
-            height="500px"
-            @chart-click="onChartClick"
-            @rendered="onRendered"
-            @theme-change="onThemeChange"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- 选项卡：Ticket #157 高频预设仪表盘与雷达图视图 -->
-    <div v-show="activeTab === 'gaugeRadarPreset'" class="tab-content">
-      <div class="action-bar" style="margin-bottom: 16px">
-        <button class="btn btn-primary" @click="randomizeGaugeValue">
-          🔄 随机生成 KPI 达成率 ({{ gaugeValue }}%)
-        </button>
-        <button class="btn btn-theme" @click="toggleGaugeProgress">
-          🎛️ {{ isGaugeProgress ? '切换为经典指针模式' : '切换为环形进度条模式' }}
-        </button>
-        <button class="btn btn-warning" @click="toggleGaugeEmpty">
-          📭 {{ isGaugeEmpty ? '恢复仪表盘数据' : '置空仪表盘数据' }}
-        </button>
-        <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
-        <button class="btn btn-primary" @click="randomizeRadarData">⚡ 刷新多维能力分值</button>
-        <button class="btn btn-theme" @click="toggleRadarArea">
-          🎨 {{ isRadarArea ? '切换为纯轮廓线' : '切换为渐变填充' }}
-        </button>
-        <button class="btn btn-warning" @click="toggleRadarEmpty">
-          📭 {{ isRadarEmpty ? '恢复雷达数据' : '置空雷达数据' }}
-        </button>
-      </div>
-
-      <main class="chart-grid">
-        <!-- 预设卡片 1：年度 KPI 目标达成率仪表盘 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              1. AtengGaugeChart: 年度经营 KPI 目标达成率 (多段色阶 + 进度条/指针切换)
-            </span>
-            <span class="badge-sub">开箱即用指标大盘</span>
-          </div>
-          <div class="card-body">
-            <AtengGaugeChart
-              ref="gaugeChartRef"
-              :value="isGaugeEmpty ? (null as unknown as number) : gaugeValue"
-              name="年度目标达成率"
-              :thresholds="gaugeThresholds"
-              :progress="isGaugeProgress"
-              :pointer="!isGaugeProgress"
-              unit="%"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-
-        <!-- 预设卡片 2：团队工程成熟度画像雷达图 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              2. AtengRadarChart: 工业级研发工程成熟度画像 (多数据集对比 + 渐变填充)
-            </span>
-            <span class="badge-sub">多维能力矩阵</span>
-          </div>
-          <div class="card-body">
-            <AtengRadarChart
-              ref="radarChartRef"
-              :indicators="radarIndicators"
-              :data="isRadarEmpty ? [] : radarData"
-              :area="isRadarArea"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- 选项卡：Ticket #156 高频预设环形图与漏斗图视图 -->
-    <div v-show="activeTab === 'donutFunnelPreset'" class="tab-content">
-      <div class="action-bar" style="margin-bottom: 16px">
-        <button class="btn btn-primary" @click="randomizeDonutData">
-          🔄 刷新分类数据 (求和重算)
-        </button>
-        <button class="btn btn-theme" @click="toggleDonutRose">
-          🌹 {{ isDonutRose ? '切换为标准环形图' : '切换为南丁格尔玫瑰图' }}
-        </button>
-        <button class="btn btn-info" @click="toggleDonutSummary">
-          🎯 {{ isDonutSummary ? '关闭中心指标卡' : '显示中心指标卡' }}
-        </button>
-        <button class="btn btn-warning" @click="toggleDonutEmpty">
-          📭 {{ isDonutEmpty ? '恢复分类数据' : '置空分类数据 (空遮罩)' }}
-        </button>
-        <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
-        <button class="btn btn-primary" @click="randomizeFunnelData">⚡ 刷新漏斗转化数据</button>
-        <button class="btn btn-secondary" @click="toggleFunnelSort">
-          📐 {{ funnelSort === 'descending' ? '切换为金字塔形 (升序)' : '切换为漏斗形 (降序)' }}
-        </button>
-        <button class="btn btn-secondary" @click="toggleFunnelGap">
-          📏 阶段间隙 (当前: {{ funnelGap }}px)
-        </button>
-        <button class="btn btn-warning" @click="toggleFunnelEmpty">
-          📭 {{ isFunnelEmpty ? '恢复漏斗数据' : '置空漏斗数据' }}
-        </button>
-      </div>
-
-      <main class="chart-grid">
-        <!-- 预设卡片 1：分类占比与中心指标卡 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              1. AtengDonutChart: 业务品类营收环形图 (中心指标卡 + 玫瑰图切换)
-            </span>
-            <span class="badge-sub">千分位 + 自动求和</span>
-          </div>
-          <div class="card-body">
-            <AtengDonutChart
-              ref="donutChartRef"
-              :data="isDonutEmpty ? [] : donutData"
-              name-key="name"
-              value-key="value"
-              unit="元"
-              :rose-type="isDonutRose ? 'radius' : false"
-              :center-summary="isDonutSummary ? { title: '业务总产值' } : false"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-
-        <!-- 预设卡片 2：电商全链路业务转化漏斗 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              2. AtengFunnelChart: 组件库采纳全链路漏斗 (环节转化率 + 总体转化率)
-            </span>
-            <span class="badge-sub">自动计算前后转化率</span>
-          </div>
-          <div class="card-body">
-            <AtengFunnelChart
-              ref="funnelChartRef"
-              :data="isFunnelEmpty ? [] : funnelData"
-              name-key="stage"
-              value-key="count"
-              unit="次"
-              :sort="funnelSort"
-              :gap="funnelGap"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- 选项卡：Ticket #155 高频预设趋势图视图 -->
-    <div v-show="activeTab === 'trendPreset'" class="tab-content">
-      <div class="action-bar" style="margin-bottom: 16px">
-        <button class="btn btn-primary" @click="randomizeTrendData">
-          🔄 刷新趋势数据 (千分位重排)
-        </button>
-        <button class="btn btn-info" @click="toggleTrendZoom">
-          🔍 {{ isTrendZoom ? '关闭 DataZoom 缩放' : '启用 DataZoom 缩放' }}
-        </button>
-        <button class="btn btn-theme" @click="toggleTrendArea">
-          🎨 {{ isTrendArea ? '切换为纯折线' : '切换为平滑面积渐变' }}
-        </button>
-        <button class="btn btn-warning" @click="toggleTrendEmpty">
-          📭 {{ isTrendEmpty ? '恢复趋势数据' : '置空趋势数据 (空遮罩)' }}
-        </button>
-        <button class="btn btn-secondary" @click="triggerTrendLoading">⏳ 模拟加载遮罩</button>
-      </div>
-
-      <main class="chart-grid">
-        <!-- 预设卡片 1：年度财务双 Y 轴柱线混合趋势看板 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              1. AtengTrendChart: 经营收入/成本/毛利率 (双 Y 轴 + 柱线混合 + 千分位 Tooltip)
-            </span>
-            <span class="badge-sub">开箱即用高频预设</span>
-          </div>
-          <div class="card-body">
-            <AtengTrendChart
-              ref="trendChartRef"
-              :data="isTrendEmpty ? [] : trendData"
-              dimension="date"
-              :metrics="trendMetrics"
-              :y-axis="trendYAxis"
-              :data-zoom="isTrendZoom"
-              :loading="isTrendLoading"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-
-        <!-- 预设卡片 2：时序平滑面积渐变与基准均线看板 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">
-              2. AtengTrendChart: 单轴平滑面积渐变走势 (MarkLine 平均线 + MarkPoint 极值)
-            </span>
-            <span class="badge-sub">极简字段声明</span>
-          </div>
-          <div class="card-body">
-            <AtengTrendChart
-              :data="isTrendEmpty ? [] : trendData"
-              dimension="date"
-              :metrics="areaMetrics"
-              :data-zoom="isTrendZoom"
-              :loading="isTrendLoading"
-              theme="auto"
-              height="380px"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- 选项卡 1：主看板视图 -->
-    <div v-show="activeTab === 'dashboard'" class="tab-content">
-      <main class="chart-grid" :class="{ compact: isCompact }">
-        <!-- 柱线混合图表卡片 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">1. 柱状/折线混合图表 (支持 Loading / Error 遮罩)</span>
-          </div>
-          <div class="card-body">
-            <AtengECharts
-              ref="barChartRef"
-              :option="barOption"
-              height="380px"
-              theme="auto"
-              :loading="isBarLoading"
-              :error="barError"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @rendered="onRendered"
-              @theme-change="onThemeChange"
-              @retry="onRetry"
-            />
-          </div>
-        </div>
-
-        <!-- 环形饼图卡片 -->
-        <div class="chart-card">
-          <div class="card-header">
-            <span class="card-title">2. 环形品类占比图 (支持 Empty 空状态遮罩)</span>
-          </div>
-          <div class="card-body">
-            <AtengECharts
-              :option="pieOption"
-              theme="auto"
-              :empty="isPieEmpty"
-              empty-text="当前筛选周期内暂无品类销售明细"
-              @chart-click="onChartClick"
-              @legend-change="onLegendChange"
-              @theme-change="onThemeChange"
-            />
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- 选项卡 2：初始隐藏选项卡 (v-show 导致初始化时为 0x0 尺寸) -->
-    <div v-show="activeTab === 'hiddenTab'" class="tab-content">
-      <div class="chart-card">
-        <div class="card-header">
-          <span class="card-title">3. 初始隐藏容器图表 (零尺寸挂起与切回自愈测试)</span>
-          <span class="badge-sub">挂载时 display: none 0x0 尺寸</span>
-        </div>
-        <div class="card-body">
-          <AtengECharts
-            :option="areaOption"
-            height="380px"
-            theme="auto"
-            @chart-click="onChartClick"
-            @theme-change="onThemeChange"
+            :allow-fullscreen="true"
+            :allow-export="true"
           />
         </div>
       </div>
@@ -1681,5 +1808,176 @@ h3 {
   height: auto;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
+}
+
+/* 侧边栏折叠联动布局 */
+.sample-layout {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.sample-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.dark-theme .sample-sidebar {
+  background: #1d1e1f;
+  border-color: #2c2d2e;
+}
+
+.sample-sidebar.collapsed {
+  width: 64px;
+  padding: 12px 6px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.dark-theme .sidebar-header {
+  border-bottom-color: #2c2d2e;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-menu li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #4b5563;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dark-theme .sidebar-menu li {
+  color: #a3a6ad;
+}
+
+.sidebar-menu li:hover {
+  background: #e5e7eb;
+}
+
+.dark-theme .sidebar-menu li:hover {
+  background: #2a2b2c;
+}
+
+.sidebar-menu li.active {
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+}
+
+.dark-theme .sidebar-menu li.active {
+  background: #409eff;
+  color: #fff;
+}
+
+.sample-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 模态弹窗样式 */
+.sample-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.sample-dialog-content {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: dialog-pop 0.25s ease-out;
+}
+
+.dark-theme .sample-dialog-content {
+  background: #1d1e1f;
+  border: 1px solid #363637;
+}
+
+.sample-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dark-theme .sample-dialog-header {
+  border-bottom-color: #2c2d2e;
+}
+
+.sample-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.sample-dialog-close {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 4px;
+}
+
+.sample-dialog-close:hover {
+  color: #ef4444;
+}
+
+.sample-dialog-body {
+  padding: 20px;
+}
+
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>
