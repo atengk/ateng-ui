@@ -2,7 +2,7 @@
 /**
  * AtengECharts 通用表现容器组件。
  *
- * 包装 useECharts 无头状态机，提供保底高度、BEM 独立样式隔离与声明式 Option 同步。
+ * 包装 useECharts 无头状态机，提供保底高度、BEM 独立样式隔离、ResizeObserver 几何自适应与零尺寸自愈。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<AtengEChartsProps>(), {
   initOptions: undefined,
   width: '100%',
   height: '350px',
+  autoResize: true,
   notMerge: true,
   lazyUpdate: true,
   loading: false,
@@ -30,9 +31,10 @@ const emit = defineEmits<AtengEChartsEmits>();
 
 const chartRef = ref<HTMLDivElement | null>(null);
 
-// 1. 初始化无头状态机
+// 1. 初始化无头状态机（注入 autoResize）
 const {
   instance,
+  isZeroDimension,
   init,
   dispose,
   setOption,
@@ -45,6 +47,7 @@ const {
 } = useECharts(chartRef, {
   theme: () => props.theme,
   initOptions: () => props.initOptions,
+  autoResize: () => props.autoResize,
 });
 
 // 2. 容器样式计算
@@ -76,6 +79,9 @@ onMounted(() => {
     });
 
     emit('rendered', chart);
+  } else if (props.option) {
+    // 若初始处于零尺寸状态，暂存配置待尺寸自愈后应用
+    setOption(props.option, props.notMerge, props.lazyUpdate);
   }
 });
 
@@ -102,9 +108,10 @@ watch(
   },
 );
 
-// 6. 显式暴露实例方法
+// 6. 显式暴露实例方法与状态
 defineExpose({
   getInstance: (): EChartsInstance | null => instance.value,
+  isZeroDimension,
   init,
   dispose,
   setOption,

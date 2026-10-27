@@ -5,7 +5,7 @@
  * @since 2026-10-27
  */
 
-import type { ShallowRef, MaybeRefOrGetter } from 'vue';
+import type { ShallowRef, Ref, MaybeRefOrGetter } from 'vue';
 import type * as echarts from 'echarts';
 
 export type EChartsInstance = echarts.ECharts;
@@ -28,6 +28,18 @@ export interface UseEChartsOptions {
   initOptions?: MaybeRefOrGetter<EChartsInitOpts | undefined>;
 
   /**
+   * 是否自动监听容器尺寸变化并重排重绘。
+   * @default true
+   */
+  autoResize?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
+   * 尺寸调整防抖延迟时间（毫秒）。
+   * @default 150
+   */
+  resizeDebounce?: number;
+
+  /**
    * 是否禁用自动销毁。默认在组件卸载时自动调用 dispose()。
    * @default false
    */
@@ -44,12 +56,17 @@ export interface UseEChartsReturn {
   instance: ShallowRef<EChartsInstance | null>;
 
   /**
+   * 标识当前容器是否处于零尺寸挂起状态（如处于隐藏 Tab 或未完成展开动画的弹窗中）。
+   */
+  isZeroDimension: Readonly<Ref<boolean>>;
+
+  /**
    * 初始化或复用 ECharts 实例。
    */
   init: () => EChartsInstance | null;
 
   /**
-   * 彻底安全销毁 ECharts 实例。
+   * 彻底安全销毁 ECharts 实例并解绑监听器。
    */
   dispose: () => void;
 
@@ -131,6 +148,12 @@ export interface AtengEChartsProps {
   height?: string;
 
   /**
+   * 是否自动监听容器尺寸变化并自适应调整大小。
+   * @default true
+   */
+  autoResize?: boolean;
+
+  /**
    * 是否在更新 option 时不与旧配置合并（对齐 Vue 声明式直觉，彻底杜绝 series 脏残留）。
    * @default true
    */
@@ -167,4 +190,9 @@ export interface AtengEChartsEmits {
    * 图表点击事件。
    */
   (e: 'chart-click', params: unknown): void;
+
+  /**
+   * 容器尺寸变化自适应完成事件。
+   */
+  (e: 'resize'): void;
 }

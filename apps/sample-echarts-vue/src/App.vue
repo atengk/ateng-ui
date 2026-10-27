@@ -2,7 +2,7 @@
 /**
  * sample-echarts-vue 自验展厅主页面。
  *
- * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、响应式更新与实例操作。
+ * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、ResizeObserver 几何自感知与零尺寸自愈。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -15,7 +15,7 @@ import { AtengECharts, type AtengEChartsInstance, type EChartsOption } from '@at
 const barOption = ref<EChartsOption>({
   title: {
     text: '月度经营数据看板 (柱线混合)',
-    subtext: 'Ticket #151 基础表现容器自验',
+    subtext: 'Ticket #151 & #152 容器几何感知与自适应',
     left: 'center',
   },
   tooltip: {
@@ -123,11 +123,57 @@ const pieOption = ref<EChartsOption>({
   ],
 });
 
-// 3. 交互状态
+// 3. Tab 2 零尺寸挂起自愈图表（时序面积图）
+const areaOption = ref<EChartsOption>({
+  title: {
+    text: '高频并发请求时序追踪 (Tab 零尺寸自愈)',
+    left: 'center',
+  },
+  tooltip: {
+    trigger: 'axis',
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+  },
+  yAxis: {
+    type: 'value',
+    name: 'QPS',
+  },
+  series: [
+    {
+      name: '系统吞吐量',
+      type: 'line',
+      smooth: true,
+      areaStyle: {
+        color: 'rgba(64, 158, 255, 0.3)',
+      },
+      lineStyle: {
+        color: '#409eff',
+      },
+      data: [820, 932, 901, 1434, 1290, 1330, 1320],
+    },
+  ],
+});
+
+// 4. 交互与状态控制
 const barChartRef = ref<AtengEChartsInstance | null>(null);
 const eventLogs = ref<string[]>([]);
 const lastClickInfo = ref<string>('暂无点击');
 const previewImage = ref<string>('');
+
+// 动态容器宽度测试
+const isCompact = ref(false);
+
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: 初始隐藏零尺寸 Tab）
+const activeTab = ref<'dashboard' | 'hiddenTab'>('dashboard');
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -147,7 +193,7 @@ const onRendered = () => {
   log('图表渲染完成 (rendered)');
 };
 
-// 4. 动态操作
+// 动态操作
 const randomizeData = () => {
   const randomBars = Array.from({ length: 6 }, () => Math.floor(Math.random() * 150) + 50);
   const randomLines = Array.from({ length: 6 }, () => Math.floor(Math.random() * 50) + 30);
@@ -168,6 +214,13 @@ const randomizeData = () => {
   log('已随机更新经营看板数据');
 };
 
+const toggleWidth = () => {
+  isCompact.value = !isCompact.value;
+  log(
+    `容器宽度已切换为: ${isCompact.value ? '60% (压缩态)' : '100% (全宽态)'}，触发 ResizeObserver 防抖自适应`,
+  );
+};
+
 const exportBarImage = () => {
   if (barChartRef.value) {
     const dataUrl = barChartRef.value.getDataURL({ pixelRatio: 2 });
@@ -182,53 +235,90 @@ const exportBarImage = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #151 自验</span>
+        <span class="badge">Ticket #152 自验</span>
         <span class="badge-success">端口 3006</span>
       </div>
       <p class="subtitle">
-        L2 专用能力/领域扩展层：基于 ECharts 5
-        工业级封装，浅响应式隔离、通用表现容器与开箱即用体验。
+        L2 专用能力扩展层：ResizeObserver 几何自感知、150ms 防抖调度与零尺寸（display:
+        none）毫秒级自愈。
       </p>
     </header>
 
     <div class="action-bar">
-      <button class="btn btn-primary" @click="randomizeData">🔄 动态随机更新数据</button>
+      <button class="btn btn-primary" @click="randomizeData">🔄 动态更新数据</button>
+      <button class="btn btn-warning" @click="toggleWidth">
+        📐 动态切换容器宽度 ({{ isCompact ? '还原 100%' : '压缩至 60%' }})
+      </button>
       <button class="btn btn-secondary" @click="exportBarImage">📷 导出柱线图 Base64 截图</button>
       <span class="tip">当前点击响应：{{ lastClickInfo }}</span>
     </div>
 
-    <main class="chart-grid">
-      <!-- 柱线混合图表卡片 -->
-      <div class="chart-card">
-        <div class="card-header">
-          <span class="card-title">1. 柱状/折线混合图表 (AtengECharts 基础渲染)</span>
-        </div>
-        <div class="card-body">
-          <AtengECharts
-            ref="barChartRef"
-            :option="barOption"
-            height="380px"
-            @chart-click="onChartClick"
-            @rendered="onRendered"
-          />
-        </div>
-      </div>
+    <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
+    <div class="tab-nav">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'dashboard' }"
+        @click="activeTab = 'dashboard'"
+      >
+        📊 主看板 (基础图表网格)
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'hiddenTab' }"
+        @click="activeTab = 'hiddenTab'"
+      >
+        ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
+      </button>
+    </div>
 
-      <!-- 环形饼图卡片 -->
+    <!-- 选项卡 1：主看板视图 -->
+    <div v-show="activeTab === 'dashboard'" class="tab-content">
+      <main class="chart-grid" :class="{ compact: isCompact }">
+        <!-- 柱线混合图表卡片 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">1. 柱状/折线混合图表 (ResizeObserver 自适应)</span>
+          </div>
+          <div class="card-body">
+            <AtengECharts
+              ref="barChartRef"
+              :option="barOption"
+              height="380px"
+              @chart-click="onChartClick"
+              @rendered="onRendered"
+            />
+          </div>
+        </div>
+
+        <!-- 环形饼图卡片 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">2. 环形品类占比图 (AtengECharts 默认 350px 高度)</span>
+          </div>
+          <div class="card-body">
+            <AtengECharts :option="pieOption" @chart-click="onChartClick" />
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 选项卡 2：初始隐藏选项卡 (v-show 导致初始化时为 0x0 尺寸) -->
+    <div v-show="activeTab === 'hiddenTab'" class="tab-content">
       <div class="chart-card">
         <div class="card-header">
-          <span class="card-title">2. 环形品类占比图 (AtengECharts 默认 350px 高度)</span>
+          <span class="card-title">3. 初始隐藏容器图表 (零尺寸挂起与切回自愈测试)</span>
+          <span class="badge-sub">挂载时 display: none 0x0 尺寸</span>
         </div>
         <div class="card-body">
-          <AtengECharts :option="pieOption" @chart-click="onChartClick" />
+          <AtengECharts :option="areaOption" height="380px" @chart-click="onChartClick" />
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- 底部操作与日志区 -->
     <footer class="footer-section">
       <div class="log-card">
-        <h3>交互事件日志</h3>
+        <h3>交互事件与自适应调度日志</h3>
         <ul class="log-list">
           <li v-for="(item, index) in eventLogs" :key="index">
             {{ item }}
@@ -288,6 +378,15 @@ h1 {
   border-radius: 9999px;
 }
 
+.badge-sub {
+  background-color: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
 .subtitle {
   color: #6b7280;
   margin: 8px 0 0;
@@ -300,6 +399,36 @@ h1 {
   gap: 12px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+}
+
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  background: #e5e7eb;
+}
+
+.tab-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
 }
 
 .btn {
@@ -318,6 +447,14 @@ h1 {
 }
 .btn-primary:hover {
   background-color: #1d4ed8;
+}
+
+.btn-warning {
+  background-color: #f59e0b;
+  color: #fff;
+}
+.btn-warning:hover {
+  background-color: #d97706;
 }
 
 .btn-secondary {
@@ -340,6 +477,11 @@ h1 {
   grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
   gap: 20px;
   margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-grid.compact {
+  max-width: 60%;
 }
 
 .chart-card {
@@ -348,6 +490,7 @@ h1 {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  margin-bottom: 20px;
 }
 
 .card-header {
@@ -356,6 +499,8 @@ h1 {
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
   font-size: 14px;
+  display: flex;
+  align-items: center;
 }
 
 .card-body {
