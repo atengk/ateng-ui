@@ -130,6 +130,34 @@ watch(
   { deep: true },
 );
 
+const toggleGrid = (visible?: boolean) => {
+  if (!lf.value) return;
+  const gridObj = lf.value.graphModel.grid as unknown as { visible?: boolean };
+  const target = visible !== undefined ? visible : !(gridObj?.visible ?? true);
+  lf.value.graphModel.updateGridOptions({ visible: target });
+};
+
+const toggleMiniMap = (visible?: boolean) => {
+  if (!lf.value) return;
+  const ext = lf.value.extension as unknown as Record<
+    string,
+    { isShow?: boolean; show: () => void; hide: () => void }
+  >;
+  const miniMap = ext?.miniMap;
+  if (!miniMap) return;
+  if (visible === true) {
+    miniMap.show();
+  } else if (visible === false) {
+    miniMap.hide();
+  } else {
+    if (miniMap.isShow) {
+      miniMap.hide();
+    } else {
+      miniMap.show();
+    }
+  }
+};
+
 defineExpose<AtengFlowCanvasExpose>({
   getLf: () => lf.value,
   getContainer: () => domRef.value,
@@ -143,6 +171,10 @@ defineExpose<AtengFlowCanvasExpose>({
   undo,
   redo,
   resize,
+  canUndo: () => canUndo.value,
+  canRedo: () => canRedo.value,
+  toggleGrid,
+  toggleMiniMap,
 });
 </script>
 

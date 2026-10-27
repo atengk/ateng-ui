@@ -2,8 +2,8 @@
 /**
  * AtengFlowDesigner 流程编排设计器核心容器。
  *
- * 组装物料面板（Stencil）、流程画布（Canvas）、工具栏与属性配置抽屉（PropertyPanel），
- * 提供端到端可视化设计与双向响应式属性回写体验。
+ * 组装物料面板（Stencil）、流程画布（Canvas）、工具栏（Toolbar）与属性配置抽屉（PropertyPanel），
+ * 提供端到端可视化设计、DAG 自动分层排版与双向响应式属性回写体验。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -13,14 +13,17 @@ import { ref, shallowRef, computed, type CSSProperties } from 'vue';
 import type LogicFlow from '@logicflow/core';
 import AtengFlowCanvas from './AtengFlowCanvas.vue';
 import AtengFlowStencil from './AtengFlowStencil.vue';
+import AtengFlowToolbar from './AtengFlowToolbar.vue';
 import AtengFlowPropertyPanel from './AtengFlowPropertyPanel.vue';
 import { registerPresetNodes, type StencilItem } from '../presets';
+import { AutoLayoutEngine } from '../layout';
 import type {
   FlowGraph,
   FlowNode,
   FlowEdge,
   FlowOptions,
   FlowElementData,
+  LayoutDirection,
   AtengFlowCanvasExpose,
   AtengFlowDesignerProps,
   AtengFlowDesignerEmits,
@@ -40,6 +43,8 @@ const props = withDefaults(defineProps<AtengFlowDesignerProps>(), {
   width: '100%',
   height: '100%',
   disabled: false,
+  showToolbar: true,
+  enableKeyboard: true,
   showPanel: true,
   panelWidth: '320px',
 });
@@ -50,11 +55,16 @@ defineSlots<AtengFlowDesignerSlots>();
 const canvasRef = ref<AtengFlowCanvasExpose | null>(null);
 const internalLf = shallowRef<LogicFlow | null>(null);
 const selectedElement = ref<FlowElementData | null>(null);
+const canUndo = ref<boolean>(false);
+const canRedo = ref<boolean>(false);
 
 const mergedCanvasOptions = computed<FlowOptions>(() => {
   return {
     snapline: true,
     edgeType: 'polyline',
+    keyboard: {
+      enabled: props.enableKeyboard,
+    },
     ...props.options,
   };
 });
@@ -80,6 +90,15 @@ const handleCanvasReady = (lfInstance: LogicFlow) => {
   // 2. 监听连线阻断事件向外派发
   lfInstance.on('connection:not-allowed', (data: unknown) => {
     emit('connection:not-allowed', data);
+  });
+
+  // 3. 监听历史栈可撤销/重做状态
+  lfInstance.on('history:change', (eventData: unknown) => {
+    const data = (eventData as { data?: { undoAble?: boolean; redoAble?: boolean } })?.data;
+    if (data) {
+      canUndo.value = Boolean(data.undoAble);
+      canRedo.value = Boolean(data.redoAble);
+    }
   });
 
   emit('ready', lfInstance);
@@ -215,6 +234,24 @@ const updateProperties = (patch: Record<string, unknown>) => {
   emit('element:update', selectedElement.value);
 };
 
+const handleAutoLayout = (direction: LayoutDirection = 'LR') => {
+  const current = getGraphData();
+  const newGraph = AutoLayoutEngine.layout(current, { direction });
+  render(newGraph);
+  fitView();
+  emit('change', newGraph);
+  emit('update:modelValue', newGraph);
+  emit('layout:complete', { direction, graph: newGraph });
+};
+
+const handleToggleGrid = (visible?: boolean) => {
+  canvasRef.value?.toggleGrid(visible);
+};
+
+const handleToggleMiniMap = (visible?: boolean) => {
+  canvasRef.value?.toggleMiniMap(visible);
+};
+
 const getLf = () => canvasRef.value?.getLf() ?? null;
 const getGraphData = () => canvasRef.value?.getGraphData() ?? { nodes: [], edges: [] };
 const render = (graph?: FlowGraph) => canvasRef.value?.render(graph);
@@ -242,24 +279,50 @@ defineExpose<AtengFlowDesignerExpose>({
   closePanel: handleClosePanel,
   updateProperty,
   updateProperties,
+  autoLayout: handleAutoLayout,
+  toggleGrid: handleToggleGrid,
+  toggleMiniMap: handleToggleMiniMap,
 });
 </script>
 
 <template>
   <div class="at-flow-designer" :style="designerStyle">
-    <!-- 顶部工具栏插槽 -->
-    <header v-if="$slots.toolbar" class="at-flow-designer__toolbar">
+    <!-- 顶部操作控制栏 -->
+    <header v-if="showToolbar" class="at-flow-designer__toolbar">
       <slot
         name="toolbar"
         :lf="internalLf"
+        :can-undo="canUndo"
+        :can-redo="canRedo"
         :zoom-in="zoomIn"
         :zoom-out="zoomOut"
+        :reset-zoom="resetZoom"
         :fit-view="fitView"
         :undo="undo"
         :redo="redo"
         :clear="clear"
+        :auto-layout="handleAutoLayout"
+        :toggle-grid="handleToggleGrid"
+        :toggle-mini-map="handleToggleMiniMap"
         :get-graph-data="getGraphData"
-      />
+      >
+        <AtengFlowToolbar
+          :lf="internalLf"
+          :disabled="disabled"
+          :can-undo="canUndo"
+          :can-redo="canRedo"
+          @zoom-in="zoomIn"
+          @zoom-out="zoomOut"
+          @reset-zoom="resetZoom"
+          @fit-view="fitView"
+          @undo="undo"
+          @redo="redo"
+          @clear="clear"
+          @layout="handleAutoLayout"
+          @toggle-grid="handleToggleGrid"
+          @toggle-minimap="handleToggleMiniMap"
+        />
+      </slot>
     </header>
 
     <!-- 中间主交互区域 -->

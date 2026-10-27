@@ -186,4 +186,31 @@ describe('AtengFlowDesigner', () => {
     expect(wrapper.find('.custom-id').text()).toBe('start-1');
     expect(wrapper.find('.at-flow-property-panel').exists()).toBe(false);
   });
+
+  it('应该默认挂载 AtengFlowToolbar 顶部工具栏并支持一键 DAG 自动排版', async () => {
+    wrapper = mount(AtengFlowDesigner, {
+      props: {
+        modelValue: mockGraph,
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-flow-toolbar').exists()).toBe(true);
+
+    const exposed = wrapper.vm as unknown as {
+      autoLayout: (direction?: 'LR' | 'TB') => void;
+      getGraphData: () => FlowGraph;
+    };
+
+    exposed.autoLayout('LR');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted('layout:complete')).toBeTruthy();
+    const emittedData = wrapper.emitted('layout:complete')![0] as Array<{
+      direction: string;
+      graph: FlowGraph;
+    }>;
+    expect(emittedData[0]?.direction).toBe('LR');
+    expect(emittedData[0]?.graph.nodes.length).toBe(2);
+  });
 });

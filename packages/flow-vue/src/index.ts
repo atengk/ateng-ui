@@ -1,8 +1,8 @@
 /**
  * @atengk/flow-vue 核心入口。
  *
- * 导出 AtengFlowCanvas、AtengFlowDesigner、AtengFlowStencil、AtengFlowPropertyPanel、
- * 预设图元、连线规则与完整强类型契约。
+ * 导出 AtengFlowCanvas、AtengFlowDesigner、AtengFlowStencil、AtengFlowPropertyPanel、AtengFlowToolbar、
+ * AutoLayoutEngine 自动排版引擎、预设图元、连线规则与完整强类型契约。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -13,10 +13,18 @@ import AtengFlowCanvas from './components/AtengFlowCanvas.vue';
 import AtengFlowDesigner from './components/AtengFlowDesigner.vue';
 import AtengFlowStencil from './components/AtengFlowStencil.vue';
 import AtengFlowPropertyPanel from './components/AtengFlowPropertyPanel.vue';
+import AtengFlowToolbar from './components/AtengFlowToolbar.vue';
 
-export { AtengFlowCanvas, AtengFlowDesigner, AtengFlowStencil, AtengFlowPropertyPanel };
+export {
+  AtengFlowCanvas,
+  AtengFlowDesigner,
+  AtengFlowStencil,
+  AtengFlowPropertyPanel,
+  AtengFlowToolbar,
+};
 export { useFlow } from './composables/useFlow';
 export { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from './presets';
+export { AutoLayoutEngine } from './layout';
 
 /**
  * Vue 插件安装器，支持 app.use(install)。
@@ -26,12 +34,14 @@ export function install(app: App): void {
   app.component('AtengFlowDesigner', AtengFlowDesigner);
   app.component('AtengFlowStencil', AtengFlowStencil);
   app.component('AtengFlowPropertyPanel', AtengFlowPropertyPanel);
+  app.component('AtengFlowToolbar', AtengFlowToolbar);
 }
 
 export type AtengFlowCanvasInstance = InstanceType<typeof AtengFlowCanvas>;
 export type AtengFlowDesignerInstance = InstanceType<typeof AtengFlowDesigner>;
 export type AtengFlowStencilInstance = InstanceType<typeof AtengFlowStencil>;
 export type AtengFlowPropertyPanelInstance = InstanceType<typeof AtengFlowPropertyPanel>;
+export type AtengFlowToolbarInstance = InstanceType<typeof AtengFlowToolbar>;
 
 export type {
   FlowNode,
@@ -42,6 +52,8 @@ export type {
   FlowElementType,
   FlowElementData,
   FlowPanelSlotProps,
+  LayoutDirection,
+  AutoLayoutOptions,
   UseFlowOptions,
   UseFlowReturn,
   AtengFlowCanvasProps,
@@ -58,6 +70,10 @@ export type {
   AtengFlowPropertyPanelEmits,
   AtengFlowPropertyPanelSlots,
   AtengFlowPropertyPanelExpose,
+  AtengFlowToolbarProps,
+  AtengFlowToolbarEmits,
+  AtengFlowToolbarSlots,
+  AtengFlowToolbarExpose,
 } from './types';
 
 export type { FlowNodeTypeValue, BeforeConnectHook, StencilItem, StencilGroup } from './presets';

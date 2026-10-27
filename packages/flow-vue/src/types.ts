@@ -214,6 +214,14 @@ export interface AtengFlowCanvasExpose {
   redo: () => void;
   /** 触发布局尺寸重算 */
   resize: () => void;
+  /** 当前是否可撤销 */
+  canUndo: () => boolean;
+  /** 当前是否可重做 */
+  canRedo: () => boolean;
+  /** 切换网格显示 */
+  toggleGrid: (visible?: boolean) => void;
+  /** 切换小地图显示 */
+  toggleMiniMap: (visible?: boolean) => void;
 }
 
 /**
@@ -319,6 +327,81 @@ export interface AtengFlowPropertyPanelExpose {
 }
 
 /**
+ * 自动排版方向：'LR' 为水平从左到右，'TB' 为垂直从上到下。
+ */
+export type LayoutDirection = 'LR' | 'TB';
+
+/**
+ * AutoLayoutEngine 自动排版配置参数。
+ */
+export interface AutoLayoutOptions {
+  direction?: LayoutDirection;
+  nodeSep?: number;
+  rankSep?: number;
+  startX?: number;
+  startY?: number;
+}
+
+/**
+ * 工具栏操作组件 Props。
+ */
+export interface AtengFlowToolbarProps {
+  /** LogicFlow 画布实例 */
+  lf?: LogicFlow | null;
+  /** 当前是否可撤销 */
+  canUndo?: boolean;
+  /** 当前是否可重做 */
+  canRedo?: boolean;
+  /** 是否处于禁用状态 */
+  disabled?: boolean;
+  /** 是否展示视口缩放控制区（默认 true） */
+  showZoom?: boolean;
+  /** 是否展示历史撤销重做控制区（默认 true） */
+  showHistory?: boolean;
+  /** 是否展示自动排版控制区（默认 true） */
+  showLayout?: boolean;
+  /** 是否展示网格切换按钮（默认 true） */
+  showGridToggle?: boolean;
+  /** 是否展示小地图开关（默认 true） */
+  showMiniMap?: boolean;
+  /** 是否展示清空画布按钮（默认 true） */
+  showClear?: boolean;
+}
+
+/**
+ * 工具栏操作组件 Emits。
+ */
+export interface AtengFlowToolbarEmits {
+  (e: 'zoom-in'): void;
+  (e: 'zoom-out'): void;
+  (e: 'reset-zoom'): void;
+  (e: 'fit-view'): void;
+  (e: 'undo'): void;
+  (e: 'redo'): void;
+  (e: 'clear'): void;
+  (e: 'layout', direction: LayoutDirection): void;
+  (e: 'toggle-grid', visible: boolean): void;
+  (e: 'toggle-minimap', visible: boolean): void;
+}
+
+/**
+ * 工具栏操作组件 Slots。
+ */
+export interface AtengFlowToolbarSlots {
+  left?: (props: { lf: LogicFlow | null }) => unknown;
+  default?: (props: { lf: LogicFlow | null }) => unknown;
+  extra?: (props: { lf: LogicFlow | null }) => unknown;
+}
+
+/**
+ * 工具栏操作组件 Expose 契约。
+ */
+export interface AtengFlowToolbarExpose {
+  getIsGridVisible: () => boolean;
+  getIsMiniMapVisible: () => boolean;
+}
+
+/**
  * 流程设计器组件 Props。
  */
 export interface AtengFlowDesignerProps {
@@ -336,6 +419,10 @@ export interface AtengFlowDesignerProps {
   height?: string | number;
   /** 是否禁用设计编辑（只读） */
   disabled?: boolean;
+  /** 是否启用顶部工具栏（默认 true） */
+  showToolbar?: boolean;
+  /** 是否启用快捷键体系（默认 true） */
+  enableKeyboard?: boolean;
   /** 是否启用右侧属性抽屉面板（默认 true） */
   showPanel?: boolean;
   /** 右侧属性抽屉面板宽度（默认 '320px'） */
@@ -357,6 +444,8 @@ export interface AtengFlowDesignerEmits {
   (e: 'selection:change', element: FlowElementData | null): void;
   /** 图元属性被更新后派发 */
   (e: 'element:update', element: FlowElementData): void;
+  /** 自动排版完成后派发 */
+  (e: 'layout:complete', data: { direction: LayoutDirection; graph: FlowGraph }): void;
 }
 
 /**
@@ -365,12 +454,19 @@ export interface AtengFlowDesignerEmits {
 export interface AtengFlowDesignerSlots {
   toolbar?: (props: {
     lf: LogicFlow | null;
+    canUndo: boolean;
+    canRedo: boolean;
     zoomIn: () => void;
     zoomOut: () => void;
+    resetZoom: () => void;
     fitView: () => void;
     undo: () => void;
     redo: () => void;
     clear: () => void;
+    autoLayout: (direction?: LayoutDirection) => void;
+    toggleGrid: (visible?: boolean) => void;
+    toggleMiniMap: (visible?: boolean) => void;
+    toggleMinimap?: (visible?: boolean) => void;
     getGraphData: () => FlowGraph;
   }) => unknown;
   stencil?: (props: {
@@ -404,4 +500,10 @@ export interface AtengFlowDesignerExpose {
   updateProperty: (key: string, value: unknown) => void;
   /** 批量安全回写当前选中图元的属性集合 */
   updateProperties: (patch: Record<string, unknown>) => void;
+  /** 执行 DAG 分层自动规整排版 */
+  autoLayout: (direction?: LayoutDirection) => void;
+  /** 切换背景网格显示状态 */
+  toggleGrid: (visible?: boolean) => void;
+  /** 切换鹰眼小地图显示状态 */
+  toggleMiniMap: (visible?: boolean) => void;
 }

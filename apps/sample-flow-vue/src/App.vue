@@ -3,11 +3,10 @@
  * sample-flow-vue 自验展厅主页面。
  *
  * 验证 AtengFlowDesigner 设计态：
- * 1. 三段式物料面板、DND 拖拽、四向磁吸正交折线与拓扑防呆连线；
- * 2. 选中图元右侧属性抽屉平滑滑出、空白区点击收起；
- * 3. 基础属性只读 ID、名称、流转条件表达式配置；
- * 4. 支持 #panel 具名插槽使用 Element Plus 完整接管审批人和分支条件配置；
- * 5. 属性双向回写与历史栈（Undo / Redo）联动。
+ * 1. 顶部操作控制栏（AtengFlowToolbar）：视口缩放、Undo/Redo、DAG 自动分层排版、网格切换、防误触清空；
+ * 2. 键盘快捷键体系：Delete 删除、Ctrl+Z/Y 撤销重做、Ctrl+C/V 复制粘贴；
+ * 3. 三段式物料面板、DND 拖拽、四向磁吸正交折线与拓扑防呆连线；
+ * 4. 属性抽屉平滑滑出与 #panel 具名插槽 Element Plus 业务表单接管。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -21,13 +20,14 @@ import {
   type FlowNode,
   type FlowEdge,
   type FlowElementData,
+  type LayoutDirection,
   type AtengFlowDesignerInstance,
   type BeforeConnectHook,
 } from '@atengk/flow-vue';
 
 const designerRef = ref<AtengFlowDesignerInstance | null>(null);
 
-const graphData = ref<FlowGraph>({
+const initialGraph: FlowGraph = {
   nodes: [
     {
       id: 'start-1',
@@ -134,9 +134,10 @@ const graphData = ref<FlowGraph>({
       text: '同意打款',
     },
   ],
-});
+};
 
-const lastEvent = ref<string>('就绪：单击任意节点或连线唤起右侧属性抽屉');
+const graphData = ref<FlowGraph>(JSON.parse(JSON.stringify(initialGraph)));
+const lastEvent = ref<string>('就绪：可使用顶部工具栏执行缩放、自动分层排版、撤销重做或体验快捷键');
 const alertMessage = ref<string>('');
 const useCustomPanel = ref<boolean>(true);
 const currentSelected = ref<FlowElementData | null>(null);
@@ -150,7 +151,7 @@ const beforeConnect: BeforeConnectHook = (source, target) => {
 };
 
 const handleReady = () => {
-  lastEvent.value = 'LogicFlow 设计器已就绪，属性抽屉系统与防呆守卫已就绪';
+  lastEvent.value = 'LogicFlow 设计器已就绪，工具栏动作矩阵与快捷键已就绪';
 };
 
 const handleNodeClick = (node: FlowNode) => {
@@ -173,6 +174,10 @@ const handleElementUpdate = (element: FlowElementData) => {
   lastEvent.value = `图元属性已更新并同步历史栈: ${element.id} [${element.name}]`;
 };
 
+const handleLayoutComplete = (data: { direction: LayoutDirection; graph: FlowGraph }) => {
+  lastEvent.value = `DAG 自动分层排版完成 [${data.direction === 'LR' ? '水平整理 (LR)' : '垂直整理 (TB)'}]，共 ${data.graph.nodes.length} 个节点`;
+};
+
 const handleConnectionNotAllowed = (data: unknown) => {
   const msg =
     (data as { msg?: string; message?: string })?.msg ||
@@ -185,26 +190,11 @@ const handleConnectionNotAllowed = (data: unknown) => {
   }, 4000);
 };
 
-const handleZoomIn = () => designerRef.value?.zoomIn();
-const handleZoomOut = () => designerRef.value?.zoomOut();
-const handleResetZoom = () => designerRef.value?.resetZoom();
-const handleFitView = () => designerRef.value?.fitView();
-const handleUndo = () => {
-  designerRef.value?.undo();
-  lastEvent.value = '已撤销上一操作 (Undo)';
-};
-const handleRedo = () => {
-  designerRef.value?.redo();
-  lastEvent.value = '已恢复操作 (Redo)';
-};
-const handleClear = () => {
-  designerRef.value?.clear();
-  lastEvent.value = '画布已清空';
-};
-
 const handleReloadDefault = () => {
+  graphData.value = JSON.parse(JSON.stringify(initialGraph));
   designerRef.value?.render(graphData.value);
-  lastEvent.value = '已重载示例费用审批拓扑';
+  designerRef.value?.fitView();
+  lastEvent.value = '已重载示例初始审批拓扑并重置视口';
 };
 
 const currentBadgeType = computed(() => {
@@ -222,9 +212,21 @@ const currentBadgeType = computed(() => {
       <div class="sample-header__left">
         <h1>@atengk/flow-vue 流程可视化展厅</h1>
         <p class="sample-desc">
-          工单 #164 验证：属性抽屉平滑滑出、Element Plus 表单接管（#panel 插槽）、双向回写与
-          Undo/Redo 历史栈
+          工单 #165
+          验证：顶部工具栏动作矩阵（视口缩放/防误触清空）、快捷键体系（Delete/Ctrl+Z/Y/C/V）与 DAG
+          自动分层排版
         </p>
+      </div>
+
+      <div class="sample-header__right">
+        <button
+          class="btn btn--toggle"
+          :class="{ 'is-active': useCustomPanel }"
+          @click="useCustomPanel = !useCustomPanel"
+        >
+          {{ useCustomPanel ? '表单：Element Plus 接管' : '表单：原生轻量抽屉' }}
+        </button>
+        <button class="btn btn--primary" @click="handleReloadDefault">重置示例拓扑</button>
       </div>
 
       <!-- 拦截提示浮层 -->
@@ -235,25 +237,13 @@ const currentBadgeType = computed(() => {
       </transition>
     </header>
 
-    <div class="sample-toolbar">
-      <button class="btn" @click="handleZoomIn">放大 (+)</button>
-      <button class="btn" @click="handleZoomOut">缩小 (-)</button>
-      <button class="btn" @click="handleResetZoom">1:1 重置</button>
-      <button class="btn" @click="handleFitView">居中视口</button>
-      <span class="toolbar-divider" />
-      <button class="btn btn--primary" @click="handleUndo">撤销 (Undo)</button>
-      <button class="btn btn--primary" @click="handleRedo">重做 (Redo)</button>
-      <span class="toolbar-divider" />
-      <button
-        class="btn btn--toggle"
-        :class="{ 'is-active': useCustomPanel }"
-        @click="useCustomPanel = !useCustomPanel"
-      >
-        {{ useCustomPanel ? '当前：Element Plus 插槽接管' : '当前：原生轻量抽屉面板' }}
-      </button>
-      <button class="btn btn--danger" @click="handleClear">清空画布</button>
-      <button class="btn" @click="handleReloadDefault">重载初始拓扑</button>
-      <span class="status-tag">{{ lastEvent }}</span>
+    <!-- 快捷键与状态提示条 -->
+    <div class="sample-status-bar">
+      <span class="status-tip">
+        ⌨️ <strong>快捷键支持</strong>：<kbd>Delete</kbd> 删除选中 | <kbd>Ctrl+Z</kbd> 撤销 |
+        <kbd>Ctrl+Y / Ctrl+Shift+Z</kbd> 重做 | <kbd>Ctrl+C/V</kbd> 复制粘贴
+      </span>
+      <span class="status-event">{{ lastEvent }}</span>
     </div>
 
     <main class="sample-designer-wrapper">
@@ -270,6 +260,7 @@ const currentBadgeType = computed(() => {
         @blank:click="handleBlankClick"
         @selection:change="handleSelectionChange"
         @element:update="handleElementUpdate"
+        @layout:complete="handleLayoutComplete"
         @connection:not-allowed="handleConnectionNotAllowed"
       >
         <!-- 使用 Element Plus 表单接管 #panel 插槽 -->
@@ -403,7 +394,8 @@ const currentBadgeType = computed(() => {
         🎯 选中: {{ currentSelected.id }} ({{ currentSelected.name }})
       </span>
       <span class="footer-hint">
-        💡 试一试：单击节点修改审批人或连线条件，随后点击顶部【撤销 (Undo)】观察回退效果！
+        💡 试一试：点击顶部【水平整理】或【垂直整理】体验 DAG 智能排版；按键盘 Delete
+        键即刻删除选中图元！
       </span>
     </footer>
   </div>
@@ -424,7 +416,7 @@ const currentBadgeType = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   position: relative;
 }
 
@@ -440,7 +432,49 @@ const currentBadgeType = computed(() => {
   color: #64748b;
 }
 
+.sample-header__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sample-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.status-tip {
+  color: #334155;
+}
+
+.status-tip kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+  color: #0f172a;
+}
+
+.status-event {
+  color: #0284c7;
+  font-weight: 500;
+}
+
 .alert-banner {
+  position: absolute;
+  top: 0;
+  right: 220px;
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
@@ -449,21 +483,6 @@ const currentBadgeType = computed(() => {
   border: 1px solid #f87171;
   border-radius: 6px;
   box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
-}
-
-.sample-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background-color: #cbd5e1;
-  margin: 0 4px;
 }
 
 .btn {
@@ -503,25 +522,6 @@ const currentBadgeType = computed(() => {
   background-color: #e0f2fe;
   border-color: #0284c7;
   color: #0369a1;
-}
-
-.btn--danger {
-  background-color: #ef4444;
-  border-color: #dc2626;
-  color: #ffffff;
-}
-
-.btn--danger:hover {
-  background-color: #dc2626;
-}
-
-.status-tag {
-  margin-left: auto;
-  font-size: 12px;
-  color: #475569;
-  background: #e2e8f0;
-  padding: 4px 8px;
-  border-radius: 4px;
 }
 
 .sample-designer-wrapper {

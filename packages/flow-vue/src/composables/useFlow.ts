@@ -52,12 +52,37 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
       grid: true,
       stopMoveGraph: false,
       isSilentMode: false,
+      keyboard: {
+        enabled: true,
+      },
       ...options,
       ...customOptions,
     };
 
     const instance = new LogicFlow(mergedOptions);
     lf.value = instance;
+
+    // 注册增强桌面级快捷键（Delete 键删除选中元素，Ctrl+Shift+Z 重做）
+    if (instance.keyboard) {
+      instance.keyboard.on(['delete'], () => {
+        const kbOptions = instance.keyboard.options.keyboard;
+        if (kbOptions?.enabled === false) return true;
+        if (instance.graphModel.textEditElement) return true;
+        const elements = instance.graphModel.getSelectElements(true);
+        instance.clearSelectElements();
+        elements.edges.forEach(edge => edge.id && instance.deleteEdge(edge.id));
+        elements.nodes.forEach(node => node.id && instance.deleteNode(node.id));
+        return false;
+      });
+
+      instance.keyboard.on(['ctrl + shift + z', 'cmd + shift + z'], () => {
+        const kbOptions = instance.keyboard.options.keyboard;
+        if (kbOptions?.enabled === false) return true;
+        if (instance.graphModel.textEditElement) return true;
+        instance.redo();
+        return false;
+      });
+    }
 
     // 3. 订阅历史栈状态变化
     instance.on('history:change', (eventData: unknown) => {
