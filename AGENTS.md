@@ -121,7 +121,7 @@
     6. 集合查询未保底返回 `[]`，或监听资源未在销毁钩子中确定性清理；
     7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断；
     8. 底层核心包（`@atengk/core`）渗入 Vue 或 React 专有响应式类型、框架钩子或运行时依赖；
-    9. 新增/修改的公开功能未在 Sample 页面渲染呈现、未启动服务提供页面体验、或未经人工页面审核确认擅自交付（必须严格遵循“两段式人机阻断验收协议”）。
+    9. 新增/修改的公开功能未在 Sample 提供端到端真实用例、未通过自动化构建/单测验证、或文档示例未经 Sample 真实跑通（必须严格遵循“Sample-First 自动化实测闭环铁律”）。
   - ⚠️ **黄牌限期整改项 (Yellow Warning)**：
     1. 新建源码顶部遗漏 `@author Ateng` 或 `@since`；
     2. 流程注释步骤编号不连续或存在孤立步骤号；
@@ -153,7 +153,7 @@
   3. **100% 离线自洽**：单测必须具备完全离线独立运行能力（基于 MSW 或 Vitest Mock 拦截网络），绝对严禁向外部真实物理网络发起 HTTP 请求。
 
 - **面向未来扩展的“新模块自举六件套”契约 (New Module Onboarding & Scaffolding Invariant)**：
-  面向未来持续扩展的大量全新子包，任何新增的 `packages/<name>` 必须原子化齐备以下 6 项标准要素，缺一不可准出：
+  面向未来持续扩展的大量全新子包，任何新增的 `packages/<name>` 必须原子化齐备以下 6 项标准要素，缺一不可准出（规范详见 [docs/agents/modular-extensibility.md](./docs/agents/modular-extensibility.md) 与 [docs/agents/module-hardening-and-expansion.md](./docs/agents/module-hardening-and-expansion.md)）：
   1. **元数据与双模构建契约**：`package.json` 命名严格对齐 `@atengk/<name>`，构建采用 `tsup` 标准配置，显式声明 `exports` 导出 ESM (`dist/index.js`) + CJS (`dist/index.cjs`) + DTS (`dist/index.d.ts`)；
   2. **独立领域词汇表**：必须在 `packages/<name>/CONTEXT.md` 建立独立的领域术语定义与 Avoid 负面词清单；
   3. **1:1 镜像自验工程**：必须在 `apps/sample-<name>` 搭建开箱沙箱与端到端实测场景，接入根 Turbo 任务流水线；
@@ -194,11 +194,11 @@
       - `apps/sample-core` ➔ `http://localhost:3001`（`pnpm --filter sample-core dev`）
       - `apps/sample-vue` ➔ `http://localhost:3002`（`pnpm --filter sample-vue dev`）
       - `apps/sample-element-plus` ➔ `http://localhost:3003`（`pnpm --filter sample-element-plus dev`）。
-  - **两段式人机阻断验收协议 (Two-Phase Human Verification Handshake - Blocking Invariant)**：
-    为杜绝“仅有代码构建全绿但脱离真实页面交互”的形式主义自嗨，任何特性开发或阶段性审查交付必须恪守两段式人机闭环：
-    1. **第一阶段：Agent 服务托管与核验清单输出**：Agent 必须在后台以守护任务（Daemon Task）启动对应的 Sample Vite 服务，在会话中输出带端口的本地直达链接（如 `http://localhost:3001`）与结构化的《页面交互核验清单 (Checklist)》；
-    2. **第二阶段：强制人机挂起阻断与用户显式授权**：Agent 必须显式挂起当前任务，等待用户在浏览器中实机体验并在会话中明确回复“页面审核通过/认可”；
-    3. **零抢跑铁律**：在未经用户在会话中明确确认前，**严禁 Agent 单方面在 Artifact 中标记“✅ 已签署准出”，严禁擅自宣称任务交付，严禁触发 Git Commit**。违者直接判定为触犯红牌一票否决项第 9 条！
+  - **Sample-First 端到端自动化实测闭环 (Sample-First Automated Verification Invariant)**：
+    为杜绝脱离真实可运行场景的形式主义，任何公开功能特性交付必须恪守 Sample-First 自动化闭环：
+    1. **用例完整可编译与开箱即跑**：新增或修改的公开 API、组件、Hooks 与配置项，必须在对应 Sample 工程中挂载可运行的真实场景用例，Vite 开发与构建无报错；
+    2. **定向自动化测试与类型检查全绿**：执行定向验证命令（`pnpm --filter <pkg> --filter <sample> test` 与 `typecheck`），确保单测与端到端用例 100% 通过；
+    3. **零伪造逆向提取**：在未通过 Sample 自动化验证前，严禁凭空手写 `README.md` 示例代码，严禁触发 Git Commit。违者直接判定为触犯红牌一票否决项第 9 条！
   - **Sample-First 流程不变量（绝对前置工序）**：在编写或更新子模块 `README.md` 前，**必须先完成对应 Sample 场景用例的编写与实测验证并确保全绿**。严禁在尚未写出可运行 Sample 时凭空手敲文档！
   - **代码源头全真逆向提取**：`README.md` 中展示的 Vue/TS 示例代码及执行结果，**必须 100% 直接从已跑通的 Sample 源码、配置及实测日志中 1:1 逆向提取**。若某特性未在 Sample 中跑通，一律严禁写入文档！
   - **文档排版防裂守卫 (Markdown Integrity Guard)**：
@@ -247,17 +247,13 @@
   2. **TDD 与 Sample-First 逆向闭环实现**：
      - **2.1 核心驱动与白盒单测**：测试驱动编码，全面遵循第 3 节“工业级代码成熟度十二道防线”，在模块内部编写完善的白盒与对抗性单元测试；
      - **2.2 Sample 端到端实测补全（Hard Gate）**：在归属的 `apps/sample-*` 中编写真实端到端场景用例，100% 覆盖新增/修改的公开 API、组件、配置项与扩展 SPI，执行定向测试确保端到端全绿；
-     - **2.2.1 本地服务启动与人工视觉审核卡点 (Human Visual Review Gate - Blocking)**：
-       - Agent 编写完 Sample 用例后，必须启动对应的本地 Vite 开发服务；
-       - 在会话中明确向用户输出本地直达访问链接（`http://localhost:3001` / `3002` / `3003`）、交互操作指引与预期视觉表现；
-       - **强制阻塞**：必须等待用户在浏览器中亲自交互体验并显式回复“页面审核通过”，方可进入 2.3 阶段；严禁跳过页面审核擅自准出！
-     - **2.3 全真逆向提取生成 `README.md`**：从已跑通且通过人工页面审核的 Sample 源码、配置与实测输出中 1:1 逆向提取示例与结果，在所属子模块 `README.md` 中按“五维生产就绪交付模型”补齐全景矩阵、开箱代码、扩展定制接入、核心生产边界与实测输出契约；
+     - **2.3 全真逆向提取生成 `README.md`**：从已跑通且通过自动化自验的 Sample 源码、配置与实测输出中 1:1 逆向提取示例与结果，在所属子模块 `README.md` 中按“五维生产就绪交付模型”补齐全景矩阵、开箱代码、扩展定制接入、核心生产边界与实测输出契约；
   3. **准出、自检与双轴审查**：
      - 执行第 4 节阶梯二准出测试（纯文档改动免测）；
      - **《交付前成熟度与文档双向对齐清单 (Audit Checklist)》强制自检卡点**：
        - [ ] **多模块拓扑单向流**：新增或修改模块依赖是否符合 L0~L3 洋葱拓扑？是否已登记在 `CONTEXT-MAP.md`？
        - [ ] **Sample 100% 场景对齐**：模块新增/修改的所有公共 API 方法、组件 Props/Emits、Hooks 是否已 100% 在归属的 `apps/sample-*` 工程中提供端到端真实可运行用例？
-       - [ ] **页面真实渲染与可视交互审核**：是否已启动对应 Sample 服务（3001/3002/3003）？页面上是否已完整挂载可视用例并供用户在浏览器中完成真实交互审核？
+       - [ ] **Sample 端到端自动化自验**：模块新增/修改特性的可运行用例是否已在归属的 `apps/sample-*` 完整挂载，且通过定向测试与构建（`pnpm --filter <pkg> --filter <sample> test` / `build`）100% 验证通过？
        - [ ] **Sample-First 逆向闭环**：`README.md` 中的所有 Vue/TS 示例代码与输出结果，是否 100% 提取自上述已验证跑通的 Sample 工程？
        - [ ] **全景速查矩阵**：模块新增/修改的所有公共组件、API、类型与指令是否 100% 入表？
        - [ ] **代码-文档真理一致性**：文档中展示的代码是否直接截取自已跑通的单测/Sample？组件 Props 与函数签名是否完全对齐？
@@ -267,9 +263,11 @@
        - [ ] **L0 跨框架纯净防御**：底层核心包（`@atengk/core`）是否保持 100% 平台中立与框架中立，严禁引入 Vue 或 React 专有响应式类型（`Ref`/`State`）与运行时钩子？
        - [ ] **样式隔离与无侵入**：组件样式是否强制 `scoped` 且遵循 `at-` 独立命名空间？是否复用 `--el-*` Design Tokens？
        - [ ] **副作用声明**：`package.json` 是否显式声明 `"sideEffects": false`（或仅限定样式）？顶级入口是否纯净导出？
-     - **审查红牌阻断 (Red Card Gate)**：调用 `/code-review` 开展双轴审查；若审查发现模块公开功能在 Sample 中缺位、未在页面渲染呈现、未拉起服务提供页面体验、未经人工页面审核确认、文档示例未经 Sample 真实跑通、文档漏写公开功能，或触碰成熟度红线，一律出具红牌阻断，强制返修直至双绿；
+     - **审查红牌阻断 (Red Card Gate)**：调用 `/code-review` 开展双轴审查；若审查发现模块公开功能在 Sample 中缺位、未通过端到端自动化验证、文档示例未经 Sample 真实跑通、文档漏写公开功能，或触碰成熟度红线，一律出具红牌阻断，强制返修直至双绿；
   4. **受控提交**：按第 5 节执行受控提交并推送（代码与文档同工单同提交原子交付）；
   5. **闭环**：守护 CI 监控至全绿，通过文件回写验收清单与提交哈希（`gh issue comment <n> -F <file>`），关闭工单（`gh issue close <n>`）。
+- **模块孵化与扩展通用标准 (Modular Extensibility SOP)**：孵化全新子包（0 到 1 阶段）时，遵循 [docs/agents/modular-extensibility.md](./docs/agents/modular-extensibility.md)（含六件套门禁、L0~L3 拓扑、分层沙箱及本地加速验证）。
+- **存量模块加固与全场景演进规范 (Module Hardening SOP)**：对存量子包进行加固、重构或全场景能力补齐（1 到 N 阶段）时，遵循 [docs/agents/module-hardening-and-expansion.md](./docs/agents/module-hardening-and-expansion.md)（可通过 `@docs/agents/module-hardening-and-expansion.md <module-name> [focus]` 快速调度）。
 - **工单操作与 CLI 规范 (Issue Tracker & CLI)**：操作 GitHub Issues / PR 或编写终端命令时，遵循 [docs/agents/issue-tracker.md](./docs/agents/issue-tracker.md)（含特殊字符引号包裹、`-F` 文件回写防截断及 Wayfinding 路线图映射）。
 - **分流标签规范 (Triage Labels)**：分流或标记 Issue 状态时，遵循 [docs/agents/triage-labels.md](./docs/agents/triage-labels.md)（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。
 - **领域词汇与架构决策 (Domain Docs)**：探索代码库、设计新领域实体或查阅架构决策时，阅读全局映射 [CONTEXT-MAP.md](./CONTEXT-MAP.md) 及各模块独立的 `CONTEXT.md`，架构选型遵循 [docs/adr/](./docs/adr/)，规约详见 [docs/agents/domain.md](./docs/agents/domain.md)。
