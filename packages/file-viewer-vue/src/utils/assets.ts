@@ -63,7 +63,7 @@ export function normalizeAssetBaseUrl(url?: string | URL | null): string | undef
 }
 
 /**
- * 配置 @atengk/file-viewer 全局静态资产基地址与回落策略。
+ * 配置 @atengk/file-viewer-vue 全局静态资产基地址与回落策略。
  *
  * @param options 全局配置参数
  */

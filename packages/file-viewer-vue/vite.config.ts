@@ -1,5 +1,5 @@
 /**
- * @atengk/file-viewer Vite 库模式双模构建配置。
+ * @atengk/file-viewer-vue Vite 库模式双模构建配置。
  *
  * 依据 ADR-0030，输出 ESM、CJS、DTS 与统一全局样式产物 dist/index.css。
  *

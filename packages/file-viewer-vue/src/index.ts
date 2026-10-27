@@ -1,5 +1,5 @@
 /**
- * @atengk/file-viewer 顶层统一入口与公共 API 导出。
+ * @atengk/file-viewer-vue 顶层统一入口与公共 API 导出。
  *
  * @author Ateng
  * @since 2026-10-26

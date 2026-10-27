@@ -22,7 +22,7 @@
 
 ### L2 专用能力/领域扩展层 (Extension Layer)
 
-- **[FileViewer 专业文档与工程文件渲染扩展](./packages/file-viewer/CONTEXT.md)**（`@atengk/file-viewer`，当前已立项入驻）：
+- **[FileViewerVue 专业文档与工程文件渲染扩展](./packages/file-viewer-vue/CONTEXT.md)**（`@atengk/file-viewer-vue`，当前已立项入驻）：
   基于现代浏览器原生渲染生态封装的企业级专业多格式文档/工程文件预览扩展包，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层 `@file-viewer/*` 核心，严格中立并与具体 UI 库解耦。内置高频 Office 预设（Word/Excel/PPT/PDF/图片）开箱即用，支持 CAD/3D/OFD 等超大重载预设动态插拔；支持三级弹性静态资产寻址（内网私有化/CDN/本地）、全链路 Token Header 自动注入、Blob-JSON 双态异常防崩溃拦截（ADR-0004）、安全防篡改水印覆盖以及请求与 Worker 任务的确定性清理。提供 `<AtengFileViewer />` 统一表现容器与 `useFileViewer()` 无头状态机。
 - **[VideoPlayerVue 流媒体与多路视频播放扩展](./packages/video-player-vue/CONTEXT.md)**（`@atengk/video-player-vue`，当前已立项入驻）：
   面向现代 Web 应用与企业级安防物联网的工业级音视频与多路监控播放基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层标准播放驱动（Artplayer、hls.js、mpegts.js），严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/video-player-react`）。覆盖富媒体点播、HLS/FLV 低延迟直播、1/4/9/16 对称及 1+5/1+7 非对称分屏协同矩阵、云台 PTZ 协议解耦控制、动态防篡改安全水印、时间轴打点与按需弹幕插件。提供 `<AtengVideoPlayer />`、`<AtengVideoGrid />`、`<AtengPtzControl />`、`<AtengVideoWatermark />` 表现容器与 `useVideoPlayer()`、`useVideoGrid()`、`usePtz()` 无头状态机。
@@ -40,7 +40,7 @@
 
 - **[Sample Core 原生自验工程](./apps/sample-core/README.md)**（`sample-core`）：纯 TS 沙箱，1:1 对标 `@atengk/core`，验证网络管道、雪花大数与凭据注入。
 - **[Sample Vue 响应式自验工程](./apps/sample-vue/README.md)**（`sample-vue`）：Vue 3 应用沙箱，1:1 对标 `@atengk/vue`，验证无头 Hooks 状态机、抗竞态与销毁清理。
-- **[Sample FileViewer 专业文档自验展厅](./apps/sample-file-viewer/README.md)**（`sample-file-viewer`）：文档预览沙箱，1:1 对标 `@atengk/file-viewer`，验证 Office/PDF/图片/鉴权流/Blob 双态异常与水印全真交互。
+- **[Sample FileViewerVue 专业文档自验展厅](./apps/sample-file-viewer-vue/README.md)**（`sample-file-viewer-vue`）：文档预览沙箱，1:1 对标 `@atengk/file-viewer-vue`，验证 Office/PDF/图片/鉴权流/Blob 双态异常与水印全真交互。
 - **[Sample VideoPlayerVue 流媒体播放自验展厅](./apps/sample-video-player-vue/README.md)**（`sample-video-player-vue`）：音视频沙箱，1:1 对标 `@atengk/video-player-vue`，验证点播、HLS/FLV 低延迟直播、1/4/9/16 分屏协同、PTZ 云台与安全防篡改水印。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
@@ -65,7 +65,7 @@ flowchart TD
     end
 
     subgraph L2["L2 专用能力/领域扩展层 (Extension Layer)"]
-        FV["@atengk/file-viewer<br/>(专业文档与工程文件渲染扩展)"]
+        FV["@atengk/file-viewer-vue<br/>(专业文档与工程文件渲染扩展)"]
         VP["@atengk/video-player-vue<br/>(流媒体与多路视频播放扩展)"]
         EXT["未来的 @atengk/echarts / editor ...<br/>(专用领域引擎高内聚适配)"]
     end
@@ -82,7 +82,7 @@ flowchart TD
     subgraph Samples["1:1 镜像验证工程 (Apps)"]
         S_CORE["apps/sample-core"]
         S_VUE["apps/sample-vue"]
-        S_FV["apps/sample-file-viewer"]
+        S_FV["apps/sample-file-viewer-vue"]
         S_VP["apps/sample-video-player-vue"]
         S_EP["apps/sample-element-plus"]
     end

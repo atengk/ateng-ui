@@ -1,5 +1,5 @@
 /**
- * @atengk/file-viewer 核心类型与契约定义。
+ * @atengk/file-viewer-vue 核心类型与契约定义。
  *
  * @author Ateng
  * @since 2026-10-26

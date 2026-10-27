@@ -1,8 +1,8 @@
 {
-  "name": "sample-file-viewer",
+  "name": "sample-file-viewer-vue",
   "version": "0.1.0",
   "private": true,
-  "description": "@atengk/file-viewer 专业多格式文档与工程图纸渲染自验展厅",
+  "description": "@atengk/file-viewer-vue 专业多格式文档与工程图纸渲染自验展厅",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@atengk/core": "workspace:*",
-    "@atengk/file-viewer": "workspace:*",
+    "@atengk/file-viewer-vue": "workspace:*",
     "@atengk/vue": "workspace:*",
     "@file-viewer/preset-office": "^3.2.2",
     "@file-viewer/renderer-text": "^3.2.2",

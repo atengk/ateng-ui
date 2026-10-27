@@ -27,8 +27,8 @@ export default defineWorkspace([
   },
   {
     test: {
-      name: 'file-viewer',
-      root: './packages/file-viewer',
+      name: 'file-viewer-vue',
+      root: './packages/file-viewer-vue',
       environment: 'happy-dom',
       include: ['test/**/*.{test,spec}.ts'],
     },

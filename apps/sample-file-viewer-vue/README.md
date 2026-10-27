@@ -1,6 +1,6 @@
-# sample-file-viewer: @atengk/file-viewer 全真自验展厅
+# sample-file-viewer-vue: @atengk/file-viewer-vue 全真自验展厅
 
-1:1 独立镜像自验工程，针对 `@atengk/file-viewer` 提供的多格式文档/工程文件浏览器原生离线渲染容器进行端到端全真验证。
+1:1 独立镜像自验工程，针对 `@atengk/file-viewer-vue` 提供的多格式文档/工程文件浏览器原生离线渲染容器进行端到端全真验证。
 
 ## 展厅全景验证特性
 
@@ -20,14 +20,14 @@
 
 ```bash
 # 启动自验展厅
-pnpm --filter sample-file-viewer dev
+pnpm --filter sample-file-viewer-vue dev
 
 # 编译类型检查
-pnpm --filter sample-file-viewer typecheck
+pnpm --filter sample-file-viewer-vue typecheck
 
 # 代码规范检查
-pnpm --filter sample-file-viewer lint
+pnpm --filter sample-file-viewer-vue lint
 
 # 生产构建
-pnpm --filter sample-file-viewer build
+pnpm --filter sample-file-viewer-vue build
 ```

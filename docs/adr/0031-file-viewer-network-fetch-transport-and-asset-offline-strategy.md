@@ -3,13 +3,13 @@
 - **状态**：Accepted
 - **责任人**：@Ateng
 - **决策日期**：2026-10-26
-- **归属领域**：`@atengk/file-viewer`, 前端网络管道, 离线资源治理
+- **归属领域**：`@atengk/file-viewer-vue`, 前端网络管道, 离线资源治理
 
 ---
 
 ## 1. 背景与业务痛点 (Context & Problem Statement)
 
-在 `@atengk/file-viewer` 工业级落地过程中，开发者在真实自验与联调场景中反馈了数项深层阻塞问题：
+在 `@atengk/file-viewer-vue` 工业级落地过程中，开发者在真实自验与联调场景中反馈了数项深层阻塞问题：
 
 1. **三方插件/探针侵入 XHR 导致致命 `InvalidStateError`**：
    在浏览器安装有开发调试插件或页面注入了监控探针（如 `inspector.js`）时，探针通常通过原型链篡改（Monkey Patch）`XMLHttpRequest.prototype.send` 或 `onreadystatechange` 钩子，并在请求完成时无条件读取 `this.responseText`。然而根据 W3C XHR 标准规范，当 `responseType` 被设为 `'blob'` 时，直接访问 `responseText` 会立即抛出原生不可捕获异常：

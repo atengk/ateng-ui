@@ -1,5 +1,5 @@
 {
-  "name": "@atengk/file-viewer",
+  "name": "@atengk/file-viewer-vue",
   "version": "0.1.0",
   "description": "面向现代 Web 应用与企业级系统的纯前端多格式文档与工程图纸浏览器原生离线渲染扩展套件",
   "type": "module",

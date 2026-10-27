@@ -1,5 +1,5 @@
 /**
- * @atengk/file-viewer 单元测试配置。
+ * @atengk/file-viewer-vue 单元测试配置。
  *
  * @author Ateng
  * @since 2026-10-26

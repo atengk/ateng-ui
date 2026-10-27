@@ -27,13 +27,13 @@ Accepted (已接受)
 
 基于“**L2 领域高内聚解耦、轻量与专业双轨并存、高频预设开箱即用、小众重载按需插拔、三级降级资产寻址、全维韧性契约集成**”原则，确立以下系统级架构决策：
 
-### 1. 四层洋葱拓扑定级与独立包坐标 (@atengk/file-viewer)
+### 1. 四层洋葱拓扑定级与独立包坐标 (@atengk/file-viewer-vue)
 
 - **分层归属**：正式归入 **L2 专用能力/领域扩展层 (Extension Layer)**；
 - **npm 坐标与物理目录**：
-  - 命名为 `@atengk/file-viewer`，物理源码目录位于 `packages/file-viewer`；
+  - 命名为 `@atengk/file-viewer-vue`，物理源码目录位于 `packages/file-viewer-vue`；
 - **单向拓扑与中立防线铁律**：
-  - `@atengk/file-viewer` 仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 以及上游引擎 `@file-viewer/*`；
+  - `@atengk/file-viewer-vue` 仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 以及上游引擎 `@file-viewer/*`；
   - **严禁逆向物理依赖 L3 `@atengk/element-plus`**，保持纯 Vue 3 宿主通用性，确保未来可无缝被不同的表现层套件或移动端架构复用；
   - 严格纳入根目录 `CONTEXT-MAP.md` 拓扑登记与 Changesets 独立发版体系。
 
@@ -41,7 +41,7 @@ Accepted (已接受)
 
 - **存量 L3 `AtengFilePreview` 定位保持不变**：
   - 继续保持 0 重型依赖，专注于 HTML5 原生图片、原生 PDF、音视频与代码高亮；
-  - 预留引擎扩展插槽与钩子，当上层业务同时安装并注入 `@atengk/file-viewer` 时，可通过配置无缝接管复杂文档格式；
+  - 预留引擎扩展插槽与钩子，当上层业务同时安装并注入 `@atengk/file-viewer-vue` 时，可通过配置无缝接管复杂文档格式；
 - **新建 L2 `AtengFileViewer` 聚焦专业文档全功能渲染**：
   - 提供专业级渲染容器 `<AtengFileViewer />`，专职处理 Word、Excel、PPT、PDF、OFD、CAD、3D 等高复杂度渲染。
 
@@ -109,7 +109,7 @@ Accepted (已接受)
 
 ### 8. 1:1 独立镜像工程规范 (Sample First)
 
-- 搭建 `apps/sample-file-viewer` 独立自验沙箱工程；
+- 搭建 `apps/sample-file-viewer-vue` 独立自验沙箱工程；
 - 全景覆盖 Word、Excel、PPT、PDF、接口流、大文件进度、403 双态拦截、密码解密、DLP 防泄密与命令式弹窗交互；纳入 Turborepo 统一质量流水线。
 
 ## 影响与推演后果

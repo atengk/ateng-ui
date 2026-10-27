@@ -1,6 +1,6 @@
 # 现代前端工业级架构实践指南
 
-欢迎使用 `@atengk/file-viewer` Markdown 原生流式预览引擎！本组件已全面就绪多级大纲解析、深浅色主题自适应、防泄密水印与全维 DLP 安全隔离。
+欢迎使用 `@atengk/file-viewer-vue` Markdown 原生流式预览引擎！本组件已全面就绪多级大纲解析、深浅色主题自适应、防泄密水印与全维 DLP 安全隔离。
 
 ## 1. 架构定位与四层单向拓扑
 
@@ -8,7 +8,7 @@
 
 - **L0 纯原生核心底座 (`@atengk/core`)**：纯 TypeScript 封装，零 UI、零 Vue、零 React 依赖；
 - **L1 无头响应式层 (`@atengk/vue`)**：纯响应式状态机与无头 Hooks 编排；
-- **L2 专用能力/领域扩展层 (`@atengk/file-viewer`)**：重型文档、表格、幻灯片与矢量图纸多模态预览引擎；
+- **L2 专用能力/领域扩展层 (`@atengk/file-viewer-vue`)**：重型文档、表格、幻灯片与矢量图纸多模态预览引擎；
 - **L3 表现与高阶组件层 (`@atengk/element-plus`)**：企业级设计系统与交互套件。
 
 ## 2. 核心性能基准与离线化
@@ -42,4 +42,4 @@ console.log(typeof parsed.id); // "string"
 
 ## 4. 总结与展望
 
-`@atengk/file-viewer` 坚持纯原生优先、双轨凭据注入与全链路离线可用，为企业级现代 Web 应用提供极致可靠的文档图纸可视化基座。
+`@atengk/file-viewer-vue` 坚持纯原生优先、双轨凭据注入与全链路离线可用，为企业级现代 Web 应用提供极致可靠的文档图纸可视化基座。

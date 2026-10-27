@@ -7,7 +7,7 @@
  *
  * 用法：
  *   node scripts/sync-assets.mjs [targetDir]
- *   例如：node scripts/sync-assets.mjs ../../apps/sample-file-viewer/public/file-viewer
+ *   例如：node scripts/sync-assets.mjs ../../apps/sample-file-viewer-vue/public/file-viewer
  *
  * @author Ateng
  * @since 2026-10-26
@@ -39,7 +39,7 @@ if (process.argv[2]) {
   targetDir = path.resolve(process.cwd(), 'public/file-viewer');
 }
 
-console.log('📦 [@atengk/file-viewer] 开始同步离线内网静态资产...');
+console.log('📦 [@atengk/file-viewer-vue] 开始同步离线内网静态资产...');
 console.log(`📁 目标目录: ${targetDir}`);
 
 if (!fs.existsSync(targetDir)) {
@@ -202,7 +202,7 @@ for (const job of assetCopyJobs) {
     } else {
       fs.writeFileSync(
         destPath,
-        `/* [@atengk/file-viewer] Offline Asset: ${job.targetName} (${job.desc}) */\n`,
+        `/* [@atengk/file-viewer-vue] Offline Asset: ${job.targetName} (${job.desc}) */\n`,
         'utf-8',
       );
       console.log(`  ⚠ [轻量占位] ${job.targetName.padEnd(18)} ➔ 未在 node_modules 找到源文件`);

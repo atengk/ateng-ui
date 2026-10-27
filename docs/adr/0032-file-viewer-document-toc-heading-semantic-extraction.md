@@ -9,7 +9,7 @@
 
 ## 1. 背景与业务痛点 (Context & Problem Statement)
 
-在 `@atengk/file-viewer` 的多格式文档预览场景中，左侧大纲栏（Table of Contents, TOC）原实现存在严重的数据污染与层级错配问题：
+在 `@atengk/file-viewer-vue` 的多格式文档预览场景中，左侧大纲栏（Table of Contents, TOC）原实现存在严重的数据污染与层级错配问题：
 
 1. **底层检索 API 语义混淆**：原实现优先尝试调用底层渲染器的 `collectDocumentAnchors()` 方法。经源码逆向，该 API 的设计目标为“文档全文检索分块定位点（Search Text Anchors）”，会将整篇文档的组合全量文本以及每个普通正文段落（如普通 `<p>`）作为搜索切片一并输出，导致大纲被非标题正文和复合容器严重污染；
 2. **复合容器与正文误收录**：原兜底 DOM 扫描选择器过于宽松，将父级容器（`<article>`, `<section>`）和普通正文误当成标题收录，甚至提取出拼合全文的巨型伪大纲项；

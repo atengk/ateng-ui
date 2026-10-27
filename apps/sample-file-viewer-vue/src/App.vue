@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * sample-file-viewer 主展厅页面。
+ * sample-file-viewer-vue 主展厅页面。
  *
- * 验证 @atengk/file-viewer 对 Word、Excel、PPT、PDF 的渲染，
+ * 验证 @atengk/file-viewer-vue 对 Word、Excel、PPT、PDF 的渲染，
  * 以及 DLP 权限控制、防篡改水印、v-model:page 受控翻页、
  * v-model:sheet 工作表切换、TOC 目录大纲与 preserveViewState 状态记忆恢复。
  *
@@ -21,7 +21,7 @@ import {
   type AtengFileViewerInstance,
   type FileViewerDownloadProgress,
   type FileViewerDiagnostic,
-} from '@atengk/file-viewer';
+} from '@atengk/file-viewer-vue';
 
 interface PresetItem {
   label: string;
@@ -313,7 +313,7 @@ function handleSheetChange(sheet: number | string, sheetName?: string) {
     <header class="sample-header">
       <div class="sample-title-group">
         <span class="sample-badge">L2 专用能力扩展</span>
-        <h1>@atengk/file-viewer 自验展厅</h1>
+        <h1>@atengk/file-viewer-vue 自验展厅</h1>
       </div>
       <p class="sample-subtitle">
         纯前端浏览器原生全格式预览：受控多页翻页、多 Sheet 工作表、TOC 目录大纲、DLP

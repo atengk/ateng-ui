@@ -107,14 +107,14 @@ importers:
         specifier: ^6.0.0
         version: 6.4.4(@types/node@22.20.5)(sass@1.106.0)(yaml@2.9.1)
 
-  apps/sample-file-viewer:
+  apps/sample-file-viewer-vue:
     dependencies:
       '@atengk/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@atengk/file-viewer':
+      '@atengk/file-viewer-vue':
         specifier: workspace:*
-        version: link:../../packages/file-viewer
+        version: link:../../packages/file-viewer-vue
       '@atengk/vue':
         specifier: workspace:*
         version: link:../../packages/vue
@@ -235,7 +235,7 @@ importers:
         specifier: ^3.5.44
         version: 3.5.44(typescript@5.9.3)
 
-  packages/file-viewer:
+  packages/file-viewer-vue:
     dependencies:
       '@atengk/core':
         specifier: workspace:*
