@@ -171,6 +171,28 @@ describe('工单 #148 Canvas 高性能弹幕系统插件测试套件', () => {
       expect(filtered.some(d => d.text === '普通弹幕')).toBe(false);
       engine.destroy();
     });
+
+    it('2.5 过滤结果具备缓存机制并在配置变更时失效重算以消除高频 GC 抖动', () => {
+      const engine = new DanmakuEngine(container, {
+        items: rawItems,
+      });
+
+      const firstCall = engine.getFilteredItems();
+      const secondCall = engine.getFilteredItems();
+      // 连续读取应命中缓存，引用一致
+      expect(firstCall).toBe(secondCall);
+
+      // 动态更新配置使缓存失效
+      engine.config({ filterTypes: ['top'] });
+      const thirdCall = engine.getFilteredItems();
+      expect(thirdCall).not.toBe(firstCall);
+      expect(thirdCall.some(d => d.mode === 'top')).toBe(false);
+
+      // 再次读取命中新缓存
+      expect(engine.getFilteredItems()).toBe(thirdCall);
+
+      engine.destroy();
+    });
   });
 
   describe('3. 动态弹幕发射与操作 API', () => {

@@ -13,9 +13,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { effectScope, nextTick } from 'vue';
 import { AtengVideoPlayer } from '../src/components';
-import { formatVideoTime, useVideoPlaybackHistory } from '../src/composables';
+import { formatVideoTime, useVideoPlaybackHistory, useVideoPlayer } from '../src/composables';
 import { ArtplayerEngine } from '../src/engine/ArtplayerEngine';
 import type { VideoMarkerItem } from '../src/types';
 
@@ -378,6 +378,49 @@ describe('工单 #144 点播深水区特性测试套件', () => {
       expect(wrapper.emitted('marker-click')?.[0]).toEqual([markers[0]]);
       expect(wrapper.emitted('markerClick')).toBeTruthy();
       expect(wrapper.emitted('markerClick')?.[0]).toEqual([markers[0]]);
+    });
+
+    it('useVideoPlaybackHistory 在 effectScope 销毁时应闭环清理定时器', () => {
+      const scope = effectScope();
+      let historyState: ReturnType<typeof useVideoPlaybackHistory> | null = null;
+      scope.run(() => {
+        historyState = useVideoPlaybackHistory('https://example.com/timer-test.mp4', {
+          enabled: true,
+          showPrompt: true,
+          promptDuration: 5000,
+        });
+      });
+      expect(historyState).toBeTruthy();
+
+      // 存入历史并恢复以唤起浮层
+      localStorage.setItem(
+        'at_video_resume_https://example.com/timer-test.mp4',
+        JSON.stringify({ time: 30, updatedAt: Date.now() }),
+      );
+      historyState?.checkAndApplyResume(
+        { seek: vi.fn(), play: vi.fn().mockResolvedValue(undefined) } as unknown as ArtplayerEngine,
+        100,
+      );
+      expect(historyState?.showPrompt.value).toBe(true);
+
+      // 销毁作用域，触发 onScopeDispose
+      scope.stop();
+      expect(historyState?.showPrompt.value).toBe(false);
+    });
+
+    it('useVideoPlayer 应完整透出记忆续播状态与关闭方法', () => {
+      const container = document.createElement('div');
+      const player = useVideoPlayer({
+        container,
+        url: 'https://example.com/resume-hook.mp4',
+        autoResume: true,
+      });
+
+      expect(player.showResumePrompt).toBeDefined();
+      expect(player.resumeTime).toBeDefined();
+      expect(player.formattedResumeTime).toBeDefined();
+      expect(typeof player.closeResumePrompt).toBe('function');
+      player.destroy();
     });
   });
 });

@@ -81,7 +81,15 @@ export class BlobJsonGuard {
       };
 
       if (payload && typeof payload === 'object') {
-        const code = Number(payload.code) || status;
+        let code = status;
+        if (typeof payload.code === 'number' && Number.isFinite(payload.code)) {
+          code = payload.code;
+        } else if (typeof payload.code === 'string') {
+          const parsed = Number(payload.code);
+          if (Number.isFinite(parsed) && !Number.isNaN(parsed)) {
+            code = parsed;
+          }
+        }
         const msg = payload.msg || payload.message || `媒体流请求失败 (HTTP ${status})`;
         const traceId = payload.traceId;
         return new BusinessException(code, msg, traceId);
@@ -174,6 +182,7 @@ export class BlobJsonGuard {
 
   /**
    * 将任意未知异常统一定向转译为强类型 BusinessException。
+   * 搭载多态深度解析防线：智能提取 errorDetail、message、msg 等，绝不向外暴露 [object Object]。
    *
    * @param error 捕获到的异常对象
    * @returns 标准化 BusinessException
@@ -185,6 +194,19 @@ export class BlobJsonGuard {
     if (error instanceof Error) {
       return new BusinessException(500, error.message, undefined, error);
     }
-    return new BusinessException(500, String(error || '播放器发生未知异常'));
+    if (error && typeof error === 'object') {
+      const errObj = error as Record<string, unknown>;
+      const extractedMsg =
+        (typeof errObj.errorDetail === 'string' && errObj.errorDetail) ||
+        (typeof errObj.msg === 'string' && errObj.msg) ||
+        (typeof errObj.message === 'string' && errObj.message) ||
+        (typeof errObj.statusText === 'string' && errObj.statusText) ||
+        (typeof errObj.errorType === 'string' && `流媒体传输异常 (${errObj.errorType})`) ||
+        '视频信号传输中断或媒体源不可达';
+      const code = typeof errObj.code === 'number' ? errObj.code : 500;
+      const traceId = typeof errObj.traceId === 'string' ? errObj.traceId : undefined;
+      return new BusinessException(code, extractedMsg, traceId, error);
+    }
+    return new BusinessException(500, String(error || '视频信号传输中断或媒体源不可达'));
   }
 }

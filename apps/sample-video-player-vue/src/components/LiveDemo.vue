@@ -91,6 +91,7 @@ const onError = (err: unknown): void => {
           :url="selectedStream"
           :type="streamType"
           :is-live="isLive"
+          :autoplay="true"
           :live-buffer-latency-chasing="enableChasing"
           :chase-threshold="chaseThreshold"
           :reconnect="
@@ -112,13 +113,13 @@ const onError = (err: unknown): void => {
           @ready="onReady"
           @error="onError"
         >
-          <!-- 自定义硬失败状态插槽 -->
+          <!-- 自定义硬失败状态插槽 (Q2 A 规范化领域中立文案) -->
           <template #reconnect-failed="{ retry }">
             <div class="reconnect-fail-box">
               <span class="fail-icon">📡</span>
-              <h4>直播信号源连接已中断</h4>
-              <p>系统已尝试自动重连 {{ maxRetries }} 次，当前主播或推流网关暂时离线。</p>
-              <button type="button" class="btn btn--primary" @click="retry">手动重新拉流</button>
+              <h4>视频信号源连接已中断</h4>
+              <p>系统已尝试自动重连 {{ maxRetries }} 次，网络信号受阻或推流源暂时不可达。</p>
+              <button type="button" class="btn btn--primary" @click="retry">重新拉取信号</button>
             </div>
           </template>
         </AtengVideoPlayer>

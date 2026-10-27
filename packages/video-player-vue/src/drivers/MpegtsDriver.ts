@@ -21,7 +21,8 @@ export class MpegtsDriver {
   private video: HTMLVideoElement | null = null;
   private chasingTimer: ReturnType<typeof setInterval> | null = null;
   private isDestroyed = false;
-  private originalPlaybackRate = 1.0;
+  private targetPlaybackRate = 1.0;
+  private isChasing = false;
 
   constructor(video: HTMLVideoElement, url: string, options: MpegtsDriverOptions = {}) {
     this.video = video;
@@ -43,6 +44,19 @@ export class MpegtsDriver {
       chaseThreshold = 3,
       onError,
     } = options;
+
+    // 0. 静默底层非受管控制台日志输出，异常统一收敛至标准因果异常体系 (Q3 A)
+    const loggingControl =
+      mpegts.LoggingControl ||
+      (mpegts as unknown as { default?: { LoggingControl?: typeof mpegts.LoggingControl } }).default
+        ?.LoggingControl;
+    if (loggingControl) {
+      loggingControl.enableAll = false;
+      loggingControl.enableError = false;
+      loggingControl.enableWarn = false;
+      loggingControl.enableInfo = false;
+      loggingControl.enableDebug = false;
+    }
 
     // 1. 浏览器 MSE 兼容性校验（防御 ESM/CJS/Mock 双模导出互操作差异）
     const getFeatures =
@@ -121,7 +135,7 @@ export class MpegtsDriver {
 
     // 5. 毫秒级低延迟追帧状态机（仅在直播态生效）
     if (isLive && liveBufferLatencyChasing) {
-      this.originalPlaybackRate = video.playbackRate || 1.0;
+      this.targetPlaybackRate = video.playbackRate || 1.0;
       this.setupLatencyChasing(video, chaseThreshold);
     }
   }
@@ -138,6 +152,11 @@ export class MpegtsDriver {
         return;
       }
 
+      // 若当前未处于追帧加速期，动态感知并记忆用户主动设置的目标播放倍速
+      if (!this.isChasing && video.playbackRate !== 1.25) {
+        this.targetPlaybackRate = video.playbackRate || 1.0;
+      }
+
       const buffered = video.buffered;
       if (!buffered || buffered.length === 0) {
         return;
@@ -150,13 +169,16 @@ export class MpegtsDriver {
       // 若积压延迟超过 2 倍门限 (如 > 6s)，直接跳帧瞬移至最新关键帧
       if (latency > threshold * 2) {
         video.currentTime = Math.max(0, bufferEnd - 0.5);
-        video.playbackRate = this.originalPlaybackRate;
+        video.playbackRate = this.targetPlaybackRate;
+        this.isChasing = false;
       } else if (latency > threshold) {
         // 若滞后处于 3~6s，温和升速至 1.25x 加速追赶
+        this.isChasing = true;
         video.playbackRate = 1.25;
-      } else if (latency <= 1.0 && video.playbackRate !== this.originalPlaybackRate) {
-        // 追赶对齐至 1 秒以内，平稳恢复原始正常播放倍速
-        video.playbackRate = this.originalPlaybackRate;
+      } else if (latency <= 1.0 && this.isChasing) {
+        // 追赶对齐至 1 秒以内，平稳恢复用户设定的目标播放倍速
+        video.playbackRate = this.targetPlaybackRate;
+        this.isChasing = false;
       }
     }, 1000);
   }

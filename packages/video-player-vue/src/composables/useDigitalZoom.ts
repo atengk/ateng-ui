@@ -9,7 +9,7 @@
  */
 
 import { computed, getCurrentScope, onScopeDispose, ref, toValue, type ComputedRef } from 'vue';
-import type { DigitalZoomOptions, UseDigitalZoomReturn } from '../types';
+import type { Coordinate2D, DigitalZoomOptions, UseDigitalZoomReturn } from '../types';
 
 /**
  * 限制数值在 [min, max] 区间内。
@@ -58,11 +58,7 @@ export function useDigitalZoom(options: DigitalZoomOptions = {}): UseDigitalZoom
   /**
    * 应用边界阻尼，确保放大后内容不被拖出视口。
    */
-  const applyBoundaryConstraint = (
-    x: number,
-    y: number,
-    currentScale: number,
-  ): { x: number; y: number } => {
+  const applyBoundaryConstraint = (x: number, y: number, currentScale: number): Coordinate2D => {
     if (currentScale <= 1.0) {
       return { x: 0, y: 0 };
     }
@@ -114,7 +110,7 @@ export function useDigitalZoom(options: DigitalZoomOptions = {}): UseDigitalZoom
   /**
    * 直接设置目标缩放倍率。
    */
-  const setZoom = (targetScale: number, origin?: { x: number; y: number }): void => {
+  const setZoom = (targetScale: number, origin?: Coordinate2D): void => {
     const prevScale = scale.value;
     const nextScale = clamp(Number(targetScale.toFixed(2)), minScale, maxScale);
 
@@ -217,11 +213,13 @@ export function useDigitalZoom(options: DigitalZoomOptions = {}): UseDigitalZoom
    * 处理滚轮缩放。
    */
   const handleWheel = (event: WheelEvent): void => {
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
     const delta = event.deltaY < 0 ? step : -step;
 
     // 计算鼠标在当前容器中的相对坐标
-    let origin: { x: number; y: number } | undefined;
+    let origin: Coordinate2D | undefined;
     const el = toValue(options.containerRef) || (event.currentTarget as HTMLElement);
     if (el && typeof el.getBoundingClientRect === 'function') {
       const rect = el.getBoundingClientRect();

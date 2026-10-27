@@ -118,6 +118,18 @@ describe('工单 #142 企业级鉴权与防线测试', () => {
       expect(mockSetRequestHeader).toHaveBeenCalledWith('token', 'token-xyz');
       expect(mockSetRequestHeader).toHaveBeenCalledWith('Authorization', 'Bearer token-xyz');
     });
+
+    it('1.6 injectHeaders 遇到既有小写 authorization 或 token 时不应重复追加冲突 Header', () => {
+      authManager.setToken('token-abc');
+      const headers = TokenInjector.injectHeaders({
+        authorization: 'Bearer existing-custom-token',
+        'content-type': 'application/json',
+      });
+      // 既有 authorization 保持原样，未存在的 token 正常注入
+      expect(headers['authorization']).toBe('Bearer existing-custom-token');
+      expect(headers['Authorization']).toBeUndefined();
+      expect(headers['token']).toBe('token-abc');
+    });
   });
 
   describe('2. BlobJsonGuard 双态异常识别防线 (ADR-0004 规范)', () => {
@@ -189,6 +201,17 @@ describe('工单 #142 企业级鉴权与防线测试', () => {
       await expect(
         BlobJsonGuard.probeMediaStream('https://video.example.com/ok.mp4'),
       ).resolves.not.toThrow();
+    });
+
+    it('2.4 parseJsonError 遇非数字错误码时应安全兜底为 status 而非 NaN', () => {
+      const err = BlobJsonGuard.parseJsonError(
+        JSON.stringify({ code: 'ERR_MEDIA_DENIED', msg: '拒绝访问' }),
+        403,
+      );
+      expect(err).toBeInstanceOf(BusinessException);
+      expect(err?.code).toBe(403);
+      expect(Number.isNaN(err?.code)).toBe(false);
+      expect(err?.msg).toBe('拒绝访问');
     });
   });
 

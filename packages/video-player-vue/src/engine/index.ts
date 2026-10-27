@@ -5,4 +5,5 @@
  * @since 2026-10-26
  */
 
+export * from './IVideoPlayerEngine';
 export * from './ArtplayerEngine';

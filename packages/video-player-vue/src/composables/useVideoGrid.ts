@@ -52,6 +52,7 @@ export function useVideoGrid(options: UseVideoGridOptions = {}): UseVideoGridRet
 
   let tourTimer: ReturnType<typeof setInterval> | null = null;
   let activeTourPool: VideoGridChannel[] = [];
+  let hasExplicitTourPool = false;
   let tourStepCallback:
     ((pageIndex: number, currentChannels: VideoGridChannel[]) => void) | undefined;
 
@@ -67,6 +68,14 @@ export function useVideoGrid(options: UseVideoGridOptions = {}): UseVideoGridRet
         const first = newChannels[0];
         if (activeChannelId.value === null && first) {
           activeChannelId.value = first.id;
+        }
+        // 若处于动态自动轮巡状态且未指定静态池，动态校准页码防止越界
+        if (isTouring.value && !hasExplicitTourPool) {
+          const cap = capacity.value > 0 ? capacity.value : 1;
+          const totalPages = Math.ceil(newChannels.length / cap);
+          if (tourPageIndex.value >= totalPages) {
+            tourPageIndex.value = 0;
+          }
         }
       }
     },
@@ -200,9 +209,9 @@ export function useVideoGrid(options: UseVideoGridOptions = {}): UseVideoGridRet
   const startTour = (tourOptions: VideoGridTourOptions = {}): void => {
     stopTour();
 
-    const pool =
-      tourOptions.pool && tourOptions.pool.length > 0 ? tourOptions.pool : channels.value;
-    activeTourPool = [...pool];
+    const explicitPool = tourOptions.pool;
+    hasExplicitTourPool = Boolean(explicitPool && explicitPool.length > 0);
+    activeTourPool = explicitPool && explicitPool.length > 0 ? [...explicitPool] : [];
     tourStepCallback = tourOptions.onStep;
     const interval = Math.max(tourOptions.interval ?? 10000, 1000);
 
@@ -224,43 +233,66 @@ export function useVideoGrid(options: UseVideoGridOptions = {}): UseVideoGridRet
       tourTimer = null;
     }
     isTouring.value = false;
+    hasExplicitTourPool = false;
+  };
+
+  /**
+   * 获取当前有效轮巡数据源列表。
+   */
+  const getTourSourceList = (): VideoGridChannel[] => {
+    return hasExplicitTourPool ? activeTourPool : channels.value;
+  };
+
+  /**
+   * 提取当前轮巡分页元信息。
+   */
+  const getTourPageMeta = (): {
+    sourceList: VideoGridChannel[];
+    cap: number;
+    totalPages: number;
+  } => {
+    const sourceList = getTourSourceList();
+    const cap = capacity.value > 0 ? capacity.value : 1;
+    const totalPages = Math.ceil(sourceList.length / cap);
+    return {
+      sourceList,
+      cap,
+      totalPages: totalPages > 0 ? totalPages : 1,
+    };
+  };
+
+  /**
+   * 触发当前轮巡批次回调。
+   */
+  const dispatchTourStep = (sourceList: VideoGridChannel[], cap: number): void => {
+    if (tourStepCallback && sourceList.length > 0) {
+      const start = (tourPageIndex.value * cap) % sourceList.length;
+      tourStepCallback(tourPageIndex.value, sourceList.slice(start, start + cap));
+    }
   };
 
   /**
    * 轮巡翻至下一批。
    */
   const nextTourPage = (): void => {
-    const sourceList = activeTourPool.length > 0 ? activeTourPool : channels.value;
+    const { sourceList, cap, totalPages } = getTourPageMeta();
     if (sourceList.length === 0) {
       return;
     }
-    const cap = capacity.value;
-    const totalPages = Math.ceil(sourceList.length / cap);
-    tourPageIndex.value = (tourPageIndex.value + 1) % (totalPages > 0 ? totalPages : 1);
-
-    if (tourStepCallback) {
-      const start = (tourPageIndex.value * cap) % sourceList.length;
-      tourStepCallback(tourPageIndex.value, sourceList.slice(start, start + cap));
-    }
+    tourPageIndex.value = (tourPageIndex.value + 1) % totalPages;
+    dispatchTourStep(sourceList, cap);
   };
 
   /**
    * 轮巡翻至上一批。
    */
   const prevTourPage = (): void => {
-    const sourceList = activeTourPool.length > 0 ? activeTourPool : channels.value;
+    const { sourceList, cap, totalPages } = getTourPageMeta();
     if (sourceList.length === 0) {
       return;
     }
-    const cap = capacity.value;
-    const totalPages = Math.ceil(sourceList.length / cap);
-    tourPageIndex.value =
-      (tourPageIndex.value - 1 + totalPages) % (totalPages > 0 ? totalPages : 1);
-
-    if (tourStepCallback) {
-      const start = (tourPageIndex.value * cap) % sourceList.length;
-      tourStepCallback(tourPageIndex.value, sourceList.slice(start, start + cap));
-    }
+    tourPageIndex.value = (tourPageIndex.value - 1 + totalPages) % totalPages;
+    dispatchTourStep(sourceList, cap);
   };
 
   if (getCurrentScope()) {

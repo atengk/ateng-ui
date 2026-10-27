@@ -21,6 +21,7 @@ const duration = ref(0);
 const isFullscreen = ref(false);
 const isWebFullscreen = ref(false);
 const screenshotUrl = ref<string>('');
+const screenshotTip = ref<string>('');
 
 const onReady = (engine: IVideoPlayerEngine) => {
   duration.value = engine.duration;
@@ -60,8 +61,14 @@ const handleSpeed = (rate: number) => {
 
 const handleScreenshot = async () => {
   if (playerRef.value) {
+    screenshotTip.value = '';
     const dataUrl = await playerRef.value.screenshot();
-    screenshotUrl.value = dataUrl;
+    if (dataUrl) {
+      screenshotUrl.value = dataUrl;
+    } else {
+      screenshotTip.value =
+        '⚠️ 当前视频源由于跨域限制未响应 CORS 授权头，浏览器原生 Canvas 触发 Tainted 安全隔离限制导出。支持同源或配置了 Access-Control-Allow-Origin: * 的视频源正常抓拍。';
+    }
   }
 };
 
@@ -165,6 +172,9 @@ const handleToggleWebFullscreen = () => {
         </div>
 
         <!-- 截图抓拍预览 -->
+        <div v-if="screenshotTip" class="vod-demo__screenshot-tip">
+          <p>{{ screenshotTip }}</p>
+        </div>
         <div v-if="screenshotUrl" class="vod-demo__screenshot-box">
           <h4>抓拍截图结果 (Base64 Snapshot)：</h4>
           <img :src="screenshotUrl" alt="抓拍快照" class="screenshot-img" />
@@ -344,5 +354,20 @@ const handleToggleWebFullscreen = () => {
   max-height: 180px;
   border-radius: 4px;
   border: 1px solid #cbd5e1;
+}
+
+.vod-demo__screenshot-tip {
+  margin-top: 12px;
+  background-color: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #b45309;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.vod-demo__screenshot-tip p {
+  margin: 0;
 }
 </style>

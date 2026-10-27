@@ -63,6 +63,9 @@ export class TokenInjector {
   /**
    * 为既有 Headers 注入双轨凭据。
    *
+   * 实施忽略大小写检测，若既有 Headers 中已存在对应凭据（如小写 authorization），
+   * 则遵循已有配置，避免重复追加产生冲突。
+   *
    * @param headers 既有请求头
    * @returns 注入凭据后的请求头集合
    */
@@ -71,8 +74,12 @@ export class TokenInjector {
     const authHeaders = this.getHeaders();
 
     for (const [key, val] of Object.entries(authHeaders)) {
-      if (val && !injected[key]) {
-        injected[key] = val;
+      if (val) {
+        const lowerKey = key.toLowerCase();
+        const existingKey = Object.keys(injected).find(k => k.toLowerCase() === lowerKey);
+        if (!existingKey) {
+          injected[key] = val;
+        }
       }
     }
 
@@ -159,11 +166,8 @@ export class TokenInjector {
     tokenOverrides?: string,
   ): Record<string, string> {
     if (tokenOverrides) {
-      return {
-        ...headers,
-        token: tokenOverrides,
-        Authorization: `Bearer ${tokenOverrides}`,
-      };
+      const tempInjector = new TokenInjector({ tokenGetter: () => tokenOverrides });
+      return tempInjector.injectHeaders(headers);
     }
     return defaultTokenInjector.injectHeaders(headers);
   }

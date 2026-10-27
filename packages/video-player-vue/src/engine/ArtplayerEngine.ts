@@ -19,6 +19,16 @@ import type {
 } from '../types';
 
 /**
+ * 快捷键键码语义化常量定义。
+ */
+const KEY_CODE_F = '70';
+const KEY_CODE_M = '77';
+const KEY_CODE_LEFT_BRACKET = '219';
+const KEY_CODE_RIGHT_BRACKET = '221';
+const KEY_CODE_COMMA = '188';
+const KEY_CODE_PERIOD = '190';
+
+/**
  * 引擎事件监听回调集合。
  */
 export interface PlayerEngineEventHandlers {
@@ -82,6 +92,9 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
       miniProgressBar: options.miniProgressBar ?? true,
       theme: options.theme ?? '#409EFF',
       screenshot: options.screenshot ?? true,
+      moreVideoAttr: {
+        crossOrigin: 'anonymous',
+      },
     };
 
     if (options.playbackRates && options.playbackRates.length > 0) {
@@ -112,23 +125,18 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
     }
 
     // 默认内置 HLS 与 FLV 解封装驱动器，支持用户自定义 customType 扩展或覆盖
+    const createHlsDriver = (video: HTMLVideoElement, url: string): void => {
+      const driver = new HlsDriver(video, url, {
+        autoplay: options.autoplay,
+        auth: options.auth !== false,
+        onError: err => this.handlers.onError?.(err),
+      });
+      this.registerTeardownHook(() => driver.destroy());
+    };
+
     const defaultCustomType: Record<string, (video: HTMLVideoElement, url: string) => void> = {
-      m3u8: (video: HTMLVideoElement, url: string) => {
-        const driver = new HlsDriver(video, url, {
-          autoplay: options.autoplay,
-          auth: options.auth !== false,
-          onError: err => this.handlers.onError?.(err),
-        });
-        this.registerTeardownHook(() => driver.destroy());
-      },
-      hls: (video: HTMLVideoElement, url: string) => {
-        const driver = new HlsDriver(video, url, {
-          autoplay: options.autoplay,
-          auth: options.auth !== false,
-          onError: err => this.handlers.onError?.(err),
-        });
-        this.registerTeardownHook(() => driver.destroy());
-      },
+      m3u8: createHlsDriver,
+      hls: createHlsDriver,
       flv: (video: HTMLVideoElement, url: string) => {
         const driver = new MpegtsDriver(video, url, {
           isLive: options.isLive ?? true,
@@ -172,27 +180,27 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
 
     // 1. 为 Artplayer 内部快捷键字典注册扩展按键
     try {
-      this.artInstance.hotkey.add('70', () => {
+      this.artInstance.hotkey.add(KEY_CODE_F, () => {
         // 'F' 键切换全屏
         this.toggleFullscreen();
       });
-      this.artInstance.hotkey.add('77', () => {
+      this.artInstance.hotkey.add(KEY_CODE_M, () => {
         // 'M' 键切换静音
         this.setMuted(!this.muted);
       });
-      this.artInstance.hotkey.add('219', () => {
+      this.artInstance.hotkey.add(KEY_CODE_LEFT_BRACKET, () => {
         // '[' 键后退单帧
         this.stepFrame(-1);
       });
-      this.artInstance.hotkey.add('221', () => {
+      this.artInstance.hotkey.add(KEY_CODE_RIGHT_BRACKET, () => {
         // ']' 键前进单帧
         this.stepFrame(1);
       });
-      this.artInstance.hotkey.add('188', () => {
+      this.artInstance.hotkey.add(KEY_CODE_COMMA, () => {
         // ',' 键后退单帧
         this.stepFrame(-1);
       });
-      this.artInstance.hotkey.add('190', () => {
+      this.artInstance.hotkey.add(KEY_CODE_PERIOD, () => {
         // '.' 键前进单帧
         this.stepFrame(1);
       });
@@ -267,8 +275,19 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
         '.art-progress-highlight, .art-highlight',
       ) as HTMLElement | null;
       if (highlightEl) {
-        const text = highlightEl.innerText || highlightEl.getAttribute('title') || '';
-        const matched = markers.find(m => m.text === text) || markers[0];
+        const text =
+          highlightEl.innerText?.trim() ||
+          highlightEl.textContent?.trim() ||
+          highlightEl.getAttribute('title')?.trim() ||
+          '';
+        const els = Array.from(
+          container.querySelectorAll<HTMLElement>('.art-progress-highlight, .art-highlight'),
+        );
+        const idx = els.indexOf(highlightEl);
+        const sortedMarkers = [...markers].sort((a, b) => a.time - b.time);
+        const matched =
+          (text ? markers.find(m => m.text && (m.text === text || text.includes(m.text))) : null) ??
+          (idx >= 0 ? (sortedMarkers[idx] ?? markers[idx]) : null);
         if (matched) {
           this.seek(matched.time);
           this.handlers.onMarkerClick?.(matched);
@@ -281,13 +300,16 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
       container.removeEventListener('click', handleMarkerClick);
     });
 
-    // ready 时注入打点颜色定制
+    // ready 时注入打点颜色定制（对齐内部时间升序排序与文本关联）
     this.artInstance.on('ready', () => {
+      const sortedMarkers = [...markers].sort((a, b) => a.time - b.time);
       const els = container.querySelectorAll<HTMLElement>(
         '.art-progress-highlight, .art-highlight',
       );
       els.forEach((el, index) => {
-        const m = markers[index];
+        const text = el.innerText || el.getAttribute('title') || '';
+        const m =
+          sortedMarkers.find(item => item.text && item.text === text) ?? sortedMarkers[index];
         if (m?.color) {
           el.style.backgroundColor = m.color;
         }
@@ -452,8 +474,13 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
     if (!this.artInstance) {
       return '';
     }
-    const dataUrl = await this.artInstance.getDataURL();
-    return dataUrl ?? '';
+    try {
+      const dataUrl = await this.artInstance.getDataURL();
+      return dataUrl ?? '';
+    } catch {
+      // 跨域媒体源若未配置 CORS 标头，Canvas toDataURL 会被浏览器污染限制，进行安全降级保底
+      return '';
+    }
   }
 
   enterFullscreen(): void {
@@ -520,13 +547,19 @@ export class ArtplayerEngine implements IVideoPlayerEngine {
     }
     this.teardownHooks = [];
 
-    // 3 & 4. 彻底解绑 video 并调用 load() 强制垃圾回收
+    // 3. 释放与解绑 video.src / video.srcObject
     if (this.artInstance?.template?.$video) {
       const video = this.artInstance.template.$video as HTMLVideoElement;
       try {
         video.pause();
         video.removeAttribute('src');
         video.src = '';
+      } catch {
+        // 防御性忽略 DOM 异常
+      }
+
+      // 4. 调用 video.load() 强制触发 GPU / 硬件解码缓冲释放
+      try {
         if (typeof video.load === 'function') {
           video.load();
         }

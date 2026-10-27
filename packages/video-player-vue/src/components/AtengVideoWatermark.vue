@@ -250,10 +250,14 @@ const setupTamperProofObserver = (): void => {
     }
     // 校验关键样式是否被恶意注入修改
     const style = targetEl.style;
+    const parsedOpacity = parseFloat(style.opacity);
+    const isOpacityTampered =
+      style.opacity === '0' || (Number.isFinite(parsedOpacity) && parsedOpacity <= 0.05);
+
     const isHidden =
       style.display === 'none' ||
       style.visibility === 'hidden' ||
-      style.opacity === '0' ||
+      isOpacityTampered ||
       targetEl.hidden;
 
     if (isHidden || !style.backgroundImage.includes(backgroundUrl.value)) {

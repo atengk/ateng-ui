@@ -12,7 +12,7 @@
  * @since 2026-10-26
  */
 
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import {
   AtengVideoGrid,
   type AtengVideoGridInstance,
@@ -22,119 +22,145 @@ import {
 
 const gridRef = ref<AtengVideoGridInstance | null>(null);
 
-// 16 路模拟监控通道数据
+// 辅助生成视觉鲜明的模拟监控机位 SVG 封面
+const createCameraPoster = (id: string, name: string, bg: string, tag: string) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+    <rect width="640" height="360" fill="${bg}"/>
+    <rect x="24" y="24" width="8" height="24" fill="#38bdf8"/>
+    <text x="42" y="42" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="#ffffff">${id}</text>
+    <rect x="490" y="24" width="126" height="26" rx="4" fill="rgba(34,197,94,0.2)"/>
+    <circle cx="506" cy="37" r="4" fill="#22c55e"/>
+    <text x="518" y="42" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#4ade80">● 实时监控</text>
+    <text x="320" y="170" dominant-baseline="middle" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" font-weight="800" fill="#f8fafc">${name}</text>
+    <rect x="220" y="210" width="200" height="30" rx="6" fill="rgba(255,255,255,0.08)"/>
+    <text x="320" y="230" dominant-baseline="middle" text-anchor="middle" font-family="monospace" font-size="13" fill="#cbd5e1">${tag}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
+// 实测国内极速秒开高可用 CDN 视频矩阵 (Video.js 海洋、W3C 科幻 Sintel、MDN 花卉、W3Schools 熊抓鱼、W3Schools 兔子、Artplayer 官方源，100% 免翻墙秒开)
+const verifiedVideoSources = [
+  'https://vjs.zencdn.net/v/oceans.mp4',
+  'https://media.w3.org/2010/05/sintel/trailer.mp4',
+  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  'https://www.w3schools.com/html/movie.mp4',
+  'https://www.w3schools.com/html/mov_bbb.mp4',
+  'https://artplayer.org/assets/sample/video.mp4',
+];
+
+// 16 路各具特色的模拟监控通道数据（具备鲜明辨识度、不同封面与国内高可用极速测试源）
 const mockChannels: VideoGridChannel[] = [
   {
     id: 'cam-01',
     title: '01# 园区东门全景高清球机',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[0],
+    subUrl: verifiedVideoSources[0],
+    poster: createCameraPoster('CAM-01', '园区东门全景球机', '#0f172a', '东门主卡口 1080P'),
   },
   {
     id: 'cam-02',
     title: '02# 园区西门车道卡口',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[1],
+    subUrl: verifiedVideoSources[1],
+    poster: createCameraPoster('CAM-02', '西门人车道卡口', '#1e1b4b', '西门人车抓拍 1080P'),
   },
   {
     id: 'cam-03',
     title: '03# 行政大楼 A 座大堂',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[2],
+    subUrl: verifiedVideoSources[2],
+    poster: createCameraPoster('CAM-03', '行政楼大堂门禁', '#1e293b', '大堂全景 1080P'),
   },
   {
     id: 'cam-04',
     title: '04# 核心机房防静电通道',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[3],
+    subUrl: verifiedVideoSources[3],
+    poster: createCameraPoster('CAM-04', '核心数据中心机房', '#064e3b', '机房重点防护 1080P'),
   },
   {
     id: 'cam-05',
     title: '05# 地下车库负一层 B 区',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[4],
+    subUrl: verifiedVideoSources[4],
+    poster: createCameraPoster('CAM-05', '地下车库负一层B区', '#3b0764', 'B区车牌识别 1080P'),
   },
   {
     id: 'cam-06',
     title: '06# 研发中心连廊周界',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[5],
+    subUrl: verifiedVideoSources[5],
+    poster: createCameraPoster('CAM-06', '研发中心连廊周界', '#172554', '周界红外入侵 1080P'),
   },
   {
     id: 'cam-07',
     title: '07# 职工餐厅中央取餐区',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[0],
+    subUrl: verifiedVideoSources[0],
+    poster: createCameraPoster('CAM-07', '职工餐厅取餐区', '#2e1065', '食品卫生监控 1080P'),
   },
   {
     id: 'cam-08',
     title: '08# 动力机房强电配电室',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[1],
+    subUrl: verifiedVideoSources[1],
+    poster: createCameraPoster('CAM-08', '强电配电动力室', '#450a0a', '电力高温巡检 1080P'),
   },
   {
     id: 'cam-09',
     title: '09# 屋顶直升机停机坪',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[2],
+    subUrl: verifiedVideoSources[2],
+    poster: createCameraPoster('CAM-09', '屋顶直升机停机坪', '#083344', '高空全景视野 1080P'),
   },
   {
     id: 'cam-10',
     title: '10# 物流装卸货平台西',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[3],
+    subUrl: verifiedVideoSources[3],
+    poster: createCameraPoster('CAM-10', '物流装卸平台西', '#14532d', '货运出入口 1080P'),
   },
   {
     id: 'cam-11',
     title: '11# 园区南门景观步道',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[4],
+    subUrl: verifiedVideoSources[4],
+    poster: createCameraPoster('CAM-11', '南门景观休闲步道', '#1f2937', '南门全景球机 1080P'),
   },
   {
     id: 'cam-12',
     title: '12# 贵宾接待室走廊',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[5],
+    subUrl: verifiedVideoSources[5],
+    poster: createCameraPoster('CAM-12', '贵宾接待室走廊', '#312e81', '内部安全通道 1080P'),
   },
   {
     id: 'cam-13',
     title: '13# 消防水泵房与喷淋监测',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[0],
+    subUrl: verifiedVideoSources[0],
+    poster: createCameraPoster('CAM-13', '消防水泵房喷淋', '#701a75', '水压自动遥测 1080P'),
   },
   {
     id: 'cam-14',
     title: '14# 外部市政道路衔接处',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[1],
+    subUrl: verifiedVideoSources[1],
+    poster: createCameraPoster('CAM-14', '市政外围衔接道路', '#365314', '周边交通卡口 1080P'),
   },
   {
     id: 'cam-15',
     title: '15# 太阳能微电网监控塔',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[2],
+    subUrl: verifiedVideoSources[2],
+    poster: createCameraPoster('CAM-15', '光伏微电网监控塔', '#713f12', '清洁能源巡检 1080P'),
   },
   {
     id: 'cam-16',
     title: '16# 监控总指挥中心大屏',
-    url: 'https://artplayer.org/assets/sample/video.mp4',
-    subUrl: 'https://artplayer.org/assets/sample/video.mp4?stream=sub&res=360p',
-    poster: 'https://artplayer.org/assets/sample/poster.jpg',
+    url: verifiedVideoSources[3],
+    subUrl: verifiedVideoSources[3],
+    poster: createCameraPoster('CAM-16', '指挥中心总控台', '#09090b', '总控中枢全局 1080P'),
   },
 ];
 
@@ -172,6 +198,63 @@ const currentActiveTitle = computed(() => {
   return target ? target.title : '未选中通道';
 });
 
+const isTouringActive = computed(() => {
+  return (
+    gridRef.value?.gridState?.isTouring?.value ?? gridRef.value?.state?.isTouring?.value ?? false
+  );
+});
+
+const currentTourPage = computed(() => {
+  const p =
+    gridRef.value?.gridState?.tourPageIndex?.value ??
+    gridRef.value?.state?.tourPageIndex?.value ??
+    0;
+  return p + 1;
+});
+
+const totalTourPages = computed(() => {
+  const cap =
+    currentLayout.value === '1x1'
+      ? 1
+      : currentLayout.value === '2x2'
+        ? 4
+        : currentLayout.value === '3x3'
+          ? 9
+          : currentLayout.value === '4x4'
+            ? 16
+            : currentLayout.value === '1+5'
+              ? 6
+              : 8;
+  return Math.ceil(channels.value.length / cap);
+});
+
+const tourRemainingSeconds = ref(6);
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+const startCountdown = () => {
+  tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    if (tourRemainingSeconds.value <= 1) {
+      tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
+    } else {
+      tourRemainingSeconds.value -= 1;
+    }
+  }, 1000);
+};
+
+const stopCountdown = () => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
+};
+
+onBeforeUnmount(() => {
+  stopCountdown();
+});
+
 // 事件处理
 const handleSelect = (channel: VideoGridChannel) => {
   activeChannelId.value = channel.id;
@@ -192,28 +275,33 @@ const handleStartTour = () => {
     interval: tourInterval.value,
     pool: channels.value,
     onStep: (page, items) => {
+      tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
       addTourLog(
         `🔄 自动轮巡触发: 第 ${page + 1} 批，展示通道: ${items.map(i => i.title.slice(0, 3)).join(', ')}`,
       );
     },
   });
+  startCountdown();
   addTourLog(`🚀 自动轮巡已启动，间隔: ${tourInterval.value / 1000} 秒`);
 };
 
 const handleStopTour = () => {
   if (!gridRef.value) return;
   gridRef.value.stopTour();
+  stopCountdown();
   addTourLog('⏹️ 自动轮巡已停止');
 };
 
 const handleNextTour = () => {
   if (!gridRef.value) return;
   gridRef.value.nextTourPage();
+  tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
 };
 
 const handlePrevTour = () => {
   if (!gridRef.value) return;
   gridRef.value.prevTourPage();
+  tourRemainingSeconds.value = Math.round(tourInterval.value / 1000);
 };
 
 const handleToggleMaximizeCurrent = () => {
@@ -241,8 +329,9 @@ const handleToggleMaximizeCurrent = () => {
           <span class="badge badge--audio" :class="{ 'badge--active': audioExclusive }">
             {{ audioExclusive ? '🔇 多路音频互斥: 开启' : '多路混音' }}
           </span>
-          <span v-if="gridRef?.state.isTouring.value" class="badge badge--touring">
-            🔄 自动轮巡中 (第 {{ (gridRef?.state.tourPageIndex.value ?? 0) + 1 }} 批)
+          <span v-if="isTouringActive" class="badge badge--touring">
+            🔄 自动轮巡中: {{ tourRemainingSeconds }}s 后翻页 (第 {{ currentTourPage }} /
+            {{ totalTourPages }} 批)
           </span>
         </div>
       </div>
@@ -258,6 +347,7 @@ const handleToggleMaximizeCurrent = () => {
           :audio-exclusive="audioExclusive"
           :gap="gridGap"
           :theme-color="themeColor"
+          :autoplay="true"
           @select="handleSelect"
           @channel-dblclick="handleDoubleClick"
           @restore="handleRestore"
@@ -267,10 +357,13 @@ const handleToggleMaximizeCurrent = () => {
             <div class="custom-header">
               <span class="cam-status-dot" />
               <span class="cam-name">{{ channel.title }}</span>
+              <span class="cam-badge cam-badge--batch"
+                >第 {{ currentTourPage }}/{{ totalTourPages }} 批</span
+              >
               <span v-if="isMaximized" class="cam-badge cam-badge--max">独占全屏</span>
               <span v-else-if="isActive" class="cam-badge cam-badge--focus">当前聚焦</span>
               <span class="cam-stream-type">
-                {{ channel.effectiveUrl.includes('sub') ? '次码流 (360P)' : '主流 (1080P)' }}
+                {{ autoSubStream && currentLayout !== '1x1' ? '次码流 (360P)' : '主流 (1080P)' }}
               </span>
             </div>
           </template>
@@ -364,7 +457,7 @@ const handleToggleMaximizeCurrent = () => {
         </div>
         <div class="tour-actions">
           <button
-            v-if="!gridRef?.state.isTouring.value"
+            v-if="!isTouringActive"
             type="button"
             class="action-btn action-btn--success"
             @click="handleStartTour"
@@ -377,10 +470,14 @@ const handleToggleMaximizeCurrent = () => {
             class="action-btn action-btn--danger"
             @click="handleStopTour"
           >
-            ⏹️ 停止自动轮巡
+            ⏹️ 停止自动轮巡 ({{ tourRemainingSeconds }}s)
           </button>
-          <button type="button" class="action-btn" @click="handlePrevTour">⏮️ 上一批</button>
-          <button type="button" class="action-btn" @click="handleNextTour">⏭️ 下一批</button>
+          <button type="button" class="action-btn" @click="handlePrevTour">
+            ⏮️ 上一批 (手动翻页)
+          </button>
+          <button type="button" class="action-btn" @click="handleNextTour">
+            ⏭️ 下一批 (手动翻页)
+          </button>
         </div>
       </section>
 
@@ -533,6 +630,11 @@ const handleToggleMaximizeCurrent = () => {
 .cam-badge--max {
   background: rgba(239, 68, 68, 0.25);
   color: #f87171;
+}
+
+.cam-badge--batch {
+  background: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
 }
 
 .cam-stream-type {

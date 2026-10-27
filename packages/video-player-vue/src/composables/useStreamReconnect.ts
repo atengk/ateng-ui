@@ -86,8 +86,8 @@ export function useStreamReconnect(
       return;
     }
 
-    // 2. 防重检查：若正在等待重试，则不重复调度
-    if (isReconnecting.value) {
+    // 2. 防重检查：若当前正在等待倒计时中，则不重复调度
+    if (timerHandle !== null) {
       return;
     }
 
@@ -106,9 +106,14 @@ export function useStreamReconnect(
       remainingTime.value = left;
     }, 100);
 
-    // 4. 定时调度真实重试动作
+    // 4. 定时调度真实重试动作 (保持 isReconnecting 为 true，杜绝中途断层闪黑与报错弹窗闪现)
     timerHandle = setTimeout(async () => {
-      clearTimers();
+      if (countdownHandle !== null) {
+        clearInterval(countdownHandle);
+        countdownHandle = null;
+      }
+      timerHandle = null;
+      remainingTime.value = 0;
       retryCount.value = currentAttempt;
       options.onRetry?.(currentAttempt, delay, err);
 
@@ -116,7 +121,6 @@ export function useStreamReconnect(
         if (reconnectHandler) {
           await reconnectHandler();
         }
-        // 重连成功后暂保持 isReconnecting 为 false
         isReconnecting.value = false;
       } catch (retryErr: unknown) {
         // 本次重连尝试再度失败，继续下一轮指数退避

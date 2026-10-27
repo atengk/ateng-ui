@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<VideoGridProps>(), {
   audioExclusive: true,
   themeColor: '#38bdf8',
   gap: 4,
+  autoplay: true,
 });
 
 const emit = defineEmits<VideoGridEmits>();
@@ -162,6 +163,9 @@ onBeforeUnmount(() => {
 
 defineExpose({
   gridState,
+  state: gridState,
+  isTouring: gridState.isTouring,
+  tourPageIndex: gridState.tourPageIndex,
   selectChannel: (id: string | number) => gridState.selectChannel(id),
   toggleMaximize: (id?: string | number) => gridState.toggleMaximize(id),
   restoreGrid: () => gridState.restoreGrid(),
@@ -218,13 +222,14 @@ defineExpose({
         ></slot>
       </div>
 
-      <!-- 核心单路播放器实例 -->
+      <!-- 核心单路播放器实例 (默认静音自动播放，符合监控分屏行业标准) -->
       <div class="at-video-grid__cell-player">
         <AtengVideoPlayer
           :url="item.effectiveUrl"
           :poster="item.poster"
           :title="item.title"
-          :is-live="item.isLive !== false"
+          :is-live="Boolean(item.isLive)"
+          :autoplay="autoplay"
           :type="item.type"
           :auth="item.auth"
           :muted="item.isMuted"

@@ -166,6 +166,30 @@ describe('工单 #145 防录屏安全水印与全屏穿越测试套件', () => {
       // 2. 应自动挂回父节点
       expect(wrapperEl.contains(watermarkEl)).toBe(true);
     });
+
+    it('当水印节点的 opacity 被恶意降至极小值 (0.01) 时，应派发告警并就地自愈恢复', async () => {
+      wrapper = mount(AtengVideoWatermark, {
+        props: {
+          content: '低透明度防篡改测试',
+          opacity: 0.15,
+          tamperProof: true,
+          floating: false,
+        },
+        attachTo: document.body,
+      });
+
+      await nextTick();
+      const watermarkEl = wrapper.find('.at-video-watermark').element as HTMLElement;
+      expect(watermarkEl.style.opacity).toBe('1');
+
+      // 模拟恶意黑客将透明度设为极低值 0.01 试图肉眼隐藏水印
+      watermarkEl.style.opacity = '0.01';
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(wrapper.emitted('watermark-tampered')).toBeTruthy();
+      expect(watermarkEl.style.opacity).toBe('1');
+    });
   });
 
   describe('3. 动态微位移浮动算法', () => {

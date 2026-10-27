@@ -79,13 +79,22 @@ export class HlsDriver {
         }
       });
 
-      hls.on(Events.MANIFEST_PARSED, () => {
-        if (autoplay && !this.isDestroyed) {
-          void video.play().catch(() => {
-            // 自动播放受浏览器策略阻止时静默处理
-          });
-        }
-      });
+      hls.on(
+        Events.MANIFEST_PARSED,
+        (
+          _event: string,
+          data: { levels?: Array<{ height: number; bitrate: number; name?: string }> },
+        ) => {
+          if (data?.levels && options.onLevels) {
+            options.onLevels(data.levels);
+          }
+          if (autoplay && !this.isDestroyed) {
+            void video.play().catch(() => {
+              // 自动播放受浏览器策略阻止时静默处理
+            });
+          }
+        },
+      );
 
       hls.on(Events.ERROR, (_event: string, data: ErrorData) => {
         if (data.fatal) {
@@ -106,7 +115,9 @@ export class HlsDriver {
         onError?.(data);
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // 3. Safari 原生 HLS 回退兜底
+      // 3. Safari 原生 HLS 回退兜底（显式设置 playsinline 防止 iOS 强制全屏拦截）
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
       video.src = finalUrl;
       if (autoplay) {
         void video.play().catch(() => {
@@ -125,6 +136,24 @@ export class HlsDriver {
    */
   get rawHls(): Hls | null {
     return this.hls;
+  }
+
+  /**
+   * 获取可用画质档位列表。
+   */
+  get levels(): Array<unknown> {
+    return this.hls?.levels ?? [];
+  }
+
+  /**
+   * 手动切换当前播放画质档位 (-1 为启用 ABR 自动码率调节)。
+   *
+   * @param levelIndex 目标画质索引
+   */
+  setCurrentLevel(levelIndex: number): void {
+    if (this.hls) {
+      this.hls.currentLevel = levelIndex;
+    }
   }
 
   /**

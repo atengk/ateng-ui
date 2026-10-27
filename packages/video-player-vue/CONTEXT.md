@@ -82,3 +82,13 @@ _Avoid_: HeaderSetter, AuthInterceptor
 **BlobJsonGuard**:
 针对鉴权失败或资源不存在时后端返回 JSON 报错实体的双态拦截器。阻断二进制投喂解复用器，转译抛出类型安全的 BusinessException。
 _Avoid_: ErrorSniffer, JsonDetector
+
+## 异常兜底与领域中立术语
+
+**视频信号源 (Signal Source)**:
+实时流媒体传输通道（直播、安防摄像头、推流网关）的通用抽象中立称谓。当断流或网络不可达时，统一提示“视频信号源连接已中断 / 重新拉取信号”。
+_Avoid_: 主播推流, 直播间, 频道信号
+
+**媒体资源 (Media Resource)**:
+点播（VOD）、静态音视频文件或录像回放的通用抽象称谓。当文件不存在或读取超时时，统一提示“媒体资源加载失败 / 重新加载”。
+_Avoid_: 视频文件损坏, 电影失效

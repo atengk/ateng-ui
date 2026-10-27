@@ -20,6 +20,7 @@ export class DanmakuEngine {
   private ctx: CanvasRenderingContext2D | null = null;
   private trackPool: DanmakuTrackPool;
   private allItems: DanmakuItem[] = [];
+  private filteredItemsCache: DanmakuItem[] | null = null;
   private activeList: DanmakuRenderObject[] = [];
   private emittedIds = new Set<string | number>();
   private isVisibleState = true;
@@ -239,7 +240,11 @@ export class DanmakuEngine {
    * 过滤后的有效弹幕库列表。
    */
   getFilteredItems(): DanmakuItem[] {
-    return this.allItems
+    if (this.filteredItemsCache) {
+      return this.filteredItemsCache;
+    }
+
+    const filtered = this.allItems
       .filter(item => {
         const mode = item.mode || 'scroll';
         // 1. 类型屏蔽过滤
@@ -277,6 +282,9 @@ export class DanmakuEngine {
         }
         return item;
       });
+
+    this.filteredItemsCache = filtered;
+    return filtered;
   }
 
   /**
@@ -382,6 +390,7 @@ export class DanmakuEngine {
     };
 
     this.allItems.push(fullItem);
+    this.filteredItemsCache = null;
     this.emittedIds.add(id);
 
     // 立即投入屏幕活跃渲染
@@ -467,6 +476,7 @@ export class DanmakuEngine {
       ...this.options,
       ...newOptions,
     };
+    this.filteredItemsCache = null;
 
     if (newOptions.area !== undefined || newOptions.fontSize !== undefined) {
       const width = this.container.clientWidth || 800;
@@ -499,6 +509,7 @@ export class DanmakuEngine {
   reset(): void {
     this.clear();
     this.allItems = [];
+    this.filteredItemsCache = null;
     this.emittedIds.clear();
   }
 
@@ -510,6 +521,7 @@ export class DanmakuEngine {
       return;
     }
     this.allItems.push(...items);
+    this.filteredItemsCache = null;
   }
 
   /**
@@ -536,6 +548,7 @@ export class DanmakuEngine {
     // 3. 释放数组与上下文
     this.clear();
     this.allItems = [];
+    this.filteredItemsCache = null;
     this.emittedIds.clear();
     this.ctx = null;
 

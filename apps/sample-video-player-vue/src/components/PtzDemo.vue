@@ -190,7 +190,7 @@ const formatProtocolDesc = (cmd: PtzCommand): string => {
         ref="videoContainerRef"
         class="ptz-demo__video-wrapper"
         @mousedown="onVideoMouseDown"
-        @wheel.passive="onVideoWheel"
+        @wheel.prevent="onVideoWheel"
         @dblclick="onVideoDblClick"
       >
         <div class="ptz-demo__zoom-layer" :style="zoom.transformStyle.value">

@@ -156,7 +156,9 @@ export function usePtzGesture(options: PtzGestureOptions = {}): UsePtzGestureRet
    * 鼠标滚轮缩放触发变焦。
    */
   const handleWheel = (event: WheelEvent): void => {
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
     const action: PtzAction = event.deltaY < 0 ? 'zoom-in' : 'zoom-out';
     emitCommand(action);
 

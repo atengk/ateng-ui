@@ -24,6 +24,7 @@ const posterUrl = ref('https://artplayer.org/assets/sample/poster.jpg');
 
 const currentTime = ref(0);
 const isPlaying = ref(false);
+const activeControlTab = ref<'danmaku' | 'subtitle'>('danmaku');
 
 // 预载丰富弹幕数据库
 const initialDanmakus = [
@@ -185,7 +186,6 @@ const colorOptions = [
 ];
 
 const onReady = (engine: IVideoPlayerEngine) => {
-  // 获取 Artplayer 实例上挂载的 danmaku 插件门面
   const rawArt = engine.rawInstance as {
     plugins?: { danmaku?: DanmakuPluginInstance };
     danmaku?: DanmakuPluginInstance;
@@ -208,7 +208,7 @@ const handleSend = () => {
     mode: sendMode.value,
     color: sendColor.value,
     fontSize: 22,
-    isMe: true, // 自身发射带有高亮外框
+    isMe: true,
     border: '#409EFF',
   };
 
@@ -272,6 +272,15 @@ const handleSubtitleFontSize = (size: number) => {
     fontSize: `${size}px`,
   });
 };
+
+// 快捷播放/跳帧
+const togglePlay = () => {
+  playerRef.value?.toggle();
+};
+
+const handleSeekTo = (sec: number) => {
+  playerRef.value?.seek(sec);
+};
 </script>
 
 <template>
@@ -289,20 +298,22 @@ const handleSubtitleFontSize = (size: number) => {
     <div class="danmaku-demo__grid">
       <!-- 播放器视口 -->
       <div class="danmaku-demo__player-box">
-        <AtengVideoPlayer
-          ref="playerRef"
-          :url="currentUrl"
-          :poster="posterUrl"
-          title="弹幕系统与双语外挂字幕演示视频"
-          :subtitles="subtitleList"
-          default-subtitle="bilingual"
-          :plugins="[danmakuPlugin]"
-          theme="#409EFF"
-          @ready="onReady"
-          @play="isPlaying = true"
-          @pause="isPlaying = false"
-          @timeupdate="onTimeUpdate"
-        />
+        <div class="danmaku-demo__video-viewport">
+          <AtengVideoPlayer
+            ref="playerRef"
+            :url="currentUrl"
+            :poster="posterUrl"
+            title="弹幕系统与双语外挂字幕演示视频"
+            :subtitles="subtitleList"
+            default-subtitle="bilingual"
+            :plugins="[danmakuPlugin]"
+            theme="#409EFF"
+            @ready="onReady"
+            @play="isPlaying = true"
+            @pause="isPlaying = false"
+            @timeupdate="onTimeUpdate"
+          />
+        </div>
 
         <!-- 弹幕即时发射栏 -->
         <div class="danmaku-sender-bar">
@@ -356,14 +367,45 @@ const handleSubtitleFontSize = (size: number) => {
 
           <button type="button" class="sender-submit-btn" @click="handleSend">发射 🚀</button>
         </div>
+
+        <!-- 底部快捷操作条 -->
+        <div class="danmaku-demo__bottom-bar">
+          <button type="button" class="ctrl-btn ctrl-btn--primary" @click="togglePlay">
+            {{ isPlaying ? '⏸ 暂停' : '▶ 播放视频' }}
+          </button>
+          <button type="button" class="ctrl-btn" @click="handleSeekTo(0)">⏮ 从头播放</button>
+          <button type="button" class="ctrl-btn" @click="handleSeekTo(1.5)">
+            ⏭ 跳至高能 (1.5s)
+          </button>
+          <span class="ctrl-timer">播放进度: {{ currentTime }}s</span>
+        </div>
       </div>
 
-      <!-- 控制台面板 -->
+      <!-- 控制台面板（Tab 分组化，首屏完整呈现） -->
       <div class="danmaku-demo__controls">
-        <!-- 弹幕图层调控 -->
-        <div class="control-card">
+        <div class="panel-tab-bar">
+          <button
+            type="button"
+            class="panel-tab-btn"
+            :class="{ 'panel-tab-btn--active': activeControlTab === 'danmaku' }"
+            @click="activeControlTab = 'danmaku'"
+          >
+            🎯 弹幕图层配置
+          </button>
+          <button
+            type="button"
+            class="panel-tab-btn"
+            :class="{ 'panel-tab-btn--active': activeControlTab === 'subtitle' }"
+            @click="activeControlTab = 'subtitle'"
+          >
+            💬 多轨外挂字幕
+          </button>
+        </div>
+
+        <!-- 1. 弹幕图层调控面板 -->
+        <div v-show="activeControlTab === 'danmaku'" class="control-card">
           <div class="card-title">
-            <span>🎯 弹幕图层与参数配置</span>
+            <span>🎯 弹幕参数调节</span>
             <button
               type="button"
               class="toggle-btn"
@@ -446,8 +488,8 @@ const handleSubtitleFontSize = (size: number) => {
           </div>
         </div>
 
-        <!-- 多轨外挂字幕 -->
-        <div class="control-card">
+        <!-- 2. 多轨外挂字幕 -->
+        <div v-show="activeControlTab === 'subtitle'" class="control-card">
           <div class="card-title">
             <span>💬 多轨外挂字幕 (WebVTT / SRT)</span>
           </div>
@@ -492,22 +534,18 @@ const handleSubtitleFontSize = (size: number) => {
           <div class="current-cue-preview">
             <span class="sub-label">当前时刻字幕片元预览：</span>
             <div class="cue-box">
-              {{ playerRef?.currentSubtitleText || '（当前时刻无字幕）' }}
+              {{ playerRef?.currentSubtitleText || '（当前时刻无字幕片元）' }}
             </div>
           </div>
         </div>
 
         <!-- 架构不变量守卫提示 -->
         <div class="info-card">
-          <h4>🛡️ 工业级成熟度防线声明</h4>
+          <h4>🛡️ 工业级成熟度防线</h4>
           <ul>
             <li><strong>极致 Tree-Shaking</strong>：未引用弹幕插件的项目 0 字节体积打包残留；</li>
-            <li>
-              <strong>防重叠追尾算法</strong>：自动根据进屏位置与穿屏速度预测，规避同轨字迹叠字；
-            </li>
-            <li>
-              <strong>DPI 视网膜抗模糊</strong>：Canvas 基于 window.devicePixelRatio 高清重采样；
-            </li>
+            <li><strong>防重叠追尾算法</strong>：自动根据进屏位置与穿屏速度预测，规避同轨叠字；</li>
+            <li><strong>DPI 视网膜抗模糊</strong>：Canvas 基于 devicePixelRatio 高清重采样；</li>
             <li>
               <strong>生命周期确定性</strong>：组件销毁时 100% 回收 RAF 渲染循环与 ResizeObserver。
             </li>
@@ -584,6 +622,58 @@ const handleSubtitleFontSize = (size: number) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+}
+
+/* 保证播放器视口维持 16:9 饱满高宽比 */
+.danmaku-demo__video-viewport {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  background-color: #000000;
+}
+
+.danmaku-demo__bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #0f172a;
+  padding: 8px 14px;
+  border-top: 1px solid #1e293b;
+  flex-wrap: wrap;
+}
+
+.ctrl-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ctrl-btn:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.ctrl-btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.ctrl-btn--primary:hover {
+  background: #1d4ed8;
+}
+
+.ctrl-timer {
+  margin-left: auto;
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: monospace;
 }
 
 .danmaku-sender-bar {
@@ -679,7 +769,33 @@ const handleSubtitleFontSize = (size: number) => {
 .danmaku-demo__controls {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+.panel-tab-bar {
+  display: flex;
+  background-color: #e2e8f0;
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.panel-tab-btn {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.panel-tab-btn--active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .control-card {
@@ -847,20 +963,20 @@ const handleSubtitleFontSize = (size: number) => {
 .info-card {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  padding: 16px;
+  padding: 12px 16px;
   border-radius: 8px;
   color: #1e3a8a;
 }
 
 .info-card h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0 0 6px 0;
+  font-size: 13px;
 }
 
 .info-card ul {
   margin: 0;
   padding-left: 18px;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 </style>

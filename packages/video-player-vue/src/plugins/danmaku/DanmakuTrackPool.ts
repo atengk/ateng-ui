@@ -158,7 +158,10 @@ export class DanmakuTrackPool {
     // 若存在安全轨道，优先选取空闲间隙 margin 最大的轨道以实现负载均衡
     if (availableTracks.length > 0) {
       availableTracks.sort((a, b) => b.margin - a.margin);
-      return availableTracks[0]!.index;
+      const best = availableTracks[0];
+      if (best) {
+        return best.index;
+      }
     }
 
     // 若所有轨道在数学上都有碰撞风险，保底选择最旧一条或随机一条

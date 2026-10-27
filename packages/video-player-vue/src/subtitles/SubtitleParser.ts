@@ -44,6 +44,68 @@ export function parseTimestamp(timeStr: string): number {
 }
 
 /**
+ * 解析单个字幕块（SRT 或 WebVTT）。
+ *
+ * @param lines 单个字幕块按行分割并去除前后空白的字符串数组
+ * @returns 解析得到的字幕片元，若格式不合法则返回 null
+ */
+function parseCueBlock(lines: string[]): VideoSubtitleCue | null {
+  if (lines.length < 2) {
+    return null;
+  }
+
+  // 忽略开头的 WEBVTT 头与注释块
+  const firstLine = lines[0];
+  if (firstLine && (firstLine.startsWith('WEBVTT') || firstLine.startsWith('NOTE'))) {
+    return null;
+  }
+
+  // 寻找包含 --> 的时间行
+  const timeIndex = lines.findIndex(l => l.includes('-->'));
+  if (timeIndex === -1) {
+    return null;
+  }
+
+  const timeLine = lines[timeIndex];
+  if (!timeLine) {
+    return null;
+  }
+
+  const timeParts = timeLine.split('-->').map(s => s.trim());
+  if (timeParts.length < 2) {
+    return null;
+  }
+
+  const startStr = timeParts[0];
+  const rawEndStr = timeParts[1];
+  if (!startStr || !rawEndStr) {
+    return null;
+  }
+
+  // 结尾可能附带 WebVTT 对齐参数等设置（例如 00:00:04.000 align:center）
+  const endParts = rawEndStr.split(/\s+/);
+  const endStr = endParts[0];
+  if (!endStr) {
+    return null;
+  }
+
+  const startTime = parseTimestamp(startStr);
+  const endTime = parseTimestamp(endStr);
+
+  const textLines = lines.slice(timeIndex + 1);
+  const text = textLines.join('\n');
+
+  const id = timeIndex > 0 ? lines[0] : undefined;
+
+  return {
+    id,
+    startTime,
+    endTime,
+    text,
+  };
+}
+
+/**
  * 解析 SRT 格式字幕文本为 Cue 数组。
  *
  * @param content SRT 文本内容
@@ -67,40 +129,13 @@ export function parseSrt(content: string): VideoSubtitleCue[] {
       .split('\n')
       .map(line => line.trim())
       .filter(Boolean);
-    if (lines.length < 2) {
-      continue;
+    const cue = parseCueBlock(lines);
+    if (cue) {
+      cues.push(cue);
     }
-
-    // 寻找包含 --> 的时间行
-    const timeIndex = lines.findIndex(l => l.includes('-->'));
-    if (timeIndex === -1) {
-      continue;
-    }
-
-    const timeLine = lines[timeIndex]!;
-    const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
-
-    if (!startStr || !endStr) {
-      continue;
-    }
-
-    const startTime = parseTimestamp(startStr);
-    const endTime = parseTimestamp(endStr);
-
-    const textLines = lines.slice(timeIndex + 1);
-    const text = textLines.join('\n');
-
-    const id = timeIndex > 0 ? lines[0] : undefined;
-
-    cues.push({
-      id,
-      startTime,
-      endTime,
-      text,
-    });
   }
 
-  return cues;
+  return cues.sort((a, b) => a.startTime - b.startTime);
 }
 
 /**
@@ -127,48 +162,13 @@ export function parseWebVtt(content: string): VideoSubtitleCue[] {
       .split('\n')
       .map(l => l.trim())
       .filter(Boolean);
-    if (lines.length === 0) {
-      continue;
+    const cue = parseCueBlock(lines);
+    if (cue) {
+      cues.push(cue);
     }
-
-    // 忽略开头的 WEBVTT 头与注释块
-    if (lines[0]?.startsWith('WEBVTT') || lines[0]?.startsWith('NOTE')) {
-      continue;
-    }
-
-    // 寻找包含 --> 的时间行
-    const timeIndex = lines.findIndex(l => l.includes('-->'));
-    if (timeIndex === -1) {
-      continue;
-    }
-
-    const timeLine = lines[timeIndex]!;
-    const timeParts = timeLine.split('-->').map(s => s.trim());
-    if (timeParts.length < 2) {
-      continue;
-    }
-
-    const startStr = timeParts[0]!;
-    // 结尾可能附带对齐参数等设置（例如 00:00:04.000 align:center）
-    const endStr = timeParts[1]!.split(/\s+/)[0]!;
-
-    const startTime = parseTimestamp(startStr);
-    const endTime = parseTimestamp(endStr);
-
-    const textLines = lines.slice(timeIndex + 1);
-    const text = textLines.join('\n');
-
-    const id = timeIndex > 0 ? lines[0] : undefined;
-
-    cues.push({
-      id,
-      startTime,
-      endTime,
-      text,
-    });
   }
 
-  return cues;
+  return cues.sort((a, b) => a.startTime - b.startTime);
 }
 
 /**
@@ -198,9 +198,9 @@ export function parseSubtitle(content: string, type?: 'vtt' | 'srt'): VideoSubti
 }
 
 /**
- * 根据当前播放时间检索匹配的字幕片元。
+ * 根据当前播放时间检索匹配的字幕片元（采用 O(log N) 二分查找）。
  *
- * @param cues 字幕片元列表
+ * @param cues 字幕片元列表（按 startTime 升序排列）
  * @param currentTime 当前播放时间（秒）
  * @returns 命中的片元，若无匹配返回 null
  */
@@ -208,14 +208,28 @@ export function findCurrentCue(
   cues: VideoSubtitleCue[],
   currentTime: number,
 ): VideoSubtitleCue | null {
-  if (!cues || cues.length === 0) {
+  if (!cues || cues.length === 0 || typeof currentTime !== 'number' || Number.isNaN(currentTime)) {
     return null;
   }
 
-  // 二分查找或快速匹配
-  for (const cue of cues) {
-    if (cue.startTime <= currentTime && currentTime <= cue.endTime) {
+  let low = 0;
+  let high = cues.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const cue = cues[mid];
+    if (!cue) {
+      break;
+    }
+
+    if (currentTime >= cue.startTime && currentTime <= cue.endTime) {
       return cue;
+    }
+
+    if (currentTime < cue.startTime) {
+      high = mid - 1;
+    } else {
+      low = mid + 1;
     }
   }
 

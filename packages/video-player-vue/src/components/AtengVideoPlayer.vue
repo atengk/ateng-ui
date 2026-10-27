@@ -11,7 +11,7 @@
 
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ArtplayerEngine } from '../engine/ArtplayerEngine';
-import { BlobJsonGuard } from '../security';
+import { BlobJsonGuard, TokenInjector } from '../security';
 import { useStreamReconnect } from '../composables/useStreamReconnect';
 import { useVideoPlaybackHistory } from '../composables/useVideoPlaybackHistory';
 import { useVideoSubtitles } from '../subtitles/useVideoSubtitles';
@@ -143,14 +143,42 @@ watch(
   },
 );
 
-// 直播流判定
+// 直播流判定：优先遵循显式 isLive 属性；未显式指定时根据 URL 是否包含 live 路径或特定直播协议推断
 const isLiveStream = computed(() => {
+  if (typeof props.isLive === 'boolean') {
+    return props.isLive;
+  }
   return (
-    props.isLive ||
-    props.type === 'flv' ||
-    (props.url.includes('.m3u8') && props.isLive) ||
-    props.url.includes('.flv')
+    props.url.includes('/live/') ||
+    props.url.includes('.live.') ||
+    (props.url.includes('.m3u8') && props.url.includes('live')) ||
+    (props.type === 'flv' && props.url.includes('live'))
   );
+});
+
+// 通用异常兜底中立文案模型 (Q2 A)
+const fallbackTitle = computed(() => {
+  if (reconnectState.hasFailed.value) {
+    return isLiveStream.value ? '视频信号源连接已中断' : '媒体资源读取中断';
+  }
+  return isLiveStream.value ? '视频信号传输异常' : '媒体资源加载失败';
+});
+
+const fallbackDesc = computed(() => {
+  if (reconnectState.hasFailed.value) {
+    const retries = reconnectState.retryCount.value;
+    return isLiveStream.value
+      ? `信号传输出现异常，已尝试自动重连 ${retries} 次，网络服务暂时不可达。`
+      : `网络或文件读取异常，已重试 ${retries} 次未能成功，请检查媒体资源有效性。`;
+  }
+  return formattedError.value?.msg || '网络连接超时或媒体格式解析失败，请检查网络后重试。';
+});
+
+const fallbackRetryBtnText = computed(() => {
+  if (reconnectState.hasFailed.value) {
+    return isLiveStream.value ? '重新拉取信号' : '重新尝试加载';
+  }
+  return isLiveStream.value ? '重新拉流' : '重新加载';
 });
 
 // 断流重连状态机装配
@@ -172,13 +200,18 @@ const formattedError = computed(() => {
   return BlobJsonGuard.toBusinessException(errorState.value);
 });
 
+let initCounter = 0;
+let isUnmounted = false;
+
 /**
  * 初始化底层播放引擎。
  */
 const initPlayer = async (): Promise<void> => {
-  if (!containerRef.value) {
+  if (!containerRef.value || isUnmounted) {
     return;
   }
+
+  const currentInitId = ++initCounter;
 
   // 1. 若存量已存在引擎实例，先彻底销毁清理（六步防线）
   destroyPlayer();
@@ -193,6 +226,15 @@ const initPlayer = async (): Promise<void> => {
       });
     }
 
+    // 3. 异步探测守卫：若组件已卸载或已被新发起的初始化替代，则快速中止
+    if (currentInitId !== initCounter || isUnmounted || !containerRef.value) {
+      return;
+    }
+
+    // Q1 A: 若处于断流重连恢复期或直播流模式，或者外部开启了自动播放，则强制开启自动播放
+    const shouldAutoplay =
+      props.autoplay || reconnectState.retryCount.value > 0 || isLiveStream.value;
+
     const engine = new ArtplayerEngine(
       containerRef.value,
       {
@@ -200,7 +242,7 @@ const initPlayer = async (): Promise<void> => {
         type: props.type,
         poster: props.poster,
         title: props.title,
-        autoplay: props.autoplay,
+        autoplay: shouldAutoplay,
         muted: props.muted,
         loop: props.loop,
         volume: props.volume,
@@ -227,7 +269,7 @@ const initPlayer = async (): Promise<void> => {
         plugins: props.plugins,
       },
       {
-        onReady: eng => {
+        onReady: async eng => {
           isReady.value = true;
           // 连接成功重置重连状态
           reconnectState.reset();
@@ -239,6 +281,21 @@ const initPlayer = async (): Promise<void> => {
           const restored = historyState.checkAndApplyResume(eng, eng.duration);
           if (restored !== null) {
             emit('resume', restored);
+          }
+
+          // Q1 A: 重连恢复或直播流模式下，100% 自动调用 play() 恢复播放，杜绝弹出大播放按钮等待人工点击
+          if (shouldAutoplay) {
+            try {
+              await eng.play();
+            } catch {
+              // 若受浏览器 Autoplay Policy 声音策略限制，自动降级为静音自动起播
+              eng.setMuted(true);
+              try {
+                await eng.play();
+              } catch {
+                // 忽略浏览器极端阻断
+              }
+            }
           }
 
           emit('ready', eng);
@@ -377,10 +434,33 @@ const handleFullscreenChange = (): void => {
 // 监听 URL 变化平滑切流
 watch(
   () => props.url,
-  newUrl => {
-    if (engineRef.value && newUrl) {
-      void engineRef.value.switchUrl(newUrl, props.type);
+  async newUrl => {
+    if (!newUrl) {
+      destroyPlayer();
+      return;
     }
+    if (!engineRef.value) {
+      void initPlayer();
+      return;
+    }
+    // 若开启了流媒体双态安全探测，切源前执行前置嗅探
+    if (props.probeStream) {
+      try {
+        await BlobJsonGuard.probeMediaStream(newUrl, {
+          auth: props.auth,
+        });
+      } catch (err: unknown) {
+        const businessErr = BlobJsonGuard.toBusinessException(err);
+        errorState.value = businessErr;
+        emit('error', businessErr);
+        if (props.reconnect !== false && !reconnectState.hasFailed.value) {
+          reconnectState.triggerReconnect(businessErr);
+        }
+        return;
+      }
+    }
+    const finalUrl = props.auth !== false ? TokenInjector.injectUrl(newUrl) : newUrl;
+    void engineRef.value.switchUrl(finalUrl, props.type);
   },
 );
 
@@ -391,6 +471,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  isUnmounted = true;
+  initCounter++;
   destroyPlayer();
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
   document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -488,7 +570,11 @@ defineExpose({
   <div
     ref="playerWrapperRef"
     class="at-video-player"
-    :class="{ 'at-video-player--ready': isReady, 'at-video-player--fullscreen': isFullscreenState }"
+    :class="{
+      'at-video-player--ready': isReady,
+      'at-video-player--fullscreen': isFullscreenState,
+      'at-video-player--reconnecting': reconnectState.isReconnecting.value,
+    }"
   >
     <!-- Artplayer 挂载的物理渲染容器 -->
     <div ref="containerRef" class="at-video-player__art-container"></div>
@@ -581,20 +667,25 @@ defineExpose({
     <!-- 默认自由插槽图层 -->
     <slot :engine="engineRef"></slot>
 
-    <!-- 断流自动指数退避重连状态浮层 -->
+    <!-- 断流自动指数退避重连状态浮层 (全生命周期连贯保持，中途绝不闪黑与弹窗) -->
     <div v-if="reconnectState.isReconnecting.value" class="at-video-player__reconnect-layer">
       <div class="at-video-player__reconnect-box">
         <span class="reconnect-spinner"></span>
         <p class="reconnect-text">
-          网络连接中断，正在第 {{ reconnectState.retryCount.value + 1 }} 次自动重连...
+          {{
+            reconnectState.remainingTime.value > 0
+              ? `网络连接中断，正在第 ${reconnectState.retryCount.value + 1} 次自动重连...`
+              : '正在尝试重新拉取视频信号...'
+          }}
         </p>
-        <span class="reconnect-timer">
+        <span v-if="reconnectState.remainingTime.value > 0" class="reconnect-timer">
           倒计时 {{ (reconnectState.remainingTime.value / 1000).toFixed(1) }}s
         </span>
+        <span v-else class="reconnect-timer"> 信号通道握手中... </span>
       </div>
     </div>
 
-    <!-- ADR-0004 异常错误缺省插槽与重连硬失败插槽 -->
+    <!-- ADR-0004 异常错误缺省插槽与重连硬失败插槽 (仅在彻底熔断或未开启重连时呈现，隐藏技术底层代码) -->
     <div
       v-else-if="
         formattedError && (!reconnectState.isReconnecting.value || reconnectState.hasFailed.value)
@@ -609,11 +700,20 @@ defineExpose({
       ></slot>
       <slot v-else name="error" :error="formattedError" :retry="initPlayer">
         <div class="at-video-player__error-box">
-          <span class="at-video-player__error-icon">⚠️</span>
-          <p class="at-video-player__error-title">{{ formattedError.msg }}</p>
-          <div class="at-video-player__error-meta">
-            <span v-if="formattedError.code" class="meta-tag">Code: {{ formattedError.code }}</span>
-            <span v-if="formattedError.traceId" class="meta-tag"
+          <span class="at-video-player__error-icon">{{ isLiveStream ? '📡' : '⚠️' }}</span>
+          <p class="at-video-player__error-title">{{ fallbackTitle }}</p>
+          <p class="at-video-player__error-desc">{{ fallbackDesc }}</p>
+          <!-- 仅在非 500 的显式业务错误码或包含 traceId 时呈现技术诊断标签，杜绝默认 500 泄漏 -->
+          <div
+            v-if="(formattedError.code && formattedError.code !== 500) || formattedError.traceId"
+            class="at-video-player__error-meta"
+          >
+            <span
+              v-if="formattedError.code && formattedError.code !== 500"
+              class="at-video-player__meta-tag"
+              >Code: {{ formattedError.code }}</span
+            >
+            <span v-if="formattedError.traceId" class="at-video-player__meta-tag"
               >TraceId: {{ formattedError.traceId }}</span
             >
           </div>
@@ -622,7 +722,7 @@ defineExpose({
             class="at-video-player__error-retry-btn"
             @click="reconnectState.hasFailed.value ? reconnectState.manualRetry() : initPlayer()"
           >
-            {{ reconnectState.hasFailed.value ? '已达最大重连次数，点击手动重试' : '重新尝试连接' }}
+            {{ fallbackRetryBtnText }}
           </button>
         </div>
       </slot>
@@ -713,6 +813,13 @@ defineExpose({
   line-height: 1.5;
 }
 
+.at-video-player__error-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
 .at-video-player__error-meta {
   display: flex;
   gap: 8px;
@@ -720,7 +827,7 @@ defineExpose({
   justify-content: center;
 }
 
-.meta-tag {
+.at-video-player__meta-tag {
   font-size: 11px;
   background-color: rgba(255, 255, 255, 0.12);
   color: #94a3b8;
@@ -837,6 +944,11 @@ defineExpose({
   font-size: 12px;
   color: #94a3b8;
   font-family: monospace;
+}
+
+/* Q1 A: 全生命周期状态接管：全局彻底隐藏底层 Artplayer 自带的原生 loading，杜绝内圈外圈交替打乒乓与硬失败背景穿透 */
+:deep(.art-loading) {
+  display: none !important;
 }
 
 /* 记忆续播浮层提示卡片样式 */

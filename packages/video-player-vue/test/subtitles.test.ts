@@ -121,6 +121,33 @@ Third subtitle block.
       const cueEnd = findCurrentCue(cues, 4.5);
       expect(cueEnd?.text).toBe('欢迎来到 Ateng UI 视频播放器展厅！');
     });
+
+    it('3.4 大规模字幕集合应正确通过二分查找命中目标', () => {
+      // 构造 1000 条标准字幕序列
+      const largeCues = Array.from({ length: 1000 }, (_, i) => ({
+        id: `cue_${i}`,
+        startTime: i * 2,
+        endTime: i * 2 + 1.5,
+        text: `字幕第 ${i} 行`,
+      }));
+
+      // 命中首项
+      expect(findCurrentCue(largeCues, 0.5)?.text).toBe('字幕第 0 行');
+      // 命中中间项
+      expect(findCurrentCue(largeCues, 1000.5)?.text).toBe('字幕第 500 行');
+      // 命中末尾项
+      expect(findCurrentCue(largeCues, 1999.0)?.text).toBe('字幕第 999 行');
+      // 间隙未命中
+      expect(findCurrentCue(largeCues, 1001.8)).toBeNull();
+      // 超出两端未命中
+      expect(findCurrentCue(largeCues, -1)).toBeNull();
+      expect(findCurrentCue(largeCues, 2500)).toBeNull();
+    });
+
+    it('3.5 空值与非法时间防御性返回 null', () => {
+      expect(findCurrentCue([], 10)).toBeNull();
+      expect(findCurrentCue(cues, Number.NaN)).toBeNull();
+    });
   });
 
   describe('4. useVideoSubtitles 状态机多轨管理', () => {

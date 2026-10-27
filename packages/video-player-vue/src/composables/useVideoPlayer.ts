@@ -9,6 +9,8 @@
 
 import {
   computed,
+  getCurrentInstance,
+  getCurrentScope,
   onMounted,
   onScopeDispose,
   ref,
@@ -296,6 +298,17 @@ export function useVideoPlayer(
     error.value = null;
   };
 
+  /**
+   * 重新初始化并重试加载当前流媒体。
+   */
+  const retry = (): void => {
+    const rawOpts = toValue(options);
+    const container = toValue(rawOpts.container) as HTMLElement | null;
+    if (container) {
+      init(container);
+    }
+  };
+
   // 监听容器或 URL 变化自动同步
   const currentUrl = computed(() => toValue(options).url);
   watch(currentUrl, newUrl => {
@@ -305,18 +318,22 @@ export function useVideoPlayer(
   });
 
   // 生命周期管理：组件销毁时确定性回收资源
-  onScopeDispose(() => {
-    destroy();
-  });
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      destroy();
+    });
+  }
 
-  // 挂载时尝试自动初始化（若已提供有效 DOM 容器）
-  onMounted(() => {
-    const rawOpts = toValue(options);
-    const container = toValue(rawOpts.container) as HTMLElement | null;
-    if (container && !engine.value) {
-      init(container);
-    }
-  });
+  // 挂载时尝试自动初始化（若已提供有效 DOM 容器且处于 Vue 组件挂载生命周期内）
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      const rawOpts = toValue(options);
+      const container = toValue(rawOpts.container) as HTMLElement | null;
+      if (container && !engine.value) {
+        init(container);
+      }
+    });
+  }
 
   return {
     engine,
@@ -351,7 +368,12 @@ export function useVideoPlayer(
     exitWebFullscreen,
     toggleWebFullscreen,
     destroy,
+    retry,
     clearPlaybackHistory,
     replay,
+    showResumePrompt: historyState.showPrompt,
+    resumeTime: historyState.resumeTime,
+    formattedResumeTime: historyState.formattedResumeTime,
+    closeResumePrompt: historyState.closePrompt,
   };
 }

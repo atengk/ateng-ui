@@ -9,8 +9,18 @@
 
 import type { ComponentPublicInstance, ComputedRef, MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
 import type { VideoSubtitleItem, VideoSubtitleStyle } from '../subtitles/types';
+import type { IVideoPlayerEngine } from '../engine/IVideoPlayerEngine';
 
 export type * from '../subtitles/types';
+export type { IVideoPlayerEngine } from '../engine/IVideoPlayerEngine';
+
+/**
+ * 二维平面直角坐标契约。
+ */
+export interface Coordinate2D {
+  x: number;
+  y: number;
+}
 
 /**
  * 视频播放流协议与媒体类型。
@@ -115,185 +125,6 @@ export interface VideoPlaybackHistoryOptions {
    * 浮动提示展示时长（毫秒）。默认 3000ms。
    */
   promptDuration?: number;
-}
-
-/**
- * 底层播放驱动适配器抽象接口 (SPI)。
- *
- * 定义播放控制、生命周期管理与事件订阅的标准规范，屏蔽底层具体播放器内核实现。
- */
-export interface IVideoPlayerEngine {
-  /**
-   * 底层真实播放器内核实例句柄。
-   */
-  readonly rawInstance: unknown;
-
-  /**
-   * 关联的 AbortSignal 取消信号。
-   */
-  readonly abortSignal: AbortSignal;
-
-  /**
-   * 当前是否处于播放中状态。
-   */
-  readonly playing: boolean;
-
-  /**
-   * 当前播放时间进度（秒）。
-   */
-  readonly currentTime: number;
-
-  /**
-   * 媒体总时长（秒）。若为直播流通常为 0 或 Infinity。
-   */
-  readonly duration: number;
-
-  /**
-   * 当前音量（0.0 ~ 1.0）。
-   */
-  readonly volume: number;
-
-  /**
-   * 是否静音。
-   */
-  readonly muted: boolean;
-
-  /**
-   * 当前播放倍速（如 1.0、1.5、2.0）。
-   */
-  readonly playbackRate: number;
-
-  /**
-   * 底层 HTMLVideoElement 媒体元素实例引用。
-   */
-  readonly videoElement: HTMLVideoElement | null;
-
-  /**
-   * 注册外部解复用器或插件的协同销毁钩子。
-   *
-   * @param hook 销毁回调函数
-   */
-  registerTeardownHook(hook: () => void): void;
-
-  /**
-   * 注册待受管回收的物理定时器。
-   *
-   * @param timer 定时器标识
-   */
-  registerTimer(timer: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>): void;
-
-  /**
-   * 开始播放。
-   */
-  play(): Promise<void>;
-
-  /**
-   * 暂停播放。
-   */
-  pause(): void;
-
-  /**
-   * 切换播放与暂停状态。
-   */
-  toggle(): void;
-
-  /**
-   * 跳转至指定时间戳（秒）。
-   *
-   * @param time 目标时间秒数
-   */
-  seek(time: number): void;
-
-  /**
-   * 相对快进或快退指定时间步长（秒）。正数快进，负数快退。
-   *
-   * @param seconds 步进秒数
-   */
-  step(seconds: number): void;
-
-  /**
-   * 逐帧精确微调步进。
-   *
-   * @param frames 步进帧数（默认 1，正数向前，负数向后）
-   * @param fps 视频估计帧率（默认 30 帧/秒）
-   */
-  stepFrame(frames?: number, fps?: number): void;
-
-  /**
-   * 调整音量。
-   *
-   * @param volume 音量值（0.0 ~ 1.0）
-   */
-  setVolume(volume: number): void;
-
-  /**
-   * 设置是否静音。
-   *
-   * @param muted 是否静音
-   */
-  setMuted(muted: boolean): void;
-
-  /**
-   * 调整播放倍速。
-   *
-   * @param rate 播放倍速
-   */
-  setPlaybackRate(rate: number): void;
-
-  /**
-   * 切换画质清晰度。
-   *
-   * @param url 目标清晰度流地址
-   */
-  switchQuality(url: string): Promise<void>;
-
-  /**
-   * 切换播放源地址与协议类型。
-   *
-   * @param url 新的媒体流地址
-   * @param type 协议类型
-   */
-  switchUrl(url: string, type?: VideoPlayerType): Promise<void>;
-
-  /**
-   * 提取当前画面截图并返回 Base64 图片数据。
-   */
-  screenshot(): Promise<string>;
-
-  /**
-   * 进入原生全屏。
-   */
-  enterFullscreen(): void;
-
-  /**
-   * 退出原生全屏。
-   */
-  exitFullscreen(): void;
-
-  /**
-   * 切换原生全屏状态。
-   */
-  toggleFullscreen(): void;
-
-  /**
-   * 进入网页全屏（铺满浏览器视口）。
-   */
-  enterWebFullscreen(): void;
-
-  /**
-   * 退出网页全屏。
-   */
-  exitWebFullscreen(): void;
-
-  /**
-   * 切换网页全屏状态。
-   */
-  toggleWebFullscreen(): void;
-
-  /**
-   * 销毁播放器实例并确定性释放底层物理句柄与监听器。
-   */
-  destroy(): void;
 }
 
 /**
@@ -763,6 +594,10 @@ export interface UseVideoPlayerReturn {
    */
   destroy(): void;
   /**
+   * 重新初始化并重试加载当前流媒体。
+   */
+  retry(): void;
+  /**
    * 清除当前视频本地持久化的播放历史进度记录。
    */
   clearPlaybackHistory(): void;
@@ -770,6 +605,22 @@ export interface UseVideoPlayerReturn {
    * 从头重新开始播放（跳转至第 0 秒并开始播放）。
    */
   replay(): Promise<void>;
+  /**
+   * 是否显示记忆续播浮动提示条。
+   */
+  showResumePrompt: Ref<boolean>;
+  /**
+   * 恢复的历史时间点（秒）。
+   */
+  resumeTime: Ref<number>;
+  /**
+   * 格式化后的历史时间文案（如 '01:23'）。
+   */
+  formattedResumeTime: ComputedRef<string>;
+  /**
+   * 手动关闭记忆续播浮动提示条。
+   */
+  closeResumePrompt(): void;
 }
 
 /**
@@ -822,6 +673,12 @@ export type AtengVideoPlayerInstance = ComponentPublicInstance<
     retry(): void;
     clearPlaybackHistory(): void;
     replay(): Promise<void>;
+    switchSubtitle(id: string | null): Promise<void>;
+    toggleSubtitle(vis?: boolean): void;
+    setSubtitleStyle(st: Partial<VideoSubtitleStyle>): void;
+    readonly activeSubtitle: VideoSubtitleItem | null;
+    readonly activeSubtitleId: string | null;
+    readonly currentSubtitleText: string;
   }
 >;
 
@@ -919,6 +776,10 @@ export interface HlsDriverOptions {
    * 异常回调。
    */
   onError?: (error: unknown) => void;
+  /**
+   * 清晰度码率档位列表解析就绪回调。
+   */
+  onLevels?: (levels: Array<{ height: number; bitrate: number; name?: string }>) => void;
 }
 
 /**
@@ -1289,6 +1150,10 @@ export interface VideoGridProps {
    * 通道之间的网格间距（像素）。默认 4。
    */
   gap?: number;
+  /**
+   * 是否在通道加载时静音自动播放。默认 true（符合安防多路监控行业规范）。
+   */
+  autoplay?: boolean;
 }
 
 /**
@@ -1516,7 +1381,7 @@ export interface DigitalZoomOptions {
   /**
    * 缩放或偏移变化回调。
    */
-  onZoomChange?: (scale: number, offset: { x: number; y: number }) => void;
+  onZoomChange?: (scale: number, offset: Coordinate2D) => void;
 }
 
 /**
@@ -1558,7 +1423,7 @@ export interface UseDigitalZoomReturn {
   /**
    * 直接设置目标缩放倍率与焦点中心。
    */
-  setZoom(scale: number, origin?: { x: number; y: number }): void;
+  setZoom(scale: number, origin?: Coordinate2D): void;
   /**
    * 设置平移偏移量（内部自动执行边界防脱框阻尼）。
    */

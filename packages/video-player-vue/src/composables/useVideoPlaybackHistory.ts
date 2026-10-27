@@ -7,7 +7,16 @@
  * @since 2026-10-26
  */
 
-import { computed, ref, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue';
+import {
+  computed,
+  getCurrentScope,
+  onScopeDispose,
+  ref,
+  toValue,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue';
 import type { IVideoPlayerEngine, VideoPlaybackHistoryOptions } from '../types';
 
 /**
@@ -103,38 +112,35 @@ export function useVideoPlaybackHistory(
     const autoPlayResume = toValue(autoPlayResumeGetter);
     const url = toValue(urlGetter);
 
+    const defaultConfig: Required<VideoPlaybackHistoryOptions> = {
+      enabled: false,
+      storageKey: `at_video_resume_${url}`,
+      minTime: 5,
+      maxTimeThreshold: 5,
+      autoPlay: Boolean(autoPlayResume),
+      showPrompt: true,
+      promptDuration: 3000,
+    };
+
     if (raw === false || raw === undefined) {
-      return {
-        enabled: false,
-        storageKey: `at_video_resume_${url}`,
-        minTime: 5,
-        maxTimeThreshold: 5,
-        autoPlay: Boolean(autoPlayResume),
-        showPrompt: true,
-        promptDuration: 3000,
-      };
+      return defaultConfig;
     }
 
     if (raw === true) {
       return {
+        ...defaultConfig,
         enabled: true,
-        storageKey: `at_video_resume_${url}`,
-        minTime: 5,
-        maxTimeThreshold: 5,
-        autoPlay: Boolean(autoPlayResume),
-        showPrompt: true,
-        promptDuration: 3000,
       };
     }
 
     return {
       enabled: raw.enabled ?? true,
-      storageKey: raw.storageKey ?? `at_video_resume_${url}`,
-      minTime: raw.minTime ?? 5,
-      maxTimeThreshold: raw.maxTimeThreshold ?? 5,
-      autoPlay: raw.autoPlay ?? Boolean(autoPlayResume),
-      showPrompt: raw.showPrompt ?? true,
-      promptDuration: raw.promptDuration ?? 3000,
+      storageKey: raw.storageKey ?? defaultConfig.storageKey,
+      minTime: raw.minTime ?? defaultConfig.minTime,
+      maxTimeThreshold: raw.maxTimeThreshold ?? defaultConfig.maxTimeThreshold,
+      autoPlay: raw.autoPlay ?? defaultConfig.autoPlay,
+      showPrompt: raw.showPrompt ?? defaultConfig.showPrompt,
+      promptDuration: raw.promptDuration ?? defaultConfig.promptDuration,
     };
   });
 
@@ -288,6 +294,13 @@ export function useVideoPlaybackHistory(
     resumeTime.value = 0;
     closePrompt();
   };
+
+  // 确定性生命周期清理：作用域注销时立即清除悬挂的浮层定时器
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      closePrompt();
+    });
+  }
 
   return {
     hasResumePoint,
