@@ -28,6 +28,8 @@
   面向现代 Web 应用与企业级安防物联网的工业级音视频与多路监控播放基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层标准播放驱动（Artplayer、hls.js、mpegts.js），严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/video-player-react`）。覆盖富媒体点播、HLS/FLV 低延迟直播、1/4/9/16 对称及 1+5/1+7 非对称分屏协同矩阵、云台 PTZ 协议解耦控制、动态防篡改安全水印、时间轴打点与按需弹幕插件。提供 `<AtengVideoPlayer />`、`<AtengVideoGrid />`、`<AtengPtzControl />`、`<AtengVideoWatermark />` 表现容器与 `useVideoPlayer()`、`useVideoGrid()`、`usePtz()` 无头状态机。
 - **[EChartsVue 响应式图表可视化扩展](./packages/echarts-vue/CONTEXT.md)**（`@atengk/echarts-vue`，当前活跃）：
   面向现代 Web 应用与企业级工控大盘的工业级 ECharts 5 响应式数据可视化扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 `echarts`，严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/echarts-react`）。提供 `<AtengECharts />` 通用表现容器、ResizeObserver 几何自感知与 `0x0` 挂起自愈、声明式全量 Option 同步、Loading/Empty/Error 三态 DOM 级遮罩、暗黑模式无损热切换；提供趋势对比（`<AtengTrendChart />`）、分类占比（`<AtengDonutChart />`）、转化漏斗（`<AtengFunnelChart />`）、极值 KPI 达成率（`<AtengGaugeChart />`）、多维雷达画像（`<AtengRadarChart />`）与三级地图下钻（`<AtengMapChart />`）六大高频预设卡片，以及 GeoJSON SPI 驱动器、脱壳全屏双模状态机与高清图片导出工具链。
+- **[FlowVue 企业级流程与审批流转扩展](./packages/flow-vue/CONTEXT.md)**（`@atengk/flow-vue`，当前已立项入驻）：
+  面向现代 Web 应用与企业级审批流、状态机的工业级流程设计与流转可视化扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 LogicFlow，严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/flow-react`）。提供 `<AtengFlowDesigner />` 可视化流程编排设计器、`<AtengFlowViewer />` 运行态只读流转追踪器与 `useFlow()` 无头状态机；具备三段式预设物料面板、属性配置抽屉插槽解构回写、四向吸附正交折线防呆连线、五态运行轨迹动效与悬停审计浮层；内置 `FlowValidator` 拓扑静态校验引擎、`AutoLayoutEngine` DAG 自动排版算法、`FlowSnapshot` 高清全景防虚导出与 `BpmnAdapter` BPMN 2.0 XML 双向转译器；标配 `ResizeObserver` 几何自愈与确定性四步生命周期销毁清理。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展，如 `@atengk/editor` 等）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -45,6 +47,7 @@
 - **[Sample FileViewerVue 专业文档自验展厅](./apps/sample-file-viewer-vue/README.md)**（`sample-file-viewer-vue`）：文档预览沙箱，1:1 对标 `@atengk/file-viewer-vue`，验证 Office/PDF/图片/鉴权流/Blob 双态异常与水印全真交互。
 - **[Sample VideoPlayerVue 流媒体播放自验展厅](./apps/sample-video-player-vue/README.md)**（`sample-video-player-vue`）：音视频沙箱，1:1 对标 `@atengk/video-player-vue`，验证点播、HLS/FLV 低延迟直播、1/4/9/16 分屏协同、PTZ 云台与安全防篡改水印。
 - **[Sample EChartsVue 响应式图表自验展厅](./apps/sample-echarts-vue/README.md)**（`sample-echarts-vue`）：数据可视化沙箱，1:1 对标 `@atengk/echarts-vue`，验证通用容器、几何感知自愈、声明式同步、多态遮罩、暗黑模式、6 大高频预设卡片、地图多级下钻与全屏脱壳导出。
+- **[Sample FlowVue 流程与流转自验展厅](./apps/sample-flow-vue/README.md)**（`sample-flow-vue`）：流程设计与运行态沙箱，1:1 对标 `@atengk/flow-vue`，验证设计器拖拽编排、BPMN XML 双向转译、运行态五态高亮与悬停审计、Vue 3 SFC 自定义节点与 DAG 规则链拓扑。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -71,6 +74,7 @@ flowchart TD
         FV["@atengk/file-viewer-vue<br/>(专业文档与工程文件渲染扩展)"]
         VP["@atengk/video-player-vue<br/>(流媒体与多路视频播放扩展)"]
         ECH["@atengk/echarts-vue<br/>(企业级响应式图表可视化扩展)"]
+        FLOW["@atengk/flow-vue<br/>(企业级流程与审批流转扩展)"]
         EXT["未来的 editor ...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -89,6 +93,7 @@ flowchart TD
         S_FV["apps/sample-file-viewer-vue"]
         S_VP["apps/sample-video-player-vue"]
         S_ECH["apps/sample-echarts-vue"]
+        S_FLOW["apps/sample-flow-vue"]
         S_EP["apps/sample-element-plus"]
     end
 
@@ -105,6 +110,7 @@ flowchart TD
     FV --> S_FV
     VP --> S_VP
     ECH --> S_ECH
+    FLOW --> S_FLOW
     EP --> S_EP
 ```
 

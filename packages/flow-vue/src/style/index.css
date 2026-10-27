@@ -1,0 +1,37 @@
+/**
+ * @atengk/flow-vue 全局基础样式与 CSS 变量声明。
+ *
+ * @author Ateng
+ * @since 2026-10-27
+ */
+
+@import '@logicflow/core/dist/index.css';
+
+:root {
+  --at-flow-bg: #ffffff;
+  --at-flow-border: #e2e8f0;
+  --at-flow-primary: #3b82f6;
+  --at-flow-success: #10b981;
+  --at-flow-danger: #ef4444;
+  --at-flow-warning: #f59e0b;
+  --at-flow-text: #1e293b;
+  --at-flow-text-secondary: #64748b;
+  --at-flow-font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.at-flow-canvas {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  background-color: var(--at-flow-bg);
+  border: 1px solid var(--at-flow-border);
+  font-family: var(--at-flow-font-family);
+}
+
+.at-flow-canvas__viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

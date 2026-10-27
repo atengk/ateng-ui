@@ -1,0 +1,26 @@
+{
+  "name": "sample-flow-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/flow-vue 企业级流程与审批流转自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/flow-vue": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@logicflow/core": "^2.2.5",
+    "@logicflow/extension": "^2.3.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
