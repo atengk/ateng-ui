@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<AtengFlowToolbarProps>(), {
   showGridToggle: true,
   showMiniMap: true,
   showClear: true,
+  showValidate: true,
 });
 
 const emit = defineEmits<AtengFlowToolbarEmits>();
@@ -346,6 +347,35 @@ defineExpose<AtengFlowToolbarExpose>({
               <line x1="16" y1="6" x2="16" y2="22" />
             </svg>
             <span class="at-flow-toolbar__text">小地图</span>
+          </button>
+        </div>
+
+        <div v-if="showValidate" class="at-flow-toolbar__divider" />
+
+        <!-- 流程拓扑静态校验 -->
+        <div v-if="showValidate" class="at-flow-toolbar__group">
+          <button
+            type="button"
+            class="at-flow-toolbar__btn at-flow-toolbar__btn--validate"
+            :disabled="disabled"
+            title="校验流程拓扑静态规则与错误高亮"
+            aria-label="校验拓扑"
+            @click="emit('validate')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="at-flow-icon"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span class="at-flow-toolbar__text">校验</span>
           </button>
         </div>
 

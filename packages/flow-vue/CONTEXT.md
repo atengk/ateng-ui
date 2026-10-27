@@ -62,6 +62,14 @@ _Avoid_: ScrollLock, ZoomInterceptor
 流程图拓扑静态校验引擎，校验起止唯一性、连通孤岛、网关分支有效性与闭环死锁。
 _Avoid_: SchemaChecker, DiagramValidator, RuleVerifier
 
+**FlowValidationError**:
+拓扑静态校验过程中产生的结构化诊断异常实体，包含错误级别、代号、描述以及关联的节点与连线 ID 列表。
+_Avoid_: ValidationIssue, RuleError, DiagramViolation
+
+**FlowValidationResult**:
+全图静态校验汇总结果实体，指示整体有效性（`valid: boolean`）并汇集诊断列表（`errors: FlowValidationError[]`）。
+_Avoid_: ValidationReport, CheckResult, VerifyOutcome
+
 **AutoLayoutEngine**:
 基于有向无环图（DAG）分层算法的自动整理排版引擎，支持水平（LR）与垂直（TB）流动重构。
 _Avoid_: DiagramFormatter, LayoutScheduler

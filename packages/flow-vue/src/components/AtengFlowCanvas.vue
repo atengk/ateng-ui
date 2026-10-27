@@ -158,6 +158,41 @@ const toggleMiniMap = (visible?: boolean) => {
   }
 };
 
+const focusElement = (id: string) => {
+  if (!lf.value || !id) return;
+  try {
+    lf.value.focusOn(id);
+    lf.value.selectElementById(id);
+  } catch {
+    // 降级保护
+  }
+};
+
+const highlightElements = (nodeIds: string[] = [], edgeIds: string[] = []) => {
+  if (!lf.value) return;
+  for (const nodeId of nodeIds) {
+    lf.value.setProperties(nodeId, { __hasError: true });
+  }
+  for (const edgeId of edgeIds) {
+    lf.value.setProperties(edgeId, { __hasError: true });
+  }
+};
+
+const clearHighlight = () => {
+  if (!lf.value) return;
+  const current = getGraphData();
+  for (const node of current.nodes) {
+    if (node.properties?.__hasError) {
+      lf.value.setProperties(node.id, { __hasError: false });
+    }
+  }
+  for (const edge of current.edges) {
+    if (edge.properties?.__hasError) {
+      lf.value.setProperties(edge.id, { __hasError: false });
+    }
+  }
+};
+
 defineExpose<AtengFlowCanvasExpose>({
   getLf: () => lf.value,
   getContainer: () => domRef.value,
@@ -175,6 +210,9 @@ defineExpose<AtengFlowCanvasExpose>({
   canRedo: () => canRedo.value,
   toggleGrid,
   toggleMiniMap,
+  focusElement,
+  highlightElements,
+  clearHighlight,
 });
 </script>
 

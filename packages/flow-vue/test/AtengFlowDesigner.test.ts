@@ -213,4 +213,46 @@ describe('AtengFlowDesigner', () => {
     expect(emittedData[0]?.direction).toBe('LR');
     expect(emittedData[0]?.graph.nodes.length).toBe(2);
   });
+
+  it('调用 validate() 应该执行拓扑校验、派发事件并高亮错误节点', async () => {
+    // mockGraph 缺少 end 节点，且 user-task-1 没有出度
+    wrapper = mount(AtengFlowDesigner, {
+      props: {
+        modelValue: mockGraph,
+      },
+      attachTo: document.body,
+    });
+
+    const exposed = wrapper.vm as unknown as {
+      validate: () => import('../src/validator').FlowValidationResult;
+      clearValidationHighlight: () => void;
+      focusElement: (id: string) => void;
+      getLf: () => import('@logicflow/core').default;
+      getSelectedElement: () => FlowElementData | null;
+    };
+
+    const result = exposed.validate();
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(wrapper.emitted('validate')).toBeTruthy();
+
+    const emittedResult = wrapper.emitted(
+      'validate',
+    )![0]![0] as import('../src/validator').FlowValidationResult;
+    expect(emittedResult.valid).toBe(false);
+
+    // 验证产生错误的节点已设置 __hasError: true
+    const lf = exposed.getLf();
+    const taskModel = lf.getNodeModelById('user-task-1');
+    expect(taskModel?.properties?.__hasError).toBe(true);
+
+    // 调用 focusElement 应该定位并选中节点
+    exposed.focusElement('user-task-1');
+    await wrapper.vm.$nextTick();
+    expect(exposed.getSelectedElement()?.id).toBe('user-task-1');
+
+    // 清理高亮
+    exposed.clearValidationHighlight();
+    expect(taskModel?.properties?.__hasError).toBe(false);
+  });
 });

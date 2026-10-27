@@ -25,6 +25,7 @@ export {
 export { useFlow } from './composables/useFlow';
 export { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from './presets';
 export { AutoLayoutEngine } from './layout';
+export { FlowValidator, FlowValidationRuleCode } from './validator';
 
 /**
  * Vue 插件安装器，支持 app.use(install)。
@@ -77,3 +78,8 @@ export type {
 } from './types';
 
 export type { FlowNodeTypeValue, BeforeConnectHook, StencilItem, StencilGroup } from './presets';
+export type {
+  FlowValidationError,
+  FlowValidationResult,
+  FlowValidationRuleCodeValue,
+} from './validator';

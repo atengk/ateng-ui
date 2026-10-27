@@ -35,3 +35,33 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* 校验异常图元红色呼吸边框动画与视觉反馈 */
+@keyframes at-flow-pulse-error {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.85));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0.4));
+  }
+}
+
+.at-flow-node--error {
+  animation: at-flow-pulse-error 1.8s infinite ease-in-out;
+}
+
+.at-flow-node--error rect,
+.at-flow-node--error circle,
+.at-flow-node--error polygon,
+.at-flow-node--error path {
+  stroke: var(--at-flow-danger, #ef4444) !important;
+  stroke-width: 3px !important;
+}
+
+.at-flow-edge--error path {
+  stroke: var(--at-flow-danger, #ef4444) !important;
+  stroke-width: 2.5px !important;
+}

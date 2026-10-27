@@ -131,4 +131,14 @@ describe('AtengFlowToolbar', () => {
     expect(wrapper.find('.custom-title').exists()).toBe(true);
     expect(wrapper.find('.custom-save').exists()).toBe(true);
   });
+
+  it('点击校验按钮应派发 validate 事件', async () => {
+    wrapper = mount(AtengFlowToolbar);
+
+    const validateBtn = wrapper.find('.at-flow-toolbar__btn--validate');
+    expect(validateBtn.exists()).toBe(true);
+
+    await validateBtn.trigger('click');
+    expect(wrapper.emitted('validate')).toBeTruthy();
+  });
 });

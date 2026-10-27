@@ -17,6 +17,7 @@ import AtengFlowToolbar from './AtengFlowToolbar.vue';
 import AtengFlowPropertyPanel from './AtengFlowPropertyPanel.vue';
 import { registerPresetNodes, type StencilItem } from '../presets';
 import { AutoLayoutEngine } from '../layout';
+import { FlowValidator, type FlowValidationError, type FlowValidationResult } from '../validator';
 import type {
   FlowGraph,
   FlowNode,
@@ -263,6 +264,61 @@ const fitView = () => canvasRef.value?.fitView();
 const undo = () => canvasRef.value?.undo();
 const redo = () => canvasRef.value?.redo();
 
+const clearValidationHighlight = () => {
+  canvasRef.value?.clearHighlight();
+};
+
+const highlightErrors = (errors: FlowValidationError[]) => {
+  const nodeIds = new Set<string>();
+  const edgeIds = new Set<string>();
+  for (const err of errors) {
+    err.nodeIds?.forEach(id => nodeIds.add(id));
+    err.edgeIds?.forEach(id => edgeIds.add(id));
+  }
+  canvasRef.value?.highlightElements(Array.from(nodeIds), Array.from(edgeIds));
+};
+
+const validate = (): FlowValidationResult => {
+  const current = getGraphData();
+  const result = FlowValidator.validate(current);
+
+  clearValidationHighlight();
+
+  if (!result.valid) {
+    const errorNodeIds = new Set<string>();
+    const errorEdgeIds = new Set<string>();
+
+    for (const err of result.errors) {
+      if (err.level === 'error') {
+        err.nodeIds?.forEach(id => errorNodeIds.add(id));
+        err.edgeIds?.forEach(id => errorEdgeIds.add(id));
+      }
+    }
+
+    canvasRef.value?.highlightElements(Array.from(errorNodeIds), Array.from(errorEdgeIds));
+  }
+
+  emit('validate', result);
+  return result;
+};
+
+const focusElement = (id: string) => {
+  if (!internalLf.value || !id) return;
+  canvasRef.value?.focusElement(id);
+
+  const nodeModel = internalLf.value.getNodeModelById(id);
+  if (nodeModel) {
+    const data = nodeModel.getData() as FlowNode;
+    handleNodeClick(data, new MouseEvent('click'));
+    return;
+  }
+  const edgeModel = internalLf.value.getEdgeModelById(id);
+  if (edgeModel) {
+    const data = edgeModel.getData() as FlowEdge;
+    handleEdgeClick(data, new MouseEvent('click'));
+  }
+};
+
 defineExpose<AtengFlowDesignerExpose>({
   getLf,
   getGraphData,
@@ -282,6 +338,10 @@ defineExpose<AtengFlowDesignerExpose>({
   autoLayout: handleAutoLayout,
   toggleGrid: handleToggleGrid,
   toggleMiniMap: handleToggleMiniMap,
+  validate,
+  clearValidationHighlight,
+  highlightErrors,
+  focusElement,
 });
 </script>
 
@@ -305,6 +365,9 @@ defineExpose<AtengFlowDesignerExpose>({
         :toggle-grid="handleToggleGrid"
         :toggle-mini-map="handleToggleMiniMap"
         :get-graph-data="getGraphData"
+        :validate="validate"
+        :clear-validation-highlight="clearValidationHighlight"
+        :focus-element="focusElement"
       >
         <AtengFlowToolbar
           :lf="internalLf"
@@ -321,6 +384,7 @@ defineExpose<AtengFlowDesignerExpose>({
           @layout="handleAutoLayout"
           @toggle-grid="handleToggleGrid"
           @toggle-minimap="handleToggleMiniMap"
+          @validate="validate"
         />
       </slot>
     </header>

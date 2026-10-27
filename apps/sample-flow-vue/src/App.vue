@@ -23,6 +23,8 @@ import {
   type LayoutDirection,
   type AtengFlowDesignerInstance,
   type BeforeConnectHook,
+  type FlowValidationError,
+  type FlowValidationResult,
 } from '@atengk/flow-vue';
 
 const designerRef = ref<AtengFlowDesignerInstance | null>(null);
@@ -190,7 +192,128 @@ const handleConnectionNotAllowed = (data: unknown) => {
   }, 4000);
 };
 
+const validationResult = ref<FlowValidationResult | null>(null);
+const isValidationDrawerOpen = ref<boolean>(false);
+
+const handleValidate = () => {
+  if (!designerRef.value) return;
+  const result = designerRef.value.validate();
+  validationResult.value = result;
+  isValidationDrawerOpen.value = true;
+  if (result.valid) {
+    lastEvent.value = '✅ 拓扑校验通过：流程图符合所有图论刚性规则！';
+  } else {
+    lastEvent.value = `❌ 拓扑校验未通过：发现 ${result.errors.length} 项违规，已在画布高亮红色呼吸边框！`;
+  }
+};
+
+const handleOnValidate = (result: FlowValidationResult) => {
+  validationResult.value = result;
+  isValidationDrawerOpen.value = true;
+  if (result.valid) {
+    lastEvent.value = '✅ 拓扑校验通过：流程图符合所有图论刚性规则！';
+  } else {
+    lastEvent.value = `❌ 拓扑校验未通过：发现 ${result.errors.length} 项违规，已在画布高亮红色呼吸边框！`;
+  }
+};
+
+const handleClearValidation = () => {
+  designerRef.value?.clearValidationHighlight();
+  validationResult.value = null;
+  isValidationDrawerOpen.value = false;
+  lastEvent.value = '已清除画布上的校验错误高亮状态';
+};
+
+const handleFocusElement = (id: string) => {
+  if (designerRef.value && id) {
+    designerRef.value.focusElement(id);
+    lastEvent.value = `已自动平移视口并高亮居中定位图元: [${id}]`;
+  }
+};
+
+const handleFocusError = (err: FlowValidationError) => {
+  const targetId = err.nodeIds?.[0] || err.edgeIds?.[0];
+  if (targetId) {
+    handleFocusElement(targetId);
+  }
+};
+
+// 预设违规测试用例
+const invalidPresets: Record<string, { title: string; graph: FlowGraph }> = {
+  'missing-end': {
+    title: '缺少结束节点与悬空任务',
+    graph: {
+      nodes: [
+        { id: 'start-1', type: FlowNodeType.START, x: 120, y: 200, text: '开始' },
+        { id: 'task-1', type: FlowNodeType.USER_TASK, x: 340, y: 200, text: '悬空初审任务' },
+      ],
+      edges: [{ id: 'edge-1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'task-1' }],
+    },
+  },
+  gateway: {
+    title: '排他网关分支不足与未配条件',
+    graph: {
+      nodes: [
+        { id: 'start-1', type: FlowNodeType.START, x: 120, y: 200, text: '开始' },
+        { id: 'gw-1', type: FlowNodeType.EXCLUSIVE_GATEWAY, x: 340, y: 200, text: '排他网关' },
+        { id: 'end-1', type: FlowNodeType.END, x: 560, y: 200, text: '结束' },
+      ],
+      edges: [
+        { id: 'e-1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'gw-1' },
+        { id: 'e-2', type: 'polyline', sourceNodeId: 'gw-1', targetNodeId: 'end-1' },
+      ],
+    },
+  },
+  deadlock: {
+    title: '无出口死锁闭环拓扑',
+    graph: {
+      nodes: [
+        { id: 'start-1', type: FlowNodeType.START, x: 120, y: 150, text: '开始' },
+        { id: 'task-a', type: FlowNodeType.USER_TASK, x: 300, y: 150, text: '死锁任务A' },
+        { id: 'task-b', type: FlowNodeType.USER_TASK, x: 480, y: 150, text: '死锁任务B' },
+        { id: 'task-c', type: FlowNodeType.USER_TASK, x: 390, y: 270, text: '死锁任务C' },
+        { id: 'end-1', type: FlowNodeType.END, x: 680, y: 150, text: '孤立结束' },
+      ],
+      edges: [
+        { id: 'e-s', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'task-a' },
+        { id: 'e-ab', type: 'polyline', sourceNodeId: 'task-a', targetNodeId: 'task-b' },
+        { id: 'e-bc', type: 'polyline', sourceNodeId: 'task-b', targetNodeId: 'task-c' },
+        { id: 'e-ca', type: 'polyline', sourceNodeId: 'task-c', targetNodeId: 'task-a' },
+      ],
+    },
+  },
+  island: {
+    title: '孤岛不可达节点',
+    graph: {
+      nodes: [
+        { id: 'start-1', type: FlowNodeType.START, x: 120, y: 150, text: '发起流程' },
+        { id: 'task-1', type: FlowNodeType.USER_TASK, x: 340, y: 150, text: '正常审批' },
+        { id: 'end-1', type: FlowNodeType.END, x: 560, y: 150, text: '结束' },
+        { id: 'island-1', type: FlowNodeType.USER_TASK, x: 250, y: 320, text: '孤岛节点A' },
+        { id: 'island-2', type: FlowNodeType.USER_TASK, x: 450, y: 320, text: '孤岛节点B' },
+      ],
+      edges: [
+        { id: 'e-1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'task-1' },
+        { id: 'e-2', type: 'polyline', sourceNodeId: 'task-1', targetNodeId: 'end-1' },
+        { id: 'e-iso1', type: 'polyline', sourceNodeId: 'island-1', targetNodeId: 'island-2' },
+        { id: 'e-iso2', type: 'polyline', sourceNodeId: 'island-2', targetNodeId: 'island-1' },
+      ],
+    },
+  },
+};
+
+const handleLoadInvalid = (key: string | number | object) => {
+  const item = invalidPresets[String(key)];
+  if (!item) return;
+  graphData.value = JSON.parse(JSON.stringify(item.graph));
+  designerRef.value?.render(graphData.value);
+  designerRef.value?.fitView();
+  lastEvent.value = `已载入测试用例: [${item.title}]，正在执行静态校验...`;
+  handleValidate();
+};
+
 const handleReloadDefault = () => {
+  handleClearValidation();
   graphData.value = JSON.parse(JSON.stringify(initialGraph));
   designerRef.value?.render(graphData.value);
   designerRef.value?.fitView();
@@ -212,13 +335,28 @@ const currentBadgeType = computed(() => {
       <div class="sample-header__left">
         <h1>@atengk/flow-vue 流程可视化展厅</h1>
         <p class="sample-desc">
-          工单 #165
-          验证：顶部工具栏动作矩阵（视口缩放/防误触清空）、快捷键体系（Delete/Ctrl+Z/Y/C/V）与 DAG
-          自动分层排版
+          工单 #166
+          验证：流程拓扑静态校验引擎（起止节点唯一性、出入度悬空检测、网关分支条件、无出口死循环）、违规图元红色呼吸高亮与一键居中定位
         </p>
       </div>
 
       <div class="sample-header__right">
+        <button class="btn btn--validate" @click="handleValidate">🔍 静态拓扑校验</button>
+
+        <el-dropdown trigger="click" @command="handleLoadInvalid">
+          <button class="btn btn--warning">⚠️ 测试违规用例 ▾</button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="missing-end">缺少结束节点与悬空任务</el-dropdown-item>
+              <el-dropdown-item command="gateway">排他网关分支不足与未配条件</el-dropdown-item>
+              <el-dropdown-item command="deadlock">无出口死锁拓扑闭环</el-dropdown-item>
+              <el-dropdown-item command="island">孤岛不可达节点</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
+        <button v-if="validationResult" class="btn" @click="handleClearValidation">清除高亮</button>
+
         <button
           class="btn btn--toggle"
           :class="{ 'is-active': useCustomPanel }"
@@ -262,6 +400,7 @@ const currentBadgeType = computed(() => {
         @element:update="handleElementUpdate"
         @layout:complete="handleLayoutComplete"
         @connection:not-allowed="handleConnectionNotAllowed"
+        @validate="handleOnValidate"
       >
         <!-- 使用 Element Plus 表单接管 #panel 插槽 -->
         <template v-if="useCustomPanel" #panel="{ element, updateProperty, close }">
@@ -398,6 +537,93 @@ const currentBadgeType = computed(() => {
         键即刻删除选中图元！
       </span>
     </footer>
+
+    <!-- 拓扑校验诊断抽屉面板 -->
+    <el-drawer
+      v-model="isValidationDrawerOpen"
+      title="流程拓扑静态校验诊断面板"
+      size="480px"
+      direction="rtl"
+    >
+      <div v-if="validationResult" class="sample-diagnosis">
+        <div v-if="validationResult.valid" class="diagnosis-success">
+          <el-result
+            icon="success"
+            title="拓扑校验 100% 通过"
+            sub-title="当前流程图符合起止唯一性、连通性、网关分支及无死锁等所有图论刚性规则！"
+          >
+            <template #extra>
+              <el-button type="primary" size="small" @click="isValidationDrawerOpen = false">
+                完成审阅
+              </el-button>
+            </template>
+          </el-result>
+        </div>
+
+        <div v-else class="diagnosis-errors">
+          <el-alert
+            type="error"
+            :closable="false"
+            show-icon
+            :title="`检测到 ${validationResult.errors.length} 项流程拓扑违规`"
+          >
+            违规图元已在画布呈现红色呼吸边框高亮，点击对应条目可自动平移居中并选中目标图元。
+          </el-alert>
+
+          <div class="diagnosis-list">
+            <div
+              v-for="(err, index) in validationResult.errors"
+              :key="index"
+              class="diagnosis-item"
+              :class="`diagnosis-item--${err.level}`"
+              @click="handleFocusError(err)"
+            >
+              <div class="diagnosis-item__header">
+                <el-tag :type="err.level === 'error' ? 'danger' : 'warning'" size="small">
+                  {{ err.level === 'error' ? '阻断错误' : '规范警告' }}
+                </el-tag>
+                <span class="diagnosis-item__code">{{ err.code }}</span>
+              </div>
+
+              <div class="diagnosis-item__msg">{{ err.message }}</div>
+
+              <div v-if="err.nodeIds && err.nodeIds.length > 0" class="diagnosis-item__targets">
+                <span class="targets-label">违规节点：</span>
+                <el-button
+                  v-for="nid in err.nodeIds"
+                  :key="nid"
+                  size="small"
+                  type="danger"
+                  plain
+                  @click="handleFocusElement(nid)"
+                >
+                  🎯 居中定位: {{ nid }}
+                </el-button>
+              </div>
+
+              <div v-if="err.edgeIds && err.edgeIds.length > 0" class="diagnosis-item__targets">
+                <span class="targets-label">关联连线：</span>
+                <el-button
+                  v-for="eid in err.edgeIds"
+                  :key="eid"
+                  size="small"
+                  type="warning"
+                  plain
+                  @click="handleFocusElement(eid)"
+                >
+                  🔗 居中定位: {{ eid }}
+                </el-button>
+              </div>
+            </div>
+          </div>
+
+          <div class="diagnosis-footer">
+            <el-button @click="handleClearValidation">清除画布高亮</el-button>
+            <el-button type="primary" @click="handleValidate">重新校验</el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -522,6 +748,112 @@ const currentBadgeType = computed(() => {
   background-color: #e0f2fe;
   border-color: #0284c7;
   color: #0369a1;
+}
+
+.btn--validate {
+  background-color: #fef2f2;
+  border-color: #f87171;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.btn--validate:hover {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+}
+
+.btn--warning {
+  background-color: #fffbeb;
+  border-color: #fcd34d;
+  color: #d97706;
+}
+
+.btn--warning:hover {
+  background-color: #fef3c7;
+}
+
+.sample-diagnosis {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.diagnosis-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+
+.diagnosis-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.diagnosis-item {
+  border: 1px solid #fee2e2;
+  background-color: #fef2f2;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.diagnosis-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+.diagnosis-item--warning {
+  border-color: #fef3c7;
+  background-color: #fffbeb;
+}
+
+.diagnosis-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagnosis-item__code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.diagnosis-item__msg {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.diagnosis-item__targets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.targets-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.diagnosis-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
 }
 
 .sample-designer-wrapper {

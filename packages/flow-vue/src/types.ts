@@ -222,6 +222,12 @@ export interface AtengFlowCanvasExpose {
   toggleGrid: (visible?: boolean) => void;
   /** 切换小地图显示 */
   toggleMiniMap: (visible?: boolean) => void;
+  /** 平移视口居中并高亮聚焦指定图元 */
+  focusElement: (id: string) => void;
+  /** 手动为指定节点与连线添加错误高亮呼吸效果 */
+  highlightElements: (nodeIds?: string[], edgeIds?: string[]) => void;
+  /** 清除画布中所有图元的错误高亮状态 */
+  clearHighlight: () => void;
 }
 
 /**
@@ -366,6 +372,8 @@ export interface AtengFlowToolbarProps {
   showMiniMap?: boolean;
   /** 是否展示清空画布按钮（默认 true） */
   showClear?: boolean;
+  /** 是否展示拓扑静态校验按钮（默认 true） */
+  showValidate?: boolean;
 }
 
 /**
@@ -382,6 +390,7 @@ export interface AtengFlowToolbarEmits {
   (e: 'layout', direction: LayoutDirection): void;
   (e: 'toggle-grid', visible: boolean): void;
   (e: 'toggle-minimap', visible: boolean): void;
+  (e: 'validate'): void;
 }
 
 /**
@@ -446,6 +455,8 @@ export interface AtengFlowDesignerEmits {
   (e: 'element:update', element: FlowElementData): void;
   /** 自动排版完成后派发 */
   (e: 'layout:complete', data: { direction: LayoutDirection; graph: FlowGraph }): void;
+  /** 执行流程拓扑静态校验完成后派发 */
+  (e: 'validate', result: import('./validator').FlowValidationResult): void;
 }
 
 /**
@@ -468,6 +479,9 @@ export interface AtengFlowDesignerSlots {
     toggleMiniMap: (visible?: boolean) => void;
     toggleMinimap?: (visible?: boolean) => void;
     getGraphData: () => FlowGraph;
+    validate: () => import('./validator').FlowValidationResult;
+    clearValidationHighlight: () => void;
+    focusElement: (id: string) => void;
   }) => unknown;
   stencil?: (props: {
     lf: LogicFlow | null;
@@ -506,4 +520,19 @@ export interface AtengFlowDesignerExpose {
   toggleGrid: (visible?: boolean) => void;
   /** 切换鹰眼小地图显示状态 */
   toggleMiniMap: (visible?: boolean) => void;
+  /** 执行全图静态拓扑校验，并自动高亮违规图元 */
+  validate: () => import('./validator').FlowValidationResult;
+  /** 清除画布中所有图元的校验错误高亮状态 */
+  clearValidationHighlight: () => void;
+  /** 手动为指定的校验错误集合高亮图元 */
+  highlightErrors: (errors: import('./validator').FlowValidationError[]) => void;
+  /** 平移视口居中并高亮聚焦选中指定图元 */
+  focusElement: (id: string) => void;
 }
+
+export type {
+  FlowValidationError,
+  FlowValidationResult,
+  FlowValidationRuleCodeValue,
+} from './validator';
+export { FlowValidationRuleCode } from './validator';
