@@ -2,7 +2,7 @@
 /**
  * AtengECharts 通用表现容器组件。
  *
- * 包装 useECharts 无头状态机，提供保底高度、BEM 独立样式隔离、ResizeObserver 几何自适应与零尺寸自愈。
+ * 包装 useECharts 无头状态机，提供保底高度、BEM 独立样式隔离、ResizeObserver 几何自适应、零尺寸自愈与暗黑模式无损热切换。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -17,7 +17,7 @@ defineOptions({
 });
 
 const props = withDefaults(defineProps<AtengEChartsProps>(), {
-  theme: undefined,
+  theme: 'auto',
   initOptions: undefined,
   width: '100%',
   height: '350px',
@@ -31,10 +31,11 @@ const emit = defineEmits<AtengEChartsEmits>();
 
 const chartRef = ref<HTMLDivElement | null>(null);
 
-// 1. 初始化无头状态机（注入 autoResize）
+// 1. 初始化无头状态机（注入 autoResize 与主题联动）
 const {
   instance,
   isZeroDimension,
+  currentTheme,
   init,
   dispose,
   setOption,
@@ -48,6 +49,9 @@ const {
   theme: () => props.theme,
   initOptions: () => props.initOptions,
   autoResize: () => props.autoResize,
+  onThemeChange: theme => {
+    emit('theme-change', theme);
+  },
 });
 
 // 2. 容器样式计算
@@ -112,6 +116,7 @@ watch(
 defineExpose({
   getInstance: (): EChartsInstance | null => instance.value,
   isZeroDimension,
+  currentTheme,
   init,
   dispose,
   setOption,

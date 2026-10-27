@@ -4,6 +4,7 @@
  * 严格锁定浅响应式引用 (shallowRef) 托管 ECharts 实例，彻底杜绝 Vue 深度代理破坏原型链与内存泄露；
  * 内置 ResizeObserver 物理容器几何感知（带 150ms 防抖调度）；
  * 搭载零尺寸（0x0）挂起防假死与正向尺寸毫秒自愈状态机；
+ * 搭载暗黑模式自动侦测、平滑热切换与 Option 保真状态机；
  * 遵循确定性生命周期清理契约，在作用域销毁时安全释放实例与物理监听器。
  *
  * @author Ateng
@@ -14,12 +15,14 @@ import {
   ref,
   shallowRef,
   toValue,
+  watch,
   onMounted,
   onScopeDispose,
   readonly,
   type MaybeRefOrGetter,
 } from 'vue';
 import * as echarts from 'echarts';
+import { ensureBuiltinThemes } from '../theme';
 import type {
   EChartsInstance,
   EChartsOption,
@@ -32,17 +35,62 @@ export function useECharts(
   elRef: MaybeRefOrGetter<HTMLElement | null | undefined>,
   options?: UseEChartsOptions,
 ): UseEChartsReturn {
+  // 0. 确保注册内置企业级亮/暗主题
+  ensureBuiltinThemes();
+
   // 1. 严格使用 shallowRef 托管实例，防止 Vue Proxy 深度侵入 ECharts 原型链
   const instance = shallowRef<EChartsInstance | null>(null);
 
-  // 2. 零尺寸挂起状态机与待决 Option 缓存
+  // 2. 状态机：零尺寸挂起与待决 Option 缓存
   const isZeroDimension = ref(false);
   const pendingOption = shallowRef<EChartsOption | null>(null);
+
+  // 3. 主题状态机与响应式跟踪
+  const currentTheme = ref<string>('ateng-light');
+  let themeObserver: MutationObserver | null = null;
+  let mediaQueryList: MediaQueryList | null = null;
+  let mediaListener: ((e: MediaQueryListEvent) => void) | null = null;
 
   let resizeObserver: ResizeObserver | null = null;
   let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
   const debounceMs = options?.resizeDebounce ?? 150;
+
+  /**
+   * 探测当前是否处于暗黑模式。
+   */
+  const detectIsDark = (): boolean => {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      if (document.documentElement.classList.contains('dark')) {
+        return true;
+      }
+    }
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  };
+
+  /**
+   * 解析当前应生效的 ECharts 主题名称或对象。
+   */
+  const resolveTheme = (): string | object | undefined => {
+    const rawTheme = toValue(options?.theme);
+    if (!rawTheme || rawTheme === 'auto') {
+      const isDark = detectIsDark();
+      const themeName = isDark ? 'ateng-dark' : 'ateng-light';
+      currentTheme.value = themeName;
+      return themeName;
+    }
+
+    if (typeof rawTheme === 'string') {
+      currentTheme.value = rawTheme;
+      return rawTheme;
+    }
+
+    currentTheme.value = 'custom';
+    return rawTheme;
+  };
 
   /**
    * 探测容器是否处于零尺寸不可见状态（如处于折叠 Tab 或未渲染弹窗中）。
@@ -75,7 +123,7 @@ export function useECharts(
       return existing;
     }
 
-    const theme = toValue(options?.theme);
+    const theme = resolveTheme();
     const initOpts = toValue(options?.initOptions);
 
     const chart = echarts.init(el, theme, initOpts);
@@ -90,7 +138,41 @@ export function useECharts(
   };
 
   /**
-   * 彻底安全销毁图表实例并回收监听器。
+   * 平滑无损重建实例（主要用于暗黑模式/主题热切换）。
+   */
+  const rebuildWithTheme = (): void => {
+    const el = toValue(elRef);
+    if (!el || !instance.value) {
+      return;
+    }
+
+    // 1. 提取当前图表的实时 Option 数据与状态
+    let currentOption: EChartsOption | null = null;
+    try {
+      currentOption = instance.value.getOption() as EChartsOption;
+    } catch {
+      currentOption = pendingOption.value;
+    }
+
+    // 2. 彻底安全销毁旧实例
+    if (!instance.value.isDisposed()) {
+      instance.value.dispose();
+    }
+    instance.value = null;
+
+    // 3. 在新主题下重新 init
+    const newChart = init();
+
+    // 4. 平滑恢复原有数据与视图
+    if (newChart && (currentOption || pendingOption.value)) {
+      newChart.setOption((currentOption || pendingOption.value)!, true);
+    }
+
+    options?.onThemeChange?.(currentTheme.value);
+  };
+
+  /**
+   * 彻底安全销毁图表实例并回收所有物理监听器。
    */
   const dispose = (): void => {
     // 清理 Resize 调度定时器
@@ -103,6 +185,19 @@ export function useECharts(
     if (resizeObserver) {
       resizeObserver.disconnect();
       resizeObserver = null;
+    }
+
+    // 断开主题 MutationObserver
+    if (themeObserver) {
+      themeObserver.disconnect();
+      themeObserver = null;
+    }
+
+    // 移除系统媒体查询监听
+    if (mediaQueryList && mediaListener) {
+      mediaQueryList.removeEventListener('change', mediaListener);
+      mediaQueryList = null;
+      mediaListener = null;
     }
 
     // 释放 ECharts 实例
@@ -249,10 +344,11 @@ export function useECharts(
     return '';
   };
 
-  // 3. 挂载时尝试自动初始化与注册 ResizeObserver
+  // 4. 挂载时尝试自动初始化与注册物理监听器
   onMounted(() => {
     const el = toValue(elRef);
     if (el) {
+      // 注册 ResizeObserver
       const autoResize = toValue(options?.autoResize) ?? true;
       if (autoResize && typeof window !== 'undefined' && 'ResizeObserver' in window) {
         resizeObserver = new ResizeObserver(() => {
@@ -261,11 +357,49 @@ export function useECharts(
         resizeObserver.observe(el);
       }
 
+      // 注册主题变化自动侦测 (MutationObserver + MediaQuery)
+      const rawTheme = toValue(options?.theme);
+      if (!rawTheme || rawTheme === 'auto') {
+        if (typeof document !== 'undefined' && 'MutationObserver' in window) {
+          themeObserver = new MutationObserver(() => {
+            const nextThemeName = detectIsDark() ? 'ateng-dark' : 'ateng-light';
+            if (nextThemeName !== currentTheme.value) {
+              rebuildWithTheme();
+            }
+          });
+          themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+          });
+        }
+
+        if (typeof window !== 'undefined' && window.matchMedia) {
+          mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
+          mediaListener = () => {
+            const nextThemeName = detectIsDark() ? 'ateng-dark' : 'ateng-light';
+            if (nextThemeName !== currentTheme.value) {
+              rebuildWithTheme();
+            }
+          };
+          mediaQueryList.addEventListener('change', mediaListener);
+        }
+      }
+
       init();
     }
   });
 
-  // 4. 确定性销毁防线：在作用域注销时 100% 销毁实例与解绑监听器
+  // 5. 监听显式传入的主题属性变化
+  watch(
+    () => toValue(options?.theme),
+    newTheme => {
+      if (newTheme) {
+        rebuildWithTheme();
+      }
+    },
+  );
+
+  // 6. 确定性销毁防线：在作用域注销时 100% 销毁实例与解绑监听器
   if (!options?.manualDispose) {
     onScopeDispose(() => {
       dispose();
@@ -275,6 +409,7 @@ export function useECharts(
   return {
     instance,
     isZeroDimension: readonly(isZeroDimension),
+    currentTheme: readonly(currentTheme),
     init,
     dispose,
     setOption,

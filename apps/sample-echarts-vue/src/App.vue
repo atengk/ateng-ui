@@ -2,7 +2,7 @@
 /**
  * sample-echarts-vue 自验展厅主页面。
  *
- * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、ResizeObserver 几何自感知与零尺寸自愈。
+ * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、ResizeObserver 几何自感知与暗黑模式无损热切换。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -15,7 +15,7 @@ import { AtengECharts, type AtengEChartsInstance, type EChartsOption } from '@at
 const barOption = ref<EChartsOption>({
   title: {
     text: '月度经营数据看板 (柱线混合)',
-    subtext: 'Ticket #151 & #152 容器几何感知与自适应',
+    subtext: 'Ticket #153 主题与暗黑模式自适应',
     left: 'center',
   },
   tooltip: {
@@ -60,7 +60,6 @@ const barOption = ref<EChartsOption>({
       type: 'bar',
       data: [120, 132, 101, 134, 190, 230],
       itemStyle: {
-        color: '#409eff',
         borderRadius: [4, 4, 0, 0],
       },
     },
@@ -70,8 +69,7 @@ const barOption = ref<EChartsOption>({
       yAxisIndex: 1,
       data: [35, 42, 38, 55, 62, 70],
       smooth: true,
-      lineStyle: { width: 3, color: '#67c23a' },
-      itemStyle: { color: '#67c23a' },
+      lineStyle: { width: 3 },
     },
   ],
 });
@@ -98,7 +96,6 @@ const pieOption = ref<EChartsOption>({
       avoidLabelOverlap: false,
       itemStyle: {
         borderRadius: 8,
-        borderColor: '#fff',
         borderWidth: 2,
       },
       label: {
@@ -153,10 +150,10 @@ const areaOption = ref<EChartsOption>({
       type: 'line',
       smooth: true,
       areaStyle: {
-        color: 'rgba(64, 158, 255, 0.3)',
+        opacity: 0.3,
       },
       lineStyle: {
-        color: '#409eff',
+        width: 2,
       },
       data: [820, 932, 901, 1434, 1290, 1330, 1320],
     },
@@ -168,6 +165,9 @@ const barChartRef = ref<AtengEChartsInstance | null>(null);
 const eventLogs = ref<string[]>([]);
 const lastClickInfo = ref<string>('暂无点击');
 const previewImage = ref<string>('');
+
+// 动态暗黑模式状态
+const isDark = ref(false);
 
 // 动态容器宽度测试
 const isCompact = ref(false);
@@ -191,6 +191,21 @@ const onChartClick = (params: unknown) => {
 
 const onRendered = () => {
   log('图表渲染完成 (rendered)');
+};
+
+const onThemeChange = (theme: string) => {
+  log(`图表主题热切换为: ${theme}`);
+};
+
+// 切换暗黑模式
+const toggleDarkMode = () => {
+  isDark.value = !isDark.value;
+  if (isDark.value) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  log(`系统亮暗模式已切换为: ${isDark.value ? 'Dark (暗色)' : 'Light (浅色)'}`);
 };
 
 // 动态操作
@@ -231,20 +246,25 @@ const exportBarImage = () => {
 </script>
 
 <template>
-  <div class="sample-container">
+  <div class="sample-container" :class="{ 'dark-theme': isDark }">
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #152 自验</span>
+        <span class="badge">Ticket #153 自验</span>
         <span class="badge-success">端口 3006</span>
+        <span class="badge-theme">{{
+          isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
+        }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：ResizeObserver 几何自感知、150ms 防抖调度与零尺寸（display:
-        none）毫秒级自愈。
+        L2 专用能力扩展层：暗黑模式无损自动热切换、平滑重建保真、ResizeObserver 自感知与零尺寸自愈。
       </p>
     </header>
 
     <div class="action-bar">
+      <button class="btn btn-theme" @click="toggleDarkMode">
+        {{ isDark ? '☀️ 切换为浅色模式' : '🌙 切换为暗黑模式' }}
+      </button>
       <button class="btn btn-primary" @click="randomizeData">🔄 动态更新数据</button>
       <button class="btn btn-warning" @click="toggleWidth">
         📐 动态切换容器宽度 ({{ isCompact ? '还原 100%' : '压缩至 60%' }})
@@ -277,15 +297,17 @@ const exportBarImage = () => {
         <!-- 柱线混合图表卡片 -->
         <div class="chart-card">
           <div class="card-header">
-            <span class="card-title">1. 柱状/折线混合图表 (ResizeObserver 自适应)</span>
+            <span class="card-title">1. 柱状/折线混合图表 (暗黑跟随 & 容器自适应)</span>
           </div>
           <div class="card-body">
             <AtengECharts
               ref="barChartRef"
               :option="barOption"
               height="380px"
+              theme="auto"
               @chart-click="onChartClick"
               @rendered="onRendered"
+              @theme-change="onThemeChange"
             />
           </div>
         </div>
@@ -293,10 +315,15 @@ const exportBarImage = () => {
         <!-- 环形饼图卡片 -->
         <div class="chart-card">
           <div class="card-header">
-            <span class="card-title">2. 环形品类占比图 (AtengECharts 默认 350px 高度)</span>
+            <span class="card-title">2. 环形品类占比图 (暗黑跟随 & 默认 350px 高度)</span>
           </div>
           <div class="card-body">
-            <AtengECharts :option="pieOption" @chart-click="onChartClick" />
+            <AtengECharts
+              :option="pieOption"
+              theme="auto"
+              @chart-click="onChartClick"
+              @theme-change="onThemeChange"
+            />
           </div>
         </div>
       </main>
@@ -310,7 +337,13 @@ const exportBarImage = () => {
           <span class="badge-sub">挂载时 display: none 0x0 尺寸</span>
         </div>
         <div class="card-body">
-          <AtengECharts :option="areaOption" height="380px" @chart-click="onChartClick" />
+          <AtengECharts
+            :option="areaOption"
+            height="380px"
+            theme="auto"
+            @chart-click="onChartClick"
+            @theme-change="onThemeChange"
+          />
         </div>
       </div>
     </div>
@@ -318,7 +351,7 @@ const exportBarImage = () => {
     <!-- 底部操作与日志区 -->
     <footer class="footer-section">
       <div class="log-card">
-        <h3>交互事件与自适应调度日志</h3>
+        <h3>交互事件与自适应/主题调度日志</h3>
         <ul class="log-list">
           <li v-for="(item, index) in eventLogs" :key="index">
             {{ item }}
@@ -342,6 +375,14 @@ const exportBarImage = () => {
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #1f2937;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+
+.sample-container.dark-theme {
+  background-color: #141414;
+  color: #e5eaf3;
 }
 
 .header {
@@ -350,10 +391,15 @@ const exportBarImage = () => {
   padding-bottom: 16px;
 }
 
+.dark-theme .header {
+  border-bottom-color: #2c2d2e;
+}
+
 .title-wrap {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 h1 {
@@ -378,6 +424,14 @@ h1 {
   border-radius: 9999px;
 }
 
+.badge-theme {
+  background-color: #6366f1;
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
 .badge-sub {
   background-color: #f59e0b;
   color: #fff;
@@ -391,6 +445,10 @@ h1 {
   color: #6b7280;
   margin: 8px 0 0;
   font-size: 14px;
+}
+
+.dark-theme .subtitle {
+  color: #9ca3af;
 }
 
 .action-bar {
@@ -409,6 +467,10 @@ h1 {
   padding-bottom: 8px;
 }
 
+.dark-theme .tab-nav {
+  border-bottom-color: #2c2d2e;
+}
+
 .tab-btn {
   padding: 8px 16px;
   background: #f3f4f6;
@@ -421,8 +483,18 @@ h1 {
   transition: all 0.2s;
 }
 
+.dark-theme .tab-btn {
+  background: #1f2022;
+  border-color: #363637;
+  color: #a3a6ad;
+}
+
 .tab-btn:hover {
   background: #e5e7eb;
+}
+
+.dark-theme .tab-btn:hover {
+  background: #2b2c2d;
 }
 
 .tab-btn.active {
@@ -439,6 +511,14 @@ h1 {
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.2s;
+}
+
+.btn-theme {
+  background-color: #4f46e5;
+  color: #fff;
+}
+.btn-theme:hover {
+  background-color: #4338ca;
 }
 
 .btn-primary {
@@ -466,10 +546,20 @@ h1 {
   background-color: #e5e7eb;
 }
 
+.dark-theme .btn-secondary {
+  background-color: #1f2022;
+  color: #e5eaf3;
+  border-color: #363637;
+}
+
 .tip {
   font-size: 13px;
   color: #4b5563;
   margin-left: 8px;
+}
+
+.dark-theme .tip {
+  color: #9ca3af;
 }
 
 .chart-grid {
@@ -491,6 +581,15 @@ h1 {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   margin-bottom: 20px;
+  transition:
+    background-color 0.3s,
+    border-color 0.3s;
+}
+
+.dark-theme .chart-card {
+  background: #1d1e1f;
+  border-color: #2c2d2e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .card-header {
@@ -501,6 +600,11 @@ h1 {
   font-size: 14px;
   display: flex;
   align-items: center;
+}
+
+.dark-theme .card-header {
+  background: #191a1b;
+  border-bottom-color: #2c2d2e;
 }
 
 .card-body {
@@ -521,10 +625,20 @@ h1 {
   padding: 16px;
 }
 
+.dark-theme .log-card,
+.dark-theme .preview-card {
+  background: #1d1e1f;
+  border-color: #2c2d2e;
+}
+
 h3 {
   margin: 0 0 12px;
   font-size: 14px;
   color: #374151;
+}
+
+.dark-theme h3 {
+  color: #e5eaf3;
 }
 
 .log-list {
@@ -541,6 +655,11 @@ h3 {
   padding: 4px 0;
   color: #4b5563;
   border-bottom: 1px dashed #e5e7eb;
+}
+
+.dark-theme .log-list li {
+  color: #9ca3af;
+  border-bottom-color: #2c2d2e;
 }
 
 .log-empty {

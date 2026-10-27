@@ -1,7 +1,7 @@
 /**
  * @atengk/echarts-vue 核心入口。
  *
- * 导出 AtengECharts 表现容器、useECharts 组合式 Hook 与完整强类型契约。
+ * 导出 AtengECharts 表现容器、useECharts 组合式 Hook、主题管理与完整强类型契约。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -12,6 +12,13 @@ import AtengECharts from './components/AtengECharts.vue';
 
 export { AtengECharts };
 export { useECharts } from './composables/useECharts';
+export {
+  registerTheme,
+  ensureBuiltinThemes,
+  AtengChartColors,
+  atengLightTheme,
+  atengDarkTheme,
+} from './theme';
 
 /**
  * Vue 插件安装器，支持 app.use(installECharts)。

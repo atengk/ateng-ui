@@ -18,7 +18,8 @@ export type SetOptionOpts = echarts.SetOptionOpts;
  */
 export interface UseEChartsOptions {
   /**
-   * 图表主题，支持内置主题名称或注册的主题配置对象。
+   * 图表主题，支持 'auto'（自动侦测亮暗）、内置主题名称或注册的主题配置对象。
+   * @default 'auto'
    */
   theme?: MaybeRefOrGetter<string | object | undefined>;
 
@@ -40,6 +41,11 @@ export interface UseEChartsOptions {
   resizeDebounce?: number;
 
   /**
+   * 主题变化回调钩子。
+   */
+  onThemeChange?: (theme: string) => void;
+
+  /**
    * 是否禁用自动销毁。默认在组件卸载时自动调用 dispose()。
    * @default false
    */
@@ -59,6 +65,11 @@ export interface UseEChartsReturn {
    * 标识当前容器是否处于零尺寸挂起状态（如处于隐藏 Tab 或未完成展开动画的弹窗中）。
    */
   isZeroDimension: Readonly<Ref<boolean>>;
+
+  /**
+   * 当前生效的主题名称或标识（如 'ateng-light' / 'ateng-dark'）。
+   */
+  currentTheme: Readonly<Ref<string>>;
 
   /**
    * 初始化或复用 ECharts 实例。
@@ -125,7 +136,7 @@ export interface AtengEChartsProps {
   option: EChartsOption;
 
   /**
-   * 图表主题。
+   * 图表主题，支持 'auto'（自动跟随系统/Element Plus 亮暗）、主题名称或自定义对象。
    * @default 'auto'
    */
   theme?: string | object;
@@ -195,4 +206,9 @@ export interface AtengEChartsEmits {
    * 容器尺寸变化自适应完成事件。
    */
   (e: 'resize'): void;
+
+  /**
+   * 主题热切换重绘事件。
+   */
+  (e: 'theme-change', theme: string): void;
 }
