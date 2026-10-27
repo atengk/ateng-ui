@@ -9,9 +9,11 @@
 
 import type { App } from 'vue';
 import AtengECharts from './components/AtengECharts.vue';
+import AtengTrendChart from './components/AtengTrendChart.vue';
 
-export { AtengECharts };
+export { AtengECharts, AtengTrendChart };
 export { useECharts } from './composables/useECharts';
+export { createTrendOption } from './presets';
 export {
   registerTheme,
   ensureBuiltinThemes,
@@ -25,9 +27,11 @@ export {
  */
 export function install(app: App): void {
   app.component('AtengECharts', AtengECharts);
+  app.component('AtengTrendChart', AtengTrendChart);
 }
 
 export type AtengEChartsInstance = InstanceType<typeof AtengECharts>;
+export type AtengTrendChartInstance = InstanceType<typeof AtengTrendChart>;
 
 export type {
   EChartsInstance,
@@ -38,4 +42,13 @@ export type {
   UseEChartsReturn,
   AtengEChartsProps,
   AtengEChartsEmits,
+  TrendDimension,
+  TrendDimensionConfig,
+  TrendMetric,
+  TrendMetricConfig,
+  TrendYAxisConfig,
+  TrendDataZoomConfig,
+  TrendChartConfig,
+  AtengTrendChartProps,
+  AtengTrendChartEmits,
 } from './types';

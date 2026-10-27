@@ -289,3 +289,15 @@ export interface AtengEChartsEmits {
    */
   (e: 'retry'): void;
 }
+
+export type {
+  TrendDimension,
+  TrendDimensionConfig,
+  TrendMetric,
+  TrendMetricConfig,
+  TrendYAxisConfig,
+  TrendDataZoomConfig,
+  TrendChartConfig,
+  AtengTrendChartProps,
+  AtengTrendChartEmits,
+} from '../presets/types';

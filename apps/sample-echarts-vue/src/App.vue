@@ -10,7 +10,15 @@
  */
 
 import { ref } from 'vue';
-import { AtengECharts, type AtengEChartsInstance, type EChartsOption } from '@atengk/echarts-vue';
+import {
+  AtengECharts,
+  AtengTrendChart,
+  type AtengEChartsInstance,
+  type AtengTrendChartInstance,
+  type EChartsOption,
+  type TrendMetric,
+  type TrendYAxisConfig,
+} from '@atengk/echarts-vue';
 
 // 1. 响应式柱状/折线混合图表配置
 const barOption = ref<EChartsOption>({
@@ -178,8 +186,8 @@ const isDark = ref(false);
 // 动态容器宽度测试
 const isCompact = ref(false);
 
-// 选项卡状态（Tab 1: 基础大盘；Tab 2: 初始隐藏零尺寸 Tab）
-const activeTab = ref<'dashboard' | 'hiddenTab'>('dashboard');
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 高频预设趋势图；Tab 3: 初始隐藏零尺寸 Tab）
+const activeTab = ref<'dashboard' | 'trendPreset' | 'hiddenTab'>('trendPreset');
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -281,6 +289,124 @@ const exportBarImage = () => {
     log('已生成图表 Base64 高清截图');
   }
 };
+
+// 5. Ticket #155 高频预设 AtengTrendChart 演示数据与状态
+const trendChartRef = ref<AtengTrendChartInstance | null>(null);
+
+const trendData = ref([
+  { date: '2026-01', sales: 1250000, cost: 820000, profitRate: 34.4 },
+  { date: '2026-02', sales: 1480000, cost: 910000, profitRate: 38.5 },
+  { date: '2026-03', sales: 1890000, cost: 1120000, profitRate: 40.7 },
+  { date: '2026-04', sales: 1620000, cost: 980000, profitRate: 39.5 },
+  { date: '2026-05', sales: 2150000, cost: 1250000, profitRate: 41.8 },
+  { date: '2026-06', sales: 2580000, cost: 1460000, profitRate: 43.4 },
+  { date: '2026-07', sales: 2340000, cost: 1390000, profitRate: 40.6 },
+  { date: '2026-08', sales: 2790000, cost: 1580000, profitRate: 43.3 },
+  { date: '2026-09', sales: 3120000, cost: 1720000, profitRate: 44.8 },
+  { date: '2026-10', sales: 2980000, cost: 1690000, profitRate: 43.2 },
+  { date: '2026-11', sales: 3450000, cost: 1910000, profitRate: 44.6 },
+  { date: '2026-12', sales: 4200000, cost: 2280000, profitRate: 45.7 },
+]);
+
+const isTrendZoom = ref(true);
+const isTrendArea = ref(true);
+const isTrendEmpty = ref(false);
+const isTrendLoading = ref(false);
+
+const trendMetrics = ref<TrendMetric[]>([
+  {
+    key: 'sales',
+    name: '销售收入',
+    type: 'bar',
+    unit: '元',
+    color: '#409EFF',
+    barBorderRadius: [4, 4, 0, 0],
+    barWidth: 16,
+  },
+  {
+    key: 'cost',
+    name: '营业成本',
+    type: 'bar',
+    unit: '元',
+    color: '#E6A23C',
+    barBorderRadius: [4, 4, 0, 0],
+    barWidth: 16,
+  },
+  {
+    key: 'profitRate',
+    name: '毛利率',
+    type: 'line',
+    yAxisIndex: 1,
+    unit: '%',
+    color: '#67C23A',
+    smooth: true,
+    markPoint: 'max',
+  },
+]);
+
+const trendYAxis = ref<[TrendYAxisConfig, TrendYAxisConfig]>([
+  { name: '财务金额 (元)', splitLine: true },
+  { name: '毛利率 (%)', splitLine: false, unit: '%' },
+]);
+
+const areaMetrics = ref<TrendMetric[]>([
+  {
+    key: 'sales',
+    name: '销售走势 (面积渐变)',
+    type: 'line',
+    smooth: true,
+    area: 'rgba(64, 158, 255, 0.45)',
+    color: '#409EFF',
+    unit: '元',
+    markLine: 'average',
+    markPoint: 'both',
+  },
+]);
+
+const randomizeTrendData = () => {
+  trendData.value = trendData.value.map(item => {
+    const sales = Math.floor(Math.random() * 3000000) + 1000000;
+    const cost = Math.floor(sales * (0.5 + Math.random() * 0.2));
+    const profitRate = Number((((sales - cost) / sales) * 100).toFixed(1));
+    return {
+      ...item,
+      sales,
+      cost,
+      profitRate,
+    };
+  });
+  log('已随机刷新 AtengTrendChart 趋势图扁平数据源 (验证千分位与双 Y 轴重绘)');
+};
+
+const toggleTrendZoom = () => {
+  isTrendZoom.value = !isTrendZoom.value;
+  log(`已切换趋势图 DataZoom 缩放手柄状态为: ${isTrendZoom.value ? '启用' : '关闭'}`);
+};
+
+const toggleTrendArea = () => {
+  isTrendArea.value = !isTrendArea.value;
+  areaMetrics.value = [
+    {
+      ...areaMetrics.value[0],
+      area: isTrendArea.value ? 'rgba(64, 158, 255, 0.45)' : false,
+    },
+  ];
+  log(`已切换面积平滑渐变状态为: ${isTrendArea.value ? '启用渐变' : '纯折线'}`);
+};
+
+const toggleTrendEmpty = () => {
+  isTrendEmpty.value = !isTrendEmpty.value;
+  log(`已切换趋势图空数据遮罩为: ${isTrendEmpty.value ? '空状态' : '正常展示'}`);
+};
+
+const triggerTrendLoading = () => {
+  isTrendLoading.value = true;
+  log('已触发 AtengTrendChart 加载遮罩 (1.5 秒后自动恢复)');
+  setTimeout(() => {
+    isTrendLoading.value = false;
+    log('趋势图加载完成');
+  }, 1500);
+};
 </script>
 
 <template>
@@ -288,15 +414,15 @@ const exportBarImage = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #154 自验</span>
+        <span class="badge">Ticket #155 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：notMerge 声明式同步、多态 DOM
-        遮罩（Loading/Empty/Error）、暗黑热切换与事件透传。
+        L2 专用能力扩展层：高频预设 AtengTrendChart（双 Y 轴/柱线混合/渐变/缩放手柄）、notMerge
+        声明式同步、多态 DOM 遮罩（Loading/Empty/Error）与暗黑热切换。
       </p>
     </header>
 
@@ -321,10 +447,17 @@ const exportBarImage = () => {
     <div class="tab-nav">
       <button
         class="tab-btn"
+        :class="{ active: activeTab === 'trendPreset' }"
+        @click="activeTab = 'trendPreset'"
+      >
+        📈 预设看板：AtengTrendChart (双 Y 轴/柱线混合/渐变/缩放手柄)
+      </button>
+      <button
+        class="tab-btn"
         :class="{ active: activeTab === 'dashboard' }"
         @click="activeTab = 'dashboard'"
       >
-        📊 主看板 (基础图表与多态遮罩)
+        📊 基础大盘 (通用容器与多态遮罩)
       </button>
       <button
         class="tab-btn"
@@ -333,6 +466,78 @@ const exportBarImage = () => {
       >
         ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
       </button>
+    </div>
+
+    <!-- 选项卡：Ticket #155 高频预设趋势图视图 -->
+    <div v-show="activeTab === 'trendPreset'" class="tab-content">
+      <div class="action-bar" style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="randomizeTrendData">
+          🔄 刷新趋势数据 (千分位重排)
+        </button>
+        <button class="btn btn-info" @click="toggleTrendZoom">
+          🔍 {{ isTrendZoom ? '关闭 DataZoom 缩放' : '启用 DataZoom 缩放' }}
+        </button>
+        <button class="btn btn-theme" @click="toggleTrendArea">
+          🎨 {{ isTrendArea ? '切换为纯折线' : '切换为平滑面积渐变' }}
+        </button>
+        <button class="btn btn-warning" @click="toggleTrendEmpty">
+          📭 {{ isTrendEmpty ? '恢复趋势数据' : '置空趋势数据 (空遮罩)' }}
+        </button>
+        <button class="btn btn-secondary" @click="triggerTrendLoading">⏳ 模拟加载遮罩</button>
+      </div>
+
+      <main class="chart-grid">
+        <!-- 预设卡片 1：年度财务双 Y 轴柱线混合趋势看板 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              1. AtengTrendChart: 经营收入/成本/毛利率 (双 Y 轴 + 柱线混合 + 千分位 Tooltip)
+            </span>
+            <span class="badge-sub">开箱即用高频预设</span>
+          </div>
+          <div class="card-body">
+            <AtengTrendChart
+              ref="trendChartRef"
+              :data="isTrendEmpty ? [] : trendData"
+              dimension="date"
+              :metrics="trendMetrics"
+              :y-axis="trendYAxis"
+              :data-zoom="isTrendZoom"
+              :loading="isTrendLoading"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @legend-change="onLegendChange"
+              @rendered="onRendered"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+
+        <!-- 预设卡片 2：时序平滑面积渐变与基准均线看板 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              2. AtengTrendChart: 单轴平滑面积渐变走势 (MarkLine 平均线 + MarkPoint 极值)
+            </span>
+            <span class="badge-sub">极简字段声明</span>
+          </div>
+          <div class="card-body">
+            <AtengTrendChart
+              :data="isTrendEmpty ? [] : trendData"
+              dimension="date"
+              :metrics="areaMetrics"
+              :data-zoom="isTrendZoom"
+              :loading="isTrendLoading"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @legend-change="onLegendChange"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+      </main>
     </div>
 
     <!-- 选项卡 1：主看板视图 -->
