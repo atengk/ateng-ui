@@ -15,10 +15,14 @@ import {
   AtengTrendChart,
   AtengDonutChart,
   AtengFunnelChart,
+  AtengGaugeChart,
+  AtengRadarChart,
   type AtengEChartsInstance,
   type AtengTrendChartInstance,
   type AtengDonutChartInstance,
   type AtengFunnelChartInstance,
+  type AtengGaugeChartInstance,
+  type AtengRadarChartInstance,
   type EChartsOption,
   type TrendMetric,
   type TrendYAxisConfig,
@@ -190,10 +194,10 @@ const isDark = ref(false);
 // 动态容器宽度测试
 const isCompact = ref(false);
 
-// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: 初始隐藏零尺寸 Tab）
-const activeTab = ref<'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'hiddenTab'>(
-  'donutFunnelPreset',
-);
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: Ticket #157 仪表盘与雷达图；Tab 5: 初始隐藏零尺寸 Tab）
+const activeTab = ref<
+  'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'gaugeRadarPreset' | 'hiddenTab'
+>('gaugeRadarPreset');
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -497,6 +501,70 @@ const toggleFunnelEmpty = () => {
   isFunnelEmpty.value = !isFunnelEmpty.value;
   log(`已切换漏斗图空遮罩为: ${isFunnelEmpty.value ? '空状态' : '正常数据'}`);
 };
+
+// 7. Ticket #157 高频预设 AtengGaugeChart & AtengRadarChart 演示数据与状态
+const gaugeChartRef = ref<AtengGaugeChartInstance | null>(null);
+const radarChartRef = ref<AtengRadarChartInstance | null>(null);
+
+const gaugeValue = ref(78.5);
+const isGaugeProgress = ref(true);
+const isGaugeEmpty = ref(false);
+
+const gaugeThresholds = [
+  { value: 60, color: '#F56C6C' },
+  { value: 85, color: '#E6A23C' },
+  { value: 100, color: '#67C23A' },
+];
+
+const randomizeGaugeValue = () => {
+  gaugeValue.value = Number((Math.random() * 80 + 20).toFixed(1));
+  log(`已随机刷新仪表盘 KPI 达成率数值: ${gaugeValue.value}%`);
+};
+
+const toggleGaugeProgress = () => {
+  isGaugeProgress.value = !isGaugeProgress.value;
+  log(`已切换仪表盘表现形态为: ${isGaugeProgress.value ? '环形进度条模式' : '经典指针模式'}`);
+};
+
+const toggleGaugeEmpty = () => {
+  isGaugeEmpty.value = !isGaugeEmpty.value;
+  log(`已切换仪表盘空遮罩状态为: ${isGaugeEmpty.value ? '空状态' : '正常数据'}`);
+};
+
+// 雷达图数据与控制
+const radarIndicators = [
+  '代码规范与健壮性',
+  '架构解耦与设计',
+  '全维自动化单测',
+  'CI/CD 持续发布',
+  '开发体验与文档覆盖',
+];
+
+const radarData = ref([
+  { name: '团队当前成熟度', value: [86, 92, 88, 78, 95], color: '#409EFF' },
+  { name: '业界高水平基线', value: [95, 95, 92, 90, 92], color: '#67C23A' },
+]);
+
+const isRadarArea = ref(true);
+const isRadarEmpty = ref(false);
+
+const randomizeRadarData = () => {
+  radarData.value = radarData.value.map(item => ({
+    ...item,
+    value: item.value.map(() => Math.floor(Math.random() * 35) + 65),
+  }));
+  log('已随机刷新多维雷达图各维度能力分值');
+};
+
+const toggleRadarArea = () => {
+  isRadarArea.value = !isRadarArea.value;
+  log(`已切换雷达图区域填充模式为: ${isRadarArea.value ? '半透明渐变填充' : '纯轮廓线条'}`);
+};
+
+const toggleRadarEmpty = () => {
+  isRadarEmpty.value = !isRadarEmpty.value;
+  log(`已切换雷达图空遮罩状态为: ${isRadarEmpty.value ? '空状态' : '正常数据'}`);
+};
 </script>
 
 <template>
@@ -504,16 +572,16 @@ const toggleFunnelEmpty = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #156 自验</span>
+        <span class="badge">Ticket #157 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：高频预设 AtengDonutChart &
-        AtengFunnelChart（分类占比与漏斗转化）、AtengTrendChart 趋势看板、 notMerge 声明式同步与多态
-        DOM 遮罩。
+        L2 专用能力扩展层：高频预设 AtengGaugeChart &
+        AtengRadarChart（极值达成率与能力雷达）、AtengDonutChart、AtengFunnelChart、 AtengTrendChart
+        趋势看板与多态 DOM 遮罩。
       </p>
     </header>
 
@@ -536,6 +604,13 @@ const toggleFunnelEmpty = () => {
 
     <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
     <div class="tab-nav">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'gaugeRadarPreset' }"
+        @click="activeTab = 'gaugeRadarPreset'"
+      >
+        🎯 预设看板：AtengGaugeChart & AtengRadarChart (KPI 达成率与能力雷达)
+      </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'donutFunnelPreset' }"
@@ -564,6 +639,81 @@ const toggleFunnelEmpty = () => {
       >
         ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
       </button>
+    </div>
+
+    <!-- 选项卡：Ticket #157 高频预设仪表盘与雷达图视图 -->
+    <div v-show="activeTab === 'gaugeRadarPreset'" class="tab-content">
+      <div class="action-bar" style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="randomizeGaugeValue">
+          🔄 随机生成 KPI 达成率 ({{ gaugeValue }}%)
+        </button>
+        <button class="btn btn-theme" @click="toggleGaugeProgress">
+          🎛️ {{ isGaugeProgress ? '切换为经典指针模式' : '切换为环形进度条模式' }}
+        </button>
+        <button class="btn btn-warning" @click="toggleGaugeEmpty">
+          📭 {{ isGaugeEmpty ? '恢复仪表盘数据' : '置空仪表盘数据' }}
+        </button>
+        <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
+        <button class="btn btn-primary" @click="randomizeRadarData">⚡ 刷新多维能力分值</button>
+        <button class="btn btn-theme" @click="toggleRadarArea">
+          🎨 {{ isRadarArea ? '切换为纯轮廓线' : '切换为渐变填充' }}
+        </button>
+        <button class="btn btn-warning" @click="toggleRadarEmpty">
+          📭 {{ isRadarEmpty ? '恢复雷达数据' : '置空雷达数据' }}
+        </button>
+      </div>
+
+      <main class="chart-grid">
+        <!-- 预设卡片 1：年度 KPI 目标达成率仪表盘 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              1. AtengGaugeChart: 年度经营 KPI 目标达成率 (多段色阶 + 进度条/指针切换)
+            </span>
+            <span class="badge-sub">开箱即用指标大盘</span>
+          </div>
+          <div class="card-body">
+            <AtengGaugeChart
+              ref="gaugeChartRef"
+              :value="isGaugeEmpty ? (null as unknown as number) : gaugeValue"
+              name="年度目标达成率"
+              :thresholds="gaugeThresholds"
+              :progress="isGaugeProgress"
+              :pointer="!isGaugeProgress"
+              unit="%"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @rendered="onRendered"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+
+        <!-- 预设卡片 2：团队工程成熟度画像雷达图 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              2. AtengRadarChart: 工业级研发工程成熟度画像 (多数据集对比 + 渐变填充)
+            </span>
+            <span class="badge-sub">多维能力矩阵</span>
+          </div>
+          <div class="card-body">
+            <AtengRadarChart
+              ref="radarChartRef"
+              :indicators="radarIndicators"
+              :data="isRadarEmpty ? [] : radarData"
+              :area="isRadarArea"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @legend-change="onLegendChange"
+              @rendered="onRendered"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+      </main>
     </div>
 
     <!-- 选项卡：Ticket #156 高频预设环形图与漏斗图视图 -->

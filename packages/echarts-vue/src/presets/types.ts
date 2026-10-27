@@ -670,3 +670,331 @@ export interface AtengFunnelChartProps extends Omit<AtengEChartsProps, 'option'>
  * AtengFunnelChart 预设组件事件契约。
  */
 export type AtengFunnelChartEmits = AtengEChartsEmits;
+
+/**
+ * 仪表盘色阶阈值定义。
+ */
+export interface GaugeThreshold {
+  /**
+   * 阈值上限绝对数值（如 60、80、100）。
+   */
+  value: number;
+
+  /**
+   * 对应区间的颜色（Hex 或 RGBA）。
+   */
+  color: string;
+}
+
+/**
+ * createGaugeOption 工厂函数主输入配置。
+ */
+export interface GaugeChartConfig {
+  /**
+   * 仪表盘核心数值。
+   */
+  value: number;
+
+  /**
+   * 指标标题名称（如 'CPU 使用率'、'年度目标达成率'）。
+   */
+  name?: string;
+
+  /**
+   * 仪表盘刻度最小值。
+   * @default 0
+   */
+  min?: number;
+
+  /**
+   * 仪表盘刻度最大值。
+   * @default 100
+   */
+  max?: number;
+
+  /**
+   * 数值单位后缀（如 '%'、'℃'、'分'）。
+   * @default '%'
+   */
+  unit?: string;
+
+  /**
+   * 多段阈值色阶配置。
+   */
+  thresholds?: GaugeThreshold[];
+
+  /**
+   * 底层色带原始配置 [[ratio, color], ...]。
+   */
+  colors?: [number, string][];
+
+  /**
+   * 现代环形进度条显示开关或细化配置。
+   * @default false
+   */
+  progress?: boolean | { width?: number; roundCap?: boolean };
+
+  /**
+   * 仪表盘指针显示开关或细化配置。
+   * @default true
+   */
+  pointer?: boolean | { width?: number; length?: string };
+
+  /**
+   * 起始圆弧角度（顺时针，以正右方为 0 度）。
+   * @default 210
+   */
+  startAngle?: number;
+
+  /**
+   * 结束圆弧角度。
+   * @default -30
+   */
+  endAngle?: number;
+
+  /**
+   * 数值精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否启用数值千分位展示。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 逃生通道：在默认 Option 生成后执行最终拦截与深度覆盖。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengGaugeChart 预设组件属性契约。
+ */
+export interface AtengGaugeChartProps extends Omit<AtengEChartsProps, 'option'> {
+  /**
+   * 仪表盘核心数值。
+   */
+  value: number;
+
+  /**
+   * 指标标题名称。
+   */
+  name?: string;
+
+  /**
+   * 刻度最小值。
+   * @default 0
+   */
+  min?: number;
+
+  /**
+   * 刻度最大值。
+   * @default 100
+   */
+  max?: number;
+
+  /**
+   * 数值单位后缀。
+   * @default '%'
+   */
+  unit?: string;
+
+  /**
+   * 多段阈值色阶配置。
+   */
+  thresholds?: GaugeThreshold[];
+
+  /**
+   * 进度条模式开关或配置。
+   * @default false
+   */
+  progress?: boolean | { width?: number; roundCap?: boolean };
+
+  /**
+   * 指针模式开关或配置。
+   * @default true
+   */
+  pointer?: boolean | { width?: number; length?: string };
+
+  /**
+   * 起始角度。
+   * @default 210
+   */
+  startAngle?: number;
+
+  /**
+   * 结束角度。
+   * @default -30
+   */
+  endAngle?: number;
+
+  /**
+   * 数值精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否开启千分位。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 提示框配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengGaugeChart 预设组件事件契约。
+ */
+export type AtengGaugeChartEmits = AtengEChartsEmits;
+
+/**
+ * 雷达图单维度指示器定义。
+ */
+export type RadarIndicator = string | { name: string; max?: number; min?: number };
+
+/**
+ * 雷达图对比数据集单项。
+ */
+export interface RadarSeriesItem {
+  /**
+   * 数据集名称（如 '团队当前水准'、'标杆水准'）。
+   */
+  name: string;
+
+  /**
+   * 对应各维度的数值数组。
+   */
+  value: number[];
+
+  /**
+   * 自定义颜色。
+   */
+  color?: string;
+
+  /**
+   * 区域面积填充样式定制。
+   */
+  areaStyle?: Record<string, unknown>;
+}
+
+/**
+ * createRadarOption 工厂函数主输入配置。
+ */
+export interface RadarChartConfig {
+  /**
+   * 各维度声明列表。
+   */
+  indicators: RadarIndicator[];
+
+  /**
+   * 对比数据集列表。
+   */
+  data: RadarSeriesItem[];
+
+  /**
+   * 是否启用半透明区域填充。
+   * @default true
+   */
+  area?: boolean;
+
+  /**
+   * 坐标系网格形状：'polygon'（多边形，默认）或 'circle'（圆形网状）。
+   * @default 'polygon'
+   */
+  shape?: 'polygon' | 'circle';
+
+  /**
+   * 坐标轴网格分割段数。
+   * @default 5
+   */
+  splitNumber?: number;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 逃生通道：在默认 Option 生成后执行最终拦截与深度覆盖。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengRadarChart 预设组件属性契约。
+ */
+export interface AtengRadarChartProps extends Omit<AtengEChartsProps, 'option'> {
+  /**
+   * 各维度声明列表。
+   */
+  indicators: RadarIndicator[];
+
+  /**
+   * 对比数据集列表。
+   */
+  data: RadarSeriesItem[];
+
+  /**
+   * 是否启用半透明区域填充。
+   * @default true
+   */
+  area?: boolean;
+
+  /**
+   * 网格形状。
+   * @default 'polygon'
+   */
+  shape?: 'polygon' | 'circle';
+
+  /**
+   * 坐标分割段数。
+   * @default 5
+   */
+  splitNumber?: number;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengRadarChart 预设组件事件契约。
+ */
+export type AtengRadarChartEmits = AtengEChartsEmits;

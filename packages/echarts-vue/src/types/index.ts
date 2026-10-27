@@ -307,4 +307,13 @@ export type {
   FunnelChartConfig,
   AtengFunnelChartProps,
   AtengFunnelChartEmits,
+  GaugeThreshold,
+  GaugeChartConfig,
+  AtengGaugeChartProps,
+  AtengGaugeChartEmits,
+  RadarIndicator,
+  RadarSeriesItem,
+  RadarChartConfig,
+  AtengRadarChartProps,
+  AtengRadarChartEmits,
 } from '../presets/types';

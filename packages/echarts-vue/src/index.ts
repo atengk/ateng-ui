@@ -12,10 +12,25 @@ import AtengECharts from './components/AtengECharts.vue';
 import AtengTrendChart from './components/AtengTrendChart.vue';
 import AtengDonutChart from './components/AtengDonutChart.vue';
 import AtengFunnelChart from './components/AtengFunnelChart.vue';
+import AtengGaugeChart from './components/AtengGaugeChart.vue';
+import AtengRadarChart from './components/AtengRadarChart.vue';
 
-export { AtengECharts, AtengTrendChart, AtengDonutChart, AtengFunnelChart };
+export {
+  AtengECharts,
+  AtengTrendChart,
+  AtengDonutChart,
+  AtengFunnelChart,
+  AtengGaugeChart,
+  AtengRadarChart,
+};
 export { useECharts } from './composables/useECharts';
-export { createTrendOption, createDonutOption, createFunnelOption } from './presets';
+export {
+  createTrendOption,
+  createDonutOption,
+  createFunnelOption,
+  createGaugeOption,
+  createRadarOption,
+} from './presets';
 export {
   registerTheme,
   ensureBuiltinThemes,
@@ -32,12 +47,16 @@ export function install(app: App): void {
   app.component('AtengTrendChart', AtengTrendChart);
   app.component('AtengDonutChart', AtengDonutChart);
   app.component('AtengFunnelChart', AtengFunnelChart);
+  app.component('AtengGaugeChart', AtengGaugeChart);
+  app.component('AtengRadarChart', AtengRadarChart);
 }
 
 export type AtengEChartsInstance = InstanceType<typeof AtengECharts>;
 export type AtengTrendChartInstance = InstanceType<typeof AtengTrendChart>;
 export type AtengDonutChartInstance = InstanceType<typeof AtengDonutChart>;
 export type AtengFunnelChartInstance = InstanceType<typeof AtengFunnelChart>;
+export type AtengGaugeChartInstance = InstanceType<typeof AtengGaugeChart>;
+export type AtengRadarChartInstance = InstanceType<typeof AtengRadarChart>;
 
 export type {
   EChartsInstance,
@@ -64,4 +83,13 @@ export type {
   FunnelChartConfig,
   AtengFunnelChartProps,
   AtengFunnelChartEmits,
+  GaugeThreshold,
+  GaugeChartConfig,
+  AtengGaugeChartProps,
+  AtengGaugeChartEmits,
+  RadarIndicator,
+  RadarSeriesItem,
+  RadarChartConfig,
+  AtengRadarChartProps,
+  AtengRadarChartEmits,
 } from './types';

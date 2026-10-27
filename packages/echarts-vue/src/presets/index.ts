@@ -9,3 +9,5 @@ export * from './types';
 export * from './trend';
 export * from './donut';
 export * from './funnel';
+export * from './gauge';
+export * from './radar';
