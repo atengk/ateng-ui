@@ -1,0 +1,65 @@
+{
+  "name": "@atengk/echarts-vue",
+  "version": "0.1.0",
+  "description": "面向现代 Web 应用与企业级看板的工业级 ECharts 5 响应式数据可视化套件",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./all": {
+      "types": "./dist/all.d.ts",
+      "import": "./dist/all.js",
+      "require": "./dist/all.cjs"
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "echarts": ">=5.4.0",
+    "vue": ">=3.5.0"
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "echarts": "^5.6.0",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.44"
+  },
+  "keywords": [
+    "echarts",
+    "vue3",
+    "visualization",
+    "charts",
+    "dashboard",
+    "datav"
+  ],
+  "author": "Ateng",
+  "license": "MIT"
+}
