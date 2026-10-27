@@ -20,6 +20,8 @@
 | **规则代号枚举** | 拓扑校验规则常量       | `FlowValidationRuleCode` | `START_NODE_MISSING`, `DEADLOCK_CYCLE`, `GATEWAY_BRANCH_INSUFFICIENT` 等                                                                               | 结构化图论校验错误分类代号枚举字典                                                                                            | [FlowValidator.test.ts](./test/FlowValidator.test.ts)                                                                       |
 | **BPMN 转译器**  | BPMN 2.0 协议互转      | `BpmnAdapter`            | `toBpmnXml(graph, options?) -> string`, `fromBpmnXml(xml) -> FlowGraph`                                                                                | 纯原生双向协议转译，兼容 Flowable/Camunda 标准规范，精确还原 Bounds 中心坐标、折点 Waypoint 与办理人/条件扩展属性             | [BpmnAdapter.test.ts](./test/BpmnAdapter.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                       |
 | **全景高清快照** | 高清防虚快照导出       | `FlowSnapshot`           | `computeBoundingBox`, `getSvgString`, `getSnapshot`, `download`                                                                                        | 最小外接边界自适应计算，2x/3x DPR 视网膜高清防虚栅格化，矢量 SVG 导出与自定义防泄密矩阵文本水印                               | [FlowSnapshot.test.ts](./test/FlowSnapshot.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                     |
+| **Vue 节点注册** | SFC 自定义卡片适配     | `VueNodeRegistry`        | `register(target, type, component, options?)` / `registerVueNode`                                                                                      | 将普通 Vue 3 SFC 单文件组件桥接注册为 LogicFlow 自定义卡片节点，响应式 Props 注入、原地 Diff 更新与销毁确定性清理             | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
+| **预设审批卡片** | 高颜值业务卡片节点     | `ApprovalCardNode`       | `props: FlowVueNodeProps`, `@click:approve`, `@click:reject`                                                                                           | 预设开箱即用高颜值审批卡片，带头像、类型胶囊、状态指示徽标、办理进度条与快捷审批动作，支持双向属性回写                        | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
 | **自动排版**     | DAG 分层排版引擎       | `AutoLayoutEngine`       | `layout(graph, options?: AutoLayoutOptions) -> FlowGraph`                                                                                              | 基于有向无环图分层拓扑算法，计算 Rank 与节点间距，支持水平 (LR) 与垂直 (TB) 规整重排与折点自适应更新                          | [AutoLayoutEngine.test.ts](./test/AutoLayoutEngine.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
 | **预设与规则**   | 核心预设图元与拓扑防呆 | `registerPresetNodes`    | `(lf: LogicFlow, beforeConnect?: BeforeConnectHook) => void`                                                                                           | 注册开始、结束、审批任务、服务任务、排他网关、并行网关，内置禁止自环/禁止连入开始/禁止结束流出/禁止重复连线                   | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
 | **图元枚举**     | 预设节点类型常量       | `FlowNodeType`           | `START`, `END`, `USER_TASK`, `SERVICE_TASK`, `CC_TASK`, `EXCLUSIVE_GATEWAY`, `PARALLEL_GATEWAY`                                                        | 标准化图元类型标识字典（如 `flow:start`, `flow:user-task`）                                                                   | [presets.test.ts](./test/presets.test.ts)                                                                                   |
@@ -126,6 +128,52 @@ const customBeforeConnect: BeforeConnectHook = (source, target) => {
 };
 ```
 
+### 3. 使用标准 Vue 3 SFC 单文件组件注册富 UI 卡片节点 (`VueNodeRegistry`)
+
+开发者可以直接编写标准 `.vue` 组件（使用 `<script setup>`、`<style scoped>` 或 Tailwind），利用 `registerVueNode` 注册为富 UI 审批卡片图元：
+
+```vue
+<!-- MyApprovalCard.vue -->
+<script setup lang="ts">
+import type { FlowVueNodeProps } from '@atengk/flow-vue';
+
+const props = defineProps<FlowVueNodeProps>();
+
+const handleApprove = () => {
+  props.updateProperties({ status: 'approved', progress: 100 });
+};
+</script>
+
+<template>
+  <div class="my-card">
+    <div class="card-title">{{ node.text || '审批卡片' }}</div>
+    <div class="card-assignee">办理人: {{ node.properties.assignee }}</div>
+    <button @click="handleApprove">✓ 快速核准</button>
+  </div>
+</template>
+```
+
+在设计器中直接注册与使用：
+
+```vue
+<script setup lang="ts">
+import { AtengFlowDesigner } from '@atengk/flow-vue';
+import MyApprovalCard from './MyApprovalCard.vue';
+
+const customVueNodes = [
+  {
+    type: 'my-approval-card',
+    component: MyApprovalCard,
+    options: { width: 220, height: 90 },
+  },
+];
+</script>
+
+<template>
+  <AtengFlowDesigner :custom-vue-nodes="customVueNodes" />
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -162,6 +210,10 @@ const customBeforeConnect: BeforeConnectHook = (source, target) => {
    - 重置视口缩放平移矩阵（`.lf-base`），矫正坐标系为绝对世界坐标；
    - 采用离屏 Canvas 与设备像素比（DPR 2x / 3x）超分辨率放大栅格化，彻底解决大图在移动端或大屏上发虚模糊的技术痛点；
    - 原生矢量注入防泄密安全文本水印，矩阵旋转排布且 `pointer-events: none` 零干扰。
+7. **Vue 3 SFC 单文件组件虚拟树与确定性生命周期治理 (VueNodeRegistry)**：
+   - 采用 Vue 3 原生 `createVNode` 与 `render` 挂载，数据变更通过原地 Diff 刷新 Props，零多余 DOM 重建开销；
+   - 设立 `node:delete` 事件与 Preact `componentWillUnmount` 双重清理防线，节点删除或画布销毁时确定性调用 `render(null)`，触发组件内 `onUnmounted`，彻底回收内存；
+   - 锚点生成函数基于真实尺寸精准对称偏移，拖拽连线无像素级偏差；按钮等交互元素阻止 mousedown 冒泡，确保点击交互不误触发节点位移。
 
 ---
 

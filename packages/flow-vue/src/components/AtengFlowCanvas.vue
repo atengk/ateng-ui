@@ -8,10 +8,11 @@
  * @since 2026-10-27
  */
 
-import { ref, computed, watch, onMounted, type CSSProperties } from 'vue';
+import { ref, computed, watch, onMounted, type CSSProperties, type Component } from 'vue';
 import { useFlow } from '../composables/useFlow';
 import { BpmnAdapter, type BpmnExportOptions } from '../bpmn';
 import { FlowSnapshot, type FlowSnapshotOptions } from '../snapshot';
+import { registerVueNode, type VueNodeOptions } from '../registry';
 import type {
   FlowNode,
   FlowEdge,
@@ -101,10 +102,17 @@ onMounted(() => {
     emit('update:modelValue', current);
   });
 
-  // 4. 先派发 ready，以便父组件与插件提前注册自定义节点/图元
+  // 4. 注册外部传入的自定义 Vue SFC 节点
+  if (props.customVueNodes && props.customVueNodes.length > 0) {
+    for (const item of props.customVueNodes) {
+      registerVueNode(instance, item.type, item.component, item.options);
+    }
+  }
+
+  // 5. 派发 ready，以便父组件与插件提前注册自定义节点/图元
   emit('ready', instance);
 
-  // 5. 渲染初始传入的图数据
+  // 6. 渲染初始传入的图数据
   if (
     props.modelValue &&
     (props.modelValue.nodes.length > 0 || props.modelValue.edges.length > 0)
@@ -231,6 +239,12 @@ const downloadBpmnXml = (filename = 'process.bpmn20.xml', options?: BpmnExportOp
   FlowSnapshot.download(xml, filename);
 };
 
+const handleRegisterVueNode = (type: string, component: Component, options?: VueNodeOptions) => {
+  if (lf.value) {
+    registerVueNode(lf.value, type, component, options);
+  }
+};
+
 defineExpose<AtengFlowCanvasExpose>({
   getLf: () => lf.value,
   getContainer: () => domRef.value,
@@ -256,6 +270,7 @@ defineExpose<AtengFlowCanvasExpose>({
   exportSnapshot,
   downloadSnapshot,
   downloadBpmnXml,
+  registerVueNode: handleRegisterVueNode,
 });
 </script>
 

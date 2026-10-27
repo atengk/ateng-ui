@@ -9,7 +9,7 @@
  * @since 2026-10-27
  */
 
-import { ref, shallowRef, computed, type CSSProperties } from 'vue';
+import { ref, shallowRef, computed, type CSSProperties, type Component } from 'vue';
 import type LogicFlow from '@logicflow/core';
 import AtengFlowCanvas from './AtengFlowCanvas.vue';
 import AtengFlowStencil from './AtengFlowStencil.vue';
@@ -20,6 +20,7 @@ import { AutoLayoutEngine } from '../layout';
 import { FlowValidator, type FlowValidationError, type FlowValidationResult } from '../validator';
 import type { BpmnExportOptions } from '../bpmn';
 import type { FlowSnapshotOptions } from '../snapshot';
+import type { VueNodeOptions } from '../registry';
 import type {
   FlowGraph,
   FlowNode,
@@ -347,6 +348,10 @@ const downloadBpmnXml = (filename?: string, options?: BpmnExportOptions): void =
   canvasRef.value?.downloadBpmnXml(filename, options);
 };
 
+const registerVueNode = (type: string, component: Component, options?: VueNodeOptions) => {
+  canvasRef.value?.registerVueNode(type, component, options);
+};
+
 defineExpose<AtengFlowDesignerExpose>({
   getLf,
   getGraphData,
@@ -375,6 +380,7 @@ defineExpose<AtengFlowDesignerExpose>({
   exportSnapshot,
   downloadSnapshot,
   downloadBpmnXml,
+  registerVueNode,
 });
 </script>
 
@@ -440,6 +446,7 @@ defineExpose<AtengFlowDesignerExpose>({
           ref="canvasRef"
           :model-value="modelValue"
           :options="mergedCanvasOptions"
+          :custom-vue-nodes="customVueNodes"
           :disabled="disabled"
           width="100%"
           height="100%"

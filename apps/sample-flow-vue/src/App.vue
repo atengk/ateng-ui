@@ -16,6 +16,8 @@ import { ref, computed } from 'vue';
 import {
   AtengFlowDesigner,
   FlowNodeType,
+  ApprovalCardNode,
+  DEFAULT_STENCIL_GROUPS,
   type FlowGraph,
   type FlowNode,
   type FlowEdge,
@@ -25,9 +27,43 @@ import {
   type BeforeConnectHook,
   type FlowValidationError,
   type FlowValidationResult,
+  type StencilGroup,
+  type CustomVueNodeConfig,
 } from '@atengk/flow-vue';
 
 const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+
+const customVueNodes: CustomVueNodeConfig[] = [
+  {
+    type: 'approval-card',
+    component: ApprovalCardNode,
+    options: {
+      width: 220,
+      height: 95,
+    },
+  },
+];
+
+const stencilGroups: StencilGroup[] = [
+  ...DEFAULT_STENCIL_GROUPS,
+  {
+    id: 'vue-sfc-nodes',
+    title: '⭐ Vue 3 SFC 卡片图元',
+    items: [
+      {
+        type: 'approval-card',
+        text: '审批卡片',
+        description: '带头像、状态胶囊与快捷审批按钮的 Vue SFC 节点',
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>',
+        defaultProperties: {
+          assignee: '王经理 (研发部)',
+          status: 'processing',
+          progress: 50,
+        },
+      },
+    ],
+  },
+];
 
 const initialGraph: FlowGraph = {
   nodes: [
@@ -320,6 +356,82 @@ const handleReloadDefault = () => {
   lastEvent.value = '已重载示例初始审批拓扑并重置视口';
 };
 
+const vueCardGraph: FlowGraph = {
+  nodes: [
+    { id: 'start-1', type: FlowNodeType.START, x: 100, y: 220, text: '提交立项申请' },
+    {
+      id: 'card-pm',
+      type: 'approval-card',
+      x: 340,
+      y: 220,
+      text: '项目经理初核',
+      properties: {
+        assignee: '张项目经理 (产研部)',
+        status: 'approved',
+        progress: 100,
+      },
+    },
+    {
+      id: 'card-arch',
+      type: 'approval-card',
+      x: 620,
+      y: 220,
+      text: '架构师评审',
+      properties: {
+        assignee: '王首席架构师',
+        status: 'processing',
+        progress: 60,
+      },
+    },
+    {
+      id: 'card-director',
+      type: 'approval-card',
+      x: 900,
+      y: 220,
+      text: '研发总监终核',
+      properties: {
+        assignee: '李总监 (技术中心)',
+        status: 'pending',
+        progress: 0,
+      },
+    },
+    { id: 'end-1', type: FlowNodeType.END, x: 1140, y: 220, text: '立项办结归档' },
+  ],
+  edges: [
+    { id: 'e1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'card-pm', text: '送审' },
+    {
+      id: 'e2',
+      type: 'polyline',
+      sourceNodeId: 'card-pm',
+      targetNodeId: 'card-arch',
+      text: '初审通过',
+    },
+    {
+      id: 'e3',
+      type: 'polyline',
+      sourceNodeId: 'card-arch',
+      targetNodeId: 'card-director',
+      text: '方案可行',
+    },
+    {
+      id: 'e4',
+      type: 'polyline',
+      sourceNodeId: 'card-director',
+      targetNodeId: 'end-1',
+      text: '核准发版',
+    },
+  ],
+};
+
+const handleLoadVueCards = () => {
+  handleClearValidation();
+  graphData.value = JSON.parse(JSON.stringify(vueCardGraph));
+  designerRef.value?.render(graphData.value);
+  designerRef.value?.fitView();
+  lastEvent.value =
+    '已载入 Vue 3 SFC 高颜值卡片审批流，可点击卡片上的【✓ 通过 / ✕ 驳回】进行实时响应式回写！';
+};
+
 const currentBadgeType = computed(() => {
   if (!currentSelected.value) return 'info';
   if (currentSelected.value.elementType === 'edge') return 'success';
@@ -466,12 +578,14 @@ const handleDownloadSnapshot = async () => {
       <div class="sample-header__left">
         <h1>@atengk/flow-vue 流程可视化展厅</h1>
         <p class="sample-desc">
-          工单 #167 验证：BPMN 2.0 XML 协议转译器（Flowable/Camunda
-          双向保真互转）、全景边界自适应计算、高清 2x/3x DPR 导出与防泄密文本水印
+          工单 #168 验证：Vue 3 SFC
+          单文件组件自定义卡片节点（VueNodeRegistry）、头像状态胶囊/进度条/快捷审批动作、Props
+          响应式回写与确定性销毁
         </p>
       </div>
 
       <div class="sample-header__right">
+        <button class="btn btn--card" @click="handleLoadVueCards">⭐ Vue 3 SFC 卡片流</button>
         <button class="btn btn--export" @click="handleOpenBpmnDialog">📄 BPMN 互转</button>
         <button class="btn btn--snapshot" @click="handleOpenSnapshotDialog">📷 高清快照</button>
         <button class="btn btn--validate" @click="handleValidate">🔍 静态拓扑校验</button>
@@ -530,6 +644,8 @@ const handleDownloadSnapshot = async () => {
       <AtengFlowDesigner
         ref="designerRef"
         v-model="graphData"
+        :stencil-groups="stencilGroups"
+        :custom-vue-nodes="customVueNodes"
         :before-connect="beforeConnect"
         panel-width="360px"
         width="100%"
@@ -1200,6 +1316,17 @@ const handleDownloadSnapshot = async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.btn--card {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.25);
+}
+.btn--card:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+  transform: translateY(-1px);
 }
 
 .btn--export {

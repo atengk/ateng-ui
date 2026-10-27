@@ -145,6 +145,18 @@ export interface UseFlowReturn {
 }
 
 /**
+ * 声明式自定义 Vue 3 SFC 单文件组件节点配置项。
+ */
+export interface CustomVueNodeConfig {
+  /** 自定义图元类型标识 */
+  type: string;
+  /** Vue 3 SFC 组件定义 */
+  component: import('vue').Component;
+  /** 节点配置选项 */
+  options?: import('./registry').VueNodeOptions;
+}
+
+/**
  * AtengFlowCanvas Props 属性契约。
  */
 export interface AtengFlowCanvasProps {
@@ -160,6 +172,8 @@ export interface AtengFlowCanvasProps {
   autoResize?: boolean;
   /** 是否处于禁用/只读状态 */
   disabled?: boolean;
+  /** 声明式自定义 Vue 3 SFC 单文件组件节点定义列表 */
+  customVueNodes?: CustomVueNodeConfig[];
 }
 
 /**
@@ -238,6 +252,12 @@ export interface AtengFlowCanvasExpose {
   downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
   /** 浏览器触发 BPMN 2.0 XML 文件下载 */
   downloadBpmnXml: (filename?: string, options?: import('./bpmn').BpmnExportOptions) => void;
+  /** 向当前画布动态注册自定义 Vue 3 SFC 单文件组件节点 */
+  registerVueNode: (
+    type: string,
+    component: import('vue').Component,
+    options?: import('./registry').VueNodeOptions,
+  ) => void;
 }
 
 /**
@@ -438,6 +458,8 @@ export interface AtengFlowDesignerProps {
   height?: string | number;
   /** 是否禁用设计编辑（只读） */
   disabled?: boolean;
+  /** 声明式自定义 Vue 3 SFC 单文件组件节点定义列表 */
+  customVueNodes?: CustomVueNodeConfig[];
   /** 是否启用顶部工具栏（默认 true） */
   showToolbar?: boolean;
   /** 是否启用快捷键体系（默认 true） */
@@ -553,6 +575,12 @@ export interface AtengFlowDesignerExpose {
   downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
   /** 浏览器触发 BPMN 2.0 XML 文件下载 */
   downloadBpmnXml: (filename?: string, options?: import('./bpmn').BpmnExportOptions) => void;
+  /** 向当前画布动态注册自定义 Vue 3 SFC 单文件组件节点 */
+  registerVueNode: (
+    type: string,
+    component: import('vue').Component,
+    options?: import('./registry').VueNodeOptions,
+  ) => void;
 }
 
 export type {
@@ -564,3 +592,26 @@ export { FlowValidationRuleCode } from './validator';
 
 export type { BpmnExportOptions } from './bpmn';
 export type { FlowWatermarkOptions, FlowSnapshotOptions, FlowBoundingBox } from './snapshot';
+
+export type { FlowVueNodeProps, VueNodeOptions, FlowAnchorConfig } from './registry';
+export { VueNodeRegistry, registerVueNode } from './registry';
+
+/**
+ * 预设审批卡片节点组件 Props 接口契约。
+ */
+export interface ApprovalCardNodeProps {
+  /** 节点元数据 */
+  node: FlowNode;
+  /** LogicFlow 画布实例 */
+  lf?: LogicFlow;
+  /** 底层数据模型 */
+  model?: unknown;
+  /** 全量图数据 */
+  graph?: FlowGraph;
+  /** 安全回写单个属性 */
+  updateProperty?: (key: string, value: unknown) => void;
+  /** 批量安全回写属性 */
+  updateProperties?: (patch: Record<string, unknown>) => void;
+  /** 是否处于禁用/只读状态 */
+  disabled?: boolean;
+}
