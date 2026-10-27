@@ -10,6 +10,8 @@
 
 import { ref, computed, watch, onMounted, type CSSProperties } from 'vue';
 import { useFlow } from '../composables/useFlow';
+import { BpmnAdapter, type BpmnExportOptions } from '../bpmn';
+import { FlowSnapshot, type FlowSnapshotOptions } from '../snapshot';
 import type {
   FlowNode,
   FlowEdge,
@@ -193,6 +195,42 @@ const clearHighlight = () => {
   }
 };
 
+const exportBpmnXml = (options?: BpmnExportOptions): string => {
+  const graph = getGraphData();
+  return BpmnAdapter.toBpmnXml(graph, options);
+};
+
+const importBpmnXml = (xml: string) => {
+  const graph = BpmnAdapter.fromBpmnXml(xml);
+  render(graph);
+  return graph;
+};
+
+const exportSnapshot = async (options?: FlowSnapshotOptions): Promise<string> => {
+  if (!lf.value) {
+    throw new Error('画布尚未初始化');
+  }
+  return FlowSnapshot.getSnapshot(lf.value, options);
+};
+
+const downloadSnapshot = async (options?: FlowSnapshotOptions): Promise<void> => {
+  if (!lf.value) return;
+  const format = options?.format ?? 'png';
+  const filename = options?.filename ? `${options.filename}.${format}` : `flow-snapshot.${format}`;
+  if (format === 'svg') {
+    const svgStr = FlowSnapshot.getSvgString(lf.value, options);
+    FlowSnapshot.download(svgStr, filename);
+  } else {
+    const dataUrl = await FlowSnapshot.getSnapshot(lf.value, options);
+    FlowSnapshot.download(dataUrl, filename);
+  }
+};
+
+const downloadBpmnXml = (filename = 'process.bpmn20.xml', options?: BpmnExportOptions): void => {
+  const xml = exportBpmnXml(options);
+  FlowSnapshot.download(xml, filename);
+};
+
 defineExpose<AtengFlowCanvasExpose>({
   getLf: () => lf.value,
   getContainer: () => domRef.value,
@@ -213,6 +251,11 @@ defineExpose<AtengFlowCanvasExpose>({
   focusElement,
   highlightElements,
   clearHighlight,
+  exportBpmnXml,
+  importBpmnXml,
+  exportSnapshot,
+  downloadSnapshot,
+  downloadBpmnXml,
 });
 </script>
 

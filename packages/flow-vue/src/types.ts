@@ -228,6 +228,16 @@ export interface AtengFlowCanvasExpose {
   highlightElements: (nodeIds?: string[], edgeIds?: string[]) => void;
   /** 清除画布中所有图元的错误高亮状态 */
   clearHighlight: () => void;
+  /** 将当前画布数据序列化导出为标准 BPMN 2.0 XML 字符串 */
+  exportBpmnXml: (options?: import('./bpmn').BpmnExportOptions) => string;
+  /** 将标准 BPMN 2.0 XML 字符串反序列化并渲染加载至当前画布 */
+  importBpmnXml: (xml: string) => FlowGraph;
+  /** 导出全景快照（支持 PNG / JPEG / WEBP / SVG 格式与 DPR 高清倍率） */
+  exportSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<string>;
+  /** 浏览器触发图片快照或 SVG 下载 */
+  downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
+  /** 浏览器触发 BPMN 2.0 XML 文件下载 */
+  downloadBpmnXml: (filename?: string, options?: import('./bpmn').BpmnExportOptions) => void;
 }
 
 /**
@@ -482,6 +492,11 @@ export interface AtengFlowDesignerSlots {
     validate: () => import('./validator').FlowValidationResult;
     clearValidationHighlight: () => void;
     focusElement: (id: string) => void;
+    exportBpmnXml: (options?: import('./bpmn').BpmnExportOptions) => string;
+    importBpmnXml: (xml: string) => FlowGraph;
+    exportSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<string>;
+    downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
+    downloadBpmnXml: (filename?: string, options?: import('./bpmn').BpmnExportOptions) => void;
   }) => unknown;
   stencil?: (props: {
     lf: LogicFlow | null;
@@ -528,6 +543,16 @@ export interface AtengFlowDesignerExpose {
   highlightErrors: (errors: import('./validator').FlowValidationError[]) => void;
   /** 平移视口居中并高亮聚焦选中指定图元 */
   focusElement: (id: string) => void;
+  /** 将当前画布数据序列化导出为标准 BPMN 2.0 XML 字符串 */
+  exportBpmnXml: (options?: import('./bpmn').BpmnExportOptions) => string;
+  /** 将标准 BPMN 2.0 XML 字符串反序列化并渲染加载至当前画布 */
+  importBpmnXml: (xml: string) => FlowGraph;
+  /** 导出全景快照（支持 PNG / JPEG / WEBP / SVG 格式与 DPR 高清倍率） */
+  exportSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<string>;
+  /** 浏览器触发图片快照或 SVG 下载 */
+  downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
+  /** 浏览器触发 BPMN 2.0 XML 文件下载 */
+  downloadBpmnXml: (filename?: string, options?: import('./bpmn').BpmnExportOptions) => void;
 }
 
 export type {
@@ -536,3 +561,6 @@ export type {
   FlowValidationRuleCodeValue,
 } from './validator';
 export { FlowValidationRuleCode } from './validator';
+
+export type { BpmnExportOptions } from './bpmn';
+export type { FlowWatermarkOptions, FlowSnapshotOptions, FlowBoundingBox } from './snapshot';

@@ -18,6 +18,8 @@ import AtengFlowPropertyPanel from './AtengFlowPropertyPanel.vue';
 import { registerPresetNodes, type StencilItem } from '../presets';
 import { AutoLayoutEngine } from '../layout';
 import { FlowValidator, type FlowValidationError, type FlowValidationResult } from '../validator';
+import type { BpmnExportOptions } from '../bpmn';
+import type { FlowSnapshotOptions } from '../snapshot';
 import type {
   FlowGraph,
   FlowNode,
@@ -319,6 +321,32 @@ const focusElement = (id: string) => {
   }
 };
 
+const exportBpmnXml = (options?: BpmnExportOptions): string => {
+  return canvasRef.value?.exportBpmnXml(options) ?? '';
+};
+
+const importBpmnXml = (xml: string): FlowGraph => {
+  const graph = canvasRef.value?.importBpmnXml(xml) ?? { nodes: [], edges: [] };
+  emit('change', graph);
+  emit('update:modelValue', graph);
+  return graph;
+};
+
+const exportSnapshot = async (options?: FlowSnapshotOptions): Promise<string> => {
+  if (!canvasRef.value) {
+    throw new Error('流程画布尚未就绪');
+  }
+  return canvasRef.value.exportSnapshot(options);
+};
+
+const downloadSnapshot = async (options?: FlowSnapshotOptions): Promise<void> => {
+  await canvasRef.value?.downloadSnapshot(options);
+};
+
+const downloadBpmnXml = (filename?: string, options?: BpmnExportOptions): void => {
+  canvasRef.value?.downloadBpmnXml(filename, options);
+};
+
 defineExpose<AtengFlowDesignerExpose>({
   getLf,
   getGraphData,
@@ -342,6 +370,11 @@ defineExpose<AtengFlowDesignerExpose>({
   clearValidationHighlight,
   highlightErrors,
   focusElement,
+  exportBpmnXml,
+  importBpmnXml,
+  exportSnapshot,
+  downloadSnapshot,
+  downloadBpmnXml,
 });
 </script>
 
@@ -368,6 +401,11 @@ defineExpose<AtengFlowDesignerExpose>({
         :validate="validate"
         :clear-validation-highlight="clearValidationHighlight"
         :focus-element="focusElement"
+        :export-bpmn-xml="exportBpmnXml"
+        :import-bpmn-xml="importBpmnXml"
+        :export-snapshot="exportSnapshot"
+        :download-snapshot="downloadSnapshot"
+        :download-bpmn-xml="downloadBpmnXml"
       >
         <AtengFlowToolbar
           :lf="internalLf"

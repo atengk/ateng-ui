@@ -26,6 +26,8 @@ export { useFlow } from './composables/useFlow';
 export { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from './presets';
 export { AutoLayoutEngine } from './layout';
 export { FlowValidator, FlowValidationRuleCode } from './validator';
+export { BpmnAdapter } from './bpmn';
+export { FlowSnapshot } from './snapshot';
 
 /**
  * Vue 插件安装器，支持 app.use(install)。
@@ -83,3 +85,5 @@ export type {
   FlowValidationResult,
   FlowValidationRuleCodeValue,
 } from './validator';
+export type { BpmnExportOptions } from './bpmn';
+export type { FlowWatermarkOptions, FlowSnapshotOptions, FlowBoundingBox } from './snapshot';

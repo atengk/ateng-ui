@@ -18,6 +18,8 @@
 | **顶部工具栏**   | 控制栏动作矩阵         | `AtengFlowToolbar`       | `lf`, `canUndo`, `canRedo`, `disabled`, `@zoom-in`, `@fit-view`, `@undo`, `@redo`, `@clear`, `@layout`, `@toggle-grid`, `@toggle-minimap`, `@validate` | 集成缩放控制、Undo/Redo、网格切换、小地图开关、防误触清空弹层、自动排版与静态拓扑校验触发                                     | [AtengFlowToolbar.test.ts](./test/AtengFlowToolbar.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
 | **静态拓扑校验** | 流程静态校验引擎       | `FlowValidator`          | `validate(graph) -> FlowValidationResult`, `hasErrors(result) -> boolean`                                                                              | 纯原生 TypeScript 校验 5 大图论刚性规则（起止唯一性、连通孤岛、排他网关分支与条件、无出口死循环检测）并输出结构化诊断实体集合 | [FlowValidator.test.ts](./test/FlowValidator.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                   |
 | **规则代号枚举** | 拓扑校验规则常量       | `FlowValidationRuleCode` | `START_NODE_MISSING`, `DEADLOCK_CYCLE`, `GATEWAY_BRANCH_INSUFFICIENT` 等                                                                               | 结构化图论校验错误分类代号枚举字典                                                                                            | [FlowValidator.test.ts](./test/FlowValidator.test.ts)                                                                       |
+| **BPMN 转译器**  | BPMN 2.0 协议互转      | `BpmnAdapter`            | `toBpmnXml(graph, options?) -> string`, `fromBpmnXml(xml) -> FlowGraph`                                                                                | 纯原生双向协议转译，兼容 Flowable/Camunda 标准规范，精确还原 Bounds 中心坐标、折点 Waypoint 与办理人/条件扩展属性             | [BpmnAdapter.test.ts](./test/BpmnAdapter.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                       |
+| **全景高清快照** | 高清防虚快照导出       | `FlowSnapshot`           | `computeBoundingBox`, `getSvgString`, `getSnapshot`, `download`                                                                                        | 最小外接边界自适应计算，2x/3x DPR 视网膜高清防虚栅格化，矢量 SVG 导出与自定义防泄密矩阵文本水印                               | [FlowSnapshot.test.ts](./test/FlowSnapshot.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                     |
 | **自动排版**     | DAG 分层排版引擎       | `AutoLayoutEngine`       | `layout(graph, options?: AutoLayoutOptions) -> FlowGraph`                                                                                              | 基于有向无环图分层拓扑算法，计算 Rank 与节点间距，支持水平 (LR) 与垂直 (TB) 规整重排与折点自适应更新                          | [AutoLayoutEngine.test.ts](./test/AutoLayoutEngine.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
 | **预设与规则**   | 核心预设图元与拓扑防呆 | `registerPresetNodes`    | `(lf: LogicFlow, beforeConnect?: BeforeConnectHook) => void`                                                                                           | 注册开始、结束、审批任务、服务任务、排他网关、并行网关，内置禁止自环/禁止连入开始/禁止结束流出/禁止重复连线                   | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
 | **图元枚举**     | 预设节点类型常量       | `FlowNodeType`           | `START`, `END`, `USER_TASK`, `SERVICE_TASK`, `CC_TASK`, `EXCLUSIVE_GATEWAY`, `PARALLEL_GATEWAY`                                                        | 标准化图元类型标识字典（如 `flow:start`, `flow:user-task`）                                                                   | [presets.test.ts](./test/presets.test.ts)                                                                                   |
@@ -150,6 +152,16 @@ const customBeforeConnect: BeforeConnectHook = (source, target) => {
      - 🛑 **无出口死循环检测**：反向 BFS 结合深度优先遍历，准确识别拓扑中无法流向任何结束节点的死锁闭环（`DEADLOCK_CYCLE`），允许合法的审批驳回循环；
      - 🛑 **连线防呆与完整性**：识别悬空孤魂边（`DANGLING_EDGE`）与自环连线（`SELF_LOOP_EDGE`）；
    - **视觉呼吸高亮与一键平移定位**：校验发现异常时，设计器底层自动为违规节点添加 `at-flow-node--error` 红色呼吸边框，支持调用 `focusElement(id)` 自动平移视口居中并高亮聚焦目标图元。
+5. **BPMN 2.0 双向保真互转与几何坐标保真 (BpmnAdapter)**：
+   - 纯原生 TypeScript 与 DOMParser 解析，完全不依赖三方重量级 BPMN 运行时，产物轻量无臃肿；
+   - 兼容标准 BPMN 2.0 命名空间（`http://www.omg.org/spec/BPMN/20100524/MODEL`）与 Flowable / Camunda 扩展前缀；
+   - 精准实现 LogicFlow 中心点坐标 $(x, y)$ 与 BPMNDiagram 边界 Bounds $(x, y, w, h)$ 的相互换算，连线折点（`waypoint`）无损双向还原；
+   - CDATA 深度解析器自适应提取 `customProperties`，保证自定义业务字段 100% 序列化保真。
+6. **全景最小外接边界计算与高清防发虚倍率导出 (FlowSnapshot)**：
+   - 自动扫描全图节点与连线折点，精准计算紧凑 Bounding Box 并注入自适应 Padding 留白，彻底消除大面积无效空白区域；
+   - 重置视口缩放平移矩阵（`.lf-base`），矫正坐标系为绝对世界坐标；
+   - 采用离屏 Canvas 与设备像素比（DPR 2x / 3x）超分辨率放大栅格化，彻底解决大图在移动端或大屏上发虚模糊的技术痛点；
+   - 原生矢量注入防泄密安全文本水印，矩阵旋转排布且 `pointer-events: none` 零干扰。
 
 ---
 

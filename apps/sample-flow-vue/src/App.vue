@@ -327,6 +327,137 @@ const currentBadgeType = computed(() => {
   if (currentSelected.value.type.includes('gateway')) return 'danger';
   return 'primary';
 });
+
+// BPMN 2.0 互转对话框
+const isBpmnDialogVisible = ref<boolean>(false);
+const bpmnProcessName = ref<string>('业务审批差旅流程');
+const bpmnXmlContent = ref<string>('');
+const bpmnFileInput = ref<HTMLInputElement | null>(null);
+
+const handleOpenBpmnDialog = () => {
+  if (designerRef.value) {
+    bpmnXmlContent.value = designerRef.value.exportBpmnXml({
+      processName: bpmnProcessName.value,
+    });
+  }
+  isBpmnDialogVisible.value = true;
+};
+
+const handleRefreshBpmnXml = () => {
+  if (designerRef.value) {
+    bpmnXmlContent.value = designerRef.value.exportBpmnXml({
+      processName: bpmnProcessName.value,
+    });
+    lastEvent.value = '已从当前画布重新序列化生成 BPMN 2.0 XML';
+  }
+};
+
+const handleApplyBpmnXml = () => {
+  if (!designerRef.value || !bpmnXmlContent.value.trim()) return;
+  try {
+    const imported = designerRef.value.importBpmnXml(bpmnXmlContent.value);
+    designerRef.value.fitView();
+    isBpmnDialogVisible.value = false;
+    lastEvent.value = `BPMN 2.0 XML 导入成功！还原 ${imported.nodes.length} 个节点，${imported.edges.length} 条连线`;
+  } catch (err: unknown) {
+    alertMessage.value = `❌ 导入失败: ${(err as Error)?.message || 'XML 格式非法'}`;
+    setTimeout(() => {
+      alertMessage.value = '';
+    }, 4000);
+  }
+};
+
+const handleTriggerUploadBpmn = () => {
+  bpmnFileInput.value?.click();
+};
+
+const handleUploadBpmnFile = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const content = e.target?.result;
+    if (typeof content === 'string') {
+      bpmnXmlContent.value = content;
+      handleApplyBpmnXml();
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+};
+
+const handleDownloadBpmnXml = () => {
+  if (designerRef.value) {
+    designerRef.value.downloadBpmnXml('approval-flow.bpmn20.xml', {
+      processName: bpmnProcessName.value,
+    });
+    lastEvent.value = '已触发 approval-flow.bpmn20.xml 文件下载';
+  }
+};
+
+// 高清快照导出对话框
+const isSnapshotDialogVisible = ref<boolean>(false);
+const snapshotFormat = ref<'png' | 'jpeg' | 'webp' | 'svg'>('png');
+const snapshotDpr = ref<number>(2);
+const snapshotPadding = ref<number>(40);
+const snapshotBackground = ref<string>('#ffffff');
+const snapshotEnableWatermark = ref<boolean>(true);
+const snapshotWatermarkText = ref<string>('内部审批·绝密');
+const snapshotPreviewUrl = ref<string>('');
+const isSnapshotLoading = ref<boolean>(false);
+
+const handleOpenSnapshotDialog = async () => {
+  isSnapshotDialogVisible.value = true;
+  await handleGenerateSnapshotPreview();
+};
+
+const handleGenerateSnapshotPreview = async () => {
+  if (!designerRef.value) return;
+  isSnapshotLoading.value = true;
+  try {
+    const url = await designerRef.value.exportSnapshot({
+      format: snapshotFormat.value,
+      dpr: snapshotDpr.value,
+      padding: snapshotPadding.value,
+      background: snapshotBackground.value,
+      watermark: snapshotEnableWatermark.value
+        ? {
+            text: snapshotWatermarkText.value,
+            color: 'rgba(0, 0, 0, 0.15)',
+            opacity: 0.15,
+          }
+        : undefined,
+    });
+    snapshotPreviewUrl.value = url;
+    lastEvent.value = `已生成 ${snapshotFormat.value.toUpperCase()} 高清全景快照预览 (DPR: ${snapshotDpr.value}x)`;
+  } catch (err: unknown) {
+    alertMessage.value = `快照生成失败: ${(err as Error)?.message || '未知错误'}`;
+  } finally {
+    isSnapshotLoading.value = false;
+  }
+};
+
+const handleDownloadSnapshot = async () => {
+  if (!designerRef.value) return;
+  await designerRef.value.downloadSnapshot({
+    format: snapshotFormat.value,
+    dpr: snapshotDpr.value,
+    padding: snapshotPadding.value,
+    background: snapshotBackground.value,
+    filename: `flow-snapshot-${Date.now()}`,
+    watermark: snapshotEnableWatermark.value
+      ? {
+          text: snapshotWatermarkText.value,
+          color: 'rgba(0, 0, 0, 0.15)',
+          opacity: 0.15,
+        }
+      : undefined,
+  });
+  lastEvent.value = `已成功下载 ${snapshotFormat.value.toUpperCase()} 高清全景快照文件`;
+  isSnapshotDialogVisible.value = false;
+};
 </script>
 
 <template>
@@ -335,12 +466,14 @@ const currentBadgeType = computed(() => {
       <div class="sample-header__left">
         <h1>@atengk/flow-vue 流程可视化展厅</h1>
         <p class="sample-desc">
-          工单 #166
-          验证：流程拓扑静态校验引擎（起止节点唯一性、出入度悬空检测、网关分支条件、无出口死循环）、违规图元红色呼吸高亮与一键居中定位
+          工单 #167 验证：BPMN 2.0 XML 协议转译器（Flowable/Camunda
+          双向保真互转）、全景边界自适应计算、高清 2x/3x DPR 导出与防泄密文本水印
         </p>
       </div>
 
       <div class="sample-header__right">
+        <button class="btn btn--export" @click="handleOpenBpmnDialog">📄 BPMN 互转</button>
+        <button class="btn btn--snapshot" @click="handleOpenSnapshotDialog">📷 高清快照</button>
         <button class="btn btn--validate" @click="handleValidate">🔍 静态拓扑校验</button>
 
         <el-dropdown trigger="click" @command="handleLoadInvalid">
@@ -365,6 +498,15 @@ const currentBadgeType = computed(() => {
           {{ useCustomPanel ? '表单：Element Plus 接管' : '表单：原生轻量抽屉' }}
         </button>
         <button class="btn btn--primary" @click="handleReloadDefault">重置示例拓扑</button>
+
+        <!-- 隐藏的 BPMN 文件输入框 -->
+        <input
+          ref="bpmnFileInput"
+          type="file"
+          accept=".xml,.bpmn"
+          style="display: none"
+          @change="handleUploadBpmnFile"
+        />
       </div>
 
       <!-- 拦截提示浮层 -->
@@ -624,6 +766,117 @@ const currentBadgeType = computed(() => {
         </div>
       </div>
     </el-drawer>
+
+    <!-- BPMN 2.0 XML 互转对话框 -->
+    <el-dialog
+      v-model="isBpmnDialogVisible"
+      title="BPMN 2.0 XML 协议互转面板 (Flowable / Camunda 兼容)"
+      width="760px"
+      destroy-on-close
+    >
+      <div class="bpmn-dialog-body">
+        <el-alert type="info" :closable="false" show-icon title="双向保真协议转译">
+          支持将 FlowGraph 与标准 BPMN 2.0 XML 双向互转，保留办理人、流转条件、坐标 Bounds 与折点
+          Waypoint。
+        </el-alert>
+
+        <div class="bpmn-form-row">
+          <label>流程定义名称：</label>
+          <el-input v-model="bpmnProcessName" placeholder="输入流程定义名称" style="width: 240px" />
+          <el-button type="primary" plain @click="handleRefreshBpmnXml">从画布重新生成</el-button>
+          <el-button type="success" plain @click="handleTriggerUploadBpmn"
+            >📥 本地上传 XML</el-button
+          >
+        </div>
+
+        <el-input
+          v-model="bpmnXmlContent"
+          type="textarea"
+          :rows="13"
+          placeholder="BPMN 2.0 XML 内容"
+          class="bpmn-xml-textarea"
+        />
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="isBpmnDialogVisible = false">取消</el-button>
+          <el-button type="warning" plain @click="handleDownloadBpmnXml"
+            >💾 下载 .bpmn20.xml</el-button
+          >
+          <el-button type="primary" @click="handleApplyBpmnXml">🚀 导入至当前画布</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 高清全景快照导出对话框 -->
+    <el-dialog
+      v-model="isSnapshotDialogVisible"
+      title="全景高清快照导出 (矢量 SVG / 高清无损图片)"
+      width="720px"
+      destroy-on-close
+    >
+      <div class="snapshot-dialog-body">
+        <el-form label-width="110px" size="default">
+          <el-form-item label="导出格式">
+            <el-radio-group v-model="snapshotFormat" @change="handleGenerateSnapshotPreview">
+              <el-radio-button value="png">PNG (位图)</el-radio-button>
+              <el-radio-button value="jpeg">JPEG (带底色)</el-radio-button>
+              <el-radio-button value="webp">WebP (高压缩)</el-radio-button>
+              <el-radio-button value="svg">SVG (无损矢量)</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item v-if="snapshotFormat !== 'svg'" label="高清放大倍率">
+            <el-radio-group v-model="snapshotDpr" @change="handleGenerateSnapshotPreview">
+              <el-radio-button :value="1">1x 标准</el-radio-button>
+              <el-radio-button :value="2">2x 视网膜高清 (推荐)</el-radio-button>
+              <el-radio-button :value="3">3x 印刷级超清</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="四周留白">
+            <el-radio-group v-model="snapshotPadding" @change="handleGenerateSnapshotPreview">
+              <el-radio-button :value="20">20px</el-radio-button>
+              <el-radio-button :value="40">40px (标准)</el-radio-button>
+              <el-radio-button :value="60">60px</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="防泄密水印">
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%">
+              <el-switch
+                v-model="snapshotEnableWatermark"
+                @change="handleGenerateSnapshotPreview"
+              />
+              <el-input
+                v-if="snapshotEnableWatermark"
+                v-model="snapshotWatermarkText"
+                placeholder="水印文本内容"
+                style="max-width: 260px"
+                @change="handleGenerateSnapshotPreview"
+              />
+            </div>
+          </el-form-item>
+        </el-form>
+
+        <!-- 快照预览区 -->
+        <div v-loading="isSnapshotLoading" class="snapshot-preview-box">
+          <div v-if="snapshotPreviewUrl" class="snapshot-preview-inner">
+            <img :src="snapshotPreviewUrl" alt="快照预览" />
+          </div>
+          <div v-else class="snapshot-empty-tip">暂无预览内容</div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="isSnapshotDialogVisible = false">取消</el-button>
+          <el-button type="info" plain @click="handleGenerateSnapshotPreview">刷新预览</el-button>
+          <el-button type="primary" @click="handleDownloadSnapshot">📥 确认下载文件</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -947,5 +1200,73 @@ const currentBadgeType = computed(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.btn--export {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+.btn--export:hover {
+  background-color: #0369a1;
+}
+
+.btn--snapshot {
+  background-color: #4f46e5;
+  color: #ffffff;
+}
+.btn--snapshot:hover {
+  background-color: #4338ca;
+}
+
+.bpmn-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bpmn-form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.bpmn-xml-textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.snapshot-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.snapshot-preview-box {
+  min-height: 200px;
+  max-height: 320px;
+  background-color: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 12px;
+}
+
+.snapshot-preview-inner img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  background-color: #ffffff;
+}
+
+.snapshot-empty-tip {
+  color: #94a3b8;
+  font-size: 13px;
 }
 </style>
