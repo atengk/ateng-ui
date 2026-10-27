@@ -14,6 +14,7 @@ import AtengDonutChart from './components/AtengDonutChart.vue';
 import AtengFunnelChart from './components/AtengFunnelChart.vue';
 import AtengGaugeChart from './components/AtengGaugeChart.vue';
 import AtengRadarChart from './components/AtengRadarChart.vue';
+import AtengMapChart from './components/AtengMapChart.vue';
 
 export {
   AtengECharts,
@@ -22,6 +23,7 @@ export {
   AtengFunnelChart,
   AtengGaugeChart,
   AtengRadarChart,
+  AtengMapChart,
 };
 export { useECharts } from './composables/useECharts';
 export {
@@ -30,6 +32,9 @@ export {
   createFunnelOption,
   createGaugeOption,
   createRadarOption,
+  createUrlGeoProvider,
+  useMapDrillDown,
+  createMapOption,
 } from './presets';
 export {
   registerTheme,
@@ -49,6 +54,7 @@ export function install(app: App): void {
   app.component('AtengFunnelChart', AtengFunnelChart);
   app.component('AtengGaugeChart', AtengGaugeChart);
   app.component('AtengRadarChart', AtengRadarChart);
+  app.component('AtengMapChart', AtengMapChart);
 }
 
 export type AtengEChartsInstance = InstanceType<typeof AtengECharts>;
@@ -57,6 +63,7 @@ export type AtengDonutChartInstance = InstanceType<typeof AtengDonutChart>;
 export type AtengFunnelChartInstance = InstanceType<typeof AtengFunnelChart>;
 export type AtengGaugeChartInstance = InstanceType<typeof AtengGaugeChart>;
 export type AtengRadarChartInstance = InstanceType<typeof AtengRadarChart>;
+export type AtengMapChartInstance = InstanceType<typeof AtengMapChart>;
 
 export type {
   EChartsInstance,
@@ -92,4 +99,13 @@ export type {
   RadarChartConfig,
   AtengRadarChartProps,
   AtengRadarChartEmits,
+  GeoDataProvider,
+  UrlGeoProviderOptions,
+  MapNode,
+  UseMapDrillDownOptions,
+  UseMapDrillDownReturn,
+  MapSeriesDataItem,
+  MapChartConfig,
+  AtengMapChartProps,
+  AtengMapChartEmits,
 } from './types';

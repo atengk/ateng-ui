@@ -5,6 +5,7 @@
  * @since 2026-10-27
  */
 
+import type { ComputedRef, Ref } from 'vue';
 import type {
   EChartsOption,
   TooltipComponentOption,
@@ -998,3 +999,242 @@ export interface AtengRadarChartProps extends Omit<AtengEChartsProps, 'option'> 
  * AtengRadarChart 预设组件事件契约。
  */
 export type AtengRadarChartEmits = AtengEChartsEmits;
+
+/**
+ * GeoJSON 异步提供者 SPI 函数契约。
+ */
+export type GeoDataProvider = (mapCode: string, mapName: string) => Promise<unknown>;
+
+/**
+ * createUrlGeoProvider URL 提供者构造选项。
+ */
+export interface UrlGeoProviderOptions {
+  /**
+   * 自定义数据获取器（支持单元测试 Mock 或特定 HTTP 客户端）。
+   */
+  fetcher?: (code: string, name: string, url: string) => Promise<unknown>;
+
+  /**
+   * 是否开启内存级单例缓存。
+   * @default true
+   */
+  cache?: boolean;
+}
+
+/**
+ * 行政区划或地图节点描述。
+ */
+export interface MapNode {
+  /**
+   * 唯一区划代码或地图注册标识（如 'china'、'440000'、'100000'）。
+   */
+  code: string;
+
+  /**
+   * 区划显示名称（如 '全国'、'广东省'）。
+   */
+  name: string;
+
+  /**
+   * 层级深度（0: 全国, 1: 省, 2: 市, 3: 区县）。
+   */
+  level?: number;
+
+  /**
+   * 任意业务附属元数据。
+   */
+  meta?: Record<string, unknown>;
+}
+
+/**
+ * useMapDrillDown 状态机配置选项。
+ */
+export interface UseMapDrillDownOptions {
+  /**
+   * 初始根地图节点。
+   * @default { code: 'china', name: '全国' }
+   */
+  initialNode?: MapNode;
+
+  /**
+   * GeoJSON 数据 SPI 驱动器。
+   */
+  geoProvider?: GeoDataProvider;
+
+  /**
+   * 下钻前置拦截钩子，返回 false 时阻断下钻行为。
+   */
+  beforeDrillDown?: (target: MapNode, current: MapNode) => boolean | Promise<boolean>;
+
+  /**
+   * 下钻完成回调。
+   */
+  onDrillDown?: (target: MapNode, breadcrumbs: MapNode[]) => void;
+}
+
+/**
+ * useMapDrillDown 状态机返回实例接口。
+ */
+export interface UseMapDrillDownReturn {
+  /**
+   * 当前激活的地图区划节点。
+   */
+  currentNode: Ref<MapNode>;
+
+  /**
+   * 面包屑历史下钻路径栈。
+   */
+  breadcrumbs: Ref<MapNode[]>;
+
+  /**
+   * 是否正在异步加载 GeoJSON 或执行下钻中。
+   */
+  isDrilling: Ref<boolean>;
+
+  /**
+   * 是否可执行向上一级回退操作。
+   */
+  canBack: ComputedRef<boolean>;
+
+  /**
+   * 触发下钻至指定目标节点。
+   */
+  drillTo: (target: MapNode) => Promise<boolean>;
+
+  /**
+   * 回退至上一级节点。
+   */
+  back: () => Promise<boolean>;
+
+  /**
+   * 重置回根节点。
+   */
+  reset: () => Promise<boolean>;
+}
+
+/**
+ * 地图数据项单项结构。
+ */
+export interface MapSeriesDataItem {
+  name: string;
+  value: number | [number, number, number];
+  [key: string]: unknown;
+}
+
+/**
+ * createMapOption 工厂函数主输入配置。
+ */
+export interface MapChartConfig {
+  /**
+   * ECharts 注册的地图标识（与 registerMap 对应）。
+   */
+  map: string;
+
+  /**
+   * 区域填充（Choropleth）指标数据列表。
+   */
+  data?: MapSeriesDataItem[];
+
+  /**
+   * 散点经纬度热力数据列表 [lng, lat, val?]。
+   */
+  scatterData?: Array<{ name: string; value: [number, number, number?]; [key: string]: unknown }>;
+
+  /**
+   * 视觉映射分段/连续控制器配置。
+   */
+  visualMap?: boolean | import('echarts').VisualMapComponentOption;
+
+  /**
+   * 是否开启鼠标滚轮缩放与平移漫游。
+   * @default true
+   */
+  roam?: boolean | 'scale' | 'move';
+
+  /**
+   * 提示框配置。
+   */
+  tooltip?: boolean | import('echarts').TooltipComponentOption;
+
+  /**
+   * 逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengMapChart 预设组件属性契约。
+ */
+export interface AtengMapChartProps extends Omit<AtengEChartsProps, 'option'> {
+  /**
+   * 当前激活的地图注册标识，未指定时跟随 drillDown 状态机当前节点。
+   */
+  map?: string;
+
+  /**
+   * 区域填充数据列表。
+   */
+  data?: MapSeriesDataItem[];
+
+  /**
+   * 散点经纬度热力数据。
+   */
+  scatterData?: Array<{ name: string; value: [number, number, number?]; [key: string]: unknown }>;
+
+  /**
+   * 初始根地图节点。
+   */
+  initialNode?: MapNode;
+
+  /**
+   * GeoJSON SPI 驱动器。
+   */
+  geoProvider?: GeoDataProvider;
+
+  /**
+   * 下钻前置拦截器。
+   */
+  beforeDrillDown?: (target: MapNode, current: MapNode) => boolean | Promise<boolean>;
+
+  /**
+   * 视觉映射分段/连续配置。
+   */
+  visualMap?: boolean | import('echarts').VisualMapComponentOption;
+
+  /**
+   * 缩放漫游。
+   * @default true
+   */
+  roam?: boolean | 'scale' | 'move';
+
+  /**
+   * 是否在顶部展示默认面包屑导航药丸。
+   * @default true
+   */
+  showBreadcrumb?: boolean;
+
+  /**
+   * 逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengMapChart 预设组件事件契约。
+ */
+export interface AtengMapChartEmits extends AtengEChartsEmits {
+  /**
+   * 下钻完成事件。
+   */
+  (e: 'drill-down', node: MapNode, breadcrumbs: MapNode[]): void;
+
+  /**
+   * 回退上一级事件。
+   */
+  (e: 'back', node: MapNode, breadcrumbs: MapNode[]): void;
+
+  /**
+   * 重置回根节点事件。
+   */
+  (e: 'reset', node: MapNode): void;
+}

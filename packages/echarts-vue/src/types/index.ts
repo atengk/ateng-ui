@@ -316,4 +316,13 @@ export type {
   RadarChartConfig,
   AtengRadarChartProps,
   AtengRadarChartEmits,
+  GeoDataProvider,
+  UrlGeoProviderOptions,
+  MapNode,
+  UseMapDrillDownOptions,
+  UseMapDrillDownReturn,
+  MapSeriesDataItem,
+  MapChartConfig,
+  AtengMapChartProps,
+  AtengMapChartEmits,
 } from '../presets/types';

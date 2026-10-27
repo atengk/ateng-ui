@@ -11,3 +11,4 @@ export * from './donut';
 export * from './funnel';
 export * from './gauge';
 export * from './radar';
+export * from './map';

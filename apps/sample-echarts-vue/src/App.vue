@@ -9,7 +9,7 @@
  * @since 2026-10-27
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
   AtengECharts,
   AtengTrendChart,
@@ -17,15 +17,18 @@ import {
   AtengFunnelChart,
   AtengGaugeChart,
   AtengRadarChart,
+  AtengMapChart,
   type AtengEChartsInstance,
   type AtengTrendChartInstance,
   type AtengDonutChartInstance,
   type AtengFunnelChartInstance,
   type AtengGaugeChartInstance,
   type AtengRadarChartInstance,
+  type AtengMapChartInstance,
   type EChartsOption,
   type TrendMetric,
   type TrendYAxisConfig,
+  type GeoDataProvider,
 } from '@atengk/echarts-vue';
 
 // 1. 响应式柱状/折线混合图表配置
@@ -194,10 +197,10 @@ const isDark = ref(false);
 // 动态容器宽度测试
 const isCompact = ref(false);
 
-// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: Ticket #157 仪表盘与雷达图；Tab 5: 初始隐藏零尺寸 Tab）
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: Ticket #157 仪表盘与雷达图；Tab 5: Ticket #158 地图下钻；Tab 6: 初始隐藏零尺寸 Tab）
 const activeTab = ref<
-  'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'gaugeRadarPreset' | 'hiddenTab'
->('gaugeRadarPreset');
+  'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'gaugeRadarPreset' | 'mapPreset' | 'hiddenTab'
+>('mapPreset');
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -565,6 +568,237 @@ const toggleRadarEmpty = () => {
   isRadarEmpty.value = !isRadarEmpty.value;
   log(`已切换雷达图空遮罩状态为: ${isRadarEmpty.value ? '空状态' : '正常数据'}`);
 };
+
+// 8. Ticket #158 地图下钻预设 AtengMapChart 演示数据与状态
+const mapChartRef = ref<AtengMapChartInstance | null>(null);
+
+const mockGeoChina = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: { name: '广东省', code: '440000' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [112.0, 21.5],
+            [117.0, 21.5],
+            [116.5, 25.5],
+            [112.5, 25.5],
+            [112.0, 21.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '浙江省', code: '330000' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [118.0, 27.0],
+            [122.5, 27.0],
+            [122.0, 31.0],
+            [118.5, 31.0],
+            [118.0, 27.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '北京市', code: '110000' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [115.5, 39.5],
+            [117.5, 39.5],
+            [117.5, 41.0],
+            [115.5, 41.0],
+            [115.5, 39.5],
+          ],
+        ],
+      },
+    },
+  ],
+};
+
+const mockGeoGuangdong = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: { name: '深圳市', code: '440300' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [113.7, 22.4],
+            [114.6, 22.4],
+            [114.6, 22.9],
+            [113.7, 22.9],
+            [113.7, 22.4],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '广州市', code: '440100' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [112.9, 22.6],
+            [113.9, 22.6],
+            [113.9, 23.9],
+            [112.9, 23.9],
+            [112.9, 22.6],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '珠海市', code: '440400' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [113.0, 21.8],
+            [113.8, 21.8],
+            [113.8, 22.4],
+            [113.0, 22.4],
+            [113.0, 21.8],
+          ],
+        ],
+      },
+    },
+  ],
+};
+
+const mockGeoShenzhen = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: { name: '南山区', code: '440305' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [113.85, 22.48],
+            [114.02, 22.48],
+            [114.02, 22.62],
+            [113.85, 22.62],
+            [113.85, 22.48],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '福田区', code: '440304' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [114.02, 22.51],
+            [114.11, 22.51],
+            [114.11, 22.6],
+            [114.02, 22.6],
+            [114.02, 22.51],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      properties: { name: '宝安区', code: '440306' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [113.75, 22.55],
+            [113.95, 22.55],
+            [113.95, 22.85],
+            [113.75, 22.85],
+            [113.75, 22.55],
+          ],
+        ],
+      },
+    },
+  ],
+};
+
+const mockGeoProvider: GeoDataProvider = async (code: string) => {
+  log(`[GeoSPI] 正在异步拉取行政区划 GeoJSON: [${code}]`);
+  if (code === 'china' || code === '100000' || code === '全国') return mockGeoChina;
+  if (code === '440000' || code === 'guangdong' || code === '广东省') return mockGeoGuangdong;
+  if (code === '440300' || code === 'shenzhen' || code === '深圳市') return mockGeoShenzhen;
+  return mockGeoChina;
+};
+
+const mapLevelData = ref<Record<string, Array<{ name: string; value: number }>>>({
+  china: [
+    { name: '广东省', value: 1280 },
+    { name: '浙江省', value: 920 },
+    { name: '北京市', value: 850 },
+  ],
+  '440000': [
+    { name: '深圳市', value: 580 },
+    { name: '广州市', value: 490 },
+    { name: '珠海市', value: 210 },
+  ],
+  '440300': [
+    { name: '南山区', value: 260 },
+    { name: '福田区', value: 190 },
+    { name: '宝安区', value: 130 },
+  ],
+});
+
+const currentMapData = computed(() => {
+  const currentCode = mapChartRef.value?.currentNode?.code ?? 'china';
+  return mapLevelData.value[currentCode] ?? mapLevelData.value.china;
+});
+
+const isMapEmpty = ref(false);
+
+const drillToGuangdong = async () => {
+  if (mapChartRef.value) {
+    await mapChartRef.value.drillTo({ code: '440000', name: '广东省' });
+    log('已编程式受控下钻至: [广东省 (440000)]');
+  }
+};
+
+const drillToShenzhen = async () => {
+  if (mapChartRef.value) {
+    await mapChartRef.value.drillTo({ code: '440300', name: '深圳市' });
+    log('已编程式受控下钻至: [深圳市 (440300)]');
+  }
+};
+
+const handleMapBack = async () => {
+  if (mapChartRef.value) {
+    await mapChartRef.value.back();
+    log('已触发地图回退上一级');
+  }
+};
+
+const handleMapReset = async () => {
+  if (mapChartRef.value) {
+    await mapChartRef.value.reset();
+    log('已重置地图路径回到全国根节点');
+  }
+};
+
+const toggleMapEmpty = () => {
+  isMapEmpty.value = !isMapEmpty.value;
+  log(`已切换地图空状态遮罩为: ${isMapEmpty.value ? '空数据态' : '正常数据态'}`);
+};
 </script>
 
 <template>
@@ -572,16 +806,16 @@ const toggleRadarEmpty = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #157 自验</span>
+        <span class="badge">Ticket #158 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：高频预设 AtengGaugeChart &
-        AtengRadarChart（极值达成率与能力雷达）、AtengDonutChart、AtengFunnelChart、 AtengTrendChart
-        趋势看板与多态 DOM 遮罩。
+        L2 专用能力扩展层：高频预设 AtengMapChart（GeoJSON SPI
+        与三级地图下钻）、AtengGaugeChart、AtengRadarChart、AtengDonutChart、
+        AtengFunnelChart、AtengTrendChart 趋势看板与多态 DOM 遮罩。
       </p>
     </header>
 
@@ -604,6 +838,13 @@ const toggleRadarEmpty = () => {
 
     <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
     <div class="tab-nav">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'mapPreset' }"
+        @click="activeTab = 'mapPreset'"
+      >
+        🗺️ 预设看板：AtengMapChart (GeoJSON SPI 与三级地图下钻)
+      </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'gaugeRadarPreset' }"
@@ -639,6 +880,41 @@ const toggleRadarEmpty = () => {
       >
         ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
       </button>
+    </div>
+
+    <!-- 选项卡：Ticket #158 高频预设地图下钻视图 -->
+    <div v-show="activeTab === 'mapPreset'" class="tab-content">
+      <div class="action-bar" style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="drillToGuangdong">📍 下钻至广东省 (440000)</button>
+        <button class="btn btn-info" @click="drillToShenzhen">🏙️ 下钻至深圳市 (440300)</button>
+        <button class="btn btn-secondary" @click="handleMapBack">◀ 返回上一级</button>
+        <button class="btn btn-theme" @click="handleMapReset">🌐 重置回到全国</button>
+        <button class="btn btn-warning" @click="toggleMapEmpty">
+          📭 {{ isMapEmpty ? '恢复地图数据' : '置空地图数据' }}
+        </button>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">
+            1. AtengMapChart: 全国 ➔ 省 ➔ 市 三级行政区划受控下钻 (GeoDataProvider SPI +
+            渐变面包屑药丸)
+          </span>
+          <span class="badge-sub">点击地图区域或顶部面包屑药丸交互下钻</span>
+        </div>
+        <div class="card-body">
+          <AtengMapChart
+            ref="mapChartRef"
+            :data="isMapEmpty ? [] : currentMapData"
+            :geo-provider="mockGeoProvider"
+            theme="auto"
+            height="500px"
+            @chart-click="onChartClick"
+            @rendered="onRendered"
+            @theme-change="onThemeChange"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- 选项卡：Ticket #157 高频预设仪表盘与雷达图视图 -->
