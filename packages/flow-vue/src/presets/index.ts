@@ -367,40 +367,44 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
     }
   }
 
-  // 执行批量注册
-  lf.register({
-    type: FlowNodeType.START,
-    view: CircleNode,
-    model: StartNodeModel,
-  });
-  lf.register({
-    type: FlowNodeType.END,
-    view: CircleNode,
-    model: EndNodeModel,
-  });
-  lf.register({
-    type: FlowNodeType.USER_TASK,
-    view: RectNode,
-    model: UserTaskNodeModel,
-  });
-  lf.register({
-    type: FlowNodeType.SERVICE_TASK,
-    view: RectNode,
-    model: ServiceTaskNodeModel,
-  });
-  lf.register({
-    type: FlowNodeType.CC_TASK,
-    view: RectNode,
-    model: CcTaskNodeModel,
-  });
-  lf.register({
-    type: FlowNodeType.EXCLUSIVE_GATEWAY,
-    view: DiamondNode,
-    model: ExclusiveGatewayModel,
-  });
-  lf.register({
-    type: FlowNodeType.PARALLEL_GATEWAY,
-    view: DiamondNode,
-    model: ParallelGatewayModel,
-  });
+  // 执行核心预设图元注册（同时支持 flow: 命名空间与短名别名）
+  const presetRegistrations = [
+    { type: FlowNodeType.START, view: CircleNode, model: StartNodeModel, alias: 'start' },
+    { type: FlowNodeType.END, view: CircleNode, model: EndNodeModel, alias: 'end' },
+    { type: FlowNodeType.USER_TASK, view: RectNode, model: UserTaskNodeModel, alias: 'user-task' },
+    {
+      type: FlowNodeType.SERVICE_TASK,
+      view: RectNode,
+      model: ServiceTaskNodeModel,
+      alias: 'service-task',
+    },
+    { type: FlowNodeType.CC_TASK, view: RectNode, model: CcTaskNodeModel, alias: 'cc-task' },
+    {
+      type: FlowNodeType.EXCLUSIVE_GATEWAY,
+      view: DiamondNode,
+      model: ExclusiveGatewayModel,
+      alias: 'exclusive-gateway',
+    },
+    {
+      type: FlowNodeType.PARALLEL_GATEWAY,
+      view: DiamondNode,
+      model: ParallelGatewayModel,
+      alias: 'parallel-gateway',
+    },
+  ];
+
+  for (const reg of presetRegistrations) {
+    lf.register({
+      type: reg.type,
+      view: reg.view,
+      model: reg.model,
+    });
+    if (reg.alias) {
+      lf.register({
+        type: reg.alias,
+        view: reg.view,
+        model: reg.model,
+      });
+    }
+  }
 }

@@ -79,15 +79,7 @@ onMounted(() => {
     isSilentMode: props.disabled,
   });
 
-  // 2. 渲染初始传入的图数据
-  if (
-    props.modelValue &&
-    (props.modelValue.nodes.length > 0 || props.modelValue.edges.length > 0)
-  ) {
-    render(props.modelValue);
-  }
-
-  // 3. 注册事件透传与双向数据流派发
+  // 2. 注册事件透传与双向数据流派发
   instance.on('node:click', (data: { data: FlowNode; e: MouseEvent }) => {
     emit('node:click', data.data, data.e);
   });
@@ -100,14 +92,23 @@ onMounted(() => {
     emit('blank:click', data.e);
   });
 
-  // 4. 监听历史变更与图元变动
+  // 3. 监听历史变更与图元变动
   instance.on('history:change', () => {
     const current = getGraphData();
     emit('change', current);
     emit('update:modelValue', current);
   });
 
+  // 4. 先派发 ready，以便父组件与插件提前注册自定义节点/图元
   emit('ready', instance);
+
+  // 5. 渲染初始传入的图数据
+  if (
+    props.modelValue &&
+    (props.modelValue.nodes.length > 0 || props.modelValue.edges.length > 0)
+  ) {
+    render(props.modelValue);
+  }
 });
 
 // 外部 modelValue 变更时进行按需刷新

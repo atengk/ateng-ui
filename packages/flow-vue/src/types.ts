@@ -237,6 +237,88 @@ export interface AtengFlowStencilEmits {
 }
 
 /**
+ * 流程图元分类（节点或连线）。
+ */
+export type FlowElementType = 'node' | 'edge';
+
+/**
+ * 流程设计器当前选中图元的聚合数据实体。
+ */
+export interface FlowElementData {
+  /** 图元全局唯一 ID */
+  id: string;
+  /** 图元分类：'node' 为节点，'edge' 为连线 */
+  elementType: FlowElementType;
+  /** 图元类型名称（如 start, end, user-task, polyline 等） */
+  type: string;
+  /** 显示文本或名称 */
+  name?: string;
+  /** 原始文本标签配置 */
+  text?: string | FlowTextConfig;
+  /** 图元业务扩展属性字典 */
+  properties: Record<string, unknown>;
+  /** 原始节点或边数据引用 */
+  raw?: FlowNode | FlowEdge;
+}
+
+/**
+ * 属性配置面板插槽入参契约。
+ */
+export interface FlowPanelSlotProps {
+  /** 当前选中的元素聚合数据 */
+  element: FlowElementData;
+  /** LogicFlow 画布底层实例 */
+  lf: LogicFlow | null;
+  /** 安全回写单个属性（自动同步 LogicFlow 模型与历史撤销重做栈） */
+  updateProperty: (key: string, value: unknown) => void;
+  /** 批量安全回写属性（自动同步 LogicFlow 模型与历史撤销重做栈） */
+  updateProperties: (patch: Record<string, unknown>) => void;
+  /** 关闭当前抽屉面板 */
+  close: () => void;
+  /** 获取当前画布全量数据 */
+  getGraphData: () => FlowGraph;
+}
+
+/**
+ * 属性面板组件 Props。
+ */
+export interface AtengFlowPropertyPanelProps {
+  /** 当前选中的图元数据 */
+  element: FlowElementData | null;
+  /** 是否禁用编辑（只读） */
+  disabled?: boolean;
+  /** 面板主标题 */
+  title?: string;
+  /** 面板宽度（默认 '320px'） */
+  width?: string | number;
+}
+
+/**
+ * 属性面板组件 Emits。
+ */
+export interface AtengFlowPropertyPanelEmits {
+  (e: 'update:property', key: string, value: unknown): void;
+  (e: 'update:properties', patch: Record<string, unknown>): void;
+  (e: 'close'): void;
+}
+
+/**
+ * 属性面板组件 Slots。
+ */
+export interface AtengFlowPropertyPanelSlots {
+  header?: (props: { element: FlowElementData | null; close: () => void }) => unknown;
+  footer?: (props: { element: FlowElementData | null; close: () => void }) => unknown;
+  extra?: (props: { element: FlowElementData }) => unknown;
+}
+
+/**
+ * 属性面板组件 Expose 契约。
+ */
+export interface AtengFlowPropertyPanelExpose {
+  getElement: () => FlowElementData | null;
+}
+
+/**
  * 流程设计器组件 Props。
  */
 export interface AtengFlowDesignerProps {
@@ -254,6 +336,10 @@ export interface AtengFlowDesignerProps {
   height?: string | number;
   /** 是否禁用设计编辑（只读） */
   disabled?: boolean;
+  /** 是否启用右侧属性抽屉面板（默认 true） */
+  showPanel?: boolean;
+  /** 右侧属性抽屉面板宽度（默认 '320px'） */
+  panelWidth?: string | number;
 }
 
 /**
@@ -267,6 +353,10 @@ export interface AtengFlowDesignerEmits {
   (e: 'edge:click', edge: FlowEdge, event: MouseEvent): void;
   (e: 'blank:click', event: MouseEvent): void;
   (e: 'connection:not-allowed', data: unknown): void;
+  /** 当前选中的图元（节点或连线）发生变化时派发，取消选择时为 null */
+  (e: 'selection:change', element: FlowElementData | null): void;
+  /** 图元属性被更新后派发 */
+  (e: 'element:update', element: FlowElementData): void;
 }
 
 /**
@@ -288,7 +378,7 @@ export interface AtengFlowDesignerSlots {
     groups?: import('./presets').StencilGroup[];
     startDrag: (item: import('./presets').StencilItem) => void;
   }) => unknown;
-  panel?: (props: { lf: LogicFlow | null; getGraphData: () => FlowGraph }) => unknown;
+  panel?: (props: FlowPanelSlotProps) => unknown;
 }
 
 /**
@@ -306,4 +396,12 @@ export interface AtengFlowDesignerExpose {
   undo: () => void;
   redo: () => void;
   startDrag: (item: import('./presets').StencilItem) => void;
+  /** 获取当前选中的图元数据 */
+  getSelectedElement: () => FlowElementData | null;
+  /** 关闭右侧属性抽屉 */
+  closePanel: () => void;
+  /** 安全回写当前选中图元的单个属性 */
+  updateProperty: (key: string, value: unknown) => void;
+  /** 批量安全回写当前选中图元的属性集合 */
+  updateProperties: (patch: Record<string, unknown>) => void;
 }

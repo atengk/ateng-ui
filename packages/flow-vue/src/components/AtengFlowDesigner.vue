@@ -2,7 +2,8 @@
 /**
  * AtengFlowDesigner 流程编排设计器核心容器。
  *
- * 组装物料面板（Stencil）、流程画布（Canvas）、工具栏与属性抽屉插槽，提供端到端可视化设计体验。
+ * 组装物料面板（Stencil）、流程画布（Canvas）、工具栏与属性配置抽屉（PropertyPanel），
+ * 提供端到端可视化设计与双向响应式属性回写体验。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -12,10 +13,14 @@ import { ref, shallowRef, computed, type CSSProperties } from 'vue';
 import type LogicFlow from '@logicflow/core';
 import AtengFlowCanvas from './AtengFlowCanvas.vue';
 import AtengFlowStencil from './AtengFlowStencil.vue';
+import AtengFlowPropertyPanel from './AtengFlowPropertyPanel.vue';
 import { registerPresetNodes, type StencilItem } from '../presets';
 import type {
   FlowGraph,
+  FlowNode,
+  FlowEdge,
   FlowOptions,
+  FlowElementData,
   AtengFlowCanvasExpose,
   AtengFlowDesignerProps,
   AtengFlowDesignerEmits,
@@ -35,6 +40,8 @@ const props = withDefaults(defineProps<AtengFlowDesignerProps>(), {
   width: '100%',
   height: '100%',
   disabled: false,
+  showPanel: true,
+  panelWidth: '320px',
 });
 
 const emit = defineEmits<AtengFlowDesignerEmits>();
@@ -42,6 +49,7 @@ defineSlots<AtengFlowDesignerSlots>();
 
 const canvasRef = ref<AtengFlowCanvasExpose | null>(null);
 const internalLf = shallowRef<LogicFlow | null>(null);
+const selectedElement = ref<FlowElementData | null>(null);
 
 const mergedCanvasOptions = computed<FlowOptions>(() => {
   return {
@@ -57,6 +65,10 @@ const designerStyle = computed<CSSProperties>(() => {
     width: toDim(props.width),
     height: toDim(props.height),
   };
+});
+
+const panelWidthCss = computed<string>(() => {
+  return typeof props.panelWidth === 'number' ? `${props.panelWidth}px` : props.panelWidth;
 });
 
 const handleCanvasReady = (lfInstance: LogicFlow) => {
@@ -84,6 +96,125 @@ const handleStartDrag = (item: StencilItem) => {
   }
 };
 
+const handleNodeClick = (node: FlowNode, event: MouseEvent) => {
+  const name =
+    typeof node.text === 'string'
+      ? node.text
+      : (node.text?.value ?? (node.properties?.name as string) ?? '');
+
+  selectedElement.value = {
+    id: node.id,
+    elementType: 'node',
+    type: node.type,
+    name,
+    text: node.text,
+    properties: { ...(node.properties ?? {}) },
+    raw: node,
+  };
+
+  emit('node:click', node, event);
+  emit('selection:change', selectedElement.value);
+};
+
+const handleEdgeClick = (edge: FlowEdge, event: MouseEvent) => {
+  const name =
+    typeof edge.text === 'string'
+      ? edge.text
+      : (edge.text?.value ?? (edge.properties?.name as string) ?? '');
+
+  selectedElement.value = {
+    id: edge.id,
+    elementType: 'edge',
+    type: edge.type,
+    name,
+    text: edge.text,
+    properties: { ...(edge.properties ?? {}) },
+    raw: edge,
+  };
+
+  emit('edge:click', edge, event);
+  emit('selection:change', selectedElement.value);
+};
+
+const handleBlankClick = (event: MouseEvent) => {
+  selectedElement.value = null;
+  emit('blank:click', event);
+  emit('selection:change', null);
+};
+
+const handleClosePanel = () => {
+  selectedElement.value = null;
+  internalLf.value?.clearSelectElements();
+  emit('selection:change', null);
+};
+
+const updateProperty = (key: string, value: unknown) => {
+  if (!selectedElement.value || !internalLf.value) return;
+  const { id } = selectedElement.value;
+
+  // 1. 若更新名称/文本标签，同步刷新画布文本
+  if (key === 'name' || key === 'label' || key === 'text') {
+    const strVal = String(value ?? '');
+    internalLf.value.updateText(id, strVal);
+    selectedElement.value.name = strVal;
+    if (typeof selectedElement.value.text === 'object' && selectedElement.value.text !== null) {
+      selectedElement.value.text = { ...selectedElement.value.text, value: strVal };
+    } else {
+      selectedElement.value.text = strVal;
+    }
+  }
+
+  // 2. 回写 LogicFlow 元素属性字典（纳入历史撤销重做）
+  internalLf.value.setProperties(id, { [key]: value });
+
+  // 3. 同步内存响应式状态
+  selectedElement.value.properties = {
+    ...selectedElement.value.properties,
+    [key]: value,
+  };
+
+  // 4. 触发全局数据双向流同步与事件派发
+  const current = getGraphData();
+  emit('change', current);
+  emit('update:modelValue', current);
+  emit('element:update', selectedElement.value);
+};
+
+const updateProperties = (patch: Record<string, unknown>) => {
+  if (!selectedElement.value || !internalLf.value) return;
+  const { id } = selectedElement.value;
+
+  // 1. 检查是否涉及文本标签变更
+  if ('name' in patch || 'label' in patch || 'text' in patch) {
+    const labelVal = patch.name ?? patch.label ?? patch.text;
+    if (labelVal !== undefined) {
+      const strVal = String(labelVal ?? '');
+      internalLf.value.updateText(id, strVal);
+      selectedElement.value.name = strVal;
+      if (typeof selectedElement.value.text === 'object' && selectedElement.value.text !== null) {
+        selectedElement.value.text = { ...selectedElement.value.text, value: strVal };
+      } else {
+        selectedElement.value.text = strVal;
+      }
+    }
+  }
+
+  // 2. 批量回写属性至底层模型
+  internalLf.value.setProperties(id, patch);
+
+  // 3. 内存聚合实体响应式更新
+  selectedElement.value.properties = {
+    ...selectedElement.value.properties,
+    ...patch,
+  };
+
+  // 4. 触发全局数据流同步
+  const current = getGraphData();
+  emit('change', current);
+  emit('update:modelValue', current);
+  emit('element:update', selectedElement.value);
+};
+
 const getLf = () => canvasRef.value?.getLf() ?? null;
 const getGraphData = () => canvasRef.value?.getGraphData() ?? { nodes: [], edges: [] };
 const render = (graph?: FlowGraph) => canvasRef.value?.render(graph);
@@ -107,6 +238,10 @@ defineExpose<AtengFlowDesignerExpose>({
   undo,
   redo,
   startDrag: handleStartDrag,
+  getSelectedElement: () => selectedElement.value,
+  closePanel: handleClosePanel,
+  updateProperty,
+  updateProperties,
 });
 </script>
 
@@ -146,14 +281,38 @@ defineExpose<AtengFlowDesignerExpose>({
           @ready="handleCanvasReady"
           @update:model-value="emit('update:modelValue', $event)"
           @change="emit('change', $event)"
-          @node:click="(node, e) => emit('node:click', node, e)"
-          @edge:click="(edge, e) => emit('edge:click', edge, e)"
-          @blank:click="e => emit('blank:click', e)"
+          @node:click="handleNodeClick"
+          @edge:click="handleEdgeClick"
+          @blank:click="handleBlankClick"
         />
       </main>
 
-      <!-- 右侧属性配置抽屉插槽 -->
-      <slot v-if="$slots.panel" name="panel" :lf="internalLf" :get-graph-data="getGraphData" />
+      <!-- 右侧属性配置抽屉/面板 -->
+      <Transition name="at-flow-panel-slide">
+        <aside
+          v-if="showPanel && selectedElement"
+          class="at-flow-designer__panel"
+          :style="{ width: panelWidthCss }"
+        >
+          <slot
+            name="panel"
+            :element="selectedElement"
+            :lf="internalLf"
+            :update-property="updateProperty"
+            :update-properties="updateProperties"
+            :close="handleClosePanel"
+            :get-graph-data="getGraphData"
+          >
+            <AtengFlowPropertyPanel
+              :element="selectedElement"
+              :disabled="disabled"
+              @update:property="updateProperty"
+              @update:properties="updateProperties"
+              @close="handleClosePanel"
+            />
+          </slot>
+        </aside>
+      </Transition>
     </div>
   </div>
 </template>
@@ -188,5 +347,28 @@ defineExpose<AtengFlowDesignerExpose>({
   height: 100%;
   position: relative;
   overflow: hidden;
+}
+
+.at-flow-designer__panel {
+  height: 100%;
+  position: relative;
+  z-index: 20;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  background-color: #ffffff;
+  flex-shrink: 0;
+}
+
+/* 抽屉平滑滑入滑出动画 */
+.at-flow-panel-slide-enter-active,
+.at-flow-panel-slide-leave-active {
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease;
+}
+
+.at-flow-panel-slide-enter-from,
+.at-flow-panel-slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
 }
 </style>
