@@ -19,7 +19,7 @@ import {
   PolylineEdgeModel,
   type Model,
 } from '@logicflow/core';
-import type { FlowNode, FlowEdge } from '../types';
+import type { FlowNode, FlowEdge, ExecutionStatus } from '../types';
 
 /**
  * 核心预设图元类型常量枚举。
@@ -213,12 +213,37 @@ function createCommonTargetRules(beforeConnect?: BeforeConnectHook): Model.Conne
 }
 
 /**
- * 应用校验错误样式辅助函数。
+ * 五态执行状态主题配置字典。
  */
-function applyErrorStyle(
+const STATUS_THEME_MAP: Record<
+  ExecutionStatus,
+  { fill: string; stroke: string; strokeWidth: number; strokeDasharray?: string }
+> = {
+  completed: { fill: '#ecfdf5', stroke: '#10b981', strokeWidth: 2 },
+  processing: { fill: '#eff6ff', stroke: '#3b82f6', strokeWidth: 2.5 },
+  rejected: { fill: '#fef2f2', stroke: '#ef4444', strokeWidth: 2 },
+  pending: { fill: '#f8fafc', stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' },
+  terminated: { fill: '#f1f5f9', stroke: '#64748b', strokeWidth: 1.5 },
+};
+
+/**
+ * 应用五态执行状态主题与校验错误样式。
+ */
+function applyEnhancedNodeStyle(
   properties: Record<string, unknown> | undefined,
   style: LogicFlow.CommonTheme,
 ): LogicFlow.CommonTheme {
+  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
+  const config = status ? STATUS_THEME_MAP[status] : undefined;
+  if (config) {
+    style.fill = config.fill;
+    style.stroke = config.stroke;
+    style.strokeWidth = config.strokeWidth;
+    if (config.strokeDasharray) {
+      style.strokeDasharray = config.strokeDasharray;
+    }
+  }
+
   if (properties?.__hasError) {
     style.stroke = '#ef4444';
     style.strokeWidth = Math.max((style.strokeWidth as number) || 2, 3);
@@ -227,17 +252,26 @@ function applyErrorStyle(
 }
 
 /**
- * 组装包含错误高亮样式的外部 SVG 容器属性。
+ * 组装包含五态状态类名与错误高亮样式的外部 SVG 容器属性。
  */
-function getErrorOuterGAttrs(
+function getEnhancedOuterGAttrs(
   properties: Record<string, unknown> | undefined,
   baseAttrs?: LogicFlow.DomAttributes,
-  errorClassName = 'at-flow-node--error',
 ): LogicFlow.DomAttributes {
   const attrs: LogicFlow.DomAttributes = baseAttrs ? { ...baseAttrs } : {};
+  const classNames: string[] = [];
+  if (attrs.className) {
+    classNames.push(attrs.className);
+  }
+  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
+  if (status) {
+    classNames.push(`at-flow-status--${status}`);
+  }
   if (properties?.__hasError) {
-    const existing = attrs.className ?? '';
-    attrs.className = existing ? `${existing} ${errorClassName}` : errorClassName;
+    classNames.push('at-flow-node--error');
+  }
+  if (classNames.length > 0) {
+    attrs.className = classNames.join(' ');
   }
   return attrs;
 }
@@ -253,14 +287,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.r = 24;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#ecfdf5';
       style.stroke = '#10b981';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -279,14 +313,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.r = 24;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#fef2f2';
       style.stroke = '#ef4444';
       style.strokeWidth = 3;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedSourceRules(): Model.ConnectRule[] {
       const rules = super.getConnectedSourceRules();
@@ -311,14 +345,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.radius = 6;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#eff6ff';
       style.stroke = '#3b82f6';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -335,14 +369,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.radius = 6;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#f5f3ff';
       style.stroke = '#8b5cf6';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -359,14 +393,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.radius = 6;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#fffbeb';
       style.stroke = '#f59e0b';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -382,14 +416,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.ry = 25;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#fffbeb';
       style.stroke = '#f59e0b';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -405,14 +439,14 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
       this.ry = 25;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
-      return getErrorOuterGAttrs(this.properties, super.getOuterGAttributes());
+      return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
     }
     override getNodeStyle(): LogicFlow.CommonTheme {
       const style = super.getNodeStyle();
       style.fill = '#ecfeff';
       style.stroke = '#06b6d4';
       style.strokeWidth = 2;
-      return applyErrorStyle(this.properties, style);
+      return applyEnhancedNodeStyle(this.properties, style);
     }
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
@@ -420,13 +454,45 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
     }
   }
 
-  // 8. 默认折线连线模型：支持错误高亮样式
+  // 8. 默认折线连线模型：支持状态样式、呼吸流动与错误高亮样式
   class FlowPolylineEdgeModel extends PolylineEdgeModel {
+    override setAttributes(): void {
+      super.setAttributes();
+      const propsObj = this.properties as Record<string, unknown> | undefined;
+      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
+      if (status === 'processing') {
+        this.isAnimation = true;
+      }
+    }
+
     override getEdgeStyle(): LogicFlow.CommonTheme {
       const style = super.getEdgeStyle();
-      if (this.properties?.__hasError) {
+      const propsObj = this.properties as Record<string, unknown> | undefined;
+      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
+      const config = status ? STATUS_THEME_MAP[status] : undefined;
+      if (config) {
+        style.stroke = config.stroke;
+        style.strokeWidth = config.strokeWidth;
+        if (config.strokeDasharray) {
+          style.strokeDasharray = config.strokeDasharray;
+        } else if (status === 'processing') {
+          style.strokeDasharray = '6 4';
+        }
+      }
+      if (propsObj?.__hasError) {
         style.stroke = '#ef4444';
         style.strokeWidth = 2.5;
+      }
+      return style;
+    }
+
+    override getEdgeAnimationStyle(): LogicFlow.EdgeAnimation {
+      const style = super.getEdgeAnimationStyle();
+      const propsObj = this.properties as Record<string, unknown> | undefined;
+      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
+      if (status === 'processing') {
+        style.stroke = '#3b82f6';
+        style.strokeDasharray = '6 4';
       }
       return style;
     }

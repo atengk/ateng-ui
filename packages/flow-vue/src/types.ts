@@ -220,8 +220,8 @@ export interface AtengFlowCanvasExpose {
   zoomOut: () => void;
   /** 视口缩放重置至 1:1 */
   resetZoom: () => void;
-  /** 视口居中 */
-  fitView: () => void;
+  /** 视口居中自适应 */
+  fitView: (verticalPadding?: number, horizontalPadding?: number) => void;
   /** 撤销 */
   undo: () => void;
   /** 重做 */
@@ -614,4 +614,179 @@ export interface ApprovalCardNodeProps {
   updateProperties?: (patch: Record<string, unknown>) => void;
   /** 是否处于禁用/只读状态 */
   disabled?: boolean;
+}
+
+/**
+ * 运行态审批流转与执行状态枚举。
+ */
+export const FlowExecutionStatus = {
+  /** 已完成/已审批通过 */
+  COMPLETED: 'completed',
+  /** 流转中/审批中/进行中 */
+  PROCESSING: 'processing',
+  /** 已驳回/审核不通过 */
+  REJECTED: 'rejected',
+  /** 待处理/未流转到 */
+  PENDING: 'pending',
+  /** 已终止/已取消/异常中断 */
+  TERMINATED: 'terminated',
+} as const;
+
+export type ExecutionStatus = (typeof FlowExecutionStatus)[keyof typeof FlowExecutionStatus];
+
+/**
+ * 节点关联的历史审批或操作审计记录实体契约。
+ */
+export interface AuditRecord {
+  /** 审计记录唯一 ID */
+  id?: string;
+  /** 审批人或操作人姓名 */
+  operator: string;
+  /** 操作人头像或缩写 */
+  avatar?: string;
+  /** 执行审批状态 */
+  status: ExecutionStatus;
+  /** 状态文案描述（如 "审核通过"、"审批中"、"驳回修改"） */
+  statusText?: string;
+  /** 操作发生时间戳或格式化字符串（如 "2026-10-27 15:30:00"） */
+  time?: string;
+  /** 停留耗时（如 "15分钟"、"2天"） */
+  duration?: string;
+  /** 审批处理意见或附言 */
+  comment?: string;
+  /** 扩展业务元数据 */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * 单个节点或连线的运行态流转条目。
+ */
+export interface FlowExecutionItem {
+  /** 执行状态 */
+  status: ExecutionStatus;
+  /** 关联的历史审批或操作审计记录列表 */
+  audit?: AuditRecord[];
+  /** 扩展属性 */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * 全图元素（节点/连线）的五态流转映射表。
+ * 支持传入纯状态字符串或包含审计记录的完整对象。
+ */
+export type FlowStatusMap = Record<string, ExecutionStatus | FlowExecutionItem>;
+
+/**
+ * 执行状态展示文案字典。
+ */
+export const STATUS_TEXT_MAP: Record<ExecutionStatus, string> = {
+  completed: '已办结',
+  processing: '流转中',
+  rejected: '已驳回',
+  terminated: '已终止',
+  pending: '待处理',
+};
+
+/**
+ * 执行状态对应样式徽标类名字典。
+ */
+export const STATUS_BADGE_CLASS_MAP: Record<ExecutionStatus, string> = {
+  completed: 'at-flow-audit-badge--success',
+  processing: 'at-flow-audit-badge--primary',
+  rejected: 'at-flow-audit-badge--danger',
+  terminated: 'at-flow-audit-badge--muted',
+  pending: 'at-flow-audit-badge--warning',
+};
+
+/**
+ * AtengFlowViewer 运行态流转追踪器组件 Props。
+ */
+export interface AtengFlowViewerProps {
+  /** 流程图数据模型 */
+  modelValue?: FlowGraph;
+  /** 五态执行状态字典 (节点 ID 或 边 ID 对应状态/审计) */
+  statusMap?: FlowStatusMap;
+  /** 是否在初始化/加载完成后自动将首个流转中 (processing) 节点居中聚焦 (SmartFocus) */
+  focusActiveNode?: boolean;
+  /** 显式指定的聚焦节点 ID（优先级高于 focusActiveNode） */
+  focusNodeId?: string;
+  /** 是否启用滚轮防冲突守卫 (WheelZoomGuard)，直接滚动穿透页面，需按 Ctrl 缩放画布 */
+  wheelZoomGuard?: boolean;
+  /** 是否显示微型视口控制浮动工具条（放大/缩小/自适应/还原） */
+  showMiniToolbar?: boolean;
+  /** 容器宽度（默认 '100%'） */
+  width?: string | number;
+  /** 容器高度（默认 '100%'） */
+  height?: string | number;
+  /** 声明式自定义 Vue 3 SFC 节点配置 */
+  customVueNodes?: CustomVueNodeConfig[];
+  /** 底层 LogicFlow 原始配置项 */
+  options?: FlowOptions;
+}
+
+/**
+ * AtengFlowViewer Emits 事件定义。
+ */
+export interface AtengFlowViewerEmits {
+  /** LogicFlow 实例初始化完成事件 */
+  (e: 'ready', lf: LogicFlow): void;
+  /** 节点点击事件 */
+  (e: 'node:click', node: FlowNode, event: MouseEvent): void;
+  /** 连线点击事件 */
+  (e: 'edge:click', edge: FlowEdge, event: MouseEvent): void;
+  /** 画布空白区域点击事件 */
+  (e: 'blank:click', event: MouseEvent): void;
+  /** 节点鼠标悬停或离开事件 */
+  (e: 'node:hover', node: FlowNode | null, audit?: AuditRecord[], event?: MouseEvent): void;
+  /** 状态字典更新变更事件 */
+  (e: 'status:change', statusMap: FlowStatusMap): void;
+}
+
+/**
+ * AtengFlowViewer Slots 插槽定义。
+ */
+export interface AtengFlowViewerSlots {
+  /** 自定义悬停审计卡片浮层插槽 */
+  'audit-popover'?: (props: {
+    node: FlowNode;
+    status?: ExecutionStatus;
+    auditList: AuditRecord[];
+    close: () => void;
+  }) => unknown;
+  /** 自定义微型控制条插槽 */
+  'mini-toolbar'?: (props: {
+    zoomIn: () => void;
+    zoomOut: () => void;
+    fitView: () => void;
+    resetZoom: () => void;
+    focusActive: () => void;
+  }) => unknown;
+}
+
+/**
+ * AtengFlowViewer Expose 对外暴露实例门面接口。
+ */
+export interface AtengFlowViewerExpose {
+  /** 获取底层 LogicFlow 画布实例 */
+  getLf: () => LogicFlow | null;
+  /** 获取外层 DOM 容器 */
+  getContainer: () => HTMLDivElement | null;
+  /** 视口缩放适配并居中 */
+  fitView: (verticalPadding?: number, horizontalPadding?: number) => void;
+  /** 平滑聚焦指定节点并居中 */
+  focusNode: (nodeId: string) => void;
+  /** 智能聚焦首个流转中 (processing) 节点并居中 */
+  focusActiveNode: () => void;
+  /** 放大画布 */
+  zoomIn: () => void;
+  /** 缩小画布 */
+  zoomOut: () => void;
+  /** 重置视口缩放为 1:1 */
+  resetZoom: () => void;
+  /** 动态更新五态执行状态映射 */
+  setStatusMap: (statusMap: FlowStatusMap) => void;
+  /** 导出全景高清快照 Data URL */
+  exportSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<string>;
+  /** 浏览器触发快照下载 */
+  downloadSnapshot: (options?: import('./snapshot').FlowSnapshotOptions) => Promise<void>;
 }

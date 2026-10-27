@@ -15,6 +15,7 @@ import AtengFlowStencil from './components/AtengFlowStencil.vue';
 import AtengFlowPropertyPanel from './components/AtengFlowPropertyPanel.vue';
 import AtengFlowToolbar from './components/AtengFlowToolbar.vue';
 import ApprovalCardNode from './components/ApprovalCardNode.vue';
+import AtengFlowViewer from './components/AtengFlowViewer.vue';
 
 export {
   AtengFlowCanvas,
@@ -23,6 +24,7 @@ export {
   AtengFlowPropertyPanel,
   AtengFlowToolbar,
   ApprovalCardNode,
+  AtengFlowViewer,
 };
 export { useFlow } from './composables/useFlow';
 export { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from './presets';
@@ -38,6 +40,7 @@ export { VueNodeRegistry, registerVueNode } from './registry';
 export function install(app: App): void {
   app.component('AtengFlowCanvas', AtengFlowCanvas);
   app.component('AtengFlowDesigner', AtengFlowDesigner);
+  app.component('AtengFlowViewer', AtengFlowViewer);
   app.component('AtengFlowStencil', AtengFlowStencil);
   app.component('AtengFlowPropertyPanel', AtengFlowPropertyPanel);
   app.component('AtengFlowToolbar', AtengFlowToolbar);
@@ -46,6 +49,7 @@ export function install(app: App): void {
 
 export type AtengFlowCanvasInstance = InstanceType<typeof AtengFlowCanvas>;
 export type AtengFlowDesignerInstance = InstanceType<typeof AtengFlowDesigner>;
+export type AtengFlowViewerInstance = InstanceType<typeof AtengFlowViewer>;
 export type AtengFlowStencilInstance = InstanceType<typeof AtengFlowStencil>;
 export type AtengFlowPropertyPanelInstance = InstanceType<typeof AtengFlowPropertyPanel>;
 export type AtengFlowToolbarInstance = InstanceType<typeof AtengFlowToolbar>;
@@ -84,7 +88,16 @@ export type {
   AtengFlowToolbarExpose,
   ApprovalCardNodeProps,
   CustomVueNodeConfig,
+  AtengFlowViewerProps,
+  AtengFlowViewerEmits,
+  AtengFlowViewerSlots,
+  AtengFlowViewerExpose,
+  ExecutionStatus,
+  AuditRecord,
+  FlowExecutionItem,
+  FlowStatusMap,
 } from './types';
+export { FlowExecutionStatus, STATUS_TEXT_MAP, STATUS_BADGE_CLASS_MAP } from './types';
 
 export type { FlowNodeTypeValue, BeforeConnectHook, StencilItem, StencilGroup } from './presets';
 export type {

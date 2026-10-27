@@ -60,6 +60,8 @@ const statusLabel = computed<string>(() => {
       return '已驳回';
     case 'processing':
       return '审批中';
+    case 'terminated':
+      return '已终止';
     case 'pending':
     default:
       return '待处理';
@@ -75,6 +77,8 @@ const statusClass = computed<string>(() => {
       return 'at-flow-card__badge--danger';
     case 'processing':
       return 'at-flow-card__badge--primary';
+    case 'terminated':
+      return 'at-flow-card__badge--muted';
     case 'pending':
     default:
       return 'at-flow-card__badge--warning';
@@ -234,6 +238,11 @@ const handleQuickReject = (e: MouseEvent) => {
 .at-flow-card__badge--danger {
   background-color: #fee2e2;
   color: #dc2626;
+}
+
+.at-flow-card__badge--muted {
+  background-color: #f1f5f9;
+  color: #64748b;
 }
 
 .at-flow-card__body {

@@ -15,6 +15,7 @@
 import { ref, computed } from 'vue';
 import {
   AtengFlowDesigner,
+  AtengFlowViewer,
   FlowNodeType,
   ApprovalCardNode,
   DEFAULT_STENCIL_GROUPS,
@@ -24,14 +25,18 @@ import {
   type FlowElementData,
   type LayoutDirection,
   type AtengFlowDesignerInstance,
+  type AtengFlowViewerInstance,
   type BeforeConnectHook,
   type FlowValidationError,
   type FlowValidationResult,
   type StencilGroup,
   type CustomVueNodeConfig,
+  type FlowStatusMap,
 } from '@atengk/flow-vue';
 
+const activeScene = ref<'designer' | 'viewer'>('designer');
 const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+const viewerRef = ref<AtengFlowViewerInstance | null>(null);
 
 const customVueNodes: CustomVueNodeConfig[] = [
   {
@@ -432,6 +437,255 @@ const handleLoadVueCards = () => {
     '已载入 Vue 3 SFC 高颜值卡片审批流，可点击卡片上的【✓ 通过 / ✕ 驳回】进行实时响应式回写！';
 };
 
+// ----------------------------------------------------
+// 展厅二：运行态流转追踪器 (AtengFlowViewer) 场景数据
+// ----------------------------------------------------
+const viewerGraph: FlowGraph = {
+  nodes: [
+    {
+      id: 'v-start',
+      type: FlowNodeType.START,
+      x: 100,
+      y: 200,
+      text: '立项提交',
+      properties: { initiator: '张三 (研发架构师)', amount: '¥ 128,000' },
+    },
+    {
+      id: 'v-leader',
+      type: 'approval-card',
+      x: 320,
+      y: 200,
+      text: '部门主管审批',
+      properties: {
+        assignee: '李总监 (技术部)',
+        status: 'completed',
+        progress: 100,
+      },
+    },
+    {
+      id: 'v-cfo',
+      type: 'approval-card',
+      x: 580,
+      y: 200,
+      text: '财务初审',
+      properties: {
+        assignee: '王财务 (财务部)',
+        status: 'processing',
+        progress: 60,
+      },
+    },
+    {
+      id: 'v-director',
+      type: 'approval-card',
+      x: 840,
+      y: 200,
+      text: '财务总监审核',
+      properties: {
+        assignee: '孙总 (财务总监)',
+        status: 'pending',
+        progress: 0,
+      },
+    },
+    {
+      id: 'v-end',
+      type: FlowNodeType.END,
+      x: 1060,
+      y: 200,
+      text: '资金归档',
+    },
+  ],
+  edges: [
+    { id: 'v-e1', type: 'polyline', sourceNodeId: 'v-start', targetNodeId: 'v-leader' },
+    { id: 'v-e2', type: 'polyline', sourceNodeId: 'v-leader', targetNodeId: 'v-cfo' },
+    { id: 'v-e3', type: 'polyline', sourceNodeId: 'v-cfo', targetNodeId: 'v-director' },
+    { id: 'v-e4', type: 'polyline', sourceNodeId: 'v-director', targetNodeId: 'v-end' },
+  ],
+};
+
+const currentViewerStep = ref<number>(2);
+
+const viewerStatusMap = computed<FlowStatusMap>(() => {
+  switch (currentViewerStep.value) {
+    case 1:
+      return {
+        'v-start': 'completed',
+        'v-e1': 'processing',
+        'v-leader': {
+          status: 'processing',
+          audit: [
+            {
+              operator: '李总监',
+              status: 'processing',
+              time: '2026-10-27 09:30',
+              comment: '正在评审项目立项材料与设备采购明细',
+            },
+          ],
+        },
+        'v-e2': 'pending',
+        'v-cfo': 'pending',
+        'v-e3': 'pending',
+        'v-director': 'pending',
+        'v-e4': 'pending',
+        'v-end': 'pending',
+      };
+    case 2:
+      return {
+        'v-start': 'completed',
+        'v-e1': 'completed',
+        'v-leader': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '李总监',
+              status: 'completed',
+              time: '2026-10-27 10:15',
+              duration: '45分钟',
+              comment: '同意采购，已核定业务合理性与自研替代成本，报财务初审。',
+            },
+          ],
+        },
+        'v-e2': 'processing',
+        'v-cfo': {
+          status: 'processing',
+          audit: [
+            {
+              operator: '王财务',
+              status: 'processing',
+              time: '2026-10-27 11:00',
+              duration: '已停留 30分钟',
+              comment: '正在复核增值税专用发票与供应商报价合同。',
+            },
+          ],
+        },
+        'v-e3': 'pending',
+        'v-director': 'pending',
+        'v-e4': 'pending',
+        'v-end': 'pending',
+      };
+    case 3:
+      return {
+        'v-start': 'completed',
+        'v-e1': 'completed',
+        'v-leader': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '李总监',
+              status: 'completed',
+              time: '2026-10-27 10:15',
+              duration: '45分钟',
+              comment: '同意采购，已核定业务合理性与自研替代成本，报财务初审。',
+            },
+          ],
+        },
+        'v-e2': 'completed',
+        'v-cfo': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '王财务',
+              status: 'completed',
+              time: '2026-10-27 14:00',
+              duration: '2小时',
+              comment: '票据真实合规，科目扣除无误，已送财务总监审批。',
+            },
+          ],
+        },
+        'v-e3': 'processing',
+        'v-director': {
+          status: 'processing',
+          audit: [
+            {
+              operator: '孙总',
+              status: 'processing',
+              time: '2026-10-27 14:30',
+              comment: '正在进行大额支出最终授权。',
+            },
+          ],
+        },
+        'v-e4': 'pending',
+        'v-end': 'pending',
+      };
+    case 4:
+      return {
+        'v-start': 'completed',
+        'v-e1': 'completed',
+        'v-leader': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '李总监',
+              status: 'completed',
+              time: '2026-10-27 10:15',
+              comment: '同意采购。',
+            },
+          ],
+        },
+        'v-e2': 'completed',
+        'v-cfo': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '王财务',
+              status: 'completed',
+              time: '2026-10-27 14:00',
+              comment: '初审通过。',
+            },
+          ],
+        },
+        'v-e3': 'completed',
+        'v-director': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '孙总',
+              status: 'completed',
+              time: '2026-10-27 15:30',
+              duration: '1小时',
+              comment: '核准放款，交出纳执行打款并归档。',
+            },
+          ],
+        },
+        'v-e4': 'completed',
+        'v-end': 'completed',
+      };
+    case 5:
+      return {
+        'v-start': 'completed',
+        'v-e1': 'completed',
+        'v-leader': {
+          status: 'completed',
+          audit: [
+            {
+              operator: '李总监',
+              status: 'completed',
+              time: '2026-10-27 10:15',
+              comment: '初审通过。',
+            },
+          ],
+        },
+        'v-e2': 'rejected',
+        'v-cfo': {
+          status: 'rejected',
+          audit: [
+            {
+              operator: '王财务',
+              status: 'rejected',
+              time: '2026-10-27 11:20',
+              comment: '驳回申请：发票抬头纳税人识别号填写错误，请重新提交合规发票！',
+            },
+          ],
+        },
+        'v-e3': 'pending',
+        'v-director': 'pending',
+        'v-e4': 'pending',
+        'v-end': 'terminated',
+      };
+    default:
+      return {};
+  }
+});
+
 const currentBadgeType = computed(() => {
   if (!currentSelected.value) return 'info';
   if (currentSelected.value.elementType === 'edge') return 'success';
@@ -576,15 +830,34 @@ const handleDownloadSnapshot = async () => {
   <div class="sample-container">
     <header class="sample-header">
       <div class="sample-header__left">
-        <h1>@atengk/flow-vue 流程可视化展厅</h1>
+        <div class="sample-title-row">
+          <h1>@atengk/flow-vue 流程可视化展厅</h1>
+          <div class="scene-switcher">
+            <button
+              class="scene-btn"
+              :class="{ 'is-active': activeScene === 'designer' }"
+              @click="activeScene = 'designer'"
+            >
+              🎨 展厅一：流程编排设计器
+            </button>
+            <button
+              class="scene-btn"
+              :class="{ 'is-active': activeScene === 'viewer' }"
+              @click="activeScene = 'viewer'"
+            >
+              🔍 展厅二：运行态流转追踪器
+            </button>
+          </div>
+        </div>
         <p class="sample-desc">
-          工单 #168 验证：Vue 3 SFC
-          单文件组件自定义卡片节点（VueNodeRegistry）、头像状态胶囊/进度条/快捷审批动作、Props
-          响应式回写与确定性销毁
+          工单 #169
+          验证：运行态只读流转追踪器（AtengFlowViewer）、五态高亮与呼吸流动动效、悬停审批审计浮层（#audit-popover）、SmartFocus
+          待办智能聚焦与 WheelZoomGuard 滚轮防冲突
         </p>
       </div>
 
-      <div class="sample-header__right">
+      <!-- 展厅一设计态按钮控制组 -->
+      <div v-if="activeScene === 'designer'" class="sample-header__right">
         <button class="btn btn--card" @click="handleLoadVueCards">⭐ Vue 3 SFC 卡片流</button>
         <button class="btn btn--export" @click="handleOpenBpmnDialog">📄 BPMN 互转</button>
         <button class="btn btn--snapshot" @click="handleOpenSnapshotDialog">📷 高清快照</button>
@@ -623,6 +896,22 @@ const handleDownloadSnapshot = async () => {
         />
       </div>
 
+      <!-- 展厅二运行态控制组 -->
+      <div v-else class="sample-header__right viewer-step-bar">
+        <span class="step-label">审批流转模拟：</span>
+        <el-radio-group v-model="currentViewerStep" size="small">
+          <el-radio-button :value="1">1. 主管审批中</el-radio-button>
+          <el-radio-button :value="2">2. 财务初审中 (当前)</el-radio-button>
+          <el-radio-button :value="3">3. 总监审核中</el-radio-button>
+          <el-radio-button :value="4">4. 办结归档</el-radio-button>
+          <el-radio-button :value="5">5. 驳回修改</el-radio-button>
+        </el-radio-group>
+        <button class="btn btn--focus" @click="viewerRef?.focusActiveNode()">
+          🎯 SmartFocus 居中待办
+        </button>
+        <button class="btn btn--fit" @click="viewerRef?.fitView()">[ ] 适应画布</button>
+      </div>
+
       <!-- 拦截提示浮层 -->
       <transition name="fade">
         <div v-if="alertMessage" class="alert-banner">
@@ -640,148 +929,199 @@ const handleDownloadSnapshot = async () => {
       <span class="status-event">{{ lastEvent }}</span>
     </div>
 
-    <main class="sample-designer-wrapper">
-      <AtengFlowDesigner
-        ref="designerRef"
-        v-model="graphData"
-        :stencil-groups="stencilGroups"
-        :custom-vue-nodes="customVueNodes"
-        :before-connect="beforeConnect"
-        panel-width="360px"
-        width="100%"
-        height="100%"
-        @ready="handleReady"
-        @node:click="handleNodeClick"
-        @edge:click="handleEdgeClick"
-        @blank:click="handleBlankClick"
-        @selection:change="handleSelectionChange"
-        @element:update="handleElementUpdate"
-        @layout:complete="handleLayoutComplete"
-        @connection:not-allowed="handleConnectionNotAllowed"
-        @validate="handleOnValidate"
-      >
-        <!-- 使用 Element Plus 表单接管 #panel 插槽 -->
-        <template v-if="useCustomPanel" #panel="{ element, updateProperty, close }">
-          <div class="custom-el-panel">
-            <div class="custom-el-panel__header">
-              <div class="header-info">
-                <span class="panel-title">业务属性配置</span>
-                <el-tag size="small" :type="currentBadgeType">
-                  {{ element.elementType === 'node' ? '节点' : '连线' }}: {{ element.type }}
-                </el-tag>
+    <main class="sample-main-wrapper">
+      <!-- 展厅一：流程编排设计器 -->
+      <div v-show="activeScene === 'designer'" class="sample-designer-wrapper">
+        <AtengFlowDesigner
+          ref="designerRef"
+          v-model="graphData"
+          :stencil-groups="stencilGroups"
+          :custom-vue-nodes="customVueNodes"
+          :before-connect="beforeConnect"
+          panel-width="360px"
+          width="100%"
+          height="100%"
+          @ready="handleReady"
+          @node:click="handleNodeClick"
+          @edge:click="handleEdgeClick"
+          @blank:click="handleBlankClick"
+          @selection:change="handleSelectionChange"
+          @element:update="handleElementUpdate"
+          @layout:complete="handleLayoutComplete"
+          @connection:not-allowed="handleConnectionNotAllowed"
+          @validate="handleOnValidate"
+        >
+          <!-- 使用 Element Plus 表单接管 #panel 插槽 -->
+          <template v-if="useCustomPanel" #panel="{ element, updateProperty, close }">
+            <div class="custom-el-panel">
+              <div class="custom-el-panel__header">
+                <div class="header-info">
+                  <span class="panel-title">业务属性配置</span>
+                  <el-tag size="small" :type="currentBadgeType">
+                    {{ element.elementType === 'node' ? '节点' : '连线' }}: {{ element.type }}
+                  </el-tag>
+                </div>
+                <el-button link type="primary" size="small" @click="close"> 关闭 </el-button>
               </div>
-              <el-button link type="primary" size="small" @click="close"> 关闭 </el-button>
-            </div>
 
-            <div class="custom-el-panel__body">
-              <el-form label-position="top" size="default">
-                <!-- 通用元数据 -->
-                <el-form-item label="图元 ID（只读）">
-                  <el-input :model-value="element.id" readonly disabled />
-                </el-form-item>
-
-                <el-form-item label="显示名称 (Name / Text)">
-                  <el-input
-                    :model-value="element.name"
-                    placeholder="请输入名称"
-                    @input="(val: string) => updateProperty('name', val)"
-                  />
-                </el-form-item>
-
-                <!-- 审批任务节点专属表单 -->
-                <template
-                  v-if="element.type === FlowNodeType.USER_TASK || element.type === 'user-task'"
-                >
-                  <el-divider content-position="left">审批人设置</el-divider>
-
-                  <el-form-item label="审批人分配模式">
-                    <el-select
-                      :model-value="(element.properties.assigneeType as string) || 'user'"
-                      style="width: 100%"
-                      @change="(val: string) => updateProperty('assigneeType', val)"
-                    >
-                      <el-option label="指定具体用户" value="user" />
-                      <el-option label="角色 / 岗位组" value="role" />
-                      <el-option label="发起人自选" value="initiator_select" />
-                    </el-select>
+              <div class="custom-el-panel__body">
+                <el-form label-position="top" size="default">
+                  <!-- 通用元数据 -->
+                  <el-form-item label="图元 ID（只读）">
+                    <el-input :model-value="element.id" readonly disabled />
                   </el-form-item>
 
-                  <el-form-item label="审批人 / 办理角色">
+                  <el-form-item label="显示名称 (Name / Text)">
                     <el-input
-                      :model-value="(element.properties.assignee as string) || ''"
-                      placeholder="如: zhangsan, role:finance_director"
-                      @input="(val: string) => updateProperty('assignee', val)"
+                      :model-value="element.name"
+                      placeholder="请输入名称"
+                      @input="(val: string) => updateProperty('name', val)"
                     />
                   </el-form-item>
 
-                  <el-form-item label="办理模式">
-                    <el-radio-group
-                      :model-value="(element.properties.approvalMode as string) || 'single'"
-                      @change="
-                        (val: string | number | boolean | undefined) =>
-                          updateProperty('approvalMode', val)
-                      "
-                    >
-                      <el-radio value="single">或签（一人通过）</el-radio>
-                      <el-radio value="countersign">会签（全员核准）</el-radio>
-                    </el-radio-group>
-                  </el-form-item>
+                  <!-- 审批任务节点专属表单 -->
+                  <template
+                    v-if="element.type === FlowNodeType.USER_TASK || element.type === 'user-task'"
+                  >
+                    <el-divider content-position="left">审批人设置</el-divider>
 
-                  <el-form-item label="审批超时时限（小时）">
-                    <el-input-number
-                      :model-value="(element.properties.dueHours as number) || 24"
-                      :min="1"
-                      :max="720"
-                      style="width: 100%"
-                      @change="(val: number | undefined) => updateProperty('dueHours', val)"
-                    />
-                  </el-form-item>
-                </template>
+                    <el-form-item label="审批人分配模式">
+                      <el-select
+                        :model-value="(element.properties.assigneeType as string) || 'user'"
+                        style="width: 100%"
+                        @change="(val: string) => updateProperty('assigneeType', val)"
+                      >
+                        <el-option label="指定具体用户" value="user" />
+                        <el-option label="角色 / 岗位组" value="role" />
+                        <el-option label="发起人自选" value="initiator_select" />
+                      </el-select>
+                    </el-form-item>
 
-                <!-- 条件连线专属表单 -->
-                <template v-if="element.elementType === 'edge'">
-                  <el-divider content-position="left">分支流转条件</el-divider>
+                    <el-form-item label="审批人 / 办理角色">
+                      <el-input
+                        :model-value="(element.properties.assignee as string) || ''"
+                        placeholder="如: zhangsan, role:finance_director"
+                        @input="(val: string) => updateProperty('assignee', val)"
+                      />
+                    </el-form-item>
 
-                  <el-form-item label="条件表达式">
+                    <el-form-item label="办理模式">
+                      <el-radio-group
+                        :model-value="(element.properties.approvalMode as string) || 'single'"
+                        @change="
+                          (val: string | number | boolean | undefined) =>
+                            updateProperty('approvalMode', val)
+                        "
+                      >
+                        <el-radio value="single">或签（一人通过）</el-radio>
+                        <el-radio value="countersign">会签（全员核准）</el-radio>
+                      </el-radio-group>
+                    </el-form-item>
+
+                    <el-form-item label="审批超时时限（小时）">
+                      <el-input-number
+                        :model-value="(element.properties.dueHours as number) || 24"
+                        :min="1"
+                        :max="720"
+                        style="width: 100%"
+                        @change="(val: number | undefined) => updateProperty('dueHours', val)"
+                      />
+                    </el-form-item>
+                  </template>
+
+                  <!-- 条件连线专属表单 -->
+                  <template v-if="element.elementType === 'edge'">
+                    <el-divider content-position="left">分支流转条件</el-divider>
+
+                    <el-form-item label="条件表达式">
+                      <el-input
+                        :model-value="(element.properties.condition as string) || ''"
+                        placeholder="如: ${amount >= 10000} 或 approved == true"
+                        @input="(val: string) => updateProperty('condition', val)"
+                      />
+                      <span class="form-tip">支持 Spring EL / UEL 格式表达式</span>
+                    </el-form-item>
+
+                    <el-form-item label="评估优先级 (Priority)">
+                      <el-input-number
+                        :model-value="(element.properties.priority as number) || 1"
+                        :min="1"
+                        :max="99"
+                        style="width: 100%"
+                        @change="(val: number | undefined) => updateProperty('priority', val)"
+                      />
+                    </el-form-item>
+                  </template>
+
+                  <!-- 备注说明 -->
+                  <el-form-item label="备注说明">
                     <el-input
-                      :model-value="(element.properties.condition as string) || ''"
-                      placeholder="如: ${amount >= 10000} 或 approved == true"
-                      @input="(val: string) => updateProperty('condition', val)"
-                    />
-                    <span class="form-tip">支持 Spring EL / UEL 格式表达式</span>
-                  </el-form-item>
-
-                  <el-form-item label="评估优先级 (Priority)">
-                    <el-input-number
-                      :model-value="(element.properties.priority as number) || 1"
-                      :min="1"
-                      :max="99"
-                      style="width: 100%"
-                      @change="(val: number | undefined) => updateProperty('priority', val)"
+                      type="textarea"
+                      rows="3"
+                      :model-value="(element.properties.description as string) || ''"
+                      placeholder="业务规则或操作指引"
+                      @input="(val: string) => updateProperty('description', val)"
                     />
                   </el-form-item>
-                </template>
+                </el-form>
+              </div>
 
-                <!-- 备注说明 -->
-                <el-form-item label="备注说明">
-                  <el-input
-                    type="textarea"
-                    rows="3"
-                    :model-value="(element.properties.description as string) || ''"
-                    placeholder="业务规则或操作指引"
-                    @input="(val: string) => updateProperty('description', val)"
-                  />
-                </el-form-item>
-              </el-form>
+              <div class="custom-el-panel__footer">
+                <el-text size="small" type="success">实时回写已同步</el-text>
+                <el-button type="primary" size="small" @click="close">完成配置</el-button>
+              </div>
             </div>
+          </template>
+        </AtengFlowDesigner>
+      </div>
 
-            <div class="custom-el-panel__footer">
-              <el-text size="small" type="success">实时回写已同步</el-text>
-              <el-button type="primary" size="small" @click="close">完成配置</el-button>
-            </div>
+      <!-- 展厅二：运行态流转追踪器 -->
+      <div v-show="activeScene === 'viewer'" class="sample-viewer-wrapper">
+        <div class="viewer-order-card">
+          <div class="viewer-order-card__header">
+            <span class="viewer-order-tag">OA 采购审批单</span>
+            <span class="viewer-order-id">单号：OA-20261027-8902</span>
+            <span
+              class="viewer-order-status"
+              :class="`viewer-order-status--${currentViewerStep === 5 ? 'rejected' : currentViewerStep === 4 ? 'completed' : 'processing'}`"
+            >
+              {{
+                currentViewerStep === 5
+                  ? '● 已驳回'
+                  : currentViewerStep === 4
+                    ? '● 已办结'
+                    : '● 流转中'
+              }}
+            </span>
           </div>
-        </template>
-      </AtengFlowDesigner>
+          <div class="viewer-order-card__body">
+            <span><strong>事由：</strong>研发部 GPU 工作站与算力机架采购</span>
+            <span><strong>申请人：</strong>张三 (系统架构组)</span>
+            <span
+              ><strong>报销金额：</strong
+              ><span style="color: #ea580c; font-weight: 600">¥ 128,000.00</span></span
+            >
+            <span class="viewer-order-tip">
+              💡
+              提示：鼠标悬停在卡片或节点上自动弹出审批审计意见；普通滚轮直接平滑滚动外部页面，按住
+              <kbd>Ctrl + 滚轮</kbd> 缩放画布。
+            </span>
+          </div>
+        </div>
+
+        <div class="viewer-canvas-box">
+          <AtengFlowViewer
+            ref="viewerRef"
+            :model-value="viewerGraph"
+            :status-map="viewerStatusMap"
+            :custom-vue-nodes="customVueNodes"
+            :focus-active-node="true"
+            :wheel-zoom-guard="true"
+            width="100%"
+            height="100%"
+          />
+        </div>
+      </div>
     </main>
 
     <footer class="sample-footer">
@@ -1395,5 +1735,170 @@ const handleDownloadSnapshot = async () => {
 .snapshot-empty-tip {
   color: #94a3b8;
   font-size: 13px;
+}
+
+/* 场景切换器 */
+.sample-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.scene-switcher {
+  display: inline-flex;
+  background-color: #f1f5f9;
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.scene-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scene-btn:hover {
+  color: #0f172a;
+}
+
+.scene-btn.is-active {
+  background-color: #ffffff;
+  color: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sample-main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 展厅二：运行态样式 */
+.viewer-step-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.sample-viewer-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+.viewer-order-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewer-order-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.viewer-order-tag {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.viewer-order-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.viewer-order-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.viewer-order-status--processing {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.viewer-order-status--completed {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.viewer-order-status--rejected {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.viewer-order-card__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.viewer-order-tip {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.viewer-order-tip kbd {
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+.viewer-canvas-box {
+  flex: 1;
+  min-height: 540px;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.btn--focus {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
+  font-weight: 500;
+}
+
+.btn--focus:hover {
+  background-color: #2563eb;
+}
+
+.btn--fit {
+  background-color: #f8fafc;
+  color: #334155;
 }
 </style>

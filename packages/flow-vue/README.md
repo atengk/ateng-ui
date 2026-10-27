@@ -8,25 +8,26 @@
 
 ## 维度零：特性与公共 API 全景速查矩阵
 
-| 特性分类         | 特性名称               | 核心门面 / 组件 / Hook   | 关键参数 / Props / Emits                                                                                                                               | 核心行为说明                                                                                                                  | 锚定验证源头 (*Test / Sample)                                                                                               |
-| :--------------- | :--------------------- | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-| **画布核心**     | 流程画布组件           | `AtengFlowCanvas`        | `modelValue`, `options`, `disabled`, `@node:click`, `@edge:click`, `@blank:click`, `@change`                                                           | 基础流程拓扑画布，集成 DOM 自适应 Resize、图元双向数据流与撤销重做历史栈                                                      | [AtengFlowCanvas.test.ts](./test/AtengFlowCanvas.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
-| **无头状态机**   | 流程无头状态机         | `useFlow`                | `(options?) -> UseFlowReturn`                                                                                                                          | 纯响应式状态机，提供 `init`, `render`, `getGraphData`, `zoomIn`, `fitView`, `undo`, `destroy` 等原子操作门面                  | [useFlow.test.ts](./test/useFlow.test.ts)                                                                                   |
-| **设计器主容器** | 流程编排设计器         | `AtengFlowDesigner`      | `v-model`, `stencilGroups`, `beforeConnect`, `showPanel`, `panelWidth`, `#stencil`, `#panel`, `#toolbar`, `@validate`                                  | 工业级流程设计器容器，组装物料面板、画布、智能对齐线（Snapline）、四向磁吸、属性抽屉与静态拓扑校验引擎                        | [AtengFlowDesigner.test.ts](./test/AtengFlowDesigner.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)           |
-| **物料面板**     | 三段式图元库           | `AtengFlowStencil`       | `groups`, `lf`, `title`, `@dragstart`, `@item:click`                                                                                                   | 遵循事件/任务/网关三段式规范分类展示预设图元，支持关键词即时过滤与 LogicFlow DND 拖拽投递                                     | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
-| **属性抽屉**     | 元素属性配置抽屉       | `AtengFlowPropertyPanel` | `element`, `disabled`, `title`, `@update:property`, `@update:properties`, `@close`, `#header`, `#footer`, `#extra`                                     | 针对选中节点与连线提供纯原生无依赖表单（只读 ID、名称、流转条件表达式、审批人与会签模式）                                     | [AtengFlowPropertyPanel.test.ts](./test/AtengFlowPropertyPanel.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue) |
-| **顶部工具栏**   | 控制栏动作矩阵         | `AtengFlowToolbar`       | `lf`, `canUndo`, `canRedo`, `disabled`, `@zoom-in`, `@fit-view`, `@undo`, `@redo`, `@clear`, `@layout`, `@toggle-grid`, `@toggle-minimap`, `@validate` | 集成缩放控制、Undo/Redo、网格切换、小地图开关、防误触清空弹层、自动排版与静态拓扑校验触发                                     | [AtengFlowToolbar.test.ts](./test/AtengFlowToolbar.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
-| **静态拓扑校验** | 流程静态校验引擎       | `FlowValidator`          | `validate(graph) -> FlowValidationResult`, `hasErrors(result) -> boolean`                                                                              | 纯原生 TypeScript 校验 5 大图论刚性规则（起止唯一性、连通孤岛、排他网关分支与条件、无出口死循环检测）并输出结构化诊断实体集合 | [FlowValidator.test.ts](./test/FlowValidator.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                   |
-| **规则代号枚举** | 拓扑校验规则常量       | `FlowValidationRuleCode` | `START_NODE_MISSING`, `DEADLOCK_CYCLE`, `GATEWAY_BRANCH_INSUFFICIENT` 等                                                                               | 结构化图论校验错误分类代号枚举字典                                                                                            | [FlowValidator.test.ts](./test/FlowValidator.test.ts)                                                                       |
-| **BPMN 转译器**  | BPMN 2.0 协议互转      | `BpmnAdapter`            | `toBpmnXml(graph, options?) -> string`, `fromBpmnXml(xml) -> FlowGraph`                                                                                | 纯原生双向协议转译，兼容 Flowable/Camunda 标准规范，精确还原 Bounds 中心坐标、折点 Waypoint 与办理人/条件扩展属性             | [BpmnAdapter.test.ts](./test/BpmnAdapter.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                       |
-| **全景高清快照** | 高清防虚快照导出       | `FlowSnapshot`           | `computeBoundingBox`, `getSvgString`, `getSnapshot`, `download`                                                                                        | 最小外接边界自适应计算，2x/3x DPR 视网膜高清防虚栅格化，矢量 SVG 导出与自定义防泄密矩阵文本水印                               | [FlowSnapshot.test.ts](./test/FlowSnapshot.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                     |
-| **Vue 节点注册** | SFC 自定义卡片适配     | `VueNodeRegistry`        | `register(target, type, component, options?)` / `registerVueNode`                                                                                      | 将普通 Vue 3 SFC 单文件组件桥接注册为 LogicFlow 自定义卡片节点，响应式 Props 注入、原地 Diff 更新与销毁确定性清理             | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
-| **预设审批卡片** | 高颜值业务卡片节点     | `ApprovalCardNode`       | `props: FlowVueNodeProps`, `@click:approve`, `@click:reject`                                                                                           | 预设开箱即用高颜值审批卡片，带头像、类型胶囊、状态指示徽标、办理进度条与快捷审批动作，支持双向属性回写                        | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
-| **自动排版**     | DAG 分层排版引擎       | `AutoLayoutEngine`       | `layout(graph, options?: AutoLayoutOptions) -> FlowGraph`                                                                                              | 基于有向无环图分层拓扑算法，计算 Rank 与节点间距，支持水平 (LR) 与垂直 (TB) 规整重排与折点自适应更新                          | [AutoLayoutEngine.test.ts](./test/AutoLayoutEngine.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
-| **预设与规则**   | 核心预设图元与拓扑防呆 | `registerPresetNodes`    | `(lf: LogicFlow, beforeConnect?: BeforeConnectHook) => void`                                                                                           | 注册开始、结束、审批任务、服务任务、排他网关、并行网关，内置禁止自环/禁止连入开始/禁止结束流出/禁止重复连线                   | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
-| **图元枚举**     | 预设节点类型常量       | `FlowNodeType`           | `START`, `END`, `USER_TASK`, `SERVICE_TASK`, `CC_TASK`, `EXCLUSIVE_GATEWAY`, `PARALLEL_GATEWAY`                                                        | 标准化图元类型标识字典（如 `flow:start`, `flow:user-task`）                                                                   | [presets.test.ts](./test/presets.test.ts)                                                                                   |
-| **物料常量**     | 默认三段式物料分组     | `DEFAULT_STENCIL_GROUPS` | `StencilGroup[]`                                                                                                                                       | 默认物料预设分组配置（事件类、任务类、网关控制类）                                                                            | [presets.test.ts](./test/presets.test.ts)                                                                                   |
-| **插件安装**     | 全局组件注册器         | `install`                | `(app: App) => void`                                                                                                                                   | 批量向 Vue 应用注册 `AtengFlowCanvas`, `AtengFlowDesigner`, `AtengFlowStencil`, `AtengFlowPropertyPanel`, `AtengFlowToolbar`  | [index.ts](./src/index.ts) / [main.ts](../../apps/sample-flow-vue/src/main.ts)                                              |
+| 特性分类         | 特性名称               | 核心门面 / 组件 / Hook   | 关键参数 / Props / Emits                                                                                                                               | 核心行为说明                                                                                                                                | 锚定验证源头 (*Test / Sample)                                                                                               |
+| :--------------- | :--------------------- | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------- |
+| **画布核心**     | 流程画布组件           | `AtengFlowCanvas`        | `modelValue`, `options`, `disabled`, `@node:click`, `@edge:click`, `@blank:click`, `@change`                                                           | 基础流程拓扑画布，集成 DOM 自适应 Resize、图元双向数据流与撤销重做历史栈                                                                    | [AtengFlowCanvas.test.ts](./test/AtengFlowCanvas.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
+| **无头状态机**   | 流程无头状态机         | `useFlow`                | `(options?) -> UseFlowReturn`                                                                                                                          | 纯响应式状态机，提供 `init`, `render`, `getGraphData`, `zoomIn`, `fitView`, `undo`, `destroy` 等原子操作门面                                | [useFlow.test.ts](./test/useFlow.test.ts)                                                                                   |
+| **设计器主容器** | 流程编排设计器         | `AtengFlowDesigner`      | `v-model`, `stencilGroups`, `beforeConnect`, `showPanel`, `panelWidth`, `#stencil`, `#panel`, `#toolbar`, `@validate`                                  | 工业级流程设计器容器，组装物料面板、画布、智能对齐线（Snapline）、四向磁吸、属性抽屉与静态拓扑校验引擎                                      | [AtengFlowDesigner.test.ts](./test/AtengFlowDesigner.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)           |
+| **流转追踪器**   | 运行态只读流转容器     | `AtengFlowViewer`        | `modelValue`, `statusMap`, `focusActiveNode`, `wheelZoomGuard`, `showMiniToolbar`, `#audit-popover`, `#mini-toolbar`                                   | 专用于业务详情与审批工单的只读流转追踪器，支持五态高亮与呼吸流动虚线、悬停审批审计浮层、SmartFocus 智能待办聚焦与 WheelZoomGuard 滚轮防冲突 | [AtengFlowViewer.test.ts](./test/AtengFlowViewer.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
+| **物料面板**     | 三段式图元库           | `AtengFlowStencil`       | `groups`, `lf`, `title`, `@dragstart`, `@item:click`                                                                                                   | 遵循事件/任务/网关三段式规范分类展示预设图元，支持关键词即时过滤与 LogicFlow DND 拖拽投递                                                   | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
+| **属性抽屉**     | 元素属性配置抽屉       | `AtengFlowPropertyPanel` | `element`, `disabled`, `title`, `@update:property`, `@update:properties`, `@close`, `#header`, `#footer`, `#extra`                                     | 针对选中节点与连线提供纯原生无依赖表单（只读 ID、名称、流转条件表达式、审批人与会签模式）                                                   | [AtengFlowPropertyPanel.test.ts](./test/AtengFlowPropertyPanel.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue) |
+| **顶部工具栏**   | 控制栏动作矩阵         | `AtengFlowToolbar`       | `lf`, `canUndo`, `canRedo`, `disabled`, `@zoom-in`, `@fit-view`, `@undo`, `@redo`, `@clear`, `@layout`, `@toggle-grid`, `@toggle-minimap`, `@validate` | 集成缩放控制、Undo/Redo、网格切换、小地图开关、防误触清空弹层、自动排版与静态拓扑校验触发                                                   | [AtengFlowToolbar.test.ts](./test/AtengFlowToolbar.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
+| **静态拓扑校验** | 流程静态校验引擎       | `FlowValidator`          | `validate(graph) -> FlowValidationResult`, `hasErrors(result) -> boolean`                                                                              | 纯原生 TypeScript 校验 5 大图论刚性规则（起止唯一性、连通孤岛、排他网关分支与条件、无出口死循环检测）并输出结构化诊断实体集合               | [FlowValidator.test.ts](./test/FlowValidator.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                   |
+| **规则代号枚举** | 拓扑校验规则常量       | `FlowValidationRuleCode` | `START_NODE_MISSING`, `DEADLOCK_CYCLE`, `GATEWAY_BRANCH_INSUFFICIENT` 等                                                                               | 结构化图论校验错误分类代号枚举字典                                                                                                          | [FlowValidator.test.ts](./test/FlowValidator.test.ts)                                                                       |
+| **BPMN 转译器**  | BPMN 2.0 协议互转      | `BpmnAdapter`            | `toBpmnXml(graph, options?) -> string`, `fromBpmnXml(xml) -> FlowGraph`                                                                                | 纯原生双向协议转译，兼容 Flowable/Camunda 标准规范，精确还原 Bounds 中心坐标、折点 Waypoint 与办理人/条件扩展属性                           | [BpmnAdapter.test.ts](./test/BpmnAdapter.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                       |
+| **全景高清快照** | 高清防虚快照导出       | `FlowSnapshot`           | `computeBoundingBox`, `getSvgString`, `getSnapshot`, `download`                                                                                        | 最小外接边界自适应计算，2x/3x DPR 视网膜高清防虚栅格化，矢量 SVG 导出与自定义防泄密矩阵文本水印                                             | [FlowSnapshot.test.ts](./test/FlowSnapshot.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                     |
+| **Vue 节点注册** | SFC 自定义卡片适配     | `VueNodeRegistry`        | `register(target, type, component, options?)` / `registerVueNode`                                                                                      | 将普通 Vue 3 SFC 单文件组件桥接注册为 LogicFlow 自定义卡片节点，响应式 Props 注入、原地 Diff 更新与销毁确定性清理                           | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
+| **预设审批卡片** | 高颜值业务卡片节点     | `ApprovalCardNode`       | `props: FlowVueNodeProps`, `@click:approve`, `@click:reject`                                                                                           | 预设开箱即用高颜值审批卡片，带头像、类型胶囊、状态指示徽标、办理进度条与快捷审批动作，支持双向属性回写                                      | [VueNodeRegistry.test.ts](./test/VueNodeRegistry.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)               |
+| **自动排版**     | DAG 分层排版引擎       | `AutoLayoutEngine`       | `layout(graph, options?: AutoLayoutOptions) -> FlowGraph`                                                                                              | 基于有向无环图分层拓扑算法，计算 Rank 与节点间距，支持水平 (LR) 与垂直 (TB) 规整重排与折点自适应更新                                        | [AutoLayoutEngine.test.ts](./test/AutoLayoutEngine.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)             |
+| **预设与规则**   | 核心预设图元与拓扑防呆 | `registerPresetNodes`    | `(lf: LogicFlow, beforeConnect?: BeforeConnectHook) => void`                                                                                           | 注册开始、结束、审批任务、服务任务、排他网关、并行网关，内置禁止自环/禁止连入开始/禁止结束流出/禁止重复连线                                 | [presets.test.ts](./test/presets.test.ts) / [App.vue](../../apps/sample-flow-vue/src/App.vue)                               |
+| **图元枚举**     | 预设节点类型常量       | `FlowNodeType`           | `START`, `END`, `USER_TASK`, `SERVICE_TASK`, `CC_TASK`, `EXCLUSIVE_GATEWAY`, `PARALLEL_GATEWAY`                                                        | 标准化图元类型标识字典（如 `flow:start`, `flow:user-task`）                                                                                 | [presets.test.ts](./test/presets.test.ts)                                                                                   |
+| **物料常量**     | 默认三段式物料分组     | `DEFAULT_STENCIL_GROUPS` | `StencilGroup[]`                                                                                                                                       | 默认物料预设分组配置（事件类、任务类、网关控制类）                                                                                          | [presets.test.ts](./test/presets.test.ts)                                                                                   |
+| **插件安装**     | 全局组件注册器         | `install`                | `(app: App) => void`                                                                                                                                   | 批量向 Vue 应用注册 `AtengFlowCanvas`, `AtengFlowDesigner`, `AtengFlowStencil`, `AtengFlowPropertyPanel`, `AtengFlowToolbar`                | [index.ts](./src/index.ts) / [main.ts](../../apps/sample-flow-vue/src/main.ts)                                              |
 
 ---
 
@@ -63,6 +64,58 @@ const flowGraph = ref<FlowGraph>({
   <div style="width: 100vw; height: 100vh;">
     <!-- 开箱即用：内置物料面板、Snapline 对齐线、四向磁吸与属性配置抽屉 -->
     <AtengFlowDesigner v-model="flowGraph" />
+  </div>
+</template>
+```
+
+### 3. 运行态只读流转追踪器 (AtengFlowViewer)
+
+专用于 OA 审批、工单流转与进度追踪详情页，只读呈现五态状态高亮、悬停审批审计浮层与 SmartFocus 智能待办聚焦：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFlowViewer, type FlowGraph, type FlowStatusMap } from '@atengk/flow-vue';
+import '@atengk/flow-vue/style.css';
+
+const flowGraph = ref<FlowGraph>({ ... });
+
+const statusMap = ref<FlowStatusMap>({
+  'start-1': 'completed',
+  'task-leader': {
+    status: 'completed',
+    audit: [
+      {
+        operator: '李主管',
+        status: 'completed',
+        time: '2026-10-27 10:15',
+        comment: '同意立项，报财务初审。',
+      },
+    ],
+  },
+  'task-cfo': {
+    status: 'processing',
+    audit: [
+      {
+        operator: '王财务',
+        status: 'processing',
+        time: '2026-10-27 11:00',
+        comment: '正在复核发票与报销明细。',
+      },
+    ],
+  },
+  'end-1': 'pending',
+});
+</script>
+
+<template>
+  <div style="width: 100%; height: 500px;">
+    <AtengFlowViewer
+      :model-value="flowGraph"
+      :status-map="statusMap"
+      :focus-active-node="true"
+      :wheel-zoom-guard="true"
+    />
   </div>
 </template>
 ```
@@ -174,6 +227,31 @@ const customVueNodes = [
 </template>
 ```
 
+### 3. 自定义悬停审计卡片 (`#audit-popover` 插槽)
+
+当默认的审计历史卡片无法满足企业级自定义视图或复杂操作需求时，可通过具名插槽 `#audit-popover` 完整接管：
+
+```vue
+<template>
+  <AtengFlowViewer :model-value="flowGraph" :status-map="statusMap">
+    <template #audit-popover="{ node, status, auditList, close }">
+      <div class="my-custom-audit-popover">
+        <header>
+          <strong>{{ node.text }}</strong>
+          <span>状态: {{ status }}</span>
+        </header>
+        <ul v-if="auditList.length">
+          <li v-for="item in auditList" :key="item.operator">
+            {{ item.operator }} ({{ item.time }}): {{ item.comment }}
+          </li>
+        </ul>
+        <button @click="close">关闭</button>
+      </div>
+    </template>
+  </AtengFlowViewer>
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -214,6 +292,10 @@ const customVueNodes = [
    - 采用 Vue 3 原生 `createVNode` 与 `render` 挂载，数据变更通过原地 Diff 刷新 Props，零多余 DOM 重建开销；
    - 设立 `node:delete` 事件与 Preact `componentWillUnmount` 双重清理防线，节点删除或画布销毁时确定性调用 `render(null)`，触发组件内 `onUnmounted`，彻底回收内存；
    - 锚点生成函数基于真实尺寸精准对称偏移，拖拽连线无像素级偏差；按钮等交互元素阻止 mousedown 冒泡，确保点击交互不误触发节点位移。
+8. **运行态只读锁定与视口人体工学治理 (AtengFlowViewer)**：
+   - **严格只读模式**：`isSilentMode: true` 结合禁用全部锚点 (`hideAnchors`)、位置位移 (`adjustNodePosition: false`) 与文本编辑，彻底消除图元篡改与误连线风险；
+   - **滚轮防冲突守卫 (`WheelZoomGuard`)**：默认屏蔽鼠标滚轮对画布视口的误缩放，支持外层长页面自然垂直滚动；按住 `Ctrl + 滚轮` 时激活视口缩放，未按 Ctrl 时显示友好引导气泡；
+   - **智能待办聚焦 (`SmartFocus`)**：加载或状态更新时自动识别首个 `processing` 待办节点并平滑居中聚焦。
 
 ---
 
