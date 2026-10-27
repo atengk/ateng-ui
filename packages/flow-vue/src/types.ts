@@ -215,3 +215,95 @@ export interface AtengFlowCanvasExpose {
   /** 触发布局尺寸重算 */
   resize: () => void;
 }
+
+/**
+ * 物料面板组件 Props。
+ */
+export interface AtengFlowStencilProps {
+  /** 物料分组配置列表 */
+  groups?: import('./presets').StencilGroup[];
+  /** LogicFlow 画布实例，用于触发 dnd.startDrag */
+  lf?: LogicFlow | null;
+  /** 面板主标题 */
+  title?: string;
+}
+
+/**
+ * 物料面板组件 Emits。
+ */
+export interface AtengFlowStencilEmits {
+  (e: 'dragstart', item: import('./presets').StencilItem, event: MouseEvent): void;
+  (e: 'item:click', item: import('./presets').StencilItem): void;
+}
+
+/**
+ * 流程设计器组件 Props。
+ */
+export interface AtengFlowDesignerProps {
+  /** 流程图双向绑定数据 */
+  modelValue?: FlowGraph;
+  /** LogicFlow 原始配置项 */
+  options?: FlowOptions;
+  /** 物料分组配置列表 */
+  stencilGroups?: import('./presets').StencilGroup[];
+  /** 自定义连线前置守卫钩子 */
+  beforeConnect?: import('./presets').BeforeConnectHook;
+  /** 容器宽度（默认 '100%'） */
+  width?: string | number;
+  /** 容器高度（默认 '100%'） */
+  height?: string | number;
+  /** 是否禁用设计编辑（只读） */
+  disabled?: boolean;
+}
+
+/**
+ * 流程设计器组件 Emits。
+ */
+export interface AtengFlowDesignerEmits {
+  (e: 'update:modelValue', value: FlowGraph): void;
+  (e: 'change', value: FlowGraph): void;
+  (e: 'ready', lf: LogicFlow): void;
+  (e: 'node:click', node: FlowNode, event: MouseEvent): void;
+  (e: 'edge:click', edge: FlowEdge, event: MouseEvent): void;
+  (e: 'blank:click', event: MouseEvent): void;
+  (e: 'connection:not-allowed', data: unknown): void;
+}
+
+/**
+ * 流程设计器组件 Slots。
+ */
+export interface AtengFlowDesignerSlots {
+  toolbar?: (props: {
+    lf: LogicFlow | null;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    fitView: () => void;
+    undo: () => void;
+    redo: () => void;
+    clear: () => void;
+    getGraphData: () => FlowGraph;
+  }) => unknown;
+  stencil?: (props: {
+    lf: LogicFlow | null;
+    groups?: import('./presets').StencilGroup[];
+    startDrag: (item: import('./presets').StencilItem) => void;
+  }) => unknown;
+  panel?: (props: { lf: LogicFlow | null; getGraphData: () => FlowGraph }) => unknown;
+}
+
+/**
+ * 流程设计器组件对外暴露的实例方法。
+ */
+export interface AtengFlowDesignerExpose {
+  getLf: () => LogicFlow | null;
+  getGraphData: () => FlowGraph;
+  render: (graph?: FlowGraph) => void;
+  clear: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+  fitView: () => void;
+  undo: () => void;
+  redo: () => void;
+  startDrag: (item: import('./presets').StencilItem) => void;
+}
