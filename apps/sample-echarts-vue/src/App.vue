@@ -2,7 +2,8 @@
 /**
  * sample-echarts-vue 自验展厅主页面。
  *
- * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、ResizeObserver 几何自感知与暗黑模式无损热切换。
+ * 验证 AtengECharts 通用表现容器、useECharts 无头状态机、ResizeObserver 几何自感知、
+ * 暗黑模式无损热切换、声明式 Option 全量同步与 DOM 级多态遮罩（Loading/Empty/Error）。
  *
  * @author Ateng
  * @since 2026-10-27
@@ -15,7 +16,7 @@ import { AtengECharts, type AtengEChartsInstance, type EChartsOption } from '@at
 const barOption = ref<EChartsOption>({
   title: {
     text: '月度经营数据看板 (柱线混合)',
-    subtext: 'Ticket #153 主题与暗黑模式自适应',
+    subtext: 'Ticket #151 ~ #154 容器多态遮罩与事件透传',
     left: 'center',
   },
   tooltip: {
@@ -166,6 +167,11 @@ const eventLogs = ref<string[]>([]);
 const lastClickInfo = ref<string>('暂无点击');
 const previewImage = ref<string>('');
 
+// 多态遮罩状态控制
+const isBarLoading = ref(false);
+const isPieEmpty = ref(false);
+const barError = ref<string | null>(null);
+
 // 动态暗黑模式状态
 const isDark = ref(false);
 
@@ -189,12 +195,44 @@ const onChartClick = (params: unknown) => {
   log(`触发 chart-click: ${lastClickInfo.value}`);
 };
 
+const onLegendChange = (params: unknown) => {
+  const p = params as { name?: string; selected?: Record<string, boolean> };
+  log(`触发 legend-change: 切换图例 [${p.name ?? ''}]`);
+};
+
 const onRendered = () => {
   log('图表渲染完成 (rendered)');
 };
 
 const onThemeChange = (theme: string) => {
   log(`图表主题热切换为: ${theme}`);
+};
+
+// 模拟加载遮罩
+const triggerLoading = () => {
+  isBarLoading.value = true;
+  log('已触发柱线图 DOM 加载遮罩 (2 秒后自动恢复)');
+  setTimeout(() => {
+    isBarLoading.value = false;
+    log('柱线图加载完成，遮罩已自动移除');
+  }, 2000);
+};
+
+// 切换空数据遮罩
+const toggleEmptyState = () => {
+  isPieEmpty.value = !isPieEmpty.value;
+  log(`环形图空状态已切换为: ${isPieEmpty.value ? '空数据态' : '正常数据态'}`);
+};
+
+// 模拟接口报错
+const triggerError = () => {
+  barError.value = 'HTTP 500: 后端经营分析微服务连接超时，请检查网关路由';
+  log('已模拟图表渲染异常并挂载错误遮罩');
+};
+
+const onRetry = () => {
+  barError.value = null;
+  log('已点击重试按钮，重置异常态并重新渲染');
 };
 
 // 切换暗黑模式
@@ -208,7 +246,7 @@ const toggleDarkMode = () => {
   log(`系统亮暗模式已切换为: ${isDark.value ? 'Dark (暗色)' : 'Light (浅色)'}`);
 };
 
-// 动态操作
+// 动态更新数据
 const randomizeData = () => {
   const randomBars = Array.from({ length: 6 }, () => Math.floor(Math.random() * 150) + 50);
   const randomLines = Array.from({ length: 6 }, () => Math.floor(Math.random() * 50) + 30);
@@ -226,7 +264,7 @@ const randomizeData = () => {
       },
     ],
   };
-  log('已随机更新经营看板数据');
+  log('已随机更新经营看板数据 (notMerge: true 全量声明式同步)');
 };
 
 const toggleWidth = () => {
@@ -250,14 +288,15 @@ const exportBarImage = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #153 自验</span>
+        <span class="badge">Ticket #154 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：暗黑模式无损自动热切换、平滑重建保真、ResizeObserver 自感知与零尺寸自愈。
+        L2 专用能力扩展层：notMerge 声明式同步、多态 DOM
+        遮罩（Loading/Empty/Error）、暗黑热切换与事件透传。
       </p>
     </header>
 
@@ -265,11 +304,16 @@ const exportBarImage = () => {
       <button class="btn btn-theme" @click="toggleDarkMode">
         {{ isDark ? '☀️ 切换为浅色模式' : '🌙 切换为暗黑模式' }}
       </button>
-      <button class="btn btn-primary" @click="randomizeData">🔄 动态更新数据</button>
-      <button class="btn btn-warning" @click="toggleWidth">
-        📐 动态切换容器宽度 ({{ isCompact ? '还原 100%' : '压缩至 60%' }})
+      <button class="btn btn-primary" @click="randomizeData">🔄 动态全量同步数据</button>
+      <button class="btn btn-info" @click="triggerLoading">⏳ 模拟加载遮罩</button>
+      <button class="btn btn-warning" @click="toggleEmptyState">
+        📭 切换环形图空状态 ({{ isPieEmpty ? '恢复数据' : '置空' }})
       </button>
-      <button class="btn btn-secondary" @click="exportBarImage">📷 导出柱线图 Base64 截图</button>
+      <button class="btn btn-danger" @click="triggerError">⚠️ 模拟错误遮罩</button>
+      <button class="btn btn-secondary" @click="toggleWidth">
+        📐 切换宽度 ({{ isCompact ? '还原 100%' : '压缩 60%' }})
+      </button>
+      <button class="btn btn-secondary" @click="exportBarImage">📷 导出截图</button>
       <span class="tip">当前点击响应：{{ lastClickInfo }}</span>
     </div>
 
@@ -280,7 +324,7 @@ const exportBarImage = () => {
         :class="{ active: activeTab === 'dashboard' }"
         @click="activeTab = 'dashboard'"
       >
-        📊 主看板 (基础图表网格)
+        📊 主看板 (基础图表与多态遮罩)
       </button>
       <button
         class="tab-btn"
@@ -297,7 +341,7 @@ const exportBarImage = () => {
         <!-- 柱线混合图表卡片 -->
         <div class="chart-card">
           <div class="card-header">
-            <span class="card-title">1. 柱状/折线混合图表 (暗黑跟随 & 容器自适应)</span>
+            <span class="card-title">1. 柱状/折线混合图表 (支持 Loading / Error 遮罩)</span>
           </div>
           <div class="card-body">
             <AtengECharts
@@ -305,9 +349,13 @@ const exportBarImage = () => {
               :option="barOption"
               height="380px"
               theme="auto"
+              :loading="isBarLoading"
+              :error="barError"
               @chart-click="onChartClick"
+              @legend-change="onLegendChange"
               @rendered="onRendered"
               @theme-change="onThemeChange"
+              @retry="onRetry"
             />
           </div>
         </div>
@@ -315,13 +363,16 @@ const exportBarImage = () => {
         <!-- 环形饼图卡片 -->
         <div class="chart-card">
           <div class="card-header">
-            <span class="card-title">2. 环形品类占比图 (暗黑跟随 & 默认 350px 高度)</span>
+            <span class="card-title">2. 环形品类占比图 (支持 Empty 空状态遮罩)</span>
           </div>
           <div class="card-body">
             <AtengECharts
               :option="pieOption"
               theme="auto"
+              :empty="isPieEmpty"
+              empty-text="当前筛选周期内暂无品类销售明细"
               @chart-click="onChartClick"
+              @legend-change="onLegendChange"
               @theme-change="onThemeChange"
             />
           </div>
@@ -351,7 +402,7 @@ const exportBarImage = () => {
     <!-- 底部操作与日志区 -->
     <footer class="footer-section">
       <div class="log-card">
-        <h3>交互事件与自适应/主题调度日志</h3>
+        <h3>交互事件与多态遮罩调度日志</h3>
         <ul class="log-list">
           <li v-for="(item, index) in eventLogs" :key="index">
             {{ item }}
@@ -529,12 +580,28 @@ h1 {
   background-color: #1d4ed8;
 }
 
+.btn-info {
+  background-color: #0284c7;
+  color: #fff;
+}
+.btn-info:hover {
+  background-color: #0369a1;
+}
+
 .btn-warning {
   background-color: #f59e0b;
   color: #fff;
 }
 .btn-warning:hover {
   background-color: #d97706;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  color: #fff;
+}
+.btn-danger:hover {
+  background-color: #dc2626;
 }
 
 .btn-secondary {

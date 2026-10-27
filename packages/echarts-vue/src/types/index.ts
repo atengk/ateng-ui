@@ -165,6 +165,12 @@ export interface AtengEChartsProps {
   autoResize?: boolean;
 
   /**
+   * 是否开启深度侦听 option 对象变化（默认 false，提高大数据下性能）。
+   * @default false
+   */
+  deepWatch?: boolean;
+
+  /**
    * 是否在更新 option 时不与旧配置合并（对齐 Vue 声明式直觉，彻底杜绝 series 脏残留）。
    * @default true
    */
@@ -181,6 +187,42 @@ export interface AtengEChartsProps {
    * @default false
    */
   loading?: boolean;
+
+  /**
+   * 加载文案。
+   * @default '加载中...'
+   */
+  loadingText?: string;
+
+  /**
+   * 是否使用 ECharts 原生 Canvas 绘制的加载指示器，默认 false（采用更现代的 DOM 遮罩）。
+   * @default false
+   */
+  nativeLoading?: boolean;
+
+  /**
+   * 是否展示空数据状态遮罩。
+   * @default false
+   */
+  empty?: boolean;
+
+  /**
+   * 空数据提示文案。
+   * @default '暂无图表数据'
+   */
+  emptyText?: string;
+
+  /**
+   * 异常错误信息或对象，非空时触发错误遮罩展示。
+   * @default null
+   */
+  error?: Error | string | null;
+
+  /**
+   * 异常提示文案。
+   * @default '图表加载异常'
+   */
+  errorText?: string;
 }
 
 /**
@@ -203,6 +245,36 @@ export interface AtengEChartsEmits {
   (e: 'chart-click', params: unknown): void;
 
   /**
+   * 图表双击事件。
+   */
+  (e: 'chart-dblclick', params: unknown): void;
+
+  /**
+   * 鼠标悬浮移入图表事件。
+   */
+  (e: 'chart-mouseover', params: unknown): void;
+
+  /**
+   * 鼠标移出图表事件。
+   */
+  (e: 'chart-mouseout', params: unknown): void;
+
+  /**
+   * 图例选中状态切换事件。
+   */
+  (e: 'legend-change', params: unknown): void;
+
+  /**
+   * 区域缩放 (dataZoom) 事件。
+   */
+  (e: 'data-zoom', params: unknown): void;
+
+  /**
+   * 通用原生 ECharts 事件通配转发。
+   */
+  (e: 'chart-event', eventName: string, params: unknown): void;
+
+  /**
    * 容器尺寸变化自适应完成事件。
    */
   (e: 'resize'): void;
@@ -211,4 +283,9 @@ export interface AtengEChartsEmits {
    * 主题热切换重绘事件。
    */
   (e: 'theme-change', theme: string): void;
+
+  /**
+   * 异常遮罩重试点击事件。
+   */
+  (e: 'retry'): void;
 }
