@@ -147,4 +147,31 @@ describe('Presets & Connection Rules', () => {
     expect(result.isAllPass).toBe(false);
     expect(result.msg).toContain('业务规则：该审批节点禁止直接流转至归档节点');
   });
+
+  it('应该支持 bezier 贝塞尔平滑曲线连线并支持五态与动画', () => {
+    registerPresetNodes(lf);
+
+    lf.render({
+      nodes: [
+        { id: 'n-1', type: FlowNodeType.START, x: 100, y: 100, text: '开始' },
+        { id: 'n-2', type: FlowNodeType.END, x: 300, y: 100, text: '结束' },
+      ],
+      edges: [
+        {
+          id: 'edge-bezier',
+          type: 'bezier',
+          sourceNodeId: 'n-1',
+          targetNodeId: 'n-2',
+          properties: { status: 'processing' },
+        },
+      ],
+    });
+
+    const edgeModel = lf.getEdgeModelById('edge-bezier');
+    expect(edgeModel).toBeDefined();
+    expect(edgeModel?.modelType).toBe('bezier-edge');
+    expect(edgeModel?.isAnimation).toBe(true);
+    const style = edgeModel?.getEdgeStyle();
+    expect(style?.stroke).toBe('#3b82f6');
+  });
 });

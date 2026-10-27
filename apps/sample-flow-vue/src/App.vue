@@ -12,7 +12,7 @@
  * @since 2026-10-27
  */
 
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick, onUnmounted } from 'vue';
 import {
   AtengFlowDesigner,
   AtengFlowViewer,
@@ -34,7 +34,7 @@ import {
   type FlowStatusMap,
 } from '@atengk/flow-vue';
 
-const activeScene = ref<'designer' | 'viewer'>('designer');
+const activeScene = ref<'designer' | 'viewer' | 'rules'>('designer');
 const designerRef = ref<AtengFlowDesignerInstance | null>(null);
 const viewerRef = ref<AtengFlowViewerInstance | null>(null);
 
@@ -182,6 +182,29 @@ const initialGraph: FlowGraph = {
 const graphData = ref<FlowGraph>(JSON.parse(JSON.stringify(initialGraph)));
 const lastEvent = ref<string>('就绪：可使用顶部工具栏执行缩放、自动分层排版、撤销重做或体验快捷键');
 const alertMessage = ref<string>('');
+let alertTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showAlert = (msg: string, duration = 3500) => {
+  if (alertTimer) {
+    clearTimeout(alertTimer);
+    alertTimer = null;
+  }
+  alertMessage.value = msg;
+  if (duration > 0) {
+    alertTimer = setTimeout(() => {
+      alertMessage.value = '';
+      alertTimer = null;
+    }, duration);
+  }
+};
+
+onUnmounted(() => {
+  if (alertTimer) {
+    clearTimeout(alertTimer);
+    alertTimer = null;
+  }
+});
+
 const useCustomPanel = ref<boolean>(true);
 const currentSelected = ref<FlowElementData | null>(null);
 
@@ -226,11 +249,8 @@ const handleConnectionNotAllowed = (data: unknown) => {
     (data as { msg?: string; message?: string })?.msg ||
     (data as { msg?: string; message?: string })?.message ||
     '连线不符合拓扑防呆规则！';
-  alertMessage.value = `🚫 拦截警告: ${msg}`;
+  showAlert(`🚫 拦截警告: ${msg}`, 4000);
   lastEvent.value = `连线被拦截: ${msg}`;
-  setTimeout(() => {
-    alertMessage.value = '';
-  }, 4000);
 };
 
 const validationResult = ref<FlowValidationResult | null>(null);
@@ -686,6 +706,306 @@ const viewerStatusMap = computed<FlowStatusMap>(() => {
   }
 });
 
+// ==========================================
+// 展厅三：低代码数据规则引擎 / DAG 拓扑状态与行为
+// ==========================================
+const rulesDesignerRef = ref<AtengFlowDesignerInstance | null>(null);
+
+const ruleStencilGroups: StencilGroup[] = [
+  {
+    id: 'inputs',
+    title: '📥 数据输入源 (Source)',
+    items: [
+      {
+        type: FlowNodeType.START,
+        text: 'Kafka 行为流',
+        description: '分布式 Topic 实时行为事件流',
+        defaultProperties: { category: 'input', role: 'source', topic: 'user_behavior_event' },
+      },
+      {
+        type: FlowNodeType.START,
+        text: 'HTTP API 上报',
+        description: '外部 RESTful Webhook 实时上报',
+        defaultProperties: { category: 'input', role: 'source', endpoint: '/api/v1/event/collect' },
+      },
+      {
+        type: FlowNodeType.START,
+        text: '定时调度触发',
+        description: 'Cron 表达式周期拉取',
+        defaultProperties: { category: 'input', role: 'source', cron: '0 0/5 * * * ?' },
+      },
+    ],
+  },
+  {
+    id: 'filters',
+    title: '🔍 规则过滤 (Filter)',
+    items: [
+      {
+        type: FlowNodeType.EXCLUSIVE_GATEWAY,
+        text: '白名单过滤',
+        description: 'IP / 租户黑白名单过滤',
+        defaultProperties: {
+          category: 'filter',
+          role: 'processor',
+          condition: 'tenant_id in whitelist',
+        },
+      },
+      {
+        type: FlowNodeType.EXCLUSIVE_GATEWAY,
+        text: '指标阈值熔断',
+        description: '数值区间阈值熔断',
+        defaultProperties: { category: 'filter', role: 'processor', threshold: 1000 },
+      },
+    ],
+  },
+  {
+    id: 'transforms',
+    title: '⚙️ 数据转换 (Transform)',
+    items: [
+      {
+        type: FlowNodeType.SERVICE_TASK,
+        text: '敏感字段脱敏',
+        description: '手机号身份证内存正则脱敏',
+        defaultProperties: {
+          category: 'transform',
+          role: 'processor',
+          rule: 'mask(phone, idCard)',
+        },
+      },
+      {
+        type: FlowNodeType.SERVICE_TASK,
+        text: 'IP 地理位置补全',
+        description: '离线库补充城市地理元数据',
+        defaultProperties: {
+          category: 'transform',
+          role: 'processor',
+          rule: 'lookup(ip_geo_db)',
+        },
+      },
+    ],
+  },
+  {
+    id: 'outputs',
+    title: '📤 汇聚输出 (Sink)',
+    items: [
+      {
+        type: FlowNodeType.END,
+        text: 'ES 审计检索',
+        description: '实时写入 ElasticSearch 集群',
+        defaultProperties: { category: 'output', role: 'sink', index: 'audit_logs_v1' },
+      },
+      {
+        type: FlowNodeType.END,
+        text: 'MySQL 归档存储',
+        description: '批量分表插入 MySQL 持久化',
+        defaultProperties: { category: 'output', role: 'sink', table: 't_user_action_archive' },
+      },
+    ],
+  },
+];
+
+const initialRulesGraph: FlowGraph = {
+  nodes: [
+    {
+      id: 'rule-input-kafka',
+      type: FlowNodeType.START,
+      x: 120,
+      y: 220,
+      text: 'Kafka 行为流',
+      properties: { category: 'input', role: 'source', topic: 'user_behavior_event' },
+    },
+    {
+      id: 'rule-filter-whitelist',
+      type: FlowNodeType.EXCLUSIVE_GATEWAY,
+      x: 320,
+      y: 220,
+      text: '白名单过滤',
+      properties: { category: 'filter', role: 'processor', condition: 'tenant_id in whitelist' },
+    },
+    {
+      id: 'rule-transform-clean',
+      type: FlowNodeType.SERVICE_TASK,
+      x: 540,
+      y: 160,
+      text: '敏感字段脱敏',
+      properties: { category: 'transform', role: 'processor', rule: 'mask(idCard, phone)' },
+    },
+    {
+      id: 'rule-transform-enrich',
+      type: FlowNodeType.SERVICE_TASK,
+      x: 540,
+      y: 280,
+      text: 'IP 位置补全',
+      properties: { category: 'transform', role: 'processor', rule: 'lookup(ip_geo_db)' },
+    },
+    {
+      id: 'rule-output-es',
+      type: FlowNodeType.END,
+      x: 760,
+      y: 160,
+      text: 'ES 审计检索',
+      properties: { category: 'output', role: 'sink', index: 'audit_logs_v1' },
+    },
+    {
+      id: 'rule-output-mysql',
+      type: FlowNodeType.END,
+      x: 760,
+      y: 280,
+      text: 'MySQL 归档存储',
+      properties: { category: 'output', role: 'sink', table: 't_user_action_archive' },
+    },
+  ],
+  edges: [
+    {
+      id: 'r-e1',
+      type: 'bezier',
+      sourceNodeId: 'rule-input-kafka',
+      targetNodeId: 'rule-filter-whitelist',
+      text: '实时流入',
+    },
+    {
+      id: 'r-e2',
+      type: 'bezier',
+      sourceNodeId: 'rule-filter-whitelist',
+      targetNodeId: 'rule-transform-clean',
+      text: '命中白名单',
+    },
+    {
+      id: 'r-e3',
+      type: 'bezier',
+      sourceNodeId: 'rule-filter-whitelist',
+      targetNodeId: 'rule-transform-enrich',
+      text: '旁路扩增',
+    },
+    {
+      id: 'r-e4',
+      type: 'bezier',
+      sourceNodeId: 'rule-transform-clean',
+      targetNodeId: 'rule-output-es',
+      text: '清洗落库',
+    },
+    {
+      id: 'r-e5',
+      type: 'bezier',
+      sourceNodeId: 'rule-transform-enrich',
+      targetNodeId: 'rule-output-mysql',
+      text: '归档持久化',
+    },
+  ],
+};
+
+const rulesGraphData = ref<FlowGraph>(JSON.parse(JSON.stringify(initialRulesGraph)));
+
+const beforeRuleConnect: BeforeConnectHook = (sourceNode, targetNode) => {
+  const sourceRole =
+    sourceNode.properties?.role ||
+    (sourceNode.type === FlowNodeType.START
+      ? 'source'
+      : sourceNode.type === FlowNodeType.END
+        ? 'sink'
+        : 'processor');
+  const targetRole =
+    targetNode.properties?.role ||
+    (targetNode.type === FlowNodeType.START
+      ? 'source'
+      : targetNode.type === FlowNodeType.END
+        ? 'sink'
+        : 'processor');
+
+  if (targetRole === 'source') {
+    showAlert('🛑 规则链拓扑鉴权：数据输入源（Source）禁止作为连线终点！', 3500);
+    return '数据输入源禁止作为连线终点';
+  }
+
+  if (sourceRole === 'sink') {
+    showAlert('🛑 规则链拓扑鉴权：汇聚输出终端（Sink）为拓扑终点，禁止反向连出！', 3500);
+    return '汇聚输出终端为拓扑终点，禁止反向连出';
+  }
+
+  if (sourceRole === 'source' && targetRole === 'sink') {
+    showAlert(
+      '⚠️ 规则链架构规约拦截：输入数据必须经过至少一级规则过滤或清洗转换，禁止直连汇聚终端！',
+      3500,
+    );
+    return '输入源必须先经过规则过滤或清洗转换，禁止直连汇聚终端';
+  }
+
+  return true;
+};
+
+const isRuleSimulating = ref(false);
+const ruleSimulationLogs = ref<
+  Array<{ time: string; level: 'info' | 'success' | 'warn'; msg: string }>
+>([]);
+
+const handleRunRuleSimulation = async () => {
+  if (isRuleSimulating.value) return;
+  isRuleSimulating.value = true;
+  ruleSimulationLogs.value = [];
+
+  const addLog = (level: 'info' | 'success' | 'warn', msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    ruleSimulationLogs.value.push({ time, level, msg });
+  };
+
+  const lf = rulesDesignerRef.value?.getLf();
+  if (!lf) {
+    isRuleSimulating.value = false;
+    return;
+  }
+
+  // 步骤 1：Kafka 接入事件
+  addLog('info', '📥 触发 Kafka 行为数据流入，捕获 5,000 条 user_behavior_event 事件...');
+  lf.setProperties('rule-input-kafka', { status: 'processing' });
+  lf.setProperties('r-e1', { status: 'processing' });
+  await new Promise(r => setTimeout(r, 800));
+
+  // 步骤 2：白名单过滤
+  addLog('info', '🔍 正在执行白名单规则引擎过滤（tenant_id in whitelist）...');
+  lf.setProperties('rule-input-kafka', { status: 'completed' });
+  lf.setProperties('r-e1', { status: 'completed' });
+  lf.setProperties('rule-filter-whitelist', { status: 'processing' });
+  lf.setProperties('r-e2', { status: 'processing' });
+  lf.setProperties('r-e3', { status: 'processing' });
+  await new Promise(r => setTimeout(r, 900));
+
+  // 步骤 3：数据脱敏清洗与 IP 地理位置补全
+  addLog('warn', '⚠️ 规则过滤完成：4,982 条合格通过，18 条非法黑名单 IP 已被安全策略熔断拦截');
+  addLog('info', '⚙️ 双路并行处理：执行敏感手机号身份证脱敏 & IP 离线库地理信息补全...');
+  lf.setProperties('rule-filter-whitelist', { status: 'completed' });
+  lf.setProperties('r-e2', { status: 'completed' });
+  lf.setProperties('r-e3', { status: 'completed' });
+  lf.setProperties('rule-transform-clean', { status: 'processing' });
+  lf.setProperties('rule-transform-enrich', { status: 'processing' });
+  lf.setProperties('r-e4', { status: 'processing' });
+  lf.setProperties('r-e5', { status: 'processing' });
+  await new Promise(r => setTimeout(r, 1000));
+
+  // 步骤 4：落库完成
+  addLog('success', '📤 汇聚输出完成：已实时推入 ES 索引 (audit_logs_v1) 并批量持久化入库 MySQL');
+  addLog(
+    'success',
+    '✨ DAG 规则链全链路执行完毕！吞吐率: 5,000 TPS，端到端耗时: 38ms，成功率: 99.64%',
+  );
+  lf.setProperties('rule-transform-clean', { status: 'completed' });
+  lf.setProperties('rule-transform-enrich', { status: 'completed' });
+  lf.setProperties('r-e4', { status: 'completed' });
+  lf.setProperties('r-e5', { status: 'completed' });
+  lf.setProperties('rule-output-es', { status: 'completed' });
+  lf.setProperties('rule-output-mysql', { status: 'completed' });
+
+  isRuleSimulating.value = false;
+};
+
+const handleResetRulesGraph = () => {
+  rulesGraphData.value = JSON.parse(JSON.stringify(initialRulesGraph));
+  ruleSimulationLogs.value = [];
+  lastEvent.value = '已重置规则链 DAG 初始拓扑';
+  nextTick(() => {
+    rulesDesignerRef.value?.fitView();
+  });
+};
+
 const currentBadgeType = computed(() => {
   if (!currentSelected.value) return 'info';
   if (currentSelected.value.elementType === 'edge') return 'success';
@@ -726,10 +1046,7 @@ const handleApplyBpmnXml = () => {
     isBpmnDialogVisible.value = false;
     lastEvent.value = `BPMN 2.0 XML 导入成功！还原 ${imported.nodes.length} 个节点，${imported.edges.length} 条连线`;
   } catch (err: unknown) {
-    alertMessage.value = `❌ 导入失败: ${(err as Error)?.message || 'XML 格式非法'}`;
-    setTimeout(() => {
-      alertMessage.value = '';
-    }, 4000);
+    showAlert(`❌ 导入失败: ${(err as Error)?.message || 'XML 格式非法'}`, 4000);
   }
 };
 
@@ -799,7 +1116,7 @@ const handleGenerateSnapshotPreview = async () => {
     snapshotPreviewUrl.value = url;
     lastEvent.value = `已生成 ${snapshotFormat.value.toUpperCase()} 高清全景快照预览 (DPR: ${snapshotDpr.value}x)`;
   } catch (err: unknown) {
-    alertMessage.value = `快照生成失败: ${(err as Error)?.message || '未知错误'}`;
+    showAlert(`快照生成失败: ${(err as Error)?.message || '未知错误'}`, 4000);
   } finally {
     isSnapshotLoading.value = false;
   }
@@ -847,12 +1164,23 @@ const handleDownloadSnapshot = async () => {
             >
               🔍 展厅二：运行态流转追踪器
             </button>
+            <button
+              class="scene-btn"
+              :class="{ 'is-active': activeScene === 'rules' }"
+              @click="activeScene = 'rules'"
+            >
+              ⚡ 展厅三：规则链 DAG 拓扑
+            </button>
           </div>
         </div>
         <p class="sample-desc">
-          工单 #169
-          验证：运行态只读流转追踪器（AtengFlowViewer）、五态高亮与呼吸流动动效、悬停审批审计浮层（#audit-popover）、SmartFocus
-          待办智能聚焦与 WheelZoomGuard 滚轮防冲突
+          {{
+            activeScene === 'designer'
+              ? '工单 #163~#168 验证：流程设计态物料拖拽、四向磁吸折线、属性抽屉双向回写、DAG 自动分层排版、静态拓扑校验、BPMN 互转与全景快照'
+              : activeScene === 'viewer'
+                ? '工单 #169 验证：运行态只读流转追踪器（AtengFlowViewer）、五态高亮与呼吸流动动效、悬停审批审计浮层（#audit-popover）、SmartFocus 待办智能聚焦与 WheelZoomGuard 滚轮防冲突'
+                : '工单 #170 验证：低代码数据规则引擎（DAG 拓扑）、输入/过滤/转换/输出物料体系、平滑贝塞尔曲线路由（Bezier Edge）、防呆连线鉴权拦截与全链路动态流转模拟'
+          }}
         </p>
       </div>
 
@@ -897,7 +1225,7 @@ const handleDownloadSnapshot = async () => {
       </div>
 
       <!-- 展厅二运行态控制组 -->
-      <div v-else class="sample-header__right viewer-step-bar">
+      <div v-else-if="activeScene === 'viewer'" class="sample-header__right viewer-step-bar">
         <span class="step-label">审批流转模拟：</span>
         <el-radio-group v-model="currentViewerStep" size="small">
           <el-radio-button :value="1">1. 主管审批中</el-radio-button>
@@ -910,6 +1238,16 @@ const handleDownloadSnapshot = async () => {
           🎯 SmartFocus 居中待办
         </button>
         <button class="btn btn--fit" @click="viewerRef?.fitView()">[ ] 适应画布</button>
+      </div>
+
+      <!-- 展厅三规则链控制组 -->
+      <div v-else class="sample-header__right rules-top-bar">
+        <button class="btn btn--sim" :disabled="isRuleSimulating" @click="handleRunRuleSimulation">
+          {{ isRuleSimulating ? '⏳ 规则流转中...' : '🚀 启动规则链模拟流转' }}
+        </button>
+        <button class="btn btn--reset" @click="handleResetRulesGraph">🔄 重置拓扑</button>
+        <button class="btn btn--fit" @click="rulesDesignerRef?.fitView()">[ ] 适应画布</button>
+        <button class="btn btn--dag" @click="rulesDesignerRef?.autoLayout('LR')">⇄ 水平排版</button>
       </div>
 
       <!-- 拦截提示浮层 -->
@@ -1122,11 +1460,72 @@ const handleDownloadSnapshot = async () => {
           />
         </div>
       </div>
+
+      <!-- 展厅三：低代码数据规则引擎 / DAG 拓扑 -->
+      <div v-show="activeScene === 'rules'" class="sample-rules-wrapper">
+        <div class="rules-top-card">
+          <div class="rules-card-badge">低代码数据规则引擎 / DAG 拓扑</div>
+          <div class="rules-card-tags">
+            <span class="tag-pill tag-pill--bezier">〰️ 贝塞尔平滑曲线 (Bezier Edge)</span>
+            <span class="tag-pill tag-pill--guard">🛡️ 规则鉴权防呆 (Auth Rules)</span>
+            <span class="tag-pill tag-pill--dag">🔀 有向无环分层拓扑 (DAG)</span>
+          </div>
+          <div class="rules-card-tip">
+            💡 试一试：尝试拖拽一条从“ES 审计检索(汇聚输出)”到“Kafka
+            行为流(数据源)”的反向连线，或将“Kafka 行为流”直接连向“MySQL
+            归档存储”，体验业务连线规则鉴权硬核拦截！
+          </div>
+        </div>
+
+        <div class="rules-canvas-container">
+          <div class="rules-designer-box">
+            <AtengFlowDesigner
+              ref="rulesDesignerRef"
+              v-model="rulesGraphData"
+              :stencil-groups="ruleStencilGroups"
+              :before-connect="beforeRuleConnect"
+              :options="{ edgeType: 'bezier', grid: { size: 10, visible: true, type: 'dot' } }"
+              panel-width="360px"
+              width="100%"
+              height="100%"
+            />
+          </div>
+
+          <!-- 规则链流转执行实时终端 -->
+          <div class="rules-terminal">
+            <div class="rules-terminal__header">
+              <span class="rules-terminal__title">📟 规则链实时监控终端 (Execution Terminal)</span>
+              <span v-if="isRuleSimulating" class="terminal-status-live">● 实时流转中</span>
+              <span v-else class="terminal-status-idle">○ 待机就绪</span>
+            </div>
+            <div class="rules-terminal__body">
+              <div v-if="ruleSimulationLogs.length === 0" class="terminal-empty">
+                暂无流转日志。点击右上角【启动规则链模拟流转】观察贝塞尔曲线流动虚线动效与全链路执行日志！
+              </div>
+              <div
+                v-for="(log, idx) in ruleSimulationLogs"
+                :key="idx"
+                class="terminal-line"
+                :class="`terminal-line--${log.level}`"
+              >
+                <span class="terminal-time">[{{ log.time }}]</span>
+                <span class="terminal-msg">{{ log.msg }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <footer class="sample-footer">
-      <span>当前节点数: {{ graphData.nodes.length }}</span>
-      <span>当前连线数: {{ graphData.edges.length }}</span>
+      <span>
+        当前节点数:
+        {{ activeScene === 'rules' ? rulesGraphData.nodes.length : graphData.nodes.length }}
+      </span>
+      <span>
+        当前连线数:
+        {{ activeScene === 'rules' ? rulesGraphData.edges.length : graphData.edges.length }}
+      </span>
       <span v-if="currentSelected" class="current-selected-badge">
         🎯 选中: {{ currentSelected.id }} ({{ currentSelected.name }})
       </span>
@@ -1900,5 +2299,185 @@ const handleDownloadSnapshot = async () => {
 .btn--fit {
   background-color: #f8fafc;
   color: #334155;
+}
+
+/* 展厅三：低代码数据规则引擎 DAG 样式体系 */
+.sample-rules-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+}
+
+.rules-top-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  gap: 12px;
+}
+
+.rules-card-badge {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.rules-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.tag-pill--bezier {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.tag-pill--guard {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.tag-pill--dag {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.rules-card-tip {
+  width: 100%;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.rules-canvas-container {
+  display: flex;
+  flex: 1;
+  min-height: 540px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.rules-designer-box {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rules-terminal {
+  width: 380px;
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.rules-terminal__header {
+  padding: 10px 14px;
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.rules-terminal__title {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.terminal-status-live {
+  color: #4ade80;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.terminal-status-idle {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.rules-terminal__body {
+  flex: 1;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminal-empty {
+  color: #64748b;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.terminal-line {
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.terminal-line--info .terminal-msg {
+  color: #93c5fd;
+}
+
+.terminal-line--warn .terminal-msg {
+  color: #fde047;
+}
+
+.terminal-line--success .terminal-msg {
+  color: #86efac;
+}
+
+.terminal-time {
+  color: #64748b;
+  margin-right: 6px;
+}
+
+.btn--sim {
+  background-color: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  font-weight: 500;
+}
+
+.btn--sim:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.btn--sim:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn--reset {
+  background-color: #f1f5f9;
+  color: #475569;
 }
 </style>

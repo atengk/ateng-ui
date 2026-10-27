@@ -17,6 +17,8 @@ import {
   DiamondNodeModel,
   PolylineEdge,
   PolylineEdgeModel,
+  BezierEdge,
+  BezierEdgeModel,
   type Model,
 } from '@logicflow/core';
 import type { FlowNode, FlowEdge, ExecutionStatus } from '../types';
@@ -277,6 +279,48 @@ function getEnhancedOuterGAttrs(
 }
 
 /**
+ * 应用五态执行状态主题与校验错误样式至连线模型。
+ */
+function applyEnhancedEdgeStyle(
+  properties: Record<string, unknown> | undefined,
+  baseStyle: LogicFlow.CommonTheme,
+): LogicFlow.CommonTheme {
+  const style = { ...baseStyle };
+  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
+  const config = status ? STATUS_THEME_MAP[status] : undefined;
+  if (config) {
+    style.stroke = config.stroke;
+    style.strokeWidth = config.strokeWidth;
+    if (config.strokeDasharray) {
+      style.strokeDasharray = config.strokeDasharray;
+    } else if (status === 'processing') {
+      style.strokeDasharray = '6 4';
+    }
+  }
+  if (properties?.__hasError) {
+    style.stroke = '#ef4444';
+    style.strokeWidth = 2.5;
+  }
+  return style;
+}
+
+/**
+ * 获取连线动画样式。
+ */
+function getEnhancedEdgeAnimationStyle(
+  properties: Record<string, unknown> | undefined,
+  baseStyle: LogicFlow.EdgeAnimation,
+): LogicFlow.EdgeAnimation {
+  const style = { ...baseStyle };
+  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
+  if (status === 'processing') {
+    style.stroke = '#3b82f6';
+    style.strokeDasharray = '6 4';
+  }
+  return style;
+}
+
+/**
  * 向 LogicFlow 实例注册所有开箱即用的预设图元与防呆规则。
  */
 export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnectHook): void {
@@ -466,35 +510,43 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
     }
 
     override getEdgeStyle(): LogicFlow.CommonTheme {
-      const style = super.getEdgeStyle();
-      const propsObj = this.properties as Record<string, unknown> | undefined;
-      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
-      const config = status ? STATUS_THEME_MAP[status] : undefined;
-      if (config) {
-        style.stroke = config.stroke;
-        style.strokeWidth = config.strokeWidth;
-        if (config.strokeDasharray) {
-          style.strokeDasharray = config.strokeDasharray;
-        } else if (status === 'processing') {
-          style.strokeDasharray = '6 4';
-        }
-      }
-      if (propsObj?.__hasError) {
-        style.stroke = '#ef4444';
-        style.strokeWidth = 2.5;
-      }
-      return style;
+      return applyEnhancedEdgeStyle(
+        this.properties as Record<string, unknown> | undefined,
+        super.getEdgeStyle(),
+      );
     }
 
     override getEdgeAnimationStyle(): LogicFlow.EdgeAnimation {
-      const style = super.getEdgeAnimationStyle();
+      return getEnhancedEdgeAnimationStyle(
+        this.properties as Record<string, unknown> | undefined,
+        super.getEdgeAnimationStyle(),
+      );
+    }
+  }
+
+  // 9. 默认贝塞尔平滑曲线连线模型：支持状态样式、呼吸流动与错误高亮样式
+  class FlowBezierEdgeModel extends BezierEdgeModel {
+    override setAttributes(): void {
+      super.setAttributes();
       const propsObj = this.properties as Record<string, unknown> | undefined;
       const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
       if (status === 'processing') {
-        style.stroke = '#3b82f6';
-        style.strokeDasharray = '6 4';
+        this.isAnimation = true;
       }
-      return style;
+    }
+
+    override getEdgeStyle(): LogicFlow.CommonTheme {
+      return applyEnhancedEdgeStyle(
+        this.properties as Record<string, unknown> | undefined,
+        super.getEdgeStyle(),
+      );
+    }
+
+    override getEdgeAnimationStyle(): LogicFlow.EdgeAnimation {
+      return getEnhancedEdgeAnimationStyle(
+        this.properties as Record<string, unknown> | undefined,
+        super.getEdgeAnimationStyle(),
+      );
     }
   }
 
@@ -539,10 +591,15 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
     }
   }
 
-  // 注册连线增强模型
+  // 注册折线与贝塞尔曲线连线增强模型
   lf.register({
     type: 'polyline',
     view: PolylineEdge,
     model: FlowPolylineEdgeModel,
+  });
+  lf.register({
+    type: 'bezier',
+    view: BezierEdge,
+    model: FlowBezierEdgeModel,
   });
 }
