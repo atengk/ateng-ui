@@ -13,8 +13,12 @@ import { ref } from 'vue';
 import {
   AtengECharts,
   AtengTrendChart,
+  AtengDonutChart,
+  AtengFunnelChart,
   type AtengEChartsInstance,
   type AtengTrendChartInstance,
+  type AtengDonutChartInstance,
+  type AtengFunnelChartInstance,
   type EChartsOption,
   type TrendMetric,
   type TrendYAxisConfig,
@@ -186,8 +190,10 @@ const isDark = ref(false);
 // 动态容器宽度测试
 const isCompact = ref(false);
 
-// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 高频预设趋势图；Tab 3: 初始隐藏零尺寸 Tab）
-const activeTab = ref<'dashboard' | 'trendPreset' | 'hiddenTab'>('trendPreset');
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: 初始隐藏零尺寸 Tab）
+const activeTab = ref<'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'hiddenTab'>(
+  'donutFunnelPreset',
+);
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -407,6 +413,90 @@ const triggerTrendLoading = () => {
     log('趋势图加载完成');
   }, 1500);
 };
+
+// 6. Ticket #156 高频预设 AtengDonutChart & AtengFunnelChart 演示数据与状态
+const donutChartRef = ref<AtengDonutChartInstance | null>(null);
+const funnelChartRef = ref<AtengFunnelChartInstance | null>(null);
+
+const donutData = ref([
+  { name: '云原生底座套件', value: 3480000 },
+  { name: '数据安全与鉴权中台', value: 2560000 },
+  { name: 'AI 智能交互代理', value: 2190000 },
+  { name: '微服务网关支撑', value: 1650000 },
+  { name: '音视频流媒体引擎', value: 1120000 },
+]);
+
+const isDonutRose = ref(false);
+const isDonutSummary = ref(true);
+const isDonutEmpty = ref(false);
+
+const randomizeDonutData = () => {
+  donutData.value = donutData.value.map(item => ({
+    ...item,
+    value: Math.floor(Math.random() * 3000000) + 500000,
+  }));
+  log('已随机更新分类占比数据 (验证中心指标卡动态自动求和)');
+};
+
+const toggleDonutRose = () => {
+  isDonutRose.value = !isDonutRose.value;
+  log(
+    `已切换环形图模式为: ${isDonutRose.value ? '南丁格尔玫瑰图 (roseType: radius)' : '标准同心环形图'}`,
+  );
+};
+
+const toggleDonutSummary = () => {
+  isDonutSummary.value = !isDonutSummary.value;
+  log(`已切换中心指标卡为: ${isDonutSummary.value ? '显示中心汇总' : '关闭中心指标卡'}`);
+};
+
+const toggleDonutEmpty = () => {
+  isDonutEmpty.value = !isDonutEmpty.value;
+  log(`已切换环形图空遮罩为: ${isDonutEmpty.value ? '空状态' : '正常数据'}`);
+};
+
+// 漏斗图数据与控制
+const funnelData = ref([
+  { stage: '1. 展厅页面曝光', count: 120000 },
+  { stage: '2. 组件源码浏览', count: 68000 },
+  { stage: '3. 点击复制代码', count: 35000 },
+  { stage: '4. pnpm 安装引入', count: 18000 },
+  { stage: '5. 生产工程落地', count: 9600 },
+]);
+
+const funnelSort = ref<'descending' | 'ascending'>('descending');
+const funnelGap = ref<number>(3);
+const isFunnelEmpty = ref(false);
+
+const randomizeFunnelData = () => {
+  let current = 100000 + Math.floor(Math.random() * 50000);
+  funnelData.value = funnelData.value.map(item => {
+    const val = current;
+    current = Math.floor(current * (0.45 + Math.random() * 0.25));
+    return {
+      ...item,
+      count: val,
+    };
+  });
+  log('已随机刷新漏斗转化数据 (验证环节转化率与总体转化率实时重算)');
+};
+
+const toggleFunnelSort = () => {
+  funnelSort.value = funnelSort.value === 'descending' ? 'ascending' : 'descending';
+  log(
+    `已切换漏斗排列方式为: ${funnelSort.value === 'descending' ? '降序 (漏斗形)' : '升序 (金字塔形)'}`,
+  );
+};
+
+const toggleFunnelGap = () => {
+  funnelGap.value = funnelGap.value === 3 ? 8 : 3;
+  log(`已调整漏斗阶段断层间距为: ${funnelGap.value}px`);
+};
+
+const toggleFunnelEmpty = () => {
+  isFunnelEmpty.value = !isFunnelEmpty.value;
+  log(`已切换漏斗图空遮罩为: ${isFunnelEmpty.value ? '空状态' : '正常数据'}`);
+};
 </script>
 
 <template>
@@ -414,15 +504,16 @@ const triggerTrendLoading = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #155 自验</span>
+        <span class="badge">Ticket #156 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：高频预设 AtengTrendChart（双 Y 轴/柱线混合/渐变/缩放手柄）、notMerge
-        声明式同步、多态 DOM 遮罩（Loading/Empty/Error）与暗黑热切换。
+        L2 专用能力扩展层：高频预设 AtengDonutChart &
+        AtengFunnelChart（分类占比与漏斗转化）、AtengTrendChart 趋势看板、 notMerge 声明式同步与多态
+        DOM 遮罩。
       </p>
     </header>
 
@@ -447,6 +538,13 @@ const triggerTrendLoading = () => {
     <div class="tab-nav">
       <button
         class="tab-btn"
+        :class="{ active: activeTab === 'donutFunnelPreset' }"
+        @click="activeTab = 'donutFunnelPreset'"
+      >
+        🍩 预设看板：AtengDonutChart & AtengFunnelChart (分类占比与漏斗转化)
+      </button>
+      <button
+        class="tab-btn"
         :class="{ active: activeTab === 'trendPreset' }"
         @click="activeTab = 'trendPreset'"
       >
@@ -466,6 +564,91 @@ const triggerTrendLoading = () => {
       >
         ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
       </button>
+    </div>
+
+    <!-- 选项卡：Ticket #156 高频预设环形图与漏斗图视图 -->
+    <div v-show="activeTab === 'donutFunnelPreset'" class="tab-content">
+      <div class="action-bar" style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="randomizeDonutData">
+          🔄 刷新分类数据 (求和重算)
+        </button>
+        <button class="btn btn-theme" @click="toggleDonutRose">
+          🌹 {{ isDonutRose ? '切换为标准环形图' : '切换为南丁格尔玫瑰图' }}
+        </button>
+        <button class="btn btn-info" @click="toggleDonutSummary">
+          🎯 {{ isDonutSummary ? '关闭中心指标卡' : '显示中心指标卡' }}
+        </button>
+        <button class="btn btn-warning" @click="toggleDonutEmpty">
+          📭 {{ isDonutEmpty ? '恢复分类数据' : '置空分类数据 (空遮罩)' }}
+        </button>
+        <span style="border-left: 1px solid #dcdfe6; margin: 0 4px; height: 20px" />
+        <button class="btn btn-primary" @click="randomizeFunnelData">⚡ 刷新漏斗转化数据</button>
+        <button class="btn btn-secondary" @click="toggleFunnelSort">
+          📐 {{ funnelSort === 'descending' ? '切换为金字塔形 (升序)' : '切换为漏斗形 (降序)' }}
+        </button>
+        <button class="btn btn-secondary" @click="toggleFunnelGap">
+          📏 阶段间隙 (当前: {{ funnelGap }}px)
+        </button>
+        <button class="btn btn-warning" @click="toggleFunnelEmpty">
+          📭 {{ isFunnelEmpty ? '恢复漏斗数据' : '置空漏斗数据' }}
+        </button>
+      </div>
+
+      <main class="chart-grid">
+        <!-- 预设卡片 1：分类占比与中心指标卡 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              1. AtengDonutChart: 业务品类营收环形图 (中心指标卡 + 玫瑰图切换)
+            </span>
+            <span class="badge-sub">千分位 + 自动求和</span>
+          </div>
+          <div class="card-body">
+            <AtengDonutChart
+              ref="donutChartRef"
+              :data="isDonutEmpty ? [] : donutData"
+              name-key="name"
+              value-key="value"
+              unit="元"
+              :rose-type="isDonutRose ? 'radius' : false"
+              :center-summary="isDonutSummary ? { title: '业务总产值' } : false"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @legend-change="onLegendChange"
+              @rendered="onRendered"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+
+        <!-- 预设卡片 2：电商全链路业务转化漏斗 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              2. AtengFunnelChart: 组件库采纳全链路漏斗 (环节转化率 + 总体转化率)
+            </span>
+            <span class="badge-sub">自动计算前后转化率</span>
+          </div>
+          <div class="card-body">
+            <AtengFunnelChart
+              ref="funnelChartRef"
+              :data="isFunnelEmpty ? [] : funnelData"
+              name-key="stage"
+              value-key="count"
+              unit="次"
+              :sort="funnelSort"
+              :gap="funnelGap"
+              theme="auto"
+              height="380px"
+              @chart-click="onChartClick"
+              @legend-change="onLegendChange"
+              @rendered="onRendered"
+              @theme-change="onThemeChange"
+            />
+          </div>
+        </div>
+      </main>
     </div>
 
     <!-- 选项卡：Ticket #155 高频预设趋势图视图 -->

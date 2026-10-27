@@ -10,10 +10,12 @@
 import type { App } from 'vue';
 import AtengECharts from './components/AtengECharts.vue';
 import AtengTrendChart from './components/AtengTrendChart.vue';
+import AtengDonutChart from './components/AtengDonutChart.vue';
+import AtengFunnelChart from './components/AtengFunnelChart.vue';
 
-export { AtengECharts, AtengTrendChart };
+export { AtengECharts, AtengTrendChart, AtengDonutChart, AtengFunnelChart };
 export { useECharts } from './composables/useECharts';
-export { createTrendOption } from './presets';
+export { createTrendOption, createDonutOption, createFunnelOption } from './presets';
 export {
   registerTheme,
   ensureBuiltinThemes,
@@ -28,10 +30,14 @@ export {
 export function install(app: App): void {
   app.component('AtengECharts', AtengECharts);
   app.component('AtengTrendChart', AtengTrendChart);
+  app.component('AtengDonutChart', AtengDonutChart);
+  app.component('AtengFunnelChart', AtengFunnelChart);
 }
 
 export type AtengEChartsInstance = InstanceType<typeof AtengECharts>;
 export type AtengTrendChartInstance = InstanceType<typeof AtengTrendChart>;
+export type AtengDonutChartInstance = InstanceType<typeof AtengDonutChart>;
+export type AtengFunnelChartInstance = InstanceType<typeof AtengFunnelChart>;
 
 export type {
   EChartsInstance,
@@ -51,4 +57,11 @@ export type {
   TrendChartConfig,
   AtengTrendChartProps,
   AtengTrendChartEmits,
+  DonutChartConfig,
+  DonutCenterSummaryConfig,
+  AtengDonutChartProps,
+  AtengDonutChartEmits,
+  FunnelChartConfig,
+  AtengFunnelChartProps,
+  AtengFunnelChartEmits,
 } from './types';

@@ -300,4 +300,11 @@ export type {
   TrendChartConfig,
   AtengTrendChartProps,
   AtengTrendChartEmits,
+  DonutChartConfig,
+  DonutCenterSummaryConfig,
+  AtengDonutChartProps,
+  AtengDonutChartEmits,
+  FunnelChartConfig,
+  AtengFunnelChartProps,
+  AtengFunnelChartEmits,
 } from '../presets/types';

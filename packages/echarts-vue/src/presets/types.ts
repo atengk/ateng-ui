@@ -301,3 +301,372 @@ export interface AtengTrendChartProps extends Omit<AtengEChartsProps, 'option'> 
  * AtengTrendChart 预设组件事件契约（继承自通用容器 Emits）。
  */
 export type AtengTrendChartEmits = AtengEChartsEmits;
+
+/**
+ * 环形中心 KPI 统计指标卡配置。
+ */
+export interface DonutCenterSummaryConfig {
+  /**
+   * 中心指标标题（如 '总销售额'）。
+   */
+  title?: string;
+
+  /**
+   * 是否自动求和显示总数值。
+   * @default true
+   */
+  showSum?: boolean;
+
+  /**
+   * 自定义求和数值格式化回调。
+   */
+  formatter?: (total: number) => string;
+}
+
+/**
+ * createDonutOption 工厂函数主配置。
+ */
+export interface DonutChartConfig {
+  /**
+   * 扁平数据源列表。
+   */
+  data: Record<string, unknown>[];
+
+  /**
+   * 类目名称字段名。
+   * @default 'name'
+   */
+  nameKey?: string;
+
+  /**
+   * 数值字段名。
+   * @default 'value'
+   */
+  valueKey?: string;
+
+  /**
+   * 环形内外半径 [内半径, 外半径]。
+   * @default ['45%', '70%']
+   */
+  radius?: [number | string, number | string];
+
+  /**
+   * 饼图中心坐标 [横坐标, 纵坐标]。
+   * @default ['50%', '50%']
+   */
+  center?: [number | string, number | string];
+
+  /**
+   * 南丁格尔玫瑰图模式，支持 'radius'（半径区分）或 'area'（面积区分）。
+   * @default false
+   */
+  roseType?: boolean | 'radius' | 'area';
+
+  /**
+   * 扇区圆角半径。
+   * @default 6
+   */
+  borderRadius?: number;
+
+  /**
+   * 扇区间距角度（ECharts 5.5+）。
+   * @default 2
+   */
+  padAngle?: number;
+
+  /**
+   * 数值度量单位后缀（如 '元'、'个'、'%'）。
+   */
+  unit?: string;
+
+  /**
+   * 数值小数位精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否开启数值千分位展示。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 中心 KPI 统计指标卡配置。
+   */
+  centerSummary?: boolean | DonutCenterSummaryConfig;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 深度覆盖逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengDonutChart 预设组件属性契约。
+ */
+export interface AtengDonutChartProps extends Omit<AtengEChartsProps, 'option'> {
+  /**
+   * 扁平数据源列表。
+   */
+  data: Record<string, unknown>[];
+
+  /**
+   * 类目名称字段名。
+   * @default 'name'
+   */
+  nameKey?: string;
+
+  /**
+   * 数值字段名。
+   * @default 'value'
+   */
+  valueKey?: string;
+
+  /**
+   * 环形内外半径 [内半径, 外半径]。
+   * @default ['45%', '70%']
+   */
+  radius?: [number | string, number | string];
+
+  /**
+   * 饼图中心坐标 [横坐标, 纵坐标]。
+   * @default ['50%', '50%']
+   */
+  center?: [number | string, number | string];
+
+  /**
+   * 南丁格尔玫瑰图模式。
+   * @default false
+   */
+  roseType?: boolean | 'radius' | 'area';
+
+  /**
+   * 扇区圆角半径。
+   * @default 6
+   */
+  borderRadius?: number;
+
+  /**
+   * 扇区间距角度。
+   * @default 2
+   */
+  padAngle?: number;
+
+  /**
+   * 数值单位后缀。
+   */
+  unit?: string;
+
+  /**
+   * 数值精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否开启千分位。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 中心 KPI 指标卡。
+   */
+  centerSummary?: boolean | DonutCenterSummaryConfig;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 深度覆盖逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengDonutChart 预设组件事件契约。
+ */
+export type AtengDonutChartEmits = AtengEChartsEmits;
+
+/**
+ * createFunnelOption 工厂函数主配置。
+ */
+export interface FunnelChartConfig {
+  /**
+   * 扁平数据源列表。
+   */
+  data: Record<string, unknown>[];
+
+  /**
+   * 阶段名称字段名。
+   * @default 'name'
+   */
+  nameKey?: string;
+
+  /**
+   * 阶段数值字段名。
+   * @default 'value'
+   */
+  valueKey?: string;
+
+  /**
+   * 漏斗排序方式：'descending'（降序，默认）、'ascending'（升序）、'none'（原始顺序）。
+   * @default 'descending'
+   */
+  sort?: 'descending' | 'ascending' | 'none';
+
+  /**
+   * 漏斗各阶段数据块间距（像素）。
+   * @default 2
+   */
+  gap?: number;
+
+  /**
+   * 漏斗最小宽度（百分比或像素）。
+   * @default '0%'
+   */
+  minSize?: string;
+
+  /**
+   * 漏斗最大宽度（百分比或像素）。
+   * @default '80%'
+   */
+  maxSize?: string;
+
+  /**
+   * 数值单位后缀。
+   */
+  unit?: string;
+
+  /**
+   * 数值精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否开启数值千分位展示。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 深度覆盖逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengFunnelChart 预设组件属性契约。
+ */
+export interface AtengFunnelChartProps extends Omit<AtengEChartsProps, 'option'> {
+  /**
+   * 扁平数据源列表。
+   */
+  data: Record<string, unknown>[];
+
+  /**
+   * 阶段名称字段名。
+   * @default 'name'
+   */
+  nameKey?: string;
+
+  /**
+   * 阶段数值字段名。
+   * @default 'value'
+   */
+  valueKey?: string;
+
+  /**
+   * 漏斗排序方式。
+   * @default 'descending'
+   */
+  sort?: 'descending' | 'ascending' | 'none';
+
+  /**
+   * 阶段间距。
+   * @default 2
+   */
+  gap?: number;
+
+  /**
+   * 漏斗最小宽度。
+   * @default '0%'
+   */
+  minSize?: string;
+
+  /**
+   * 漏斗最大宽度。
+   * @default '80%'
+   */
+  maxSize?: string;
+
+  /**
+   * 数值单位后缀。
+   */
+  unit?: string;
+
+  /**
+   * 数值精度。
+   */
+  precision?: number;
+
+  /**
+   * 是否开启数值千分位。
+   * @default true
+   */
+  formatThousands?: boolean;
+
+  /**
+   * 图例开关或配置。
+   * @default true
+   */
+  legend?: boolean | LegendComponentOption;
+
+  /**
+   * 提示框开关或配置。
+   * @default true
+   */
+  tooltip?: boolean | TooltipComponentOption;
+
+  /**
+   * 深度覆盖逃生通道。
+   */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+
+/**
+ * AtengFunnelChart 预设组件事件契约。
+ */
+export type AtengFunnelChartEmits = AtengEChartsEmits;
