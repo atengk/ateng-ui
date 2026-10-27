@@ -223,6 +223,71 @@ export interface AtengEChartsProps {
    * @default '图表加载异常'
    */
   errorText?: string;
+
+  /**
+   * 是否允许全屏放大查看图表。
+   * @default false
+   */
+  allowFullscreen?: boolean;
+
+  /**
+   * 全屏模式选择：'auto'（优先原生全屏，异常/不支持时降级为页面级脱壳全屏）、'native'（仅系统全屏）、'page'（页面级脱壳全屏）。
+   * @default 'auto'
+   */
+  fullscreenMode?: 'auto' | 'native' | 'page';
+
+  /**
+   * 是否允许高清图片导出下载。
+   * @default false
+   */
+  allowExport?: boolean;
+
+  /**
+   * 图片导出详细配置选项。
+   */
+  exportOptions?: ChartExportOptions;
+}
+
+/**
+ * 图表高清图片导出配置项。
+ */
+export interface ChartExportOptions {
+  /**
+   * 导出图片格式类型。
+   * @default 'png'
+   */
+  type?: 'png' | 'jpeg';
+
+  /**
+   * 设备像素比（导出分辨率放大倍率），推荐 2 或 3。
+   * @default 2
+   */
+  pixelRatio?: number;
+
+  /**
+   * 导出背景色，默认亮色模式为 '#ffffff'，深色模式为 '#141414'。
+   */
+  backgroundColor?: string;
+
+  /**
+   * 保存的文件名（可包含或不包含后缀），未指定时自动生成带时间戳的安全文件名。
+   */
+  filename?: string;
+
+  /**
+   * 导出时忽略的组件列表（如 ['toolbox']）。
+   * @default ['toolbox']
+   */
+  excludeComponents?: string[];
+}
+
+/**
+ * 图表图片导出事件载荷。
+ */
+export interface ChartExportPayload {
+  filename: string;
+  type: 'png' | 'jpeg';
+  pixelRatio: number;
 }
 
 /**
@@ -288,6 +353,16 @@ export interface AtengEChartsEmits {
    * 异常遮罩重试点击事件。
    */
   (e: 'retry'): void;
+
+  /**
+   * 全屏状态切换事件。
+   */
+  (e: 'fullscreen-change', isFullscreen: boolean): void;
+
+  /**
+   * 高清图片导出成功事件。
+   */
+  (e: 'export', payload: ChartExportPayload): void;
 }
 
 export type {

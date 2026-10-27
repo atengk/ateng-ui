@@ -88,6 +88,12 @@ defineExpose({
   getDataURL: (
     opts?: Parameters<NonNullable<InstanceType<typeof AtengECharts>>['getDataURL']>[0],
   ) => echartsRef.value?.getDataURL(opts) ?? '',
+  isFullscreen: computed(() => echartsRef.value?.isFullscreen ?? false),
+  toggleFullscreen: (mode?: 'auto' | 'native' | 'page') =>
+    echartsRef.value?.toggleFullscreen(mode) ?? Promise.resolve(false),
+  exportImage: (
+    opts?: Parameters<NonNullable<InstanceType<typeof AtengECharts>>['exportImage']>[0],
+  ) => echartsRef.value?.exportImage(opts) ?? false,
 });
 </script>
 
@@ -111,6 +117,10 @@ defineExpose({
       :empty-text="props.emptyText"
       :error="props.error"
       :error-text="props.errorText"
+      :allow-fullscreen="props.allowFullscreen"
+      :fullscreen-mode="props.fullscreenMode"
+      :allow-export="props.allowExport"
+      :export-options="props.exportOptions"
       @rendered="inst => emit('rendered', inst)"
       @finished="() => emit('finished')"
       @chart-click="p => emit('chart-click', p)"
@@ -123,6 +133,8 @@ defineExpose({
       @resize="() => emit('resize')"
       @theme-change="t => emit('theme-change', t)"
       @retry="() => emit('retry')"
+      @fullscreen-change="isFs => emit('fullscreen-change', isFs)"
+      @export="payload => emit('export', payload)"
     >
       <template #default>
         <slot />
@@ -135,6 +147,9 @@ defineExpose({
       </template>
       <template #error="slotProps">
         <slot name="error" v-bind="slotProps" />
+      </template>
+      <template #toolbar="slotProps">
+        <slot name="toolbar" v-bind="slotProps" />
       </template>
     </AtengECharts>
   </div>

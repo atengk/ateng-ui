@@ -43,6 +43,15 @@ export {
   atengLightTheme,
   atengDarkTheme,
 } from './theme';
+export {
+  generateChartFilename,
+  dataUrlToBlob,
+  exportChartImage,
+  isNativeFullscreenSupported,
+  isElementInNativeFullscreen,
+  requestNativeFullscreen,
+  exitNativeFullscreen,
+} from './utils';
 
 /**
  * Vue 插件安装器，支持 app.use(installECharts)。
@@ -74,6 +83,8 @@ export type {
   UseEChartsReturn,
   AtengEChartsProps,
   AtengEChartsEmits,
+  ChartExportOptions,
+  ChartExportPayload,
   TrendDimension,
   TrendDimensionConfig,
   TrendMetric,

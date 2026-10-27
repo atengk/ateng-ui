@@ -197,10 +197,16 @@ const isDark = ref(false);
 // 动态容器宽度测试
 const isCompact = ref(false);
 
-// 选项卡状态（Tab 1: 基础大盘；Tab 2: Ticket #155 趋势图；Tab 3: Ticket #156 环形图与漏斗图；Tab 4: Ticket #157 仪表盘与雷达图；Tab 5: Ticket #158 地图下钻；Tab 6: 初始隐藏零尺寸 Tab）
+// 选项卡状态（Tab 1: 基础大盘；Tab 2: 趋势图；Tab 3: 环形/漏斗；Tab 4: 仪表/雷达；Tab 5: 地图下钻；Tab 6: 全屏导出工具链；Tab 7: 初始隐藏 Tab）
 const activeTab = ref<
-  'dashboard' | 'trendPreset' | 'donutFunnelPreset' | 'gaugeRadarPreset' | 'mapPreset' | 'hiddenTab'
->('mapPreset');
+  | 'dashboard'
+  | 'trendPreset'
+  | 'donutFunnelPreset'
+  | 'gaugeRadarPreset'
+  | 'mapPreset'
+  | 'toolbarPreset'
+  | 'hiddenTab'
+>('toolbarPreset');
 
 const log = (msg: string) => {
   const time = new Date().toLocaleTimeString();
@@ -799,6 +805,37 @@ const toggleMapEmpty = () => {
   isMapEmpty.value = !isMapEmpty.value;
   log(`已切换地图空状态遮罩为: ${isMapEmpty.value ? '空数据态' : '正常数据态'}`);
 };
+
+// 7. Ticket #159 全屏脱壳与高清导出增强
+const toolbarChartRef = ref<AtengEChartsInstance | null>(null);
+const customToolbarChartRef = ref<AtengTrendChartInstance | null>(null);
+
+const triggerToolbarFullscreen = async (mode: 'auto' | 'native' | 'page' = 'page') => {
+  if (toolbarChartRef.value) {
+    const success = await toolbarChartRef.value.toggleFullscreen(mode);
+    log(`已编程式切换全屏模式 [${mode}]: ${success ? '成功' : '失败'}`);
+  }
+};
+
+const triggerToolbarExport = (ratio = 2) => {
+  if (toolbarChartRef.value) {
+    const success = toolbarChartRef.value.exportImage({
+      pixelRatio: ratio,
+      filename: `sample_chart_${ratio}x`,
+    });
+    log(`已编程式触发高清 ${ratio}x 导出: ${success ? '成功' : '失败'}`);
+  }
+};
+
+const onFullscreenChange = (isFullscreen: boolean) => {
+  log(`触发 fullscreen-change 事件: 当前全屏状态 = ${isFullscreen ? '全屏已激活' : '已还原窗口'}`);
+};
+
+const onChartExport = (payload: { filename: string; type: string; pixelRatio: number }) => {
+  log(
+    `触发 export 导出事件: 文件名=${payload.filename}, 格式=${payload.type}, 分辨率=${payload.pixelRatio}x`,
+  );
+};
 </script>
 
 <template>
@@ -806,16 +843,15 @@ const toggleMapEmpty = () => {
     <header class="header">
       <div class="title-wrap">
         <h1>@atengk/echarts-vue 自验展厅</h1>
-        <span class="badge">Ticket #158 自验</span>
+        <span class="badge">Ticket #159 自验</span>
         <span class="badge-success">端口 3006</span>
         <span class="badge-theme">{{
           isDark ? '🌙 当前: 暗黑模式 (ateng-dark)' : '☀️ 当前: 浅色模式 (ateng-light)'
         }}</span>
       </div>
       <p class="subtitle">
-        L2 专用能力扩展层：高频预设 AtengMapChart（GeoJSON SPI
-        与三级地图下钻）、AtengGaugeChart、AtengRadarChart、AtengDonutChart、
-        AtengFunnelChart、AtengTrendChart 趋势看板与多态 DOM 遮罩。
+        L2 专用能力扩展层：全屏脱壳放大、高清图片报表导出、浮动工具胶囊、自定义 #toolbar 插槽、
+        高频预设 AtengMapChart、AtengGaugeChart、AtengRadarChart、AtengDonutChart、AtengTrendChart。
       </p>
     </header>
 
@@ -838,6 +874,13 @@ const toggleMapEmpty = () => {
 
     <!-- 选项卡导航切换 (验证 display: none 零尺寸挂起自愈) -->
     <div class="tab-nav">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'toolbarPreset' }"
+        @click="activeTab = 'toolbarPreset'"
+      >
+        🖥️ 辅助工具链：全屏脱壳、高清导出与自定义工具栏 (#159)
+      </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'mapPreset' }"
@@ -880,6 +923,92 @@ const toggleMapEmpty = () => {
       >
         ⚡ 隐藏选项卡 (初始 display: none 零尺寸自愈验证)
       </button>
+    </div>
+
+    <!-- 选项卡：Ticket #159 辅助工具链全屏脱壳与高清导出视图 -->
+    <div v-show="activeTab === 'toolbarPreset'" class="tab-content">
+      <div class="action-bar" style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="triggerToolbarFullscreen('page')">
+          🖥️ 页面级脱壳全屏 (CSS Fixed 视口无黑边)
+        </button>
+        <button class="btn btn-info" @click="triggerToolbarFullscreen('native')">
+          🪟 浏览器原生系统全屏 (F11 级)
+        </button>
+        <button class="btn btn-secondary" @click="triggerToolbarExport(2)">
+          📷 高清 2x 导出 (默认)
+        </button>
+        <button class="btn btn-warning" @click="triggerToolbarExport(3)">
+          🖼️ 超清 3x 导出 (300 DPI 印刷级)
+        </button>
+      </div>
+
+      <div class="grid-layout">
+        <!-- 卡片 1: 默认内置浮动操作胶囊与事件监听 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">
+              1. 内置轻量浮动操作胶囊 (右上角毛玻璃胶囊：全屏脱壳 + 高清导出)
+            </span>
+            <span class="badge-sub">悬浮右上角浮现工具按钮，可直接点击全屏或下载图片</span>
+          </div>
+          <div class="card-body">
+            <AtengECharts
+              ref="toolbarChartRef"
+              :option="barOption"
+              theme="auto"
+              height="380px"
+              :allow-fullscreen="true"
+              fullscreen-mode="auto"
+              :allow-export="true"
+              :export-options="{ pixelRatio: 2, filename: 'sample_business_overview' }"
+              @chart-click="onChartClick"
+              @fullscreen-change="onFullscreenChange"
+              @export="onChartExport"
+            />
+          </div>
+        </div>
+
+        <!-- 卡片 2: 自定义 #toolbar 插槽完全替换 -->
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title"> 2. 自定义 #toolbar 插槽 (预设图表扩展定制操作按钮) </span>
+            <span class="badge-sub">通过作用域参数接管 toggleFullscreen 与 exportImage</span>
+          </div>
+          <div class="card-body">
+            <AtengTrendChart
+              ref="customToolbarChartRef"
+              :data="trendData"
+              dimension="month"
+              :metrics="trendMetrics"
+              theme="auto"
+              height="380px"
+              :allow-fullscreen="true"
+              :allow-export="true"
+              @fullscreen-change="onFullscreenChange"
+              @export="onChartExport"
+            >
+              <template #toolbar="{ isFullscreen, toggleFullscreen, exportImage }">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary"
+                  style="font-size: 11px; padding: 2px 8px"
+                  @click="toggleFullscreen('page')"
+                >
+                  {{ isFullscreen ? '↩️ 还原' : '🔍 脱壳全屏' }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-secondary"
+                  style="font-size: 11px; padding: 2px 8px"
+                  @click="exportImage({ pixelRatio: 3, filename: 'custom_trend_report' })"
+                >
+                  💾 导出 3x 报表
+                </button>
+              </template>
+            </AtengTrendChart>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 选项卡：Ticket #158 高频预设地图下钻视图 -->
