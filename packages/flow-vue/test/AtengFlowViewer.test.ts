@@ -405,4 +405,54 @@ describe('AtengFlowViewer 运行态流转追踪器', () => {
     await resetBtn.trigger('click');
     expect(resetZoomSpy).toHaveBeenCalled();
   });
+
+  it('应该安全解构富文本对象节点配置，避免悬停浮层标题出现 [object Object] 缺陷', async () => {
+    const objectTextNode: FlowNode = {
+      id: 'task-rich-text',
+      type: FlowNodeType.USER_TASK,
+      x: 300,
+      y: 200,
+      text: { value: '高级多行审批任务', x: 300, y: 200 },
+    };
+    const richGraph: FlowGraph = {
+      nodes: [objectTextNode],
+      edges: [],
+    };
+    const richStatusMap: FlowStatusMap = {
+      'task-rich-text': {
+        status: 'completed',
+        audit: [
+          {
+            operator: '赵审批',
+            status: 'completed',
+            comment: '审核通过',
+          },
+        ],
+      },
+    };
+
+    wrapper = mount(AtengFlowViewer, {
+      props: {
+        modelValue: richGraph,
+        statusMap: richStatusMap,
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const expose = wrapper.vm as unknown as AtengFlowViewerExpose;
+    const testLf = expose.getLf() as unknown as TestLfInstance;
+
+    testLf.emit('node:mouseenter', {
+      data: objectTextNode,
+      e: new MouseEvent('mouseenter', { clientX: 300, clientY: 200 }),
+    });
+    await nextTick();
+
+    const titleEl = wrapper.find('.at-flow-audit-card__title');
+    expect(titleEl.exists()).toBe(true);
+    expect(titleEl.text()).toBe('高级多行审批任务');
+    expect(titleEl.text()).not.toContain('[object Object]');
+  });
 });

@@ -123,5 +123,20 @@ describe('FlowSnapshot 全景快照导出引擎', () => {
       expect(clicked).toBe(true);
       spy.mockRestore();
     });
+
+    it('调用 download 方法下载 XML 时应采用 application/xml MIME 类型', () => {
+      let createdBlob: Blob | null = null;
+      const originalCreateObjectURL = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        createdBlob = blob;
+        return 'blob:mock-url';
+      });
+
+      FlowSnapshot.download('<?xml version="1.0"?>', 'process.bpmn20.xml');
+      expect(createdBlob).not.toBeNull();
+      expect(createdBlob?.type).toContain('application/xml');
+
+      URL.createObjectURL = originalCreateObjectURL;
+    });
   });
 });

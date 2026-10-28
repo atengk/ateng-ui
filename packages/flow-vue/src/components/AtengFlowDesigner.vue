@@ -9,14 +9,14 @@
  * @since 2026-10-27
  */
 
-import { ref, shallowRef, computed, type CSSProperties, type Component } from 'vue';
+import { ref, shallowRef, computed, watch, type CSSProperties, type Component } from 'vue';
 import type LogicFlow from '@logicflow/core';
 import AtengFlowCanvas from './AtengFlowCanvas.vue';
 import AtengFlowStencil from './AtengFlowStencil.vue';
 import AtengFlowToolbar from './AtengFlowToolbar.vue';
 import AtengFlowPropertyPanel from './AtengFlowPropertyPanel.vue';
 import { registerPresetNodes, type StencilItem } from '../presets';
-import { AutoLayoutEngine } from '../layout';
+import { AutoLayoutEngine, animateLayout } from '../layout';
 import { FlowValidator, type FlowValidationError, type FlowValidationResult } from '../validator';
 import type { BpmnExportOptions } from '../bpmn';
 import type { FlowSnapshotOptions } from '../snapshot';
@@ -59,8 +59,30 @@ defineSlots<AtengFlowDesignerSlots>();
 const canvasRef = ref<AtengFlowCanvasExpose | null>(null);
 const internalLf = shallowRef<LogicFlow | null>(null);
 const selectedElement = ref<FlowElementData | null>(null);
+const displayElement = ref<FlowElementData | null>(null);
 const canUndo = ref<boolean>(false);
 const canRedo = ref<boolean>(false);
+
+// 保持抽屉退场动画期间的元素快照，杜绝内容瞬间卸载变白
+watch(
+  selectedElement,
+  newVal => {
+    if (newVal) {
+      displayElement.value = newVal;
+    }
+  },
+  { immediate: true },
+);
+
+const activeElement = computed<FlowElementData | null>(() => {
+  return displayElement.value ?? selectedElement.value;
+});
+
+const handleAfterLeave = () => {
+  if (!selectedElement.value) {
+    displayElement.value = null;
+  }
+};
 
 const mergedCanvasOptions = computed<FlowOptions>(() => {
   return {
@@ -172,35 +194,7 @@ const handleClosePanel = () => {
 };
 
 const updateProperty = (key: string, value: unknown) => {
-  if (!selectedElement.value || !internalLf.value) return;
-  const { id } = selectedElement.value;
-
-  // 1. 若更新名称/文本标签，同步刷新画布文本
-  if (key === 'name' || key === 'label' || key === 'text') {
-    const strVal = String(value ?? '');
-    internalLf.value.updateText(id, strVal);
-    selectedElement.value.name = strVal;
-    if (typeof selectedElement.value.text === 'object' && selectedElement.value.text !== null) {
-      selectedElement.value.text = { ...selectedElement.value.text, value: strVal };
-    } else {
-      selectedElement.value.text = strVal;
-    }
-  }
-
-  // 2. 回写 LogicFlow 元素属性字典（纳入历史撤销重做）
-  internalLf.value.setProperties(id, { [key]: value });
-
-  // 3. 同步内存响应式状态
-  selectedElement.value.properties = {
-    ...selectedElement.value.properties,
-    [key]: value,
-  };
-
-  // 4. 触发全局数据双向流同步与事件派发
-  const current = getGraphData();
-  emit('change', current);
-  emit('update:modelValue', current);
-  emit('element:update', selectedElement.value);
+  updateProperties({ [key]: value });
 };
 
 const updateProperties = (patch: Record<string, unknown>) => {
@@ -230,6 +224,7 @@ const updateProperties = (patch: Record<string, unknown>) => {
     ...selectedElement.value.properties,
     ...patch,
   };
+  displayElement.value = { ...selectedElement.value };
 
   // 4. 触发全局数据流同步
   const current = getGraphData();
@@ -238,14 +233,23 @@ const updateProperties = (patch: Record<string, unknown>) => {
   emit('element:update', selectedElement.value);
 };
 
-const handleAutoLayout = (direction: LayoutDirection = 'LR') => {
+const handleAutoLayout = (direction: LayoutDirection = 'LR', options?: { animate?: boolean }) => {
   const current = getGraphData();
   const newGraph = AutoLayoutEngine.layout(current, { direction });
-  render(newGraph);
-  fitView();
-  emit('change', newGraph);
-  emit('update:modelValue', newGraph);
-  emit('layout:complete', { direction, graph: newGraph });
+  const onDone = () => {
+    fitView();
+    emit('change', newGraph);
+    emit('update:modelValue', newGraph);
+    emit('layout:complete', { direction, graph: newGraph });
+  };
+  if (options?.animate && internalLf.value && typeof requestAnimationFrame !== 'undefined') {
+    animateLayout(internalLf.value, newGraph, {
+      onComplete: onDone,
+    });
+  } else {
+    render(newGraph);
+    onDone();
+  }
 };
 
 const handleToggleGrid = (visible?: boolean) => {
@@ -259,7 +263,11 @@ const handleToggleMiniMap = (visible?: boolean) => {
 const getLf = () => canvasRef.value?.getLf() ?? null;
 const getGraphData = () => canvasRef.value?.getGraphData() ?? { nodes: [], edges: [] };
 const render = (graph?: FlowGraph) => canvasRef.value?.render(graph);
-const clear = () => canvasRef.value?.clear();
+const clear = () => {
+  selectedElement.value = null;
+  displayElement.value = null;
+  canvasRef.value?.clear();
+};
 const zoomIn = () => canvasRef.value?.zoomIn();
 const zoomOut = () => canvasRef.value?.zoomOut();
 const resetZoom = () => canvasRef.value?.resetZoom();
@@ -352,6 +360,38 @@ const registerVueNode = (type: string, component: Component, options?: VueNodeOp
   canvasRef.value?.registerVueNode(type, component, options);
 };
 
+const selectElement = (id: string): boolean => {
+  if (!internalLf.value || !id) return false;
+  const nodeModel = internalLf.value.getNodeModelById(id);
+  if (nodeModel) {
+    const rawData = (nodeModel.getData ? nodeModel.getData() : {}) as FlowNode;
+    handleNodeClick(rawData, new MouseEvent('click'));
+    internalLf.value.selectElementById(id, false);
+    return true;
+  }
+  const edgeModel = internalLf.value.getEdgeModelById(id);
+  if (edgeModel) {
+    const rawData = (edgeModel.getData ? edgeModel.getData() : {}) as FlowEdge;
+    handleEdgeClick(rawData, new MouseEvent('click'));
+    internalLf.value.selectElementById(id, false);
+    return true;
+  }
+  return false;
+};
+
+const openPanel = (id?: string): void => {
+  if (id) {
+    selectElement(id);
+    return;
+  }
+  if (selectedElement.value) return;
+  const graph = getGraphData();
+  const firstNode = graph.nodes[0];
+  if (firstNode) {
+    selectElement(firstNode.id);
+  }
+};
+
 defineExpose<AtengFlowDesignerExpose>({
   getLf,
   getGraphData,
@@ -365,6 +405,8 @@ defineExpose<AtengFlowDesignerExpose>({
   redo,
   startDrag: handleStartDrag,
   getSelectedElement: () => selectedElement.value,
+  selectElement,
+  openPanel,
   closePanel: handleClosePanel,
   updateProperty,
   updateProperties,
@@ -459,16 +501,17 @@ defineExpose<AtengFlowDesignerExpose>({
         />
       </main>
 
-      <!-- 右侧属性配置抽屉/面板 -->
-      <Transition name="at-flow-panel-slide">
+      <!-- 右侧属性配置抽屉/面板（绝对定位浮动抽屉） -->
+      <Transition name="at-flow-panel-slide" @after-leave="handleAfterLeave">
         <aside
           v-if="showPanel && selectedElement"
           class="at-flow-designer__panel"
           :style="{ width: panelWidthCss }"
         >
           <slot
+            v-if="activeElement"
             name="panel"
-            :element="selectedElement"
+            :element="activeElement"
             :lf="internalLf"
             :update-property="updateProperty"
             :update-properties="updateProperties"
@@ -476,7 +519,7 @@ defineExpose<AtengFlowDesignerExpose>({
             :get-graph-data="getGraphData"
           >
             <AtengFlowPropertyPanel
-              :element="selectedElement"
+              :element="activeElement"
               :disabled="disabled"
               @update:property="updateProperty"
               @update:properties="updateProperties"
@@ -522,12 +565,16 @@ defineExpose<AtengFlowDesignerExpose>({
 }
 
 .at-flow-designer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   height: 100%;
-  position: relative;
   z-index: 20;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  border-left: 1px solid var(--at-flow-border, #e2e8f0);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
   background-color: #ffffff;
-  flex-shrink: 0;
+  overflow: hidden;
 }
 
 /* 抽屉平滑滑入滑出动画 */

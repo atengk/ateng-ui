@@ -8,7 +8,7 @@
  * @since 2026-10-27
  */
 
-import { ref, computed, watch, onMounted, type CSSProperties, type Component } from 'vue';
+import { ref, computed, watch, onMounted, nextTick, type CSSProperties, type Component } from 'vue';
 import { useFlow } from '../composables/useFlow';
 import { BpmnAdapter, type BpmnExportOptions } from '../bpmn';
 import { FlowSnapshot, type FlowSnapshotOptions } from '../snapshot';
@@ -71,6 +71,8 @@ const rootStyle = computed<CSSProperties>(() => {
   };
 });
 
+let isInternalUpdate = false;
+
 onMounted(() => {
   if (!domRef.value) {
     return;
@@ -98,8 +100,12 @@ onMounted(() => {
   // 3. 监听历史变更与图元变动
   instance.on('history:change', () => {
     const current = getGraphData();
+    isInternalUpdate = true;
     emit('change', current);
     emit('update:modelValue', current);
+    nextTick(() => {
+      isInternalUpdate = false;
+    });
   });
 
   // 4. 注册外部传入的自定义 Vue SFC 节点
@@ -128,12 +134,18 @@ watch(
     if (!lf.value || !newVal) {
       return;
     }
+    // 若本次数据变动来源于自身交互向上同步，避免循环全量重绘
+    if (isInternalUpdate) {
+      return;
+    }
     const current = getGraphData();
-    // 简易防抖比对，避免自身发出的 update:modelValue 导致循环全量重绘
-    if (
+    // 深度对比节点与连线核心数据是否实质性变化
+    const isDifferent =
       current.nodes.length !== newVal.nodes.length ||
-      current.edges.length !== newVal.edges.length
-    ) {
+      current.edges.length !== newVal.edges.length ||
+      JSON.stringify(current) !== JSON.stringify(newVal);
+
+    if (isDifferent) {
       render(newVal);
     }
   },
@@ -171,7 +183,7 @@ const toggleMiniMap = (visible?: boolean) => {
 const focusElement = (id: string) => {
   if (!lf.value || !id) return;
   try {
-    lf.value.focusOn(id);
+    lf.value.focusOn({ id });
     lf.value.selectElementById(id);
   } catch {
     // 降级保护

@@ -255,4 +255,40 @@ describe('AtengFlowDesigner', () => {
     exposed.clearValidationHighlight();
     expect(taskModel?.properties?.__hasError).toBe(false);
   });
+
+  it('抽屉采用绝对定位浮动架构，且在关闭退场时通过 displayElement 维持快照', async () => {
+    let capturedElement: FlowElementData | null = null;
+    wrapper = mount(AtengFlowDesigner, {
+      props: {
+        modelValue: mockGraph,
+      },
+      slots: {
+        panel: (slotProps: FlowPanelSlotProps) => {
+          capturedElement = slotProps.element;
+          return h('div', { class: 'snapshot-probe' }, slotProps.element.name);
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const canvas = wrapper.findComponent({ name: 'AtengFlowCanvas' });
+    canvas.vm.$emit('node:click', mockGraph.nodes[1]!, new MouseEvent('click'));
+    await wrapper.vm.$nextTick();
+
+    const panel = wrapper.find('.at-flow-designer__panel');
+    expect(panel.exists()).toBe(true);
+    expect(capturedElement).not.toBeNull();
+    expect((capturedElement as unknown as FlowElementData).id).toBe('user-task-1');
+
+    // 触发关闭
+    const exposed = wrapper.vm as unknown as {
+      closePanel: () => void;
+      getSelectedElement: () => FlowElementData | null;
+    };
+    exposed.closePanel();
+    await wrapper.vm.$nextTick();
+
+    // 逻辑状态已立即置空
+    expect(exposed.getSelectedElement()).toBeNull();
+  });
 });

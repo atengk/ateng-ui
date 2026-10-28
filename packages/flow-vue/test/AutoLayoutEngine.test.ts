@@ -5,8 +5,9 @@
  * @since 2026-10-27
  */
 
-import { describe, it, expect } from 'vitest';
-import { AutoLayoutEngine } from '../src/layout';
+import { describe, it, expect, vi } from 'vitest';
+import { AutoLayoutEngine, animateLayout } from '../src/layout';
+import type LogicFlow from '@logicflow/core';
 import type { FlowGraph } from '../src/types';
 
 describe('AutoLayoutEngine', () => {
@@ -124,5 +125,26 @@ describe('AutoLayoutEngine', () => {
     const islandResult = AutoLayoutEngine.layout(islandGraph, { startX: 100, startY: 100 });
     expect(islandResult.nodes[0]?.x).toBe(100);
     expect(islandResult.nodes[0]?.y).toBe(100);
+  });
+
+  it('animateLayout 应该支持驱动节点动画过渡并触发完成回调', () => {
+    const mockLf = {
+      render: vi.fn(),
+      graphModel: {
+        getNodeModelById: vi.fn(() => ({ x: 0, y: 0 })),
+        moveNode2Coordinate: vi.fn(),
+      },
+    } as unknown as LogicFlow;
+
+    const targetGraph: FlowGraph = {
+      nodes: [{ id: 'n1', type: 'rect', x: 200, y: 200 }],
+      edges: [],
+    };
+
+    const onComplete = vi.fn();
+    animateLayout(mockLf, targetGraph, { duration: 0, onComplete });
+
+    expect(mockLf.render).toHaveBeenCalledWith(targetGraph);
+    expect(onComplete).toHaveBeenCalled();
   });
 });

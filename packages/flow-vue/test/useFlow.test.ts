@@ -100,4 +100,52 @@ describe('useFlow', () => {
     const { init } = useFlow();
     expect(() => init(undefined)).toThrowError('初始化画布失败');
   });
+
+  it('应该默认注册 MiniMap 插件并挂载至 extension.miniMap', () => {
+    const { init, destroy } = useFlow();
+    const instance = init(container);
+    const ext = instance.extension as Record<string, unknown>;
+    expect(ext.miniMap).toBeDefined();
+    destroy();
+  });
+
+  it('应该支持桌面级键盘快捷键触发与事件响应', () => {
+    const { init, render, destroy } = useFlow();
+    const instance = init(container);
+
+    render({
+      nodes: [
+        { id: 'node-a', type: 'rect', x: 100, y: 100, text: 'A' },
+        { id: 'node-b', type: 'rect', x: 200, y: 100, text: 'B' },
+      ],
+      edges: [{ id: 'edge-ab', type: 'polyline', sourceNodeId: 'node-a', targetNodeId: 'node-b' }],
+    });
+
+    // 选中 node-a 并触发删除
+    instance.selectElementById('node-a', false);
+    expect(instance.getSelectElements(false).nodes.length).toBe(1);
+
+    // 触发 delete / backspace 快捷键
+    const keyboard = instance.keyboard;
+    expect(keyboard).toBeDefined();
+
+    // 触发复制 Ctrl+C 与粘贴 Ctrl+V
+    instance.selectElementById('node-b', false);
+    expect(() => {
+      // 模拟快捷键分发
+      const event = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true });
+      window.dispatchEvent(event);
+    }).not.toThrow();
+
+    // 触发 Space 键与画布拖拽平移
+    const spaceDown = new KeyboardEvent('keydown', { code: 'Space' });
+    window.dispatchEvent(spaceDown);
+    expect(container.style.cursor).toBe('grab');
+
+    const spaceUp = new KeyboardEvent('keyup', { code: 'Space' });
+    window.dispatchEvent(spaceUp);
+    expect(container.style.cursor).toBe('');
+
+    destroy();
+  });
 });

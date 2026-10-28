@@ -51,39 +51,28 @@ const progress = computed<number>(() => {
   return Math.min(100, Math.max(0, Number.isFinite(p) ? p : 0));
 });
 
-const statusLabel = computed<string>(() => {
-  switch (status.value) {
-    case 'approved':
-    case 'completed':
-      return '已通过';
-    case 'rejected':
-      return '已驳回';
-    case 'processing':
-      return '审批中';
-    case 'terminated':
-      return '已终止';
-    case 'pending':
-    default:
-      return '待处理';
-  }
-});
+interface StatusMeta {
+  label: string;
+  badgeClass: string;
+}
 
-const statusClass = computed<string>(() => {
-  switch (status.value) {
-    case 'approved':
-    case 'completed':
-      return 'at-flow-card__badge--success';
-    case 'rejected':
-      return 'at-flow-card__badge--danger';
-    case 'processing':
-      return 'at-flow-card__badge--primary';
-    case 'terminated':
-      return 'at-flow-card__badge--muted';
-    case 'pending':
-    default:
-      return 'at-flow-card__badge--warning';
-  }
-});
+const STATUS_CONFIG: Record<string, StatusMeta> = {
+  approved: { label: '已通过', badgeClass: 'at-flow-card__badge--success' },
+  completed: { label: '已通过', badgeClass: 'at-flow-card__badge--success' },
+  rejected: { label: '已驳回', badgeClass: 'at-flow-card__badge--danger' },
+  processing: { label: '审批中', badgeClass: 'at-flow-card__badge--primary' },
+  terminated: { label: '已终止', badgeClass: 'at-flow-card__badge--muted' },
+  pending: { label: '待处理', badgeClass: 'at-flow-card__badge--warning' },
+};
+
+const DEFAULT_STATUS_META: StatusMeta = {
+  label: '待处理',
+  badgeClass: 'at-flow-card__badge--warning',
+};
+
+const statusMeta = computed<StatusMeta>(() => STATUS_CONFIG[status.value] ?? DEFAULT_STATUS_META);
+const statusLabel = computed<string>(() => statusMeta.value.label);
+const statusClass = computed<string>(() => statusMeta.value.badgeClass);
 
 const handleQuickApprove = (e: MouseEvent) => {
   e.stopPropagation();
@@ -167,6 +156,7 @@ const handleQuickReject = (e: MouseEvent) => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: all 0.2s ease-in-out;
   cursor: grab;
@@ -175,8 +165,9 @@ const handleQuickReject = (e: MouseEvent) => {
 
 .at-flow-approval-card:hover {
   border-color: var(--at-flow-card-hover-border, #3b82f6);
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15);
-  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.25),
+    0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
 .at-flow-approval-card.is-disabled {

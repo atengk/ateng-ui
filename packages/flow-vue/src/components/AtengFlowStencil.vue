@@ -9,7 +9,12 @@
  */
 
 import { ref, computed } from 'vue';
-import { DEFAULT_STENCIL_GROUPS, type StencilGroup, type StencilItem } from '../presets';
+import {
+  DEFAULT_STENCIL_GROUPS,
+  getNodeBadgeIcon,
+  type StencilGroup,
+  type StencilItem,
+} from '../presets';
 import type { AtengFlowStencilProps, AtengFlowStencilEmits } from '../types';
 
 defineOptions({
@@ -26,6 +31,17 @@ const emit = defineEmits<AtengFlowStencilEmits>();
 
 const keyword = ref<string>('');
 
+const isSvgIcon = (icon?: string): boolean => {
+  return typeof icon === 'string' && icon.trim().startsWith('<svg');
+};
+
+const getItemLabel = (
+  item: StencilItem | { label?: string; text?: string; type?: string },
+): string => {
+  const customText = 'text' in item ? (item as { text?: string }).text : undefined;
+  return item.label ?? customText ?? item.type ?? '';
+};
+
 const filteredGroups = computed<StencilGroup[]>(() => {
   const kw = keyword.value.trim().toLowerCase();
   if (!kw) {
@@ -34,23 +50,27 @@ const filteredGroups = computed<StencilGroup[]>(() => {
   return props.groups
     .map(group => ({
       ...group,
-      items: group.items.filter(
-        item =>
-          item.label.toLowerCase().includes(kw) ||
-          item.type.toLowerCase().includes(kw) ||
-          (item.description && item.description.toLowerCase().includes(kw)),
-      ),
+      items: group.items.filter(item => {
+        const label = getItemLabel(item).toLowerCase();
+        const type = item.type.toLowerCase();
+        const desc = (item.description ?? '').toLowerCase();
+        return label.includes(kw) || type.includes(kw) || desc.includes(kw);
+      }),
     }))
     .filter(group => group.items.length > 0);
 });
 
 const handleMouseDown = (item: StencilItem, event: MouseEvent) => {
   if (props.lf) {
-    const textVal = typeof item.nodeConfig?.text === 'string' ? item.nodeConfig.text : item.label;
+    const textVal =
+      typeof item.nodeConfig?.text === 'string' ? item.nodeConfig.text : getItemLabel(item);
+    const properties =
+      item.nodeConfig?.properties ??
+      (item as unknown as { defaultProperties?: Record<string, unknown> }).defaultProperties;
     props.lf.dnd.startDrag({
       type: item.type,
       text: textVal,
-      properties: item.nodeConfig?.properties,
+      properties,
     });
   }
   emit('dragstart', item, event);
@@ -62,6 +82,7 @@ const handleClick = (item: StencilItem) => {
 </script>
 
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <aside class="at-flow-stencil">
     <div class="at-flow-stencil__header">
       <span class="at-flow-stencil__title">{{ title }}</span>
@@ -81,21 +102,19 @@ const handleClick = (item: StencilItem) => {
             v-for="item in group.items"
             :key="item.type"
             class="at-flow-stencil__item"
-            :title="item.description ?? item.label"
+            :title="item.description ?? getItemLabel(item)"
             @mousedown="handleMouseDown(item, $event)"
             @click="handleClick(item)"
           >
             <div class="at-flow-stencil__item-badge" :data-type="item.type">
-              <span v-if="item.type.includes('start')">▶</span>
-              <span v-else-if="item.type.includes('end')">■</span>
-              <span v-else-if="item.type.includes('user')">👤</span>
-              <span v-else-if="item.type.includes('service')">⚙</span>
-              <span v-else-if="item.type.includes('cc')">✉</span>
-              <span v-else-if="item.type.includes('exclusive')">✕</span>
-              <span v-else-if="item.type.includes('parallel')">＋</span>
-              <span v-else>●</span>
+              <span
+                v-if="isSvgIcon(item.icon)"
+                class="at-flow-stencil__svg-icon"
+                v-html="item.icon"
+              />
+              <span v-else>{{ item.icon || getNodeBadgeIcon(item.type) }}</span>
             </div>
-            <span class="at-flow-stencil__item-label">{{ item.label }}</span>
+            <span class="at-flow-stencil__item-label">{{ getItemLabel(item) }}</span>
           </div>
         </div>
       </div>
@@ -204,6 +223,24 @@ const handleClick = (item: StencilItem) => {
   margin-bottom: 4px;
   color: #3b82f6;
   background-color: #e0f2fe;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.at-flow-stencil__svg-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+}
+
+.at-flow-stencil__svg-icon :deep(svg) {
+  width: 16px;
+  height: 16px;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .at-flow-stencil__item-badge[data-type*='start'] {

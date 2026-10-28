@@ -8,6 +8,7 @@
  * @since 2026-10-27
  */
 
+import type LogicFlow from '@logicflow/core';
 import type { FlowGraph, FlowNode, FlowEdge } from '../types';
 
 /**
@@ -140,8 +141,9 @@ export class AutoLayoutEngine {
     }
 
     // 若无明确入度为 0 的节点（如全孤岛或全环退化），保底以首节点为根
-    if (roots.length === 0 && clonedNodes.length > 0) {
-      roots.push(clonedNodes[0]!.id);
+    const fallbackNode = clonedNodes[0];
+    if (roots.length === 0 && fallbackNode) {
+      roots.push(fallbackNode.id);
     }
 
     // 5. 最长路径分层（Longest Path Layering）计算每个节点的 Rank
@@ -226,4 +228,75 @@ export class AutoLayoutEngine {
       edges: clonedEdges,
     };
   }
+}
+
+/**
+ * 自动排版平滑过渡动画选项。
+ */
+export interface LayoutAnimationOptions {
+  /** 动画持续毫秒数（默认 250ms） */
+  duration?: number;
+  /** 动画完成回调 */
+  onComplete?: () => void;
+}
+
+/**
+ * 平滑过渡动画驱动节点移动至自动排版后的目标坐标。
+ *
+ * @param lf LogicFlow 画布实例
+ * @param targetGraph 目标排版图数据
+ * @param options 动画配置
+ */
+export function animateLayout(
+  lf: LogicFlow,
+  targetGraph: FlowGraph,
+  options?: LayoutAnimationOptions,
+): void {
+  const duration = options?.duration ?? 250;
+  if (
+    duration <= 0 ||
+    typeof requestAnimationFrame === 'undefined' ||
+    typeof performance === 'undefined'
+  ) {
+    lf.render(targetGraph as unknown as LogicFlow.GraphConfigData);
+    options?.onComplete?.();
+    return;
+  }
+
+  const startPositions = new Map<string, { x: number; y: number }>();
+  for (const node of targetGraph.nodes) {
+    const model = lf.graphModel?.getNodeModelById(node.id);
+    if (model) {
+      startPositions.set(node.id, { x: model.x, y: model.y });
+    }
+  }
+
+  const startTime = performance.now();
+
+  const step = (currentTime: number) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // 三次缓动曲线 easeInOutCubic
+    const ease =
+      progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    for (const node of targetGraph.nodes) {
+      const start = startPositions.get(node.id);
+      if (start && lf.graphModel?.moveNode2Coordinate) {
+        const curX = start.x + (node.x - start.x) * ease;
+        const curY = start.y + (node.y - start.y) * ease;
+        lf.graphModel.moveNode2Coordinate(node.id, Math.round(curX), Math.round(curY));
+      }
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      // 动画结束最终渲染同步，保障连线折点与文本 100% 精确
+      lf.render(targetGraph as unknown as LogicFlow.GraphConfigData);
+      options?.onComplete?.();
+    }
+  };
+
+  requestAnimationFrame(step);
 }

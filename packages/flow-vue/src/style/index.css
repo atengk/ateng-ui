@@ -103,3 +103,19 @@
 g.at-flow-status--processing path {
   animation: at-flow-dash-flowing 1.2s infinite linear !important;
 }
+
+/* 连线文字防压线纯白圆角胶囊背景垫底与优雅排版 */
+.lf-line-text rect {
+  fill: #ffffff !important;
+  stroke: #cbd5e1 !important;
+  stroke-width: 1px !important;
+  rx: 4px !important;
+  ry: 4px !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06));
+}
+
+.lf-line-text text {
+  fill: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}

@@ -9,6 +9,8 @@
  */
 
 import { ref } from 'vue';
+import AtengFlowToolbarIcon from './AtengFlowToolbarIcon.vue';
+import AtengFlowClearConfirm from './AtengFlowClearConfirm.vue';
 import type {
   LayoutDirection,
   AtengFlowToolbarProps,
@@ -116,19 +118,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="撤销"
             @click="handleUndo"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3 10h10a5 5 0 0 1 5 5v2m-15-7l4-4m-4 4l4 4"
-              />
-            </svg>
+            <AtengFlowToolbarIcon name="undo" />
             <span class="at-flow-toolbar__text">撤销</span>
           </button>
 
@@ -140,19 +130,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="重做"
             @click="handleRedo"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M21 10H11a5 5 0 0 0-5 5v2m15-7l-4-4m4 4l-4 4"
-              />
-            </svg>
+            <AtengFlowToolbarIcon name="redo" />
             <span class="at-flow-toolbar__text">重做</span>
           </button>
         </div>
@@ -169,18 +147,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="放大"
             @click="handleZoomIn"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              <line x1="11" y1="8" x2="11" y2="14" />
-              <line x1="8" y1="11" x2="14" y2="11" />
-            </svg>
+            <AtengFlowToolbarIcon name="zoom-in" />
           </button>
 
           <button
@@ -191,17 +158,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="缩小"
             @click="handleZoomOut"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              <line x1="8" y1="11" x2="14" y2="11" />
-            </svg>
+            <AtengFlowToolbarIcon name="zoom-out" />
           </button>
 
           <button
@@ -223,19 +180,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="居中"
             @click="handleFitView"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
-              />
-            </svg>
+            <AtengFlowToolbarIcon name="fit-view" />
             <span class="at-flow-toolbar__text">居中</span>
           </button>
         </div>
@@ -254,19 +199,7 @@ defineExpose<AtengFlowToolbarExpose>({
             title="从左到右水平自动排版 (LR)"
             @click="handleLayout('LR')"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="8" width="6" height="8" rx="1" />
-              <rect x="15" y="4" width="6" height="6" rx="1" />
-              <rect x="15" y="14" width="6" height="6" rx="1" />
-              <line x1="9" y1="12" x2="15" y2="7" />
-              <line x1="9" y1="12" x2="15" y2="17" />
-            </svg>
+            <AtengFlowToolbarIcon name="layout-lr" />
             <span class="at-flow-toolbar__text">水平整理</span>
           </button>
 
@@ -277,19 +210,7 @@ defineExpose<AtengFlowToolbarExpose>({
             title="从上到下垂直自动排版 (TB)"
             @click="handleLayout('TB')"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="8" y="3" width="8" height="6" rx="1" />
-              <rect x="4" y="15" width="6" height="6" rx="1" />
-              <rect x="14" y="15" width="6" height="6" rx="1" />
-              <line x1="12" y1="9" x2="7" y2="15" />
-              <line x1="12" y1="9" x2="17" y2="15" />
-            </svg>
+            <AtengFlowToolbarIcon name="layout-tb" />
             <span class="at-flow-toolbar__text">垂直整理</span>
           </button>
         </div>
@@ -310,19 +231,7 @@ defineExpose<AtengFlowToolbarExpose>({
             title="切换背景对齐网格"
             @click="handleToggleGrid"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-              <line x1="3" y1="15" x2="21" y2="15" />
-              <line x1="9" y1="3" x2="9" y2="21" />
-              <line x1="15" y1="3" x2="15" y2="21" />
-            </svg>
+            <AtengFlowToolbarIcon name="grid" />
             <span class="at-flow-toolbar__text">网格</span>
           </button>
 
@@ -335,17 +244,7 @@ defineExpose<AtengFlowToolbarExpose>({
             title="展开/折叠鹰眼缩略小地图"
             @click="handleToggleMiniMap"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-              <line x1="8" y1="2" x2="8" y2="18" />
-              <line x1="16" y1="6" x2="16" y2="22" />
-            </svg>
+            <AtengFlowToolbarIcon name="minimap" />
             <span class="at-flow-toolbar__text">小地图</span>
           </button>
         </div>
@@ -362,19 +261,7 @@ defineExpose<AtengFlowToolbarExpose>({
             aria-label="校验拓扑"
             @click="emit('validate')"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <AtengFlowToolbarIcon name="validate" />
             <span class="at-flow-toolbar__text">校验</span>
           </button>
         </div>
@@ -390,48 +277,16 @@ defineExpose<AtengFlowToolbarExpose>({
             title="清空画布所有图元"
             @click="handleOpenClearConfirm"
           >
-            <svg
-              viewBox="0 0 24 24"
-              class="at-flow-icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="3 6 5 6 21 6" />
-              <path
-                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              />
-            </svg>
+            <AtengFlowToolbarIcon name="clear" />
             <span class="at-flow-toolbar__text">清空</span>
           </button>
 
           <!-- 防误触气泡确认弹窗 -->
-          <Transition name="fade">
-            <div v-if="isConfirmClearVisible" class="at-flow-toolbar__popover">
-              <div class="at-flow-toolbar__popover-content">
-                <span class="at-flow-toolbar__popover-title">⚠️ 确认清空画布？</span>
-                <p class="at-flow-toolbar__popover-desc">
-                  清空后画布上的所有节点和连线将被删除，此操作不可逆。
-                </p>
-                <div class="at-flow-toolbar__popover-actions">
-                  <button
-                    type="button"
-                    class="at-flow-toolbar__popover-btn"
-                    @click="handleCancelClear"
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="button"
-                    class="at-flow-toolbar__popover-btn is-danger"
-                    @click="handleConfirmClear"
-                  >
-                    确定清空
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Transition>
+          <AtengFlowClearConfirm
+            :visible="isConfirmClearVisible"
+            @confirm="handleConfirmClear"
+            @cancel="handleCancelClear"
+          />
         </div>
       </slot>
     </div>
@@ -535,80 +390,5 @@ defineExpose<AtengFlowToolbarExpose>({
 
 .at-flow-toolbar__clear-wrap {
   position: relative;
-}
-
-/* 防误触确认弹窗 */
-.at-flow-toolbar__popover {
-  position: absolute;
-  top: 36px;
-  right: 0;
-  z-index: 100;
-  width: 220px;
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  padding: 12px;
-}
-
-.at-flow-toolbar__popover-title {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  margin-bottom: 4px;
-}
-
-.at-flow-toolbar__popover-desc {
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.4;
-}
-
-.at-flow-toolbar__popover-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.at-flow-toolbar__popover-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.at-flow-toolbar__popover-btn:hover {
-  background-color: #f8fafc;
-}
-
-.at-flow-toolbar__popover-btn.is-danger {
-  background-color: #ef4444;
-  border-color: #dc2626;
-  color: #ffffff;
-}
-
-.at-flow-toolbar__popover-btn.is-danger:hover {
-  background-color: #dc2626;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 </style>

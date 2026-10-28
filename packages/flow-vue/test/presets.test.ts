@@ -7,7 +7,13 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import LogicFlow from '@logicflow/core';
-import { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from '../src/presets';
+import {
+  registerPresetNodes,
+  FlowNodeType,
+  DEFAULT_STENCIL_GROUPS,
+  NODE_TYPE_LABEL_MAP,
+  getNodeBadgeIcon,
+} from '../src/presets';
 
 describe('Presets & Connection Rules', () => {
   let container: HTMLDivElement;
@@ -173,5 +179,100 @@ describe('Presets & Connection Rules', () => {
     expect(edgeModel?.isAnimation).toBe(true);
     const style = edgeModel?.getEdgeStyle();
     expect(style?.stroke).toBe('#3b82f6');
+  });
+
+  it('预设节点应具备四向精准磁吸锚点 (getDefaultAnchor)', () => {
+    registerPresetNodes(lf);
+
+    lf.render({
+      nodes: [
+        { id: 'start-node', type: FlowNodeType.START, x: 100, y: 100 },
+        { id: 'task-node', type: FlowNodeType.USER_TASK, x: 300, y: 100 },
+        { id: 'gw-node', type: FlowNodeType.EXCLUSIVE_GATEWAY, x: 500, y: 100 },
+      ],
+      edges: [],
+    });
+
+    const startModel = lf.getNodeModelById('start-node');
+    const taskModel = lf.getNodeModelById('task-node');
+    const gwModel = lf.getNodeModelById('gw-node');
+
+    expect(startModel?.getDefaultAnchor().length).toBe(4);
+    expect(taskModel?.getDefaultAnchor().length).toBe(4);
+    expect(gwModel?.getDefaultAnchor().length).toBe(4);
+  });
+
+  it('NODE_TYPE_LABEL_MAP 与 getNodeBadgeIcon 应准确解析预设图元元数据', () => {
+    expect(NODE_TYPE_LABEL_MAP[FlowNodeType.START]).toBe('开始事件');
+    expect(NODE_TYPE_LABEL_MAP[FlowNodeType.USER_TASK]).toBe('用户审批任务');
+    expect(NODE_TYPE_LABEL_MAP[FlowNodeType.EXCLUSIVE_GATEWAY]).toBe('排他网关（条件分支）');
+
+    expect(getNodeBadgeIcon(FlowNodeType.START)).toBe('▶');
+    expect(getNodeBadgeIcon(FlowNodeType.END)).toBe('■');
+    expect(getNodeBadgeIcon(FlowNodeType.USER_TASK)).toBe('👤');
+    expect(getNodeBadgeIcon('unknown-type')).toBe('●');
+  });
+
+  it('紧凑图元智能双轨文本排版：短文本居中，长文本自动下沉挂载至底部', () => {
+    registerPresetNodes(lf);
+
+    lf.render({
+      nodes: [
+        { id: 'start-short', type: FlowNodeType.START, x: 100, y: 100, text: '开始' },
+        { id: 'start-long', type: FlowNodeType.START, x: 200, y: 100, text: 'Kafka 行为流' },
+        { id: 'gw-short', type: FlowNodeType.EXCLUSIVE_GATEWAY, x: 300, y: 100, text: '×' },
+        { id: 'gw-long', type: FlowNodeType.EXCLUSIVE_GATEWAY, x: 400, y: 100, text: '白名单过滤' },
+      ],
+      edges: [],
+    });
+
+    const startShort = lf.getNodeModelById('start-short');
+    const startLong = lf.getNodeModelById('start-long');
+    const gwShort = lf.getNodeModelById('gw-short');
+    const gwLong = lf.getNodeModelById('gw-long');
+
+    // 短文本保留在图元正中央 (y === 100)
+    expect(startShort?.text?.y).toBe(100);
+    expect(gwShort?.text?.y).toBe(100);
+
+    // 长文本自动下沉挂载至图元底部 (100 + 38 = 138; 100 + 39 = 139)
+    expect(startLong?.text?.y).toBe(138);
+    expect(gwLong?.text?.y).toBe(139);
+
+    // 动态更新文本 updateText 应实时联动重新排版
+    startShort?.updateText('费用大额审核流程');
+    expect(startShort?.text?.y).toBe(138);
+
+    startLong?.updateText('结束');
+    expect(startLong?.text?.y).toBe(100);
+  });
+
+  it('连线模型应自带纯白圆角防压线背景胶囊配置', () => {
+    registerPresetNodes(lf);
+
+    lf.render({
+      nodes: [
+        { id: 'n-1', type: FlowNodeType.START, x: 100, y: 100, text: '开始' },
+        { id: 'n-2', type: FlowNodeType.END, x: 400, y: 100, text: '结束' },
+      ],
+      edges: [
+        { id: 'e-poly', type: 'polyline', sourceNodeId: 'n-1', targetNodeId: 'n-2', text: '折线' },
+        { id: 'e-bez', type: 'bezier', sourceNodeId: 'n-1', targetNodeId: 'n-2', text: '曲线' },
+      ],
+    });
+
+    const polyEdge = lf.getEdgeModelById('e-poly');
+    const bezEdge = lf.getEdgeModelById('e-bez');
+
+    const polyTextStyle = polyEdge?.getTextStyle();
+    const bezTextStyle = bezEdge?.getTextStyle();
+
+    expect(polyTextStyle?.background?.fill).toBe('#ffffff');
+    expect(polyTextStyle?.background?.stroke).toBe('#cbd5e1');
+    expect(polyTextStyle?.background?.radius).toBe(4);
+
+    expect(bezTextStyle?.background?.fill).toBe('#ffffff');
+    expect(bezTextStyle?.background?.stroke).toBe('#cbd5e1');
+    expect(bezTextStyle?.background?.radius).toBe(4);
   });
 });

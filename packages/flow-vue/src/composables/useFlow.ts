@@ -9,6 +9,7 @@
 
 import LogicFlow from '@logicflow/core';
 import type { Options } from '@logicflow/core';
+import { MiniMap } from '@logicflow/extension';
 import {
   ref,
   shallowRef,
@@ -29,6 +30,7 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
 
   let resizeObserver: ResizeObserver | null = null;
   let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  const cleanups: Array<() => void> = [];
 
   /**
    * 初始化 LogicFlow 画布实例。
@@ -46,7 +48,15 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
 
     containerRef.value = targetContainer;
 
-    // 2. 合并配置项
+    // 2. 合并配置项，默认载入 MiniMap 插件
+    const initialPlugins = customOptions?.plugins ?? options?.plugins;
+    const plugins: LogicFlow.ExtensionType[] = Array.isArray(initialPlugins)
+      ? [...initialPlugins]
+      : [];
+    if (!plugins.includes(MiniMap as unknown as LogicFlow.ExtensionType)) {
+      plugins.push(MiniMap as unknown as LogicFlow.ExtensionType);
+    }
+
     const mergedOptions: Options.Definition = {
       container: targetContainer,
       grid: true,
@@ -57,14 +67,16 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
       },
       ...options,
       ...customOptions,
+      plugins,
     };
 
     const instance = new LogicFlow(mergedOptions);
     lf.value = instance;
 
-    // 注册增强桌面级快捷键（Delete 键删除选中元素，Ctrl+Shift+Z 重做）
+    // 注册完整桌面级快捷键体系（撤销/重做、删除、复制/粘贴）
     if (instance.keyboard) {
-      instance.keyboard.on(['delete'], () => {
+      // 1. Delete / Backspace 删除选中图元
+      instance.keyboard.on(['delete', 'backspace'], () => {
         const kbOptions = instance.keyboard.options.keyboard;
         if (kbOptions?.enabled === false) return true;
         if (instance.graphModel.textEditElement) return true;
@@ -75,12 +87,132 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
         return false;
       });
 
-      instance.keyboard.on(['ctrl + shift + z', 'cmd + shift + z'], () => {
+      // 2. Ctrl+Z / Cmd+Z 撤销
+      instance.keyboard.on(['ctrl + z', 'cmd + z'], () => {
+        const kbOptions = instance.keyboard.options.keyboard;
+        if (kbOptions?.enabled === false) return true;
+        if (instance.graphModel.textEditElement) return true;
+        instance.undo();
+        return false;
+      });
+
+      // 3. Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z 重做
+      instance.keyboard.on(['ctrl + y', 'cmd + y', 'ctrl + shift + z', 'cmd + shift + z'], () => {
         const kbOptions = instance.keyboard.options.keyboard;
         if (kbOptions?.enabled === false) return true;
         if (instance.graphModel.textEditElement) return true;
         instance.redo();
         return false;
+      });
+
+      // 4. Ctrl+C / Cmd+C 复制 & Ctrl+V / Cmd+V 粘贴
+      let copiedElements: LogicFlow.GraphData | null = null;
+      let pasteDistance = 40;
+
+      instance.keyboard.on(['ctrl + c', 'cmd + c'], () => {
+        const kbOptions = instance.keyboard.options.keyboard;
+        if (kbOptions?.enabled === false) return true;
+        if (instance.graphModel.textEditElement) return true;
+        const selected = instance.graphModel.getSelectElements(false);
+        if (selected.nodes.length === 0 && selected.edges.length === 0) return true;
+        copiedElements = selected;
+        pasteDistance = 40;
+        return false;
+      });
+
+      instance.keyboard.on(['ctrl + v', 'cmd + v'], () => {
+        const kbOptions = instance.keyboard.options.keyboard;
+        if (kbOptions?.enabled === false) return true;
+        if (instance.graphModel.textEditElement) return true;
+        if (
+          copiedElements &&
+          (copiedElements.nodes.length > 0 || copiedElements.edges.length > 0)
+        ) {
+          instance.clearSelectElements();
+          const added = instance.addElements(
+            copiedElements as unknown as LogicFlow.GraphConfigData,
+            pasteDistance,
+          );
+          if (added) {
+            added.nodes.forEach(node => instance.selectElementById(node.id, true));
+            added.edges.forEach(edge => instance.selectElementById(edge.id, true));
+            pasteDistance += 40;
+          }
+        }
+        return false;
+      });
+    }
+
+    // 5. Space + 拖拽画布平移机制
+    let isSpaceDown = false;
+    let isDraggingCanvas = false;
+
+    const handleSpaceKeyDown = (e: KeyboardEvent) => {
+      const kbOptions = instance.keyboard?.options?.keyboard;
+      if (kbOptions?.enabled === false) return;
+      if (e.code === 'Space' && !instance.graphModel.textEditElement) {
+        e.preventDefault();
+        if (!isSpaceDown) {
+          isSpaceDown = true;
+          targetContainer.style.cursor = 'grab';
+        }
+      }
+    };
+
+    const handleSpaceKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isSpaceDown = false;
+        isDraggingCanvas = false;
+        targetContainer.style.cursor = '';
+      }
+    };
+
+    const handleContainerMouseDown = (e: MouseEvent) => {
+      if (isSpaceDown) {
+        isDraggingCanvas = true;
+        targetContainer.style.cursor = 'grabbing';
+        e.preventDefault();
+      }
+    };
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (isSpaceDown && isDraggingCanvas) {
+        instance.translate(e.movementX, e.movementY);
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDraggingCanvas) {
+        isDraggingCanvas = false;
+        if (isSpaceDown) {
+          targetContainer.style.cursor = 'grab';
+        } else {
+          targetContainer.style.cursor = '';
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      isSpaceDown = false;
+      isDraggingCanvas = false;
+      targetContainer.style.cursor = '';
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleSpaceKeyDown);
+      window.addEventListener('keyup', handleSpaceKeyUp);
+      targetContainer.addEventListener('mousedown', handleContainerMouseDown);
+      window.addEventListener('mousemove', handleWindowMouseMove);
+      window.addEventListener('mouseup', handleWindowMouseUp);
+      window.addEventListener('blur', handleWindowBlur);
+
+      cleanups.push(() => {
+        window.removeEventListener('keydown', handleSpaceKeyDown);
+        window.removeEventListener('keyup', handleSpaceKeyUp);
+        targetContainer.removeEventListener('mousedown', handleContainerMouseDown);
+        window.removeEventListener('mousemove', handleWindowMouseMove);
+        window.removeEventListener('mouseup', handleWindowMouseUp);
+        window.removeEventListener('blur', handleWindowBlur);
       });
     }
 
@@ -210,6 +342,10 @@ export function useFlow(useOptions: UseFlowOptions = {}): UseFlowReturn {
    * 确定性销毁与资源清理。
    */
   const destroy = (): void => {
+    while (cleanups.length > 0) {
+      const cleanup = cleanups.pop();
+      cleanup?.();
+    }
     if (resizeTimer) {
       clearTimeout(resizeTimer);
       resizeTimer = null;

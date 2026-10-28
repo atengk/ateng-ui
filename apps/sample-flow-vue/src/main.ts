@@ -8,6 +8,8 @@
 import { createApp } from 'vue';
 import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
+import '@logicflow/core/dist/index.css';
+import '@logicflow/extension/lib/style/index.css';
 import { install as installFlow } from '@atengk/flow-vue';
 import '@atengk/flow-vue/style.css';
 import App from './App.vue';

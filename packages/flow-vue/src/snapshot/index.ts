@@ -96,10 +96,28 @@ export class FlowSnapshot {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    // 1. 遍历节点边界
+    // 1. 遍历节点边界（含常见节点类型几何尺寸自适应）
     for (const node of nodes) {
-      const width = node.width ?? 120;
-      const height = node.height ?? 60;
+      let width = node.width;
+      let height = node.height;
+
+      if (!width || !height) {
+        const type = String(node.type || '');
+        if (type === 'approval-card') {
+          width = width ?? 220;
+          height = height ?? 126;
+        } else if (type === 'start' || type === 'end') {
+          width = width ?? 48;
+          height = height ?? 48;
+        } else if (type.includes('gateway')) {
+          width = width ?? 56;
+          height = height ?? 56;
+        } else {
+          width = width ?? 120;
+          height = height ?? 60;
+        }
+      }
+
       const left = node.x - width / 2;
       const right = node.x + width / 2;
       const top = node.y - height / 2;
@@ -172,20 +190,54 @@ export class FlowSnapshot {
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bbox.minX} ${bbox.minY} ${bbox.width} ${bbox.height}" width="${bbox.width}" height="${bbox.height}"></svg>`;
     }
 
-    // 3. 克隆 SVG 根节点
+    // 3. 克隆 SVG 根节点并设置独立全景 viewBox 坐标系
     const clonedSvg = sourceSvg.cloneNode(true) as SVGSVGElement;
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSvg.setAttribute('viewBox', `${bbox.minX} ${bbox.minY} ${bbox.width} ${bbox.height}`);
     clonedSvg.setAttribute('width', String(bbox.width));
     clonedSvg.setAttribute('height', String(bbox.height));
 
-    // 4. 重置平移缩放变换 (.lf-base)
+    // 4. 重置平移缩放变换：彻底清除外层包含视口矩阵的 <g> 及 .lf-base 的 transform
+    for (const child of Array.from(clonedSvg.children)) {
+      if (child.tagName.toLowerCase() === 'g' && child.hasAttribute('transform')) {
+        child.removeAttribute('transform');
+      }
+    }
     const baseGroup = clonedSvg.querySelector('.lf-base');
     if (baseGroup) {
       baseGroup.removeAttribute('transform');
     }
 
-    // 5. 注入背景矩形
+    // 5. 清理交互临时图元（吸附锚点、选中框、高亮手柄）
+    const tempArtifacts = clonedSvg.querySelectorAll(
+      '.lf-anchor, .lf-control, .lf-node-selected-box, .lf-line-anchor',
+    );
+    for (const el of Array.from(tempArtifacts)) {
+      el.remove();
+    }
+
+    // 6. 提取宿主环境样式并内联注入到 SVG <defs><style> 中，保障 Vue SFC 卡片与富文本样式 100% 保真
+    if (typeof document !== 'undefined') {
+      const styles = Array.from(document.querySelectorAll('style'))
+        .map(s => s.innerHTML)
+        .filter(
+          css => css.includes('at-flow') || css.includes('lf-') || css.includes('approval-card'),
+        )
+        .join('\n');
+
+      if (styles) {
+        let defs = clonedSvg.querySelector('defs');
+        if (!defs) {
+          defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          clonedSvg.insertBefore(defs, clonedSvg.firstChild);
+        }
+        const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.textContent = styles;
+        defs.appendChild(styleEl);
+      }
+    }
+
+    // 7. 注入背景矩形
     if (background && background !== 'transparent') {
       const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       bgRect.setAttribute('x', String(bbox.minX));
@@ -200,7 +252,7 @@ export class FlowSnapshot {
       }
     }
 
-    // 6. 嵌入安全防泄密文本水印
+    // 8. 嵌入安全防泄密文本水印
     if (watermark && watermark.text) {
       const text = watermark.text;
       const fontSize = watermark.fontSize ?? 16;
@@ -305,7 +357,10 @@ export class FlowSnapshot {
     let isBlobUrl = false;
 
     if (content.startsWith('<svg') || content.startsWith('<?xml')) {
-      const blob = new Blob([content], { type: 'image/svg+xml;charset=utf-8' });
+      const mimeType = filename.toLowerCase().endsWith('.xml')
+        ? 'application/xml;charset=utf-8'
+        : 'image/svg+xml;charset=utf-8';
+      const blob = new Blob([content], { type: mimeType });
       url = URL.createObjectURL(blob);
       isBlobUrl = true;
     }

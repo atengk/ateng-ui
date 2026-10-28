@@ -10,6 +10,7 @@
  */
 
 import { computed } from 'vue';
+import { NODE_TYPE_LABEL_MAP } from '../presets';
 import type {
   AtengFlowPropertyPanelProps,
   AtengFlowPropertyPanelEmits,
@@ -40,28 +41,19 @@ const panelTitle = computed(() => {
   return '连线属性';
 });
 
+const EDGE_TYPE_LABEL_MAP: Record<string, string> = {
+  polyline: '正交平滑折线',
+  line: '直线',
+  bezier: '贝塞尔曲线',
+};
+
 const typeLabel = computed(() => {
   if (!props.element) return '';
-  const map: Record<string, string> = {
-    start: '开始事件',
-    'flow:start': '开始事件',
-    end: '结束事件',
-    'flow:end': '结束事件',
-    'user-task': '用户审批任务',
-    'flow:user-task': '用户审批任务',
-    'service-task': '自动化服务任务',
-    'flow:service-task': '自动化服务任务',
-    'cc-task': '抄送通知任务',
-    'flow:cc-task': '抄送通知任务',
-    'exclusive-gateway': '排他网关（条件分支）',
-    'flow:exclusive-gateway': '排他网关（条件分支）',
-    'parallel-gateway': '并行网关（聚合分流）',
-    'flow:parallel-gateway': '并行网关（聚合分流）',
-    polyline: '正交平滑折线',
-    line: '直线',
-    bezier: '贝塞尔曲线',
-  };
-  return map[props.element.type] || props.element.type;
+  return (
+    NODE_TYPE_LABEL_MAP[props.element.type] ||
+    EDGE_TYPE_LABEL_MAP[props.element.type] ||
+    props.element.type
+  );
 });
 
 const isTaskNode = computed(() => {
@@ -74,29 +66,9 @@ const isEdge = computed(() => {
   return props.element.elementType === 'edge';
 });
 
-const handleNameChange = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('update:property', 'name', target.value);
-};
-
-const handleDescriptionChange = (e: Event) => {
-  const target = e.target as HTMLTextAreaElement;
-  emit('update:property', 'description', target.value);
-};
-
-const handleConditionChange = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('update:property', 'condition', target.value);
-};
-
-const handleAssigneeChange = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('update:property', 'assignee', target.value);
-};
-
-const handleApprovalModeChange = (e: Event) => {
-  const target = e.target as HTMLSelectElement;
-  emit('update:property', 'approvalMode', target.value);
+const handlePropertyInput = (key: string, e: Event) => {
+  const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  emit('update:property', key, target.value);
 };
 
 const handleClose = () => {
@@ -155,7 +127,7 @@ defineExpose<AtengFlowPropertyPanelExpose>({
             :value="element.name"
             :disabled="disabled"
             placeholder="请输入节点或连线名称"
-            @input="handleNameChange"
+            @input="handlePropertyInput('name', $event)"
           />
         </div>
 
@@ -167,7 +139,7 @@ defineExpose<AtengFlowPropertyPanelExpose>({
             :disabled="disabled"
             rows="3"
             placeholder="添加业务备注或处理规则说明"
-            @input="handleDescriptionChange"
+            @input="handlePropertyInput('description', $event)"
           />
         </div>
       </section>
@@ -183,7 +155,7 @@ defineExpose<AtengFlowPropertyPanelExpose>({
             :value="(element.properties.condition as string) || ''"
             :disabled="disabled"
             placeholder="例如: ${days > 3} 或 status == 'OK'"
-            @input="handleConditionChange"
+            @input="handlePropertyInput('condition', $event)"
           />
           <span class="at-flow-property-panel__hint">
             当来自排他网关时，满足此表达式的分支将被优先流转。
@@ -202,7 +174,7 @@ defineExpose<AtengFlowPropertyPanelExpose>({
             :value="(element.properties.assignee as string) || ''"
             :disabled="disabled"
             placeholder="如: admin, ${initiator}, role:manager"
-            @input="handleAssigneeChange"
+            @input="handlePropertyInput('assignee', $event)"
           />
         </div>
 
@@ -212,7 +184,7 @@ defineExpose<AtengFlowPropertyPanelExpose>({
             class="at-flow-property-panel__select"
             :value="(element.properties.approvalMode as string) || 'single'"
             :disabled="disabled"
-            @change="handleApprovalModeChange"
+            @change="handlePropertyInput('approvalMode', $event)"
           >
             <option value="single">单人办理 / 或签（一人通过即可）</option>
             <option value="countersign">会签（所有审批人必须全员通过）</option>

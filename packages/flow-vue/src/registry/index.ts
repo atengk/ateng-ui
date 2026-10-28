@@ -51,9 +51,9 @@ export interface FlowAnchorConfig {
  * Vue 节点注册配置选项。
  */
 export interface VueNodeOptions {
-  /** 节点默认宽度（默认 200px） */
+  /** 节点默认宽度（默认 220px） */
   width?: number;
-  /** 节点默认高度（默认 80px） */
+  /** 节点默认高度（默认 126px） */
   height?: number;
   /** 自定义四向吸附锚点生成函数 */
   getDefaultAnchor?: (model: HtmlNodeModel) => FlowAnchorConfig[];
@@ -178,10 +178,15 @@ export class VueNodeRegistry {
           }
         };
 
+        const currentGraph = (typeof lfInstance?.getGraphRawData === 'function'
+          ? lfInstance.getGraphRawData()
+          : undefined) as unknown as FlowGraph | undefined;
+
         const props: FlowVueNodeProps = {
           node: nodeData,
           lf: lfInstance,
           model,
+          graph: currentGraph,
           updateProperty,
           updateProperties,
           disabled: Boolean(this.props.graphModel?.editConfigModel?.isSilentMode),
@@ -201,14 +206,26 @@ export class VueNodeRegistry {
         this.unmountVue();
         super.componentWillUnmount();
       }
+
+      override getText(): null {
+        // 5. 坚决阻断 LogicFlow 在 SVG 顶层重复渲染文本，全权交由 Vue 单文件组件内部排版
+        return null;
+      }
     }
 
     class VueHtmlNodeModel extends HtmlNodeModel {
       override setAttributes(): void {
-        this.width = options.width ?? 200;
-        this.height = options.height ?? 80;
+        this.width = options.width ?? 220;
+        this.height = options.height ?? 126;
         // 禁止 LogicFlow 在卡片中央重复叠加渲染文本
         this.text.editable = false;
+      }
+
+      override getTextStyle(): LogicFlow.TextTheme {
+        const style = super.getTextStyle();
+        // 样式级双重防线：完全不显示原生文本图层
+        style.display = 'none';
+        return style;
       }
 
       override getDefaultAnchor(): FlowAnchorConfig[] {

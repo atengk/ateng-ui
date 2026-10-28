@@ -9,6 +9,7 @@
  */
 
 import type { App } from 'vue';
+import './style/index.css';
 import AtengFlowCanvas from './components/AtengFlowCanvas.vue';
 import AtengFlowDesigner from './components/AtengFlowDesigner.vue';
 import AtengFlowStencil from './components/AtengFlowStencil.vue';
@@ -27,8 +28,15 @@ export {
   AtengFlowViewer,
 };
 export { useFlow } from './composables/useFlow';
-export { registerPresetNodes, FlowNodeType, DEFAULT_STENCIL_GROUPS } from './presets';
-export { AutoLayoutEngine } from './layout';
+export {
+  registerPresetNodes,
+  FlowNodeType,
+  DEFAULT_STENCIL_GROUPS,
+  NODE_TYPE_LABEL_MAP,
+  NODE_TYPE_ICON_MAP,
+  getNodeBadgeIcon,
+} from './presets';
+export { AutoLayoutEngine, animateLayout } from './layout';
 export { FlowValidator, FlowValidationRuleCode } from './validator';
 export { BpmnAdapter } from './bpmn';
 export { FlowSnapshot } from './snapshot';
@@ -99,6 +107,7 @@ export type {
 } from './types';
 export { FlowExecutionStatus, STATUS_TEXT_MAP, STATUS_BADGE_CLASS_MAP } from './types';
 
+export type { LayoutAnimationOptions } from './layout';
 export type { FlowNodeTypeValue, BeforeConnectHook, StencilItem, StencilGroup } from './presets';
 export type {
   FlowValidationError,

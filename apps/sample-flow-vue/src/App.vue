@@ -12,10 +12,11 @@
  * @since 2026-10-27
  */
 
-import { ref, computed, nextTick, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 import {
   AtengFlowDesigner,
   AtengFlowViewer,
+  AtengFlowPropertyPanel,
   FlowNodeType,
   ApprovalCardNode,
   DEFAULT_STENCIL_GROUPS,
@@ -44,7 +45,7 @@ const customVueNodes: CustomVueNodeConfig[] = [
     component: ApprovalCardNode,
     options: {
       width: 220,
-      height: 95,
+      height: 126,
     },
   },
 ];
@@ -57,13 +58,16 @@ const stencilGroups: StencilGroup[] = [
     items: [
       {
         type: 'approval-card',
-        text: '审批卡片',
+        label: '审批卡片',
         description: '带头像、状态胶囊与快捷审批按钮的 Vue SFC 节点',
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>',
-        defaultProperties: {
-          assignee: '王经理 (研发部)',
-          status: 'processing',
-          progress: 50,
+        nodeConfig: {
+          text: '审批卡片',
+          properties: {
+            assignee: '王经理 (研发部)',
+            status: 'processing',
+            progress: 50,
+          },
         },
       },
     ],
@@ -75,8 +79,8 @@ const initialGraph: FlowGraph = {
     {
       id: 'start-1',
       type: FlowNodeType.START,
-      x: 120,
-      y: 200,
+      x: 100,
+      y: 180,
       text: '发起报销',
       properties: {
         description: '员工发起费用报销申请',
@@ -86,8 +90,8 @@ const initialGraph: FlowGraph = {
     {
       id: 'task-1',
       type: FlowNodeType.USER_TASK,
-      x: 340,
-      y: 200,
+      x: 300,
+      y: 180,
       text: '财务初审',
       properties: {
         assigneeType: 'user',
@@ -100,8 +104,8 @@ const initialGraph: FlowGraph = {
     {
       id: 'gateway-1',
       type: FlowNodeType.EXCLUSIVE_GATEWAY,
-      x: 540,
-      y: 200,
+      x: 500,
+      y: 180,
       text: '金额判断',
       properties: {
         description: '根据金额决定是否需要总监加签',
@@ -110,8 +114,8 @@ const initialGraph: FlowGraph = {
     {
       id: 'task-2',
       type: FlowNodeType.USER_TASK,
-      x: 740,
-      y: 120,
+      x: 700,
+      y: 90,
       text: '总监审批',
       properties: {
         assigneeType: 'role',
@@ -124,8 +128,8 @@ const initialGraph: FlowGraph = {
     {
       id: 'end-1',
       type: FlowNodeType.END,
-      x: 940,
-      y: 200,
+      x: 900,
+      y: 180,
       text: '办结归档',
       properties: {
         description: '自动出纳打款与凭证归档',
@@ -151,7 +155,9 @@ const initialGraph: FlowGraph = {
       id: 'edge-3',
       type: 'polyline',
       sourceNodeId: 'gateway-1',
+      sourceAnchorId: 'gateway-1_0',
       targetNodeId: 'task-2',
+      targetAnchorId: 'task-2_3',
       text: '金额 ≥ 1万元',
       properties: {
         condition: '${amount >= 10000}',
@@ -162,7 +168,9 @@ const initialGraph: FlowGraph = {
       id: 'edge-4',
       type: 'polyline',
       sourceNodeId: 'gateway-1',
+      sourceAnchorId: 'gateway-1_1',
       targetNodeId: 'end-1',
+      targetAnchorId: 'end-1_3',
       text: '金额 < 1万元',
       properties: {
         condition: '${amount < 10000}',
@@ -218,7 +226,22 @@ const beforeConnect: BeforeConnectHook = (source, target) => {
 
 const handleReady = () => {
   lastEvent.value = 'LogicFlow 设计器已就绪，工具栏动作矩阵与快捷键已就绪';
+  nextTick(() => {
+    designerRef.value?.fitView(50, 50);
+  });
 };
+
+watch(activeScene, scene => {
+  nextTick(() => {
+    if (scene === 'designer') {
+      designerRef.value?.fitView(50, 50);
+    } else if (scene === 'viewer') {
+      viewerRef.value?.fitView(50, 50);
+    } else if (scene === 'rules') {
+      rulesDesignerRef.value?.fitView(50, 50);
+    }
+  });
+});
 
 const handleNodeClick = (node: FlowNode) => {
   lastEvent.value = `选中节点: ${node.id} (${node.text || node.type})`;
@@ -230,6 +253,20 @@ const handleEdgeClick = (edge: FlowEdge) => {
 
 const handleBlankClick = () => {
   lastEvent.value = '点击画布空白区，属性抽屉已收起';
+};
+
+const isPanelOpen = computed(() => Boolean(currentSelected.value));
+
+const handleTogglePanel = () => {
+  if (!designerRef.value) return;
+  if (currentSelected.value) {
+    designerRef.value.closePanel();
+    currentSelected.value = null;
+    lastEvent.value = '已收起右侧属性配置抽屉';
+  } else {
+    designerRef.value.openPanel();
+    lastEvent.value = `已激活图元并展开右侧属性配置面板【${useCustomPanel.value ? 'Element Plus 业务接管' : '原生轻量抽屉'}】`;
+  }
 };
 
 const handleSelectionChange = (element: FlowElementData | null) => {
@@ -718,21 +755,30 @@ const ruleStencilGroups: StencilGroup[] = [
     items: [
       {
         type: FlowNodeType.START,
-        text: 'Kafka 行为流',
+        label: 'Kafka 行为流',
         description: '分布式 Topic 实时行为事件流',
-        defaultProperties: { category: 'input', role: 'source', topic: 'user_behavior_event' },
+        nodeConfig: {
+          text: 'Kafka 行为流',
+          properties: { category: 'input', role: 'source', topic: 'user_behavior_event' },
+        },
       },
       {
         type: FlowNodeType.START,
-        text: 'HTTP API 上报',
+        label: 'HTTP API 上报',
         description: '外部 RESTful Webhook 实时上报',
-        defaultProperties: { category: 'input', role: 'source', endpoint: '/api/v1/event/collect' },
+        nodeConfig: {
+          text: 'HTTP API 上报',
+          properties: { category: 'input', role: 'source', endpoint: '/api/v1/event/collect' },
+        },
       },
       {
         type: FlowNodeType.START,
-        text: '定时调度触发',
+        label: '定时调度触发',
         description: 'Cron 表达式周期拉取',
-        defaultProperties: { category: 'input', role: 'source', cron: '0 0/5 * * * ?' },
+        nodeConfig: {
+          text: '定时调度触发',
+          properties: { category: 'input', role: 'source', cron: '0 0/5 * * * ?' },
+        },
       },
     ],
   },
@@ -742,19 +788,25 @@ const ruleStencilGroups: StencilGroup[] = [
     items: [
       {
         type: FlowNodeType.EXCLUSIVE_GATEWAY,
-        text: '白名单过滤',
+        label: '白名单过滤',
         description: 'IP / 租户黑白名单过滤',
-        defaultProperties: {
-          category: 'filter',
-          role: 'processor',
-          condition: 'tenant_id in whitelist',
+        nodeConfig: {
+          text: '白名单过滤',
+          properties: {
+            category: 'filter',
+            role: 'processor',
+            condition: 'tenant_id in whitelist',
+          },
         },
       },
       {
         type: FlowNodeType.EXCLUSIVE_GATEWAY,
-        text: '指标阈值熔断',
+        label: '指标阈值熔断',
         description: '数值区间阈值熔断',
-        defaultProperties: { category: 'filter', role: 'processor', threshold: 1000 },
+        nodeConfig: {
+          text: '指标阈值熔断',
+          properties: { category: 'filter', role: 'processor', threshold: 1000 },
+        },
       },
     ],
   },
@@ -764,22 +816,28 @@ const ruleStencilGroups: StencilGroup[] = [
     items: [
       {
         type: FlowNodeType.SERVICE_TASK,
-        text: '敏感字段脱敏',
+        label: '敏感字段脱敏',
         description: '手机号身份证内存正则脱敏',
-        defaultProperties: {
-          category: 'transform',
-          role: 'processor',
-          rule: 'mask(phone, idCard)',
+        nodeConfig: {
+          text: '敏感字段脱敏',
+          properties: {
+            category: 'transform',
+            role: 'processor',
+            rule: 'mask(phone, idCard)',
+          },
         },
       },
       {
         type: FlowNodeType.SERVICE_TASK,
-        text: 'IP 地理位置补全',
+        label: 'IP 地理位置补全',
         description: '离线库补充城市地理元数据',
-        defaultProperties: {
-          category: 'transform',
-          role: 'processor',
-          rule: 'lookup(ip_geo_db)',
+        nodeConfig: {
+          text: 'IP 地理位置补全',
+          properties: {
+            category: 'transform',
+            role: 'processor',
+            rule: 'lookup(ip_geo_db)',
+          },
         },
       },
     ],
@@ -790,15 +848,21 @@ const ruleStencilGroups: StencilGroup[] = [
     items: [
       {
         type: FlowNodeType.END,
-        text: 'ES 审计检索',
+        label: 'ES 审计检索',
         description: '实时写入 ElasticSearch 集群',
-        defaultProperties: { category: 'output', role: 'sink', index: 'audit_logs_v1' },
+        nodeConfig: {
+          text: 'ES 审计检索',
+          properties: { category: 'output', role: 'sink', index: 'audit_logs_v1' },
+        },
       },
       {
         type: FlowNodeType.END,
-        text: 'MySQL 归档存储',
+        label: 'MySQL 归档存储',
         description: '批量分表插入 MySQL 持久化',
-        defaultProperties: { category: 'output', role: 'sink', table: 't_user_action_archive' },
+        nodeConfig: {
+          text: 'MySQL 归档存储',
+          properties: { category: 'output', role: 'sink', table: 't_user_action_archive' },
+        },
       },
     ],
   },
@@ -809,7 +873,7 @@ const initialRulesGraph: FlowGraph = {
     {
       id: 'rule-input-kafka',
       type: FlowNodeType.START,
-      x: 120,
+      x: 80,
       y: 220,
       text: 'Kafka 行为流',
       properties: { category: 'input', role: 'source', topic: 'user_behavior_event' },
@@ -817,7 +881,7 @@ const initialRulesGraph: FlowGraph = {
     {
       id: 'rule-filter-whitelist',
       type: FlowNodeType.EXCLUSIVE_GATEWAY,
-      x: 320,
+      x: 280,
       y: 220,
       text: '白名单过滤',
       properties: { category: 'filter', role: 'processor', condition: 'tenant_id in whitelist' },
@@ -825,32 +889,32 @@ const initialRulesGraph: FlowGraph = {
     {
       id: 'rule-transform-clean',
       type: FlowNodeType.SERVICE_TASK,
-      x: 540,
-      y: 160,
+      x: 500,
+      y: 140,
       text: '敏感字段脱敏',
       properties: { category: 'transform', role: 'processor', rule: 'mask(idCard, phone)' },
     },
     {
       id: 'rule-transform-enrich',
       type: FlowNodeType.SERVICE_TASK,
-      x: 540,
-      y: 280,
+      x: 500,
+      y: 300,
       text: 'IP 位置补全',
       properties: { category: 'transform', role: 'processor', rule: 'lookup(ip_geo_db)' },
     },
     {
       id: 'rule-output-es',
       type: FlowNodeType.END,
-      x: 760,
-      y: 160,
+      x: 720,
+      y: 140,
       text: 'ES 审计检索',
       properties: { category: 'output', role: 'sink', index: 'audit_logs_v1' },
     },
     {
       id: 'rule-output-mysql',
       type: FlowNodeType.END,
-      x: 760,
-      y: 280,
+      x: 720,
+      y: 300,
       text: 'MySQL 归档存储',
       properties: { category: 'output', role: 'sink', table: 't_user_action_archive' },
     },
@@ -1006,13 +1070,13 @@ const handleResetRulesGraph = () => {
   });
 };
 
-const currentBadgeType = computed(() => {
-  if (!currentSelected.value) return 'info';
-  if (currentSelected.value.elementType === 'edge') return 'success';
-  if (currentSelected.value.type.includes('task')) return 'warning';
-  if (currentSelected.value.type.includes('gateway')) return 'danger';
+const getElementBadgeType = (el: FlowElementData | null) => {
+  if (!el) return 'info';
+  if (el.elementType === 'edge') return 'success';
+  if (el.type.includes('task')) return 'warning';
+  if (el.type.includes('gateway')) return 'danger';
   return 'primary';
-});
+};
 
 // BPMN 2.0 互转对话框
 const isBpmnDialogVisible = ref<boolean>(false);
@@ -1206,11 +1270,20 @@ const handleDownloadSnapshot = async () => {
         <button v-if="validationResult" class="btn" @click="handleClearValidation">清除高亮</button>
 
         <button
+          class="btn"
+          :class="{ 'btn--primary': isPanelOpen }"
+          title="点击展开/收起右侧属性配置抽屉"
+          @click="handleTogglePanel"
+        >
+          📝 属性表单
+        </button>
+        <button
           class="btn btn--toggle"
           :class="{ 'is-active': useCustomPanel }"
+          title="切换属性表单渲染模式"
           @click="useCustomPanel = !useCustomPanel"
         >
-          {{ useCustomPanel ? '表单：Element Plus 接管' : '表单：原生轻量抽屉' }}
+          {{ useCustomPanel ? '模式: Element Plus 接管' : '模式: 原生轻量抽屉' }}
         </button>
         <button class="btn btn--primary" @click="handleReloadDefault">重置示例拓扑</button>
 
@@ -1289,17 +1362,22 @@ const handleDownloadSnapshot = async () => {
           @connection:not-allowed="handleConnectionNotAllowed"
           @validate="handleOnValidate"
         >
-          <!-- 使用 Element Plus 表单接管 #panel 插槽 -->
-          <template v-if="useCustomPanel" #panel="{ element, updateProperty, close }">
-            <div class="custom-el-panel">
+          <!-- 属性配置抽屉插槽：支持在 Element Plus 业务表单与原生轻量抽屉间丝滑切换 -->
+          <template #panel="{ element, updateProperty, updateProperties, close }">
+            <div v-if="useCustomPanel" class="custom-el-panel">
               <div class="custom-el-panel__header">
                 <div class="header-info">
                   <span class="panel-title">业务属性配置</span>
-                  <el-tag size="small" :type="currentBadgeType">
+                  <el-tag size="small" :type="getElementBadgeType(element)">
                     {{ element.elementType === 'node' ? '节点' : '连线' }}: {{ element.type }}
                   </el-tag>
                 </div>
-                <el-button link type="primary" size="small" @click="close"> 关闭 </el-button>
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <el-button link type="info" size="small" @click="useCustomPanel = false">
+                    切换原生抽屉
+                  </el-button>
+                  <el-button link type="primary" size="small" @click="close"> 关闭 </el-button>
+                </div>
               </div>
 
               <div class="custom-el-panel__body">
@@ -1316,6 +1394,43 @@ const handleDownloadSnapshot = async () => {
                       @input="(val: string) => updateProperty('name', val)"
                     />
                   </el-form-item>
+
+                  <!-- 审批卡片专属表单 (Vue 3 SFC 卡片图元) -->
+                  <template v-if="element.type === 'approval-card'">
+                    <el-divider content-position="left">⭐ 审批卡片专属配置</el-divider>
+
+                    <el-form-item label="审批人 / 办理角色">
+                      <el-input
+                        :model-value="(element.properties.assignee as string) || ''"
+                        placeholder="如: 王经理 (研发部)"
+                        @input="(val: string) => updateProperty('assignee', val)"
+                      />
+                    </el-form-item>
+
+                    <el-form-item label="当前审批状态">
+                      <el-select
+                        :model-value="(element.properties.status as string) || 'pending'"
+                        style="width: 100%"
+                        @change="(val: string) => updateProperty('status', val)"
+                      >
+                        <el-option label="待处理 (Pending)" value="pending" />
+                        <el-option label="审批中 (Processing)" value="processing" />
+                        <el-option label="已通过 (Approved)" value="approved" />
+                        <el-option label="已驳回 (Rejected)" value="rejected" />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item label="办理进度 (%)">
+                      <el-slider
+                        :model-value="Number(element.properties.progress ?? 0)"
+                        :min="0"
+                        :max="100"
+                        :step="5"
+                        show-input
+                        @input="(val: number) => updateProperty('progress', val)"
+                      />
+                    </el-form-item>
+                  </template>
 
                   <!-- 审批任务节点专属表单 -->
                   <template
@@ -1395,7 +1510,7 @@ const handleDownloadSnapshot = async () => {
                   <el-form-item label="备注说明">
                     <el-input
                       type="textarea"
-                      rows="3"
+                      :rows="3"
                       :model-value="(element.properties.description as string) || ''"
                       placeholder="业务规则或操作指引"
                       @input="(val: string) => updateProperty('description', val)"
@@ -1409,6 +1524,15 @@ const handleDownloadSnapshot = async () => {
                 <el-button type="primary" size="small" @click="close">完成配置</el-button>
               </div>
             </div>
+
+            <!-- 原生轻量属性面板回退 -->
+            <AtengFlowPropertyPanel
+              v-else
+              :element="element"
+              @update:property="updateProperty"
+              @update:properties="updateProperties"
+              @close="close"
+            />
           </template>
         </AtengFlowDesigner>
       </div>

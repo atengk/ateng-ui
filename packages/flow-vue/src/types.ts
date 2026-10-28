@@ -545,6 +545,10 @@ export interface AtengFlowDesignerExpose {
   startDrag: (item: import('./presets').StencilItem) => void;
   /** 获取当前选中的图元数据 */
   getSelectedElement: () => FlowElementData | null;
+  /** 选中指定图元并激活右侧属性抽屉 */
+  selectElement: (id: string) => boolean;
+  /** 打开右侧属性配置抽屉（可选传入图元 ID 激活选中） */
+  openPanel: (id?: string) => void;
   /** 关闭右侧属性抽屉 */
   closePanel: () => void;
   /** 安全回写当前选中图元的单个属性 */
@@ -588,13 +592,11 @@ export type {
   FlowValidationResult,
   FlowValidationRuleCodeValue,
 } from './validator';
-export { FlowValidationRuleCode } from './validator';
 
 export type { BpmnExportOptions } from './bpmn';
 export type { FlowWatermarkOptions, FlowSnapshotOptions, FlowBoundingBox } from './snapshot';
 
 export type { FlowVueNodeProps, VueNodeOptions, FlowAnchorConfig } from './registry';
-export { VueNodeRegistry, registerVueNode } from './registry';
 
 /**
  * 预设审批卡片节点组件 Props 接口契约。

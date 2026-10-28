@@ -217,7 +217,7 @@ describe('VueNodeRegistry Vue 3 SFC 自定义节点机制', () => {
   it('应该支持预设 ApprovalCardNode 渲染并在点击通过按钮时回写 status 和 progress', () => {
     registerVueNode(lf, 'approval-card', ApprovalCardNode, {
       width: 220,
-      height: 90,
+      height: 126,
     });
 
     lf.render({
@@ -258,5 +258,38 @@ describe('VueNodeRegistry Vue 3 SFC 自定义节点机制', () => {
     const model = lf.getNodeModelById('card-approval');
     expect(model?.getProperties()?.status).toBe('approved');
     expect(model?.getProperties()?.progress).toBe(100);
+  });
+
+  it('应该向自定义 Vue 节点注入全量 graph 流程图上下文', () => {
+    let capturedGraph: FlowGraph | undefined;
+
+    const GraphConsumerComponent = defineComponent({
+      name: 'GraphConsumerComponent',
+      props: {
+        node: { type: Object, required: true },
+        lf: { type: Object, required: true },
+        model: { type: Object, required: true },
+        graph: { type: Object, default: undefined },
+        updateProperty: { type: Function, required: true },
+        updateProperties: { type: Function, required: true },
+      },
+      setup(props: FlowVueNodeProps) {
+        capturedGraph = props.graph;
+        return () => h('div', { class: 'graph-consumer-node' });
+      },
+    });
+
+    VueNodeRegistry.register(lf, 'vue-graph-consumer', GraphConsumerComponent);
+
+    lf.render({
+      nodes: [
+        { id: 'n-consumer', type: 'vue-graph-consumer', x: 100, y: 100 },
+        { id: 'n-other', type: 'rect', x: 300, y: 100 },
+      ],
+      edges: [],
+    });
+
+    expect(capturedGraph).toBeDefined();
+    expect(capturedGraph?.nodes.length).toBe(2);
   });
 });

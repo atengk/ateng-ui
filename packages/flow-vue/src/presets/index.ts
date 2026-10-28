@@ -16,216 +16,40 @@ import {
   DiamondNode,
   DiamondNodeModel,
   PolylineEdge,
-  PolylineEdgeModel,
   BezierEdge,
-  BezierEdgeModel,
   type Model,
 } from '@logicflow/core';
-import type { FlowNode, FlowEdge, ExecutionStatus } from '../types';
+import type { ExecutionStatus } from '../types';
+import {
+  type BeforeConnectHook,
+  STATUS_THEME_MAP,
+  FlowPolylineEdgeModel,
+  FlowBezierEdgeModel,
+  createCommonTargetRules,
+} from './edges';
 
-/**
- * 核心预设图元类型常量枚举。
- */
-export const FlowNodeType = {
-  /** 开始事件节点 */
-  START: 'flow:start',
-  /** 结束事件节点 */
-  END: 'flow:end',
-  /** 人工审批任务节点 */
-  USER_TASK: 'flow:user-task',
-  /** 系统自动化服务任务节点 */
-  SERVICE_TASK: 'flow:service-task',
-  /** 抄送通知任务节点 */
-  CC_TASK: 'flow:cc-task',
-  /** 排他条件网关 */
-  EXCLUSIVE_GATEWAY: 'flow:exclusive-gateway',
-  /** 并行分支/汇聚网关 */
-  PARALLEL_GATEWAY: 'flow:parallel-gateway',
-} as const;
+export type { BeforeConnectHook };
+export { STATUS_THEME_MAP, FlowPolylineEdgeModel, FlowBezierEdgeModel, createCommonTargetRules };
+import {
+  FlowNodeType,
+  type FlowNodeTypeValue,
+  NODE_TYPE_LABEL_MAP,
+  NODE_TYPE_ICON_MAP,
+  getNodeBadgeIcon,
+  type StencilItem,
+  type StencilGroup,
+  DEFAULT_STENCIL_GROUPS,
+} from './constants';
 
-export type FlowNodeTypeValue = (typeof FlowNodeType)[keyof typeof FlowNodeType];
-
-/**
- * 自定义连线前置守卫钩子类型。
- * 若返回 false 或错误说明字符串，将直接阻断连线。
- */
-export type BeforeConnectHook = (sourceNode: FlowNode, targetNode: FlowNode) => boolean | string;
-
-/**
- * 物料面板图元条目契约。
- */
-export interface StencilItem {
-  /** 图元类型 */
-  type: string;
-  /** 显示标题 */
-  label: string;
-  /** 图元描述说明 */
-  description?: string;
-  /** 图标 SVG 或标识符 */
-  icon?: string;
-  /** 拖拽至画布时初始化的节点配置 */
-  nodeConfig?: Partial<FlowNode>;
-}
-
-/**
- * 物料分类分组契约。
- */
-export interface StencilGroup {
-  /** 分组唯一标识 */
-  id: string;
-  /** 分组标题 */
-  title: string;
-  /** 组内图元清单 */
-  items: StencilItem[];
-}
-
-/**
- * 默认三段式企业级物料分组清单。
- */
-export const DEFAULT_STENCIL_GROUPS: StencilGroup[] = [
-  {
-    id: 'events',
-    title: '事件图元 (Events)',
-    items: [
-      {
-        type: FlowNodeType.START,
-        label: '开始节点',
-        description: '流程发起起始事件',
-        nodeConfig: {
-          text: '开始',
-        },
-      },
-      {
-        type: FlowNodeType.END,
-        label: '结束节点',
-        description: '流程终止结束事件',
-        nodeConfig: {
-          text: '结束',
-        },
-      },
-    ],
-  },
-  {
-    id: 'tasks',
-    title: '任务图元 (Tasks)',
-    items: [
-      {
-        type: FlowNodeType.USER_TASK,
-        label: '人工审批',
-        description: '需人工审核的审批任务',
-        nodeConfig: {
-          text: '人工审批',
-        },
-      },
-      {
-        type: FlowNodeType.SERVICE_TASK,
-        label: '系统任务',
-        description: '由系统自动调用的任务',
-        nodeConfig: {
-          text: '系统任务',
-        },
-      },
-      {
-        type: FlowNodeType.CC_TASK,
-        label: '抄送节点',
-        description: '流程信息抄送知会',
-        nodeConfig: {
-          text: '抄送节点',
-        },
-      },
-    ],
-  },
-  {
-    id: 'gateways',
-    title: '网关控制 (Gateways)',
-    items: [
-      {
-        type: FlowNodeType.EXCLUSIVE_GATEWAY,
-        label: '排他网关',
-        description: '条件排他分支路由',
-        nodeConfig: {
-          text: '×',
-        },
-      },
-      {
-        type: FlowNodeType.PARALLEL_GATEWAY,
-        label: '并行网关',
-        description: '多路并行并发与汇聚',
-        nodeConfig: {
-          text: '+',
-        },
-      },
-    ],
-  },
-];
-
-/**
- * 创建通用拓扑防呆规则。
- */
-function createCommonTargetRules(beforeConnect?: BeforeConnectHook): Model.ConnectRule[] {
-  const rules: Model.ConnectRule[] = [
-    {
-      message: '禁止节点自环连线',
-      validate: (source, target) => {
-        return source?.id !== target?.id;
-      },
-    },
-    {
-      message: '两节点间已存在连线，禁止重复连线',
-      validate: (source, target) => {
-        if (!source || !target) {
-          return true;
-        }
-        const graphModel = (target as unknown as { graphModel?: { edges?: FlowEdge[] } })
-          .graphModel;
-        const edges = graphModel?.edges ?? [];
-        const exists = edges.some(
-          e => e.sourceNodeId === source.id && e.targetNodeId === target.id,
-        );
-        return !exists;
-      },
-    },
-  ];
-
-  if (beforeConnect) {
-    rules.push({
-      message: '业务连线规则校验未通过',
-      validate: (source, target) => {
-        if (!source || !target) {
-          return true;
-        }
-        const sData =
-          (source as unknown as { getData?: () => FlowNode }).getData?.() ??
-          (source as unknown as FlowNode);
-        const tData =
-          (target as unknown as { getData?: () => FlowNode }).getData?.() ??
-          (target as unknown as FlowNode);
-        const result = beforeConnect(sData, tData);
-        if (typeof result === 'string') {
-          // 动态携带具体错误消息
-          rules[rules.length - 1]!.message = result;
-          return false;
-        }
-        return Boolean(result);
-      },
-    });
-  }
-
-  return rules;
-}
-
-/**
- * 五态执行状态主题配置字典。
- */
-const STATUS_THEME_MAP: Record<
-  ExecutionStatus,
-  { fill: string; stroke: string; strokeWidth: number; strokeDasharray?: string }
-> = {
-  completed: { fill: '#ecfdf5', stroke: '#10b981', strokeWidth: 2 },
-  processing: { fill: '#eff6ff', stroke: '#3b82f6', strokeWidth: 2.5 },
-  rejected: { fill: '#fef2f2', stroke: '#ef4444', strokeWidth: 2 },
-  pending: { fill: '#f8fafc', stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' },
-  terminated: { fill: '#f1f5f9', stroke: '#64748b', strokeWidth: 1.5 },
+export {
+  FlowNodeType,
+  type FlowNodeTypeValue,
+  NODE_TYPE_LABEL_MAP,
+  NODE_TYPE_ICON_MAP,
+  getNodeBadgeIcon,
+  type StencilItem,
+  type StencilGroup,
+  DEFAULT_STENCIL_GROUPS,
 };
 
 /**
@@ -279,45 +103,26 @@ function getEnhancedOuterGAttrs(
 }
 
 /**
- * 应用五态执行状态主题与校验错误样式至连线模型。
+ * 针对紧凑图元（圆环、菱形）执行智能文本排版位置计算。
+ *
+ * 核心设计契约：
+ * - 当文本长度 <= 2（如“开始”、“结束”、“+”、“×”）时，文字保持在图元正中央；
+ * - 当文本长度 > 2（如“Kafka 行为流”、“白名单过滤”）时，文字自动下沉至图元底部正下方，彻底避免穿透图元边缘。
+ *
+ * @param model 当前图元模型对象
+ * @param baseY 图元基础中心 Y 坐标
+ * @param offsetY 长文本下沉时的 Y 轴垂直偏移量
  */
-function applyEnhancedEdgeStyle(
-  properties: Record<string, unknown> | undefined,
-  baseStyle: LogicFlow.CommonTheme,
-): LogicFlow.CommonTheme {
-  const style = { ...baseStyle };
-  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
-  const config = status ? STATUS_THEME_MAP[status] : undefined;
-  if (config) {
-    style.stroke = config.stroke;
-    style.strokeWidth = config.strokeWidth;
-    if (config.strokeDasharray) {
-      style.strokeDasharray = config.strokeDasharray;
-    } else if (status === 'processing') {
-      style.strokeDasharray = '6 4';
-    }
+function applySmartNodeText(
+  model: { y: number; text?: LogicFlow.TextConfig },
+  baseY: number,
+  offsetY: number,
+): void {
+  if (model.text) {
+    const rawText = model.text.value ?? '';
+    const isLong = rawText.trim().length > 2;
+    model.text.y = isLong ? baseY + offsetY : baseY;
   }
-  if (properties?.__hasError) {
-    style.stroke = '#ef4444';
-    style.strokeWidth = 2.5;
-  }
-  return style;
-}
-
-/**
- * 获取连线动画样式。
- */
-function getEnhancedEdgeAnimationStyle(
-  properties: Record<string, unknown> | undefined,
-  baseStyle: LogicFlow.EdgeAnimation,
-): LogicFlow.EdgeAnimation {
-  const style = { ...baseStyle };
-  const status = (properties?.status || properties?.executionStatus) as ExecutionStatus | undefined;
-  if (status === 'processing') {
-    style.stroke = '#3b82f6';
-    style.strokeDasharray = '6 4';
-  }
-  return style;
 }
 
 /**
@@ -326,9 +131,33 @@ function getEnhancedEdgeAnimationStyle(
 export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnectHook): void {
   // 1. 开始节点：圆环，绿色主题，禁止作为 target
   class StartNodeModel extends CircleNodeModel {
+    private get textOffsetY(): number {
+      return 38;
+    }
+
     override initNodeData(data: LogicFlow.NodeConfig): void {
       super.initNodeData(data);
       this.r = 24;
+      applySmartNodeText(this, data.y, this.textOffsetY);
+    }
+
+    override updateText(val: string): void {
+      super.updateText(val);
+      applySmartNodeText(this, this.y, this.textOffsetY);
+    }
+
+    override getTextStyle(): LogicFlow.TextTheme {
+      const style = super.getTextStyle();
+      const val = this.text?.value || '';
+      if (val.trim().length > 2) {
+        style.color = '#334155';
+        style.fontSize = 12;
+      } else {
+        style.color = '#065f46';
+        style.fontSize = 12;
+        style.fontWeight = 'bold';
+      }
+      return style;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
       return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
@@ -352,9 +181,33 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
 
   // 2. 结束节点：圆环，红色主题，厚边框，禁止作为 source
   class EndNodeModel extends CircleNodeModel {
+    private get textOffsetY(): number {
+      return 38;
+    }
+
     override initNodeData(data: LogicFlow.NodeConfig): void {
       super.initNodeData(data);
       this.r = 24;
+      applySmartNodeText(this, data.y, this.textOffsetY);
+    }
+
+    override updateText(val: string): void {
+      super.updateText(val);
+      applySmartNodeText(this, this.y, this.textOffsetY);
+    }
+
+    override getTextStyle(): LogicFlow.TextTheme {
+      const style = super.getTextStyle();
+      const val = this.text?.value || '';
+      if (val.trim().length > 2) {
+        style.color = '#334155';
+        style.fontSize = 12;
+      } else {
+        style.color = '#991b1b';
+        style.fontSize = 12;
+        style.fontWeight = 'bold';
+      }
+      return style;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
       return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
@@ -454,10 +307,34 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
 
   // 6. 排他网关：菱形，琥珀黄边框
   class ExclusiveGatewayModel extends DiamondNodeModel {
+    private get textOffsetY(): number {
+      return 39;
+    }
+
     override initNodeData(data: LogicFlow.NodeConfig): void {
       super.initNodeData(data);
       this.rx = 25;
       this.ry = 25;
+      applySmartNodeText(this, data.y, this.textOffsetY);
+    }
+
+    override updateText(val: string): void {
+      super.updateText(val);
+      applySmartNodeText(this, this.y, this.textOffsetY);
+    }
+
+    override getTextStyle(): LogicFlow.TextTheme {
+      const style = super.getTextStyle();
+      const val = this.text?.value || '';
+      if (val.trim().length > 2) {
+        style.color = '#334155';
+        style.fontSize = 12;
+      } else {
+        style.color = '#b45309';
+        style.fontSize = 16;
+        style.fontWeight = 'bold';
+      }
+      return style;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
       return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
@@ -477,10 +354,34 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
 
   // 7. 并行网关：菱形，青蓝边框
   class ParallelGatewayModel extends DiamondNodeModel {
+    private get textOffsetY(): number {
+      return 39;
+    }
+
     override initNodeData(data: LogicFlow.NodeConfig): void {
       super.initNodeData(data);
       this.rx = 25;
       this.ry = 25;
+      applySmartNodeText(this, data.y, this.textOffsetY);
+    }
+
+    override updateText(val: string): void {
+      super.updateText(val);
+      applySmartNodeText(this, this.y, this.textOffsetY);
+    }
+
+    override getTextStyle(): LogicFlow.TextTheme {
+      const style = super.getTextStyle();
+      const val = this.text?.value || '';
+      if (val.trim().length > 2) {
+        style.color = '#334155';
+        style.fontSize = 12;
+      } else {
+        style.color = '#0e7490';
+        style.fontSize = 16;
+        style.fontWeight = 'bold';
+      }
+      return style;
     }
     override getOuterGAttributes(): LogicFlow.DomAttributes {
       return getEnhancedOuterGAttrs(this.properties, super.getOuterGAttributes());
@@ -495,58 +396,6 @@ export function registerPresetNodes(lf: LogicFlow, beforeConnect?: BeforeConnect
     override getConnectedTargetRules(): Model.ConnectRule[] {
       const rules = super.getConnectedTargetRules();
       return [...rules, ...createCommonTargetRules(beforeConnect)];
-    }
-  }
-
-  // 8. 默认折线连线模型：支持状态样式、呼吸流动与错误高亮样式
-  class FlowPolylineEdgeModel extends PolylineEdgeModel {
-    override setAttributes(): void {
-      super.setAttributes();
-      const propsObj = this.properties as Record<string, unknown> | undefined;
-      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
-      if (status === 'processing') {
-        this.isAnimation = true;
-      }
-    }
-
-    override getEdgeStyle(): LogicFlow.CommonTheme {
-      return applyEnhancedEdgeStyle(
-        this.properties as Record<string, unknown> | undefined,
-        super.getEdgeStyle(),
-      );
-    }
-
-    override getEdgeAnimationStyle(): LogicFlow.EdgeAnimation {
-      return getEnhancedEdgeAnimationStyle(
-        this.properties as Record<string, unknown> | undefined,
-        super.getEdgeAnimationStyle(),
-      );
-    }
-  }
-
-  // 9. 默认贝塞尔平滑曲线连线模型：支持状态样式、呼吸流动与错误高亮样式
-  class FlowBezierEdgeModel extends BezierEdgeModel {
-    override setAttributes(): void {
-      super.setAttributes();
-      const propsObj = this.properties as Record<string, unknown> | undefined;
-      const status = (propsObj?.status || propsObj?.executionStatus) as ExecutionStatus | undefined;
-      if (status === 'processing') {
-        this.isAnimation = true;
-      }
-    }
-
-    override getEdgeStyle(): LogicFlow.CommonTheme {
-      return applyEnhancedEdgeStyle(
-        this.properties as Record<string, unknown> | undefined,
-        super.getEdgeStyle(),
-      );
-    }
-
-    override getEdgeAnimationStyle(): LogicFlow.EdgeAnimation {
-      return getEnhancedEdgeAnimationStyle(
-        this.properties as Record<string, unknown> | undefined,
-        super.getEdgeAnimationStyle(),
-      );
     }
   }
 
