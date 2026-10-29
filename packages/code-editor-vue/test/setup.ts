@@ -58,6 +58,18 @@ export function mockCanvas2D(): void {
 beforeEach(() => {
   mockCanvas2D();
 
+  if (typeof navigator !== 'undefined') {
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+    } catch {
+      // 容错处理
+    }
+  }
+
   if (!window.matchMedia) {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,

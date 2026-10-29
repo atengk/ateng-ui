@@ -13,13 +13,23 @@ export type AtengCodeEditorInstance = InstanceType<
   typeof import('./components/AtengCodeEditor.vue').default
 >;
 
+export { default as AtengCodeDiffEditor } from './components/AtengCodeDiffEditor.vue';
+export type AtengCodeDiffEditorInstance = InstanceType<
+  typeof import('./components/AtengCodeDiffEditor.vue').default
+>;
+
 export { useCodeEditor } from './composables/useCodeEditor';
 export type { UseCodeEditorReturn } from './composables/useCodeEditor';
+
+export { useCodeDiff, useCodeDiffEditor } from './composables/useCodeDiff';
+export type { UseCodeDiffReturn } from './composables/useCodeDiff';
 
 export { setupMonacoWorkers } from './workers';
 
 export { formatSql } from './sql/formatter';
 export type { SqlFormatProvider } from './sql/formatter';
+
+export { computeDiffStats } from './diff/stats';
 
 export type {
   CodeLanguage,
@@ -30,4 +40,10 @@ export type {
   CodeEditorExpose,
   UseCodeEditorOptions,
   CompletionProviderFn,
+  DiffMode,
+  DiffStats,
+  CodeDiffEditorProps,
+  CodeDiffEditorEmits,
+  CodeDiffEditorExpose,
+  UseCodeDiffOptions,
 } from './types';

@@ -8,6 +8,7 @@
 
 import { ref } from 'vue';
 import BasicCodeEditorScenario from './scenarios/BasicCodeEditorScenario.vue';
+import CodeDiffCompareScenario from './scenarios/CodeDiffCompareScenario.vue';
 import SqlFormattingScenario from './scenarios/SqlFormattingScenario.vue';
 import JsonSchemaValidationScenario from './scenarios/JsonSchemaValidationScenario.vue';
 import AuditReadOnlyScenario from './scenarios/AuditReadOnlyScenario.vue';
@@ -48,8 +49,8 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景一：基础代码编辑与常用语言 (Basic)" name="basic">
           <BasicCodeEditorScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景二：Diff 差异双模比对 (Diff)" name="diff" disabled>
-          <div class="placeholder">等待后续 Ticket 交付...</div>
+        <el-tab-pane label="场景二：Diff 差异双模比对 (Diff)" name="diff">
+          <CodeDiffCompareScenario />
         </el-tab-pane>
         <el-tab-pane label="场景三：SQL 智能补全与美化 (SQL)" name="sql">
           <SqlFormattingScenario />

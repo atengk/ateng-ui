@@ -127,6 +127,19 @@
   cursor: not-allowed;
 }
 
+.at-code-editor__btn--active {
+  background-color: #e0f2fe !important;
+  border-color: #38bdf8 !important;
+  color: #0369a1 !important;
+  font-weight: 600;
+}
+
+.at-code-editor--dark .at-code-editor__btn--active {
+  background-color: #0c4a6e !important;
+  border-color: #0284c7 !important;
+  color: #38bdf8 !important;
+}
+
 .at-code-editor--dark .at-code-editor__btn {
   background-color: #333333;
   border-color: #475569;
@@ -189,4 +202,49 @@
   background-color: #eab308 !important;
   width: 4px !important;
   margin-left: 3px;
+}
+
+/* Diff Editor Specific Styles */
+.at-code-diff-editor {
+  /* Inherits from at-code-editor */
+}
+
+.at-code-diff-editor__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.at-code-editor--dark .at-code-diff-editor__stat {
+  background-color: #27272a;
+  color: #a1a1aa;
+}
+
+.at-code-diff-editor__stat-add {
+  color: #16a34a;
+}
+
+.at-code-editor--dark .at-code-diff-editor__stat-add {
+  color: #4ade80;
+}
+
+.at-code-diff-editor__stat-del {
+  color: #dc2626;
+}
+
+.at-code-editor--dark .at-code-diff-editor__stat-del {
+  color: #f87171;
+}
+
+.at-code-diff-editor__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
