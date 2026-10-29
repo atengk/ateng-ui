@@ -16,7 +16,7 @@
 ### L1 无头响应式层 (Headless Layer)
 
 - **[Vue 响应式通用 Hooks](./packages/vue/CONTEXT.md)**（`@atengk/vue`，当前活跃）：
-  面向现代 Web 应用的 Vue 3 通用 Composables/Hooks 基础设施。无头（Headless）状态管理，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库。提供 `useRequest`（防抖/节流/轮询/乐观更新）、`usePagination`（零样板分页与空安全保底）、`useLatest`（异步抗竞态双重防御）、`useAuth`（权限/角色响应式门面）、`useTenant`（多租户状态切片）、`useIdempotent`（前端防刷幂等互斥锁）、`useExcel`（Fesod 流式导出与批注回写）、`useUpload`（大文件分片受控并发与断点续传）、`useStream`（SSE 大模型打字机流式响应）以及 `useWebSocket`（全双工长连接心跳保活与自动重连状态机）。
+  面向现代 Web 应用的 Vue 3 通用 Composables/Hooks 基础设施。无头（Headless）状态管理，仅依赖 L0 与 Vue，绝对严禁物理依赖任何具体 UI 库。提供 `useRequest`（防抖/节流/轮询/乐观更新）、`usePagination`（零样板分页与空安全保底）、`useLatest`（异步抗竞态双重防御）、`useAuth`（权限/角色响应式门面）、`useTenant`（多租户状态切片）、`useIdempotent`（前端防刷幂等互斥锁）、`useTabsNav`（多标签页状态机与 KeepAlive 缓存同步）、`useExcel`（Fesod 流式导出与批注回写）、`useUpload`（大文件分片受控并发与断点续传）、`useStream`（SSE 大模型打字机流式响应）以及 `useWebSocket`（全双工长连接心跳保活与自动重连状态机）。
 - **React 响应式通用 Hooks**（`@atengk/react`，架构预留规划）：
   未来面向 React 生态的无头 Hooks 与状态机基础设施，对标 `@atengk/vue` 镜像能力，纯 Hooks 驱动，零具体 UI 依赖。
 
@@ -36,7 +36,7 @@
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
 
 - **[Element Plus 基础设施组件库](./packages/element-plus/CONTEXT.md)**（`@atengk/element-plus`，当前活跃）：
-  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengLayout`（纯无状态基础布局框架套件：Layout/Header/Aside/Content/Footer）、`AtengPageContainer`（双模滚动页面容器）、`AtengSplitLayout`（拖拽分栏容器）、`AtengFooterBar`（吸底操作栏）、`AtengCard`（折叠全屏面板）、`AtengCardGroup`（手风琴卡片组容器）、`AtengWatermark`（安全水印容器）、`AtengAnchor`（电梯楼层导航锚点容器）、`AtengGrid`（容器查询自适应网格）、`AtengPageSkeleton`（多模态骨架屏）、`AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty`、`AtengLoadingBar` / `AtengLoading`（现代零开销加载与防闪烁套件）以及 6 大权限防重、微骨架与安全指令。
+  基于 Element Plus 封装的企业级高频基础设施组件与指令集，组装下层 L0~L2 能力。提供 `AtengLayout`（纯无状态基础布局框架套件：Layout/Header/Aside/Content/Footer）、`AtengProLayout`（三大经典布局形态、响应式移动抽屉与菜单驱动的高级布局容器）、`AtengTabsNav`（视口溢出滚动、防关、右键菜单、拖拽与最大化协同的多标签导航）、`AtengPageContainer`（双模滚动页面容器）、`AtengSplitLayout`（拖拽分栏容器）、`AtengFooterBar`（吸底操作栏）、`AtengCard`（折叠全屏面板）、`AtengCardGroup`（手风琴卡片组容器）、`AtengWatermark`（安全水印容器）、`AtengAnchor`（电梯楼层导航锚点容器）、`AtengGrid`（容器查询自适应网格）、`AtengPageSkeleton`（多模态骨架屏）、`AtengTable`（高度整合契约的分页表格容器）、`AtengQueryForm`（响应式高级检索表单）、`AtengDescriptions`（脱敏详情容器）、`AtengDict*`（单选/多选/下拉/标签全套字典套件）、`AtengDateRange`（双字段解构时间范围）、`AtengExcelFeedback` / `AtengExcelExport`（Excel 导入批注与流式导出双向协议套件）、`AtengUpload`（存储直传与切片并发上传）、`AtengStreamText`（AI 流式响应打字机）、`AtengLogViewer`（WebSocket 实时日志终端）、`AtengStatistic`（动效指标卡片）、`AtengIconSelect`（拼音检索图标选择器）、`AtengCodeView`（零依赖结构化代码展示）、`AtengCaptcha`（防刷验证码输入）、`AtengFilePreview`（多格式文件预览弹窗）、`AtengDialog` / `AtengDrawer` / `AtengEmpty`、`AtengLoadingBar` / `AtengLoading`（现代零开销加载与防闪烁套件）以及 6 大权限防重、微骨架与安全指令。
 - **React 企业级组件套件**（如 `@atengk/antd` 等，架构预留规划）：
   未来面向 React 生态的高阶组件套件，组装下层 L0 及 `@atengk/react` 能力。
 

@@ -34,6 +34,10 @@ _Avoid_: useTenantId, useTenantScope
 针对按钮点击、表单提交等写操作的防刷防重与幂等执行互斥锁 Hook。
 _Avoid_: useDebounceClick, useLock, usePreventDuplicate
 
+**useTabsNav**:
+负责多标签页增删查改、固定防关、左右快捷批量关闭、激活态流转与 KeepAlive 缓存视图清单同步的无头响应式状态机 Hook。
+_Avoid_: useTabs, useTagsView, useMultiTabs, useTabBar
+
 ## 数据交换与文件传输
 
 **useExcel**:

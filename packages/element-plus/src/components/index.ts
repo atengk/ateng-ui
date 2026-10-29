@@ -32,4 +32,5 @@ export * from './watermark';
 export * from './grid';
 export * from './anchor';
 export * from './layout';
+export * from './tabs-nav';
 export * from './shared/context';
