@@ -93,6 +93,8 @@ export interface CodeEditorProps {
   workerOptions?: MonacoWorkerOptions;
   /** 大文件性能保护行数阈值（默认 50,000 行） */
   largeFileThreshold?: number;
+  /** 是否启用 0x0 视口几何挂起与恢复可见自愈（默认 true） */
+  autoLayoutHealing?: boolean;
 }
 
 /**
@@ -135,6 +137,10 @@ export interface CodeEditorExpose {
   redo: () => void;
   /** 当前是否激活超大文件自适应保护模式 */
   isLargeFile: () => boolean;
+  /** 当前视口是否处于 0x0 几何挂起状态（如处于未打开弹窗或隐藏 Tab 中） */
+  isSuspended: () => boolean;
+  /** 触发视口几何自愈布局（从 0x0 恢复可见时调用） */
+  healLayout: () => void;
 }
 
 /**
@@ -165,6 +171,8 @@ export interface UseCodeEditorOptions {
   workerOptions?: MonacoWorkerOptions;
   /** 大文件性能保护行数阈值（默认 50,000 行） */
   largeFileThreshold?: number;
+  /** 是否启用 0x0 视口几何挂起与恢复可见自愈（默认 true） */
+  autoLayoutHealing?: boolean;
   /** 内容变更回调 */
   onChange?: (value: string, event: monaco.editor.IModelContentChangedEvent) => void;
 }

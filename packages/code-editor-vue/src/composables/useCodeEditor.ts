@@ -1,12 +1,12 @@
 /**
  * useCodeEditor 无头响应式状态机 Hook。
  *
- * 依据 ADR-0035 与工单 #179：
+ * 依据 ADR-0035 与工单 #179、#180：
  * 1. 实例与 TextModel 强制使用 shallowRef 与 markRaw 封装，杜绝 Vue Proxy 劫持导致的性能雪崩；
  * 2. 增量更新管道（applyIncrementalEdit），外部更新代码时 100% 保持光标位置与 Undo/Redo 历史记录；
- * 3. 集中编排创建、销毁、格式化、撤销重做、尺寸调整与事件监听；
+ * 3. 0x0 视口几何挂起与可见时自动触发 layout 自愈机制，杜绝弹窗与隐藏 Tab 错位；
  * 4. 超长文本（> 50,000 行）自适应性能降级治理（自动关闭 minimap、folding 与高开销装饰项）；
- * 5. 确定性生命周期治理，在 onScopeDispose 或 onUnmounted 中自动释放资源。
+ * 5. 确定性生命周期治理，在 onScopeDispose 或 onUnmounted 中自动释放资源与断开观察器。
  *
  * @author Ateng
  * @since 2026-10-29
@@ -36,12 +36,16 @@ export interface UseCodeEditorReturn {
   isReady: ShallowRef<boolean>;
   /** 是否处于超大文件自适应保护降级模式 */
   isLargeFile: ShallowRef<boolean>;
+  /** 当前视口是否处于 0x0 几何挂起状态 */
+  isSuspended: ShallowRef<boolean>;
   /** 手动初始化 */
   init: () => void;
   /** 手动触发格式化文档 */
   format: () => Promise<void>;
-  /** 重新计算并自适应布局尺寸 */
+  /** 重新计算并自适应布局尺寸（如果处于 0x0 则自动挂起） */
   layout: () => void;
+  /** 手动触发视口自愈布局（从 0x0 恢复可见时安全重算） */
+  healLayout: () => void;
   /** 聚焦当前编辑器 */
   focus: () => void;
   /** 获取当前代码内容 */
@@ -75,9 +79,28 @@ export function useCodeEditor(
   const model = shallowRef<monaco.editor.ITextModel | null>(null);
   const isReady = shallowRef<boolean>(false);
   const isLargeFile = shallowRef<boolean>(false);
+  const isSuspended = shallowRef<boolean>(false);
 
   const largeThreshold = options.largeFileThreshold ?? 50000;
+  const autoLayoutHealing = options.autoLayoutHealing ?? true;
+
   let contentChangeListener: monaco.IDisposable | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let layoutHealingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // 探测当前视口是否处于 0x0 挂起状态
+  const checkViewportSuspension = (): boolean => {
+    const el = toValue(containerRef);
+    if (!el) {
+      isSuspended.value = true;
+      return true;
+    }
+    const width = el.clientWidth || el.offsetWidth || 0;
+    const height = el.clientHeight || el.offsetHeight || 0;
+    const suspended = width === 0 || height === 0;
+    isSuspended.value = suspended;
+    return suspended;
+  };
 
   // 格式化当前文档
   const format = async (): Promise<void> => {
@@ -88,11 +111,31 @@ export function useCodeEditor(
     }
   };
 
-  // 重新计算布局
+  // 重新计算布局（受管防 0x0 崩溃）
   const layout = (): void => {
-    if (editor.value) {
+    if (!editor.value) return;
+    const suspended = checkViewportSuspension();
+    if (!suspended) {
       editor.value.layout();
     }
+  };
+
+  // 视口自愈布局
+  const healLayout = (): void => {
+    if (!editor.value) return;
+    const suspended = checkViewportSuspension();
+    if (suspended) {
+      // 视口依然为 0x0，保持挂起
+      return;
+    }
+    if (layoutHealingTimer) {
+      clearTimeout(layoutHealingTimer);
+    }
+    layoutHealingTimer = setTimeout(() => {
+      if (editor.value && !isSuspended.value) {
+        editor.value.layout();
+      }
+    }, 16);
   };
 
   // 聚焦
@@ -212,6 +255,14 @@ export function useCodeEditor(
 
   // 彻底销毁释放
   const dispose = (): void => {
+    if (layoutHealingTimer) {
+      clearTimeout(layoutHealingTimer);
+      layoutHealingTimer = null;
+    }
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
+    }
     if (contentChangeListener) {
       contentChangeListener.dispose();
       contentChangeListener = null;
@@ -225,6 +276,7 @@ export function useCodeEditor(
       editor.value = null;
     }
     isReady.value = false;
+    isSuspended.value = false;
   };
 
   // 初始化编辑器实例
@@ -238,6 +290,9 @@ export function useCodeEditor(
     const initialLanguage = options.language ?? 'typescript';
     const initialValue = options.value ?? '';
     const initialTheme = options.theme === 'auto' ? 'vs' : (options.theme ?? 'vs');
+
+    // 探测初始视口状态
+    checkViewportSuspension();
 
     // 1. 创建独立 TextModel 并使用 markRaw 封装
     const createdModel = markRaw(monaco.editor.createModel(initialValue, initialLanguage));
@@ -275,6 +330,24 @@ export function useCodeEditor(
     // 5. 初始大文件阈值检查
     checkLargeFile(initialValue);
 
+    // 6. 注册 ResizeObserver 视口自愈监听
+    if (autoLayoutHealing && typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0) {
+            if (isSuspended.value) {
+              isSuspended.value = false;
+              healLayout();
+            }
+          } else {
+            isSuspended.value = true;
+          }
+        }
+      });
+      resizeObserver.observe(el);
+    }
+
     isReady.value = true;
   };
 
@@ -298,9 +371,11 @@ export function useCodeEditor(
     model,
     isReady,
     isLargeFile,
+    isSuspended,
     init,
     format,
     layout,
+    healLayout,
     focus,
     undo,
     redo,

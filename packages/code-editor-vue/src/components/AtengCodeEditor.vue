@@ -33,6 +33,7 @@ const props = withDefaults(defineProps<CodeEditorProps>(), {
   showStatusbar: true,
   bordered: true,
   largeFileThreshold: 50000,
+  autoLayoutHealing: true,
   options: () => ({}),
   workerOptions: () => ({}),
 });
@@ -95,6 +96,8 @@ const checkDarkMode = (): boolean => {
 };
 
 let themeObserver: MutationObserver | null = null;
+let mediaQuery: MediaQueryList | null = null;
+let mediaQueryListener: (() => void) | null = null;
 
 const syncTheme = (): void => {
   const dark = checkDarkMode();
@@ -108,8 +111,10 @@ const {
   editor,
   model,
   isLargeFile,
+  isSuspended,
   format,
   layout,
+  healLayout,
   focus,
   undo,
   redo,
@@ -129,6 +134,7 @@ const {
   options: props.options,
   workerOptions: props.workerOptions,
   largeFileThreshold: props.largeFileThreshold,
+  autoLayoutHealing: props.autoLayoutHealing,
   onChange: (val, event) => {
     emit('update:modelValue', val);
     emit('change', val, event);
@@ -259,12 +265,26 @@ onMounted(() => {
       attributeFilter: ['class'],
     });
   }
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQueryListener = () => {
+      if (props.theme === 'auto') {
+        syncTheme();
+      }
+    };
+    mediaQuery.addEventListener('change', mediaQueryListener);
+  }
 });
 
 onUnmounted(() => {
   if (themeObserver) {
     themeObserver.disconnect();
     themeObserver = null;
+  }
+  if (mediaQuery && mediaQueryListener) {
+    mediaQuery.removeEventListener('change', mediaQueryListener);
+    mediaQuery = null;
+    mediaQueryListener = null;
   }
   if (copyTimer) {
     clearTimeout(copyTimer);
@@ -279,12 +299,14 @@ defineExpose<CodeEditorExpose>({
   focus,
   format,
   layout,
+  healLayout,
   getValue,
   setValue,
   applyIncrementalEdit,
   undo,
   redo,
   isLargeFile: () => isLargeFile.value,
+  isSuspended: () => isSuspended.value,
 });
 </script>
 

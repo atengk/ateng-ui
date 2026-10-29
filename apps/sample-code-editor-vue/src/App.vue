@@ -8,6 +8,7 @@
 
 import { ref } from 'vue';
 import BasicCodeEditorScenario from './scenarios/BasicCodeEditorScenario.vue';
+import DialogTabsLifecycleScenario from './scenarios/DialogTabsLifecycleScenario.vue';
 
 const activeTab = ref<string>('basic');
 const isDark = ref<boolean>(false);
@@ -56,8 +57,8 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景五：只读审计与行高亮 (Audit)" name="audit" disabled>
           <div class="placeholder">等待后续 Ticket 交付...</div>
         </el-tab-pane>
-        <el-tab-pane label="场景六：弹窗与 Tabs 几何自愈 (Lifecycle)" name="lifecycle" disabled>
-          <div class="placeholder">等待后续 Ticket 交付...</div>
+        <el-tab-pane label="场景六：弹窗与 Tabs 几何自愈 (Lifecycle)" name="lifecycle">
+          <DialogTabsLifecycleScenario />
         </el-tab-pane>
       </el-tabs>
     </main>
