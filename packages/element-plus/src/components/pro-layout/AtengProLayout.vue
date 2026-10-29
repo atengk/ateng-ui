@@ -16,6 +16,8 @@
 import { ref, computed, watch, provide, onMounted, onBeforeUnmount } from 'vue';
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
 import { AtengLayout, AtengHeader, AtengAside, AtengContent } from '../layout';
+import { AtengTabsNav } from '../tabs-nav';
+import type { TabItem } from '../tabs-nav';
 import ProMenu from './ProMenu.vue';
 import {
   type AtengProLayoutProps,
@@ -54,13 +56,17 @@ const props = withDefaults(defineProps<AtengProLayoutProps>(), {
   mixAutoSelectFirstLeaf: true,
   responsive: true,
   mobileBreakpoint: 768,
+  showTabs: false,
+  tabsProps: undefined,
+  isMaximized: false,
 });
 
 const emit = defineEmits<AtengProLayoutEmits>();
 defineSlots<AtengProLayoutSlots>();
 
-// 1. 折叠状态机与移动端响应式识别
+// 1. 折叠状态机、全屏沉浸最大化与移动端响应式识别
 const internalCollapsed = ref(Boolean(props.collapsed));
+const internalMaximized = ref(Boolean(props.isMaximized));
 const isMobile = ref(false);
 let mql: MediaQueryList | null = null;
 
@@ -125,6 +131,13 @@ watch(
   },
 );
 
+watch(
+  () => props.isMaximized,
+  val => {
+    internalMaximized.value = Boolean(val);
+  },
+);
+
 const toggleCollapse = () => {
   if (!props.collapsible) return;
   const next = !internalCollapsed.value;
@@ -133,14 +146,27 @@ const toggleCollapse = () => {
   emit('collapseChange', next);
 };
 
+const toggleMaximize = (val?: boolean) => {
+  const next = typeof val === 'boolean' ? val : !internalMaximized.value;
+  if (internalMaximized.value !== next) {
+    internalMaximized.value = next;
+    emit('update:isMaximized', next);
+    emit('maximizeChange', next);
+  }
+};
+
 // 2. 尺寸单位规格化工具
 function toPx(val: string | number | undefined): string {
   if (val === undefined || val === null || val === '') return '';
   return typeof val === 'number' ? `${val}px` : String(val);
 }
 
-const currentHeaderHeight = computed(() => toPx(props.headerHeight));
+const currentHeaderHeight = computed(() => {
+  if (internalMaximized.value) return '0px';
+  return toPx(props.headerHeight);
+});
 const currentAsideWidth = computed(() => {
+  if (internalMaximized.value) return '0px';
   if (props.layout === 'top') return '0px';
   if (isMobile.value) return '0px';
   if (props.layout === 'mix' && currentAsideMenuData.value.length === 0) return '0px';
@@ -154,7 +180,9 @@ const proLayoutContext: AtengProLayoutContext = {
   headerHeight: currentHeaderHeight,
   layout: computed(() => props.layout),
   isMobile: computed(() => isMobile.value),
+  isMaximized: computed(() => internalMaximized.value),
   toggleCollapse,
+  toggleMaximize,
 };
 provide(ATENG_PRO_LAYOUT_KEY, proLayoutContext);
 
@@ -295,7 +323,9 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 
 defineExpose<AtengProLayoutExpose>({
   toggleCollapse,
+  toggleMaximize,
   collapsed: computed(() => internalCollapsed.value),
+  isMaximized: computed(() => internalMaximized.value),
   asideWidth: currentAsideWidth,
 });
 </script>
@@ -308,6 +338,7 @@ defineExpose<AtengProLayoutExpose>({
       {
         'is-collapsed': internalCollapsed,
         'is-mobile': isMobile,
+        'is-maximized': internalMaximized,
       },
     ]"
   >
@@ -442,8 +473,19 @@ defineExpose<AtengProLayoutExpose>({
           </AtengHeader>
 
           <!-- 多标签栏插槽（AtengTabsNav） -->
-          <div v-if="$slots.tabs" class="at-pro-layout__tabs">
-            <slot name="tabs" />
+          <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
+            <slot name="tabs">
+              <AtengTabsNav
+                v-if="showTabs"
+                v-bind="tabsProps"
+                :is-maximized="internalMaximized"
+                @update:is-maximized="toggleMaximize"
+                @maximize-change="toggleMaximize"
+                @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+                @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+                @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+              />
+            </slot>
           </div>
 
           <!-- 内容主体区 -->
@@ -499,9 +541,20 @@ defineExpose<AtengProLayoutExpose>({
           </div>
         </AtengHeader>
 
-        <!-- 多标签栏插槽 -->
-        <div v-if="$slots.tabs" class="at-pro-layout__tabs">
-          <slot name="tabs" />
+        <!-- 多标签栏插槽（AtengTabsNav） -->
+        <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
+          <slot name="tabs">
+            <AtengTabsNav
+              v-if="showTabs"
+              v-bind="tabsProps"
+              :is-maximized="internalMaximized"
+              @update:is-maximized="toggleMaximize"
+              @maximize-change="toggleMaximize"
+              @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+              @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+              @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+            />
+          </slot>
         </div>
 
         <!-- 内容主体区 -->
@@ -574,8 +627,20 @@ defineExpose<AtengProLayoutExpose>({
           </AtengAside>
 
           <AtengLayout direction="vertical" class="at-pro-layout__main">
-            <div v-if="$slots.tabs" class="at-pro-layout__tabs">
-              <slot name="tabs" />
+            <!-- 多标签栏插槽（AtengTabsNav） -->
+            <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
+              <slot name="tabs">
+                <AtengTabsNav
+                  v-if="showTabs"
+                  v-bind="tabsProps"
+                  :is-maximized="internalMaximized"
+                  @update:is-maximized="toggleMaximize"
+                  @maximize-change="toggleMaximize"
+                  @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+                  @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+                  @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+                />
+              </slot>
             </div>
             <AtengContent class="at-pro-layout__content">
               <slot />
@@ -785,5 +850,18 @@ defineExpose<AtengProLayoutExpose>({
 
 .at-pro-layout.is-mobile:not(.is-collapsed) .at-pro-layout__aside.is-mobile-drawer {
   transform: translateX(0);
+}
+
+/* ===================== 全屏沉浸最大化模式样式 ===================== */
+.at-pro-layout.is-maximized .at-pro-layout__header {
+  display: none !important;
+}
+
+.at-pro-layout.is-maximized .at-pro-layout__aside {
+  display: none !important;
+}
+
+.at-pro-layout.is-maximized .at-pro-layout__drawer-mask {
+  display: none !important;
 }
 </style>

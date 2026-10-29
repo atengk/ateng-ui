@@ -28,6 +28,7 @@
 | **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`           | 增量累积打字机文本、SseParser 规范解析、自动断连与作用域确定性注销                                                                                                                      | [useStream.test.ts](./test/useStream.test.ts) / [StreamDemo.vue](../../apps/sample-vue/src/components/StreamDemo.vue)                            |
 | **全双工长连** | WebSocket 状态机 | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`        | 双向心跳保活、指数退避断线重连、离线缓冲队列与作用域确定性清理                                                                                                                          | [useWebSocket.test.ts](./test/useWebSocket.test.ts) / [WebSocketDemo.vue](../../apps/sample-vue/src/components/WebSocketDemo.vue)                |
 | **加载防抖**   | 防闪烁时序状态机 | `useAntiFlicker(source, options?)`          | `(Source, Options) -> Readonly<Ref<boolean>>` | 150ms 静默延迟保护（极速请求 0ms 视觉打扰）+ 300ms 最小展示期（平滑淡出，杜绝 1 帧闪烁震颤）与作用域确定性清理                                                                          | [useAntiFlicker.test.ts](./test/useAntiFlicker.test.ts) / [LoadingView.vue](../../apps/sample-element-plus/src/views/containers/LoadingView.vue) |
+| **框架布局**   | 标签导航状态机   | `useTabsNav(options?)`                      | `(Options) -> UseTabsNavReturn`               | 多标签页纯算法无头响应式状态机，负责标签增删查改、FIFO 超限淘汰、Affix 保护、KeepAlive 缓存名单计算 (`cachedViews`)、局部刷新调度 (`refreshTab`) 与持久化                               | [useTabsNav.test.ts](./test/useTabsNav.test.ts) / [TabsNavView.vue](../../apps/sample-element-plus/src/views/layout/TabsNavView.vue)             |
 
 ---
 
@@ -76,6 +77,45 @@ const { pageNum, pageSize, total, list, loading, changePage, changePageSize, sea
       <span>第 {{ pageNum }} 页 / 共 {{ total }} 条</span>
       <button @click="changePage(pageNum + 1)">下一页</button>
     </div>
+  </div>
+</template>
+```
+
+### 开箱即用多标签页状态机与 KeepAlive 缓存 (useTabsNav)
+
+```vue
+<script setup lang="ts">
+import { useTabsNav } from '@atengk/vue';
+
+const { tabs, activeKey, cachedViews, openTab, closeTab, refreshTab, closeOthers } = useTabsNav({
+  defaultActiveKey: '/dashboard',
+  defaultTabs: [
+    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
+    { key: '/system/user', title: '用户列表', componentName: 'UserList' },
+  ],
+  maxTabs: 20, // 超过 20 个标签按 FIFO 自动淘汰最早未固定的非激活项
+});
+</script>
+
+<template>
+  <div class="app-layout">
+    <!-- 标签栏渲染 -->
+    <div class="tabs-nav-bar">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="{ active: tab.key === activeKey }"
+        @click="activeKey = tab.key"
+      >
+        {{ tab.title }}
+        <span v-if="!tab.affix" @click.stop="closeTab(tab.key)">×</span>
+      </button>
+    </div>
+
+    <!-- KeepAlive 真实缓存视口与局部刷新调度 -->
+    <KeepAlive :include="cachedViews">
+      <router-view :key="activeKey" />
+    </KeepAlive>
   </div>
 </template>
 ```
@@ -500,12 +540,60 @@ const list: OrderItem[] = [
 </template>
 ```
 
+### 12. 多标签页状态机进阶：KeepAlive 调度与本地持久化 (useTabsNav)
+
+```vue
+<script setup lang="ts">
+import { useTabsNav } from '@atengk/vue';
+
+const {
+  tabs,
+  activeKey,
+  cachedViews,
+  openTab,
+  closeTab,
+  closeOthers,
+  refreshTab,
+  pinTab,
+  moveTab,
+} = useTabsNav({
+  defaultActiveKey: '/dashboard',
+  defaultTabs: [
+    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
+    { key: '/system/user', title: '用户列表', componentName: 'UserList' },
+    { key: '/system/role', title: '角色权限', componentName: 'RoleList' },
+  ],
+  maxTabs: 10, // 超限时 FIFO 淘汰最早非固定标签
+  persistKey: 'MY_APP_TABS', // 本地持久化缓存 Key
+  storageType: 'session', // 可选 'local' | 'session'
+  onRefresh: async key => {
+    // 局部刷新钩子通知
+    console.log(`页面 ${key} 正在局部刷新重载`);
+  },
+});
+
+// 手动触发指定页面局部物理重新挂载（从 cachedViews 瞬态剔除下一帧加回）
+const onRefreshCurrent = () => {
+  refreshTab(activeKey.value);
+};
+
+// 拖拽调序（普通标签不能移至固定标签之前，内置防呆）
+const onDragReorder = (fromIdx: number, toIdx: number) => {
+  moveTab(fromIdx, toIdx);
+};
+</script>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary)
 
 - **空安全保底不变量 (Null Safety Invariant)**：
   无论是未决状态、网络超时、业务异常还是服务端返回 `null`/`undefined`，`list` 100% 保底返回空数组 `[]`，`total` 保底返回 `0`，彻底阻断模板层白屏崩溃；
+- **多标签页 FIFO 容量淘汰与 Affix 锁定防关不变量 (TabsNav Invariant)**：
+  `useTabsNav` 内置标签容量安全上限（`maxTabs`）。当标签数量超标时，状态机按照先进先出（FIFO）算法自动淘汰最早打开的非固定标签，绝对不会淘汰带 `affix: true` 的常驻标签；固定标签不可关闭（`closeTab`、`closeOthers`、`closeAll` 均严格跳过）；拖拽调序时内置防呆逻辑，普通标签禁止被拖放至固定标签前方；
+- **KeepAlive 局部刷新零闪烁调度不变量 (RefreshTab Zero-Flicker Invariant)**：
+  `refreshTab(key)` 局部刷新时，状态机通过 `nextTick` 从 `cachedViews` 名单中瞬态剔除该组件的 `componentName`，驱动 Vue KeepAlive 彻底卸载其缓存实例，在异步钩子执行完毕后下一帧再安全将名称纳管回 `cachedViews`，实现真正开箱即用的局部物理重新挂载，彻底根绝必须刷新整页或刷新失效的痛点；
 - **跨页多选雪花 Long ID 字符串归一化不变量 (Snowflake Selection Invariant)**：
   `useSelection` 针对后端返回的 64 位分布式大数主键（Snowflake ID），在内部一律使用 `String(key)` 进行强制类型归一化与哈希映射。内部以 `Map<string, T>` 存储跨页缓存，杜绝底层 JS Number 转换为浮点导致末位丢失和勾选错乱。同时提供 `syncWithData` 在翻页时同步更新已缓存对象的最新属性；
 - **异步竞态双重协同防御机制 (Dual Defense Invariant)**：

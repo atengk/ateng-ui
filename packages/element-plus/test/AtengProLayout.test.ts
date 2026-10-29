@@ -362,4 +362,103 @@ describe('AtengProLayout Component', () => {
     expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
     expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
   });
+
+  it('16. showTabs 与 tabsProps：开启 showTabs 自动内置渲染 AtengTabsNav 并透传 tabsProps', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        showTabs: true,
+        tabsProps: {
+          modelValue: '/system/user',
+          tabs: [
+            { key: '/dashboard', title: '工作台首页', affix: true },
+            { key: '/system/user', title: '用户列表' },
+          ],
+        },
+      },
+    });
+
+    const tabsNav = wrapper.find('.at-tabs-nav');
+    expect(tabsNav.exists()).toBe(true);
+    expect(tabsNav.text()).toContain('工作台首页');
+    expect(tabsNav.text()).toContain('用户列表');
+  });
+
+  it('17. #tabs 插槽优先覆盖：提供 #tabs 插槽时不渲染默认内置标签栏', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        showTabs: true,
+      },
+      slots: {
+        tabs: () => h('div', { class: 'custom-tabs-slot' }, '自定义标签栏插槽'),
+      },
+    });
+
+    expect(wrapper.find('.custom-tabs-slot').exists()).toBe(true);
+    expect(wrapper.find('.custom-tabs-slot').text()).toBe('自定义标签栏插槽');
+    expect(wrapper.find('.at-tabs-nav').exists()).toBe(false);
+  });
+
+  it('18. 最大化沉浸模式协同：isMaximized 或 toggleMaximize 触发 Header/Aside 隐藏与 asideWidth 归零', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let capturedContext: any = null;
+    const ChildComponent = defineComponent({
+      setup() {
+        capturedContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+        return () => h('div');
+      },
+    });
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        asideWidth: '220px',
+        isMaximized: false,
+      },
+      slots: {
+        default: () => h(ChildComponent),
+      },
+    });
+
+    expect(capturedContext.asideWidth.value).toBe('220px');
+    expect(capturedContext.isMaximized.value).toBe(false);
+    expect(wrapper.classes()).not.toContain('is-maximized');
+
+    // 触发实例 toggleMaximize
+    wrapper.vm.toggleMaximize();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain('is-maximized');
+    expect(capturedContext.isMaximized.value).toBe(true);
+    expect(capturedContext.asideWidth.value).toBe('0px');
+    expect(wrapper.emitted('update:isMaximized')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('maximizeChange')?.[0]?.[0]).toBe(true);
+
+    // 再次调用恢复
+    wrapper.vm.toggleMaximize();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).not.toContain('is-maximized');
+    expect(capturedContext.isMaximized.value).toBe(false);
+    expect(capturedContext.asideWidth.value).toBe('220px');
+  });
+
+  it('19. 内置 AtengTabsNav 最大化与 AtengProLayout 深度联动', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        showTabs: true,
+        tabsProps: {
+          showMaximize: true,
+          tabs: [{ key: '/dashboard', title: '首页' }],
+        },
+      },
+    });
+
+    const maxBtn = wrapper.find('.at-tabs-nav__maximize-btn');
+    expect(maxBtn.exists()).toBe(true);
+
+    // 点击 TabsNav 的最大化按钮
+    await maxBtn.trigger('click');
+
+    expect(wrapper.classes()).toContain('is-maximized');
+    expect(wrapper.emitted('update:isMaximized')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('maximizeChange')?.[0]?.[0]).toBe(true);
+  });
 });

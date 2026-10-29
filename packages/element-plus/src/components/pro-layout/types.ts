@@ -6,6 +6,7 @@
  */
 
 import type { InjectionKey, ComputedRef, Component, VNode } from 'vue';
+import type { AtengTabsNavProps, TabItem } from '../tabs-nav/types';
 
 /**
  * 布局排版模式：
@@ -216,6 +217,21 @@ export interface AtengProLayoutProps {
    * 移动端断点阈值（像素），默认 768。
    */
   mobileBreakpoint?: number;
+
+  /**
+   * 是否显示内置多标签栏，默认 false。
+   */
+  showTabs?: boolean;
+
+  /**
+   * 内置 AtengTabsNav 属性配置项。
+   */
+  tabsProps?: AtengTabsNavProps;
+
+  /**
+   * 内容主体区是否处于全屏最大化沉浸模式（隐藏顶栏与侧边栏），默认 false。
+   */
+  isMaximized?: boolean;
 }
 
 /**
@@ -241,6 +257,31 @@ export interface AtengProLayoutEmits {
    * 菜单点击选择事件。
    */
   (e: 'menuSelect', path: string, item: ProMenuItem): void;
+
+  /**
+   * 全屏沉浸最大化状态双向绑定变更事件。
+   */
+  (e: 'update:isMaximized', val: boolean): void;
+
+  /**
+   * 全屏沉浸最大化状态触发事件。
+   */
+  (e: 'maximizeChange', val: boolean): void;
+
+  /**
+   * 内置多标签点击事件。
+   */
+  (e: 'tabClick', tab: TabItem): void;
+
+  /**
+   * 内置多标签关闭事件。
+   */
+  (e: 'tabClose', key: string, tab: TabItem): void;
+
+  /**
+   * 内置多标签刷新事件。
+   */
+  (e: 'tabRefresh', key: string, tab: TabItem): void;
 }
 
 /**
@@ -309,9 +350,19 @@ export interface AtengProLayoutContext {
   isMobile?: ComputedRef<boolean>;
 
   /**
+   * 是否处于全屏沉浸最大化模式。
+   */
+  isMaximized?: ComputedRef<boolean>;
+
+  /**
    * 切换折叠方法。
    */
   toggleCollapse: () => void;
+
+  /**
+   * 切换全屏沉浸最大化方法。
+   */
+  toggleMaximize?: (val?: boolean) => void;
 }
 
 /**
@@ -326,8 +377,12 @@ export const ATENG_PRO_LAYOUT_KEY: InjectionKey<AtengProLayoutContext> =
 export interface AtengProLayoutExpose {
   /** 切换折叠 */
   toggleCollapse: () => void;
+  /** 切换最大化模式 */
+  toggleMaximize: (val?: boolean) => void;
   /** 当前折叠状态 */
   collapsed: ComputedRef<boolean>;
+  /** 当前是否处于全屏最大化 */
+  isMaximized: ComputedRef<boolean>;
   /** 实际侧边栏宽度 */
   asideWidth: ComputedRef<string>;
 }

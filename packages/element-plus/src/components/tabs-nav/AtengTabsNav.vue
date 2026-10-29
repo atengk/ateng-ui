@@ -9,8 +9,9 @@
  * @since 2026-10-29
  */
 
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue';
 import { ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus';
+import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout/types';
 import type { AtengTabsNavProps, AtengTabsNavEmits, AtengTabsNavSlots, TabItem } from './types';
 
 defineOptions({
@@ -302,11 +303,24 @@ const handleQuickCommand = (command: string): void => {
   handleCommand(command, currentTab, currentIndex);
 };
 
+// 协同上下文总线 (ProLayout Context Bus)
+const proLayoutContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+
+const effectiveMaximized = computed<boolean>(() => {
+  if (props.isMaximized) {
+    return true;
+  }
+  return proLayoutContext?.isMaximized?.value ?? false;
+});
+
 // 切换最大化模式
 const toggleMaximize = (): void => {
-  const nextVal = !props.isMaximized;
+  const nextVal = !effectiveMaximized.value;
   emit('update:isMaximized', nextVal);
   emit('maximizeChange', nextVal);
+  if (proLayoutContext && typeof proLayoutContext.toggleMaximize === 'function') {
+    proLayoutContext.toggleMaximize(nextVal);
+  }
 };
 </script>
 
@@ -528,12 +542,18 @@ const toggleMaximize = (): void => {
         v-if="showMaximize"
         type="button"
         class="at-tabs-nav__action-btn at-tabs-nav__maximize-btn"
-        :title="isMaximized ? '还原视图' : '内容最大化'"
-        :aria-label="isMaximized ? '还原视图' : '内容最大化'"
+        :title="effectiveMaximized ? '还原视图' : '内容最大化'"
+        :aria-label="effectiveMaximized ? '还原视图' : '内容最大化'"
         @click="toggleMaximize"
       >
         <!-- 展开最大化图标 -->
-        <svg v-if="!isMaximized" viewBox="0 0 1024 1024" width="13" height="13" fill="currentColor">
+        <svg
+          v-if="!effectiveMaximized"
+          viewBox="0 0 1024 1024"
+          width="13"
+          height="13"
+          fill="currentColor"
+        >
           <path
             d="M320 160H160v160h64v-96h96V160z m544 0h-160v64h96v96h64V160zM224 704h-64v160h160v-64h-96v-96z m640 0h-64v96h-96v64h160v-160z"
           />

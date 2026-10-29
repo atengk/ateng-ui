@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable vue/one-component-per-file */
 /**
  * AtengProLayout 框架布局套件实装展厅。
  *
@@ -12,7 +13,8 @@
  * @since 2026-10-29
  */
 
-import { ref } from 'vue';
+import { ref, computed, defineComponent, h } from 'vue';
+import { useTabsNav } from '@atengk/vue';
 import {
   AtengProLayout,
   AtengTabsNav,
@@ -28,6 +30,7 @@ import {
   ElBadge,
   ElAvatar,
   ElSwitch,
+  ElInput,
   ElMessage,
 } from 'element-plus';
 
@@ -56,41 +59,174 @@ const standardMenuData: ProMenuItem[] = [
   { path: '/about', title: '关于项目', icon: 'el-icon-info' },
 ];
 
-// 2. 状态控制
+// 2. 状态控制与 useTabsNav 状态机集成
 const activeLayout = ref<'side' | 'top' | 'mix'>('side');
 const collapsed = ref(false);
 const activeMenu = ref('/system/user');
 const mixAutoSelectFirstLeaf = ref(true);
+const useBuiltinTabs = ref(true);
 
 // 移动端沙箱状态控制
 const mobileDrawerCollapsed = ref(true);
 
-// 多标签栏协同数据
-const tabsList = ref([
-  { key: '/dashboard', title: '工作台首页', affix: true, closable: false },
-  { key: '/system/user', title: '用户列表', closable: true },
-  { key: '/analytics/realtime', title: '实时大盘', closable: true },
-]);
+// 真实 KeepAlive 缓存组件定义（显式 name 契约）
+const DashboardSandbox = defineComponent({
+  name: 'DashboardSandbox',
+  setup() {
+    const note = ref('工作台草稿备忘：测试 KeepAlive 缓存保留');
+    const counter = ref(10);
+    const mountTime = new Date().toLocaleTimeString();
+    return () =>
+      h('div', { class: 'sandbox-subview' }, [
+        h('h4', '📊 工作台首页 (KeepAlive 缓存组件: DashboardSandbox)'),
+        h('p', { class: 'time-info' }, [
+          '实例挂载时间戳: ',
+          h('strong', mountTime),
+          '（切换标签保持输入，右键刷新局部重新挂载）',
+        ]),
+        h('div', { class: 'form-group' }, [
+          h('span', '草稿输入：'),
+          h(ElInput, {
+            modelValue: note.value,
+            'onUpdate:modelValue': (v: string) => (note.value = v),
+            placeholder: '输入内容测试切换标签缓存保留...',
+            style: 'width: 320px;',
+          }),
+        ]),
+        h('div', { class: 'form-group', style: 'margin-top: 10px;' }, [
+          h('span', '计数器状态：'),
+          h(
+            ElButton,
+            { size: 'small', type: 'primary', plain: true, onClick: () => counter.value++ },
+            () => `点击增加计数: ${counter.value}`,
+          ),
+        ]),
+      ]);
+  },
+});
+
+const UserListSandbox = defineComponent({
+  name: 'UserListSandbox',
+  setup() {
+    const keyword = ref('张三');
+    const role = ref('admin');
+    const mountTime = new Date().toLocaleTimeString();
+    return () =>
+      h('div', { class: 'sandbox-subview' }, [
+        h('h4', '👥 用户列表 (KeepAlive 缓存组件: UserListSandbox)'),
+        h('p', { class: 'time-info' }, [
+          '实例挂载时间戳: ',
+          h('strong', mountTime),
+          '（切换标签保持输入，右键刷新局部重新挂载）',
+        ]),
+        h('div', { class: 'form-group' }, [
+          h('span', '搜索用户名：'),
+          h(ElInput, {
+            modelValue: keyword.value,
+            'onUpdate:modelValue': (v: string) => (keyword.value = v),
+            placeholder: '输入搜索用户名',
+            style: 'width: 200px;',
+          }),
+          h('span', { style: 'margin-left: 16px;' }, '分配角色：'),
+          h(ElInput, {
+            modelValue: role.value,
+            'onUpdate:modelValue': (v: string) => (role.value = v),
+            placeholder: '输入角色',
+            style: 'width: 160px;',
+          }),
+        ]),
+      ]);
+  },
+});
+
+const AnalyticsSandbox = defineComponent({
+  name: 'AnalyticsSandbox',
+  setup() {
+    const metric = ref('2026 Q4 核心财务指标');
+    const mountTime = new Date().toLocaleTimeString();
+    return () =>
+      h('div', { class: 'sandbox-subview' }, [
+        h('h4', '📈 实时大盘 (KeepAlive 缓存组件: AnalyticsSandbox)'),
+        h('p', { class: 'time-info' }, [
+          '实例挂载时间戳: ',
+          h('strong', mountTime),
+          '（切换标签保持输入，右键刷新局部重新挂载）',
+        ]),
+        h('div', { class: 'form-group' }, [
+          h('span', '报表主题：'),
+          h(ElInput, {
+            modelValue: metric.value,
+            'onUpdate:modelValue': (v: string) => (metric.value = v),
+            placeholder: '输入大盘指标主题',
+            style: 'width: 300px;',
+          }),
+        ]),
+      ]);
+  },
+});
+
+// useTabsNav 无头响应式状态机
+const {
+  tabs: layoutTabs,
+  activeKey: layoutActiveTab,
+  cachedViews,
+  openTab,
+  closeTab,
+  refreshTab,
+  isMaximized: layoutMaximized,
+} = useTabsNav({
+  defaultActiveKey: '/system/user',
+  defaultTabs: [
+    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'DashboardSandbox' },
+    { key: '/system/user', title: '用户列表', componentName: 'UserListSandbox' },
+    { key: '/analytics/realtime', title: '实时大盘', componentName: 'AnalyticsSandbox' },
+  ],
+});
+
+// 组件映射表
+const componentMap: Record<string, ReturnType<typeof defineComponent>> = {
+  '/dashboard': DashboardSandbox,
+  '/system/user': UserListSandbox,
+  '/analytics/realtime': AnalyticsSandbox,
+};
+
+const activeComponent = computed(() => {
+  return componentMap[activeMenu.value] || null;
+});
 
 const handleMenuSelect = (path: string, item?: ProMenuItem) => {
   activeMenu.value = path;
-  if (!tabsList.value.some(t => t.key === path)) {
-    tabsList.value.push({
-      key: path,
-      title: item?.title || path,
-      closable: true,
-    });
-  }
+  layoutActiveTab.value = path;
+  const compName =
+    path === '/dashboard'
+      ? 'DashboardSandbox'
+      : path === '/system/user'
+        ? 'UserListSandbox'
+        : path === '/analytics/realtime'
+          ? 'AnalyticsSandbox'
+          : undefined;
+
+  openTab({
+    key: path,
+    title: item?.title || path,
+    componentName: compName,
+    closable: path !== '/dashboard',
+  });
+};
+
+const handleTabClick = (tab: { key: string }) => {
+  activeMenu.value = tab.key;
+  layoutActiveTab.value = tab.key;
 };
 
 const handleTabClose = (key: string) => {
-  tabsList.value = tabsList.value.filter(t => t.key !== key);
-  if (activeMenu.value === key && tabsList.value.length > 0) {
-    const last = tabsList.value[tabsList.value.length - 1];
-    if (last) {
-      activeMenu.value = last.key;
-    }
-  }
+  closeTab(key);
+  activeMenu.value = layoutActiveTab.value;
+};
+
+const handleTabRefresh = async (key: string) => {
+  await refreshTab(key);
+  ElMessage.success(`🔄 页面已局部重新挂载刷新: ${key}`);
 };
 
 // 3. 后端异构字段源数据
@@ -127,8 +263,11 @@ const activeBackendMenu = ref('/biz/order');
       </p>
     </div>
 
-    <!-- 演示 1: 经典 Side / Top / Mix 交互骨架沙箱 -->
-    <ElCard class="sample-card" header="1. 模式切换与数据驱动菜单（Side / Top / Mix 三大模式）">
+    <!-- 演示 1: 经典 Side / Top / Mix 交互骨架沙箱与 KeepAlive 缓存实战 -->
+    <ElCard
+      class="sample-card"
+      header="1. 模式切换、全屏沉浸最大化与 KeepAlive 状态缓存 (Side / Top / Mix)"
+    >
       <div class="card-controls">
         <span class="control-label">布局模式：</span>
         <ElRadioGroup v-model="activeLayout" size="small">
@@ -149,6 +288,21 @@ const activeBackendMenu = ref('/biz/order');
         <template v-if="activeLayout === 'mix'">
           <ElSwitch v-model="mixAutoSelectFirstLeaf" active-text="点击一级模块自动导航首个叶子" />
         </template>
+
+        <ElSwitch
+          v-model="useBuiltinTabs"
+          active-text="内置标签 (showTabs)"
+          inactive-text="插槽覆盖 (#tabs)"
+        />
+
+        <ElButton
+          size="small"
+          :type="layoutMaximized ? 'warning' : 'info'"
+          plain
+          @click="layoutMaximized = !layoutMaximized"
+        >
+          {{ layoutMaximized ? '🗗 退出沉浸最大化' : '🗖 全屏沉浸最大化' }}
+        </ElButton>
       </div>
 
       <!-- 嵌入式 ProLayout 模拟沙箱 -->
@@ -156,12 +310,23 @@ const activeBackendMenu = ref('/biz/order');
         <AtengProLayout
           v-model:collapsed="collapsed"
           v-model:active-menu="activeMenu"
+          v-model:is-maximized="layoutMaximized"
           :layout="activeLayout"
           :menu-data="standardMenuData"
           :mix-auto-select-first-leaf="mixAutoSelectFirstLeaf"
+          :show-tabs="useBuiltinTabs"
+          :tabs-props="{
+            tabs: layoutTabs,
+            modelValue: layoutActiveTab,
+            showMaximize: true,
+            contextMenu: true,
+          }"
           title="Ateng Cloud Admin"
-          style="min-height: 480px; height: 480px"
+          style="min-height: 520px; height: 520px"
           @menu-select="handleMenuSelect"
+          @tab-click="handleTabClick"
+          @tab-close="handleTabClose"
+          @tab-refresh="handleTabRefresh"
         >
           <!-- 顶栏右侧定制区 -->
           <template #headerRight>
@@ -177,36 +342,63 @@ const activeBackendMenu = ref('/biz/order');
             </div>
           </template>
 
-          <!-- 多标签栏插槽 -->
-          <template #tabs>
+          <!-- 多标签栏插槽自定义覆盖演示 -->
+          <template v-if="!useBuiltinTabs" #tabs>
             <AtengTabsNav
-              v-model="activeMenu"
-              :tabs="tabsList"
+              v-model="layoutActiveTab"
+              :tabs="layoutTabs"
+              :show-maximize="true"
               style="border-bottom: none"
-              @tab-click="k => (activeMenu = k)"
-              @tab-remove="handleTabClose"
+              @tab-click="handleTabClick"
+              @tab-close="handleTabClose"
+              @tab-refresh="handleTabRefresh"
             />
           </template>
 
-          <!-- 内容主体区 -->
+          <!-- 内容主体区：KeepAlive 真实实装 -->
           <div class="sandbox-content">
-            <div class="content-banner">
-              <h3>当前视图：{{ activeMenu }}</h3>
-              <p>
-                当前布局处于 <strong>{{ activeLayout }}</strong> 模式。 侧边栏展开宽度
-                220px，折叠后自适应缩小为 64px。
-              </p>
-              <div class="action-tags">
-                <ElTag type="success">数据驱动渲染</ElTag>
-                <ElTag type="primary">递归无限层级</ElTag>
-                <ElTag type="warning">面包屑与 Tabs 协同</ElTag>
-              </div>
+            <div class="cache-status-bar">
+              <span class="cache-label">📦 KeepAlive 缓存名单 (:include="cachedViews")：</span>
+              <ElTag
+                v-for="view in cachedViews"
+                :key="view"
+                size="small"
+                type="success"
+                class="cache-tag"
+              >
+                {{ view }}
+              </ElTag>
+              <ElButton
+                size="small"
+                type="primary"
+                plain
+                class="refresh-btn"
+                @click="handleTabRefresh(layoutActiveTab)"
+              >
+                🔄 刷新当前视图 (refreshTab 调度)
+              </ElButton>
+            </div>
+
+            <div class="keep-alive-wrapper">
+              <KeepAlive :include="cachedViews">
+                <component :is="activeComponent" :key="layoutActiveTab" />
+              </KeepAlive>
             </div>
           </div>
 
-          <!-- 底部版权说明 -->
+          <!-- 底部版权与操作栏（验证最大化自动避让） -->
           <template #footer>
-            <span>Copyright © 2026 Ateng Frontend Suite. All rights reserved.</span>
+            <AtengFooterBar
+              position="sticky"
+              show-submit
+              show-cancel
+              submit-text="提交当前页数据"
+              @submit="ElMessage.success('提交保存成功！')"
+            >
+              <template #extra>
+                <span>已联动 AtengProLayout 避让总线（沉浸最大化模式下避让自动归零）</span>
+              </template>
+            </AtengFooterBar>
           </template>
         </AtengProLayout>
       </div>
@@ -431,5 +623,59 @@ const activeBackendMenu = ref('/biz/order');
 .action-tags {
   display: flex;
   gap: 8px;
+}
+
+.cache-status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: var(--el-fill-color-light);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.cache-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.cache-tag {
+  font-family: Consolas, monospace;
+}
+
+.refresh-btn {
+  margin-left: auto;
+}
+
+.keep-alive-wrapper {
+  background-color: var(--el-bg-color-page);
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+:deep(.sandbox-subview h4) {
+  margin: 0 0 8px 0;
+  color: var(--el-text-color-primary);
+}
+
+:deep(.time-info) {
+  margin: 0 0 14px 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+:deep(.time-info strong) {
+  color: var(--el-color-primary);
+}
+
+:deep(.form-group) {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
 }
 </style>

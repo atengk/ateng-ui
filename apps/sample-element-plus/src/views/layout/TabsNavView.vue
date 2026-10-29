@@ -7,6 +7,7 @@
  */
 
 import { ref } from 'vue';
+import { useTabsNav } from '@atengk/vue';
 import {
   ElAlert,
   ElCard,
@@ -25,49 +26,30 @@ const draggable = ref(true);
 const contextMenu = ref(true);
 const showQuickActions = ref(true);
 const showMaximize = ref(true);
-const isMaximized = ref(false);
 
-// 激活项与测试数据
-const activeTabKey = ref('/dashboard');
 let tabCounter = 1;
 
-const tabs = ref<TabItem[]>([
-  {
-    key: '/dashboard',
-    title: '工作台首页',
-    affix: true,
-  },
-  {
-    key: '/system/user',
-    title: '用户权限管理',
-    componentName: 'UserManagement',
-  },
-  {
-    key: '/system/role',
-    title: '角色与策略中心',
-    componentName: 'RoleManagement',
-  },
-  {
-    key: '/monitor/server',
-    title: '服务器实时监控大盘',
-    componentName: 'ServerMonitor',
-  },
-  {
-    key: '/business/order',
-    title: '电商订单中心明细',
-    componentName: 'OrderList',
-  },
-  {
-    key: '/finance/report',
-    title: '财务季度对账报表',
-    componentName: 'FinanceReport',
-  },
-  {
-    key: '/dev/logs',
-    title: '实时日志控制台',
-    componentName: 'SystemLogs',
-  },
-]);
+// 集成 useTabsNav 无头状态机
+const {
+  tabs,
+  activeKey: activeTabKey,
+  cachedViews,
+  openTab,
+  closeTab,
+  refreshTab,
+  isMaximized,
+} = useTabsNav({
+  defaultActiveKey: '/dashboard',
+  defaultTabs: [
+    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'DashboardView' },
+    { key: '/system/user', title: '用户权限管理', componentName: 'UserManagement' },
+    { key: '/system/role', title: '角色与策略中心', componentName: 'RoleManagement' },
+    { key: '/monitor/server', title: '服务器实时监控大盘', componentName: 'ServerMonitor' },
+    { key: '/business/order', title: '电商订单中心明细', componentName: 'OrderList' },
+    { key: '/finance/report', title: '财务季度对账报表', componentName: 'FinanceReport' },
+    { key: '/dev/logs', title: '实时日志控制台', componentName: 'SystemLogs' },
+  ],
+});
 
 // 事件日志记录
 const eventLogs = ref<string[]>([]);
@@ -86,21 +68,15 @@ const handleTabClick = (tab: TabItem): void => {
 };
 
 const handleTabClose = (key: string, tab: TabItem): void => {
-  const idx = tabs.value.findIndex(t => t.key === key);
-  if (idx >= 0) {
-    tabs.value.splice(idx, 1);
-    if (activeTabKey.value === key) {
-      const next = tabs.value[idx] || tabs.value[idx - 1];
-      activeTabKey.value = next ? next.key : '';
-    }
-    addLog(`关闭标签: ${tab.title} (${key})`);
-    ElMessage.info(`已关闭标签: ${tab.title}`);
-  }
+  closeTab(key);
+  addLog(`关闭标签: ${tab.title} (${key})`);
+  ElMessage.info(`已关闭标签: ${tab.title}`);
 };
 
-const handleTabRefresh = (key: string, tab: TabItem): void => {
-  addLog(`触发标签刷新: ${tab.title} (${key})`);
-  ElMessage.success(`🔄 正在刷新页面: ${tab.title}`);
+const handleTabRefresh = async (key: string, tab: TabItem): void => {
+  await refreshTab(key);
+  addLog(`触发标签局部刷新调度: ${tab.title} (${key})，瞬态从 cachedViews 剔除并重新挂载`);
+  ElMessage.success(`🔄 正在局部刷新页面: ${tab.title}`);
 };
 
 const handleTabOrderChange = (newTabs: TabItem[]): void => {
@@ -123,8 +99,7 @@ const addNewTab = (): void => {
     title: `动态任务标签 ${id}`,
     componentName: `DynamicPage${id}`,
   };
-  tabs.value.push(newTab);
-  activeTabKey.value = newTab.key;
+  openTab(newTab);
   addLog(`追加新标签: ${newTab.title}`);
   ElMessage.success(`已打开 ${newTab.title}`);
 };
@@ -132,9 +107,9 @@ const addNewTab = (): void => {
 // 重置所有标签
 const resetTabs = (): void => {
   tabs.value = [
-    { key: '/dashboard', title: '工作台首页', affix: true },
-    { key: '/system/user', title: '用户权限管理' },
-    { key: '/system/role', title: '角色与策略中心' },
+    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'DashboardView' },
+    { key: '/system/user', title: '用户权限管理', componentName: 'UserManagement' },
+    { key: '/system/role', title: '角色与策略中心', componentName: 'RoleManagement' },
   ];
   activeTabKey.value = '/dashboard';
   addLog('已重置标签列表');
@@ -182,6 +157,24 @@ const resetTabs = (): void => {
         <div class="ctrl-item">
           <span class="label">最大化按钮 (showMaximize)：</span>
           <ElSwitch v-model="showMaximize" size="small" />
+        </div>
+
+        <div class="ctrl-item">
+          <span class="label">KeepAlive 缓存名单 (cachedViews)：</span>
+          <ElTag
+            v-for="c in cachedViews"
+            :key="c"
+            size="small"
+            type="success"
+            style="margin-right: 4px"
+          >
+            {{ c }}
+          </ElTag>
+          <span
+            v-if="cachedViews.length === 0"
+            style="color: var(--el-text-color-secondary); font-size: 12px"
+            >（暂无缓存）</span
+          >
         </div>
       </div>
 
