@@ -56,6 +56,36 @@ export interface AtengTabsNavProps {
    * @default true
    */
   closable?: boolean;
+
+  /**
+   * 是否开启原生拖拽排序。
+   * @default true
+   */
+  draggable?: boolean;
+
+  /**
+   * 是否开启右键上下文快捷菜单。
+   * @default true
+   */
+  contextMenu?: boolean;
+
+  /**
+   * 是否显示右侧快捷操作下拉菜单。
+   * @default true
+   */
+  showQuickActions?: boolean;
+
+  /**
+   * 是否显示内容最大化按钮。
+   * @default true
+   */
+  showMaximize?: boolean;
+
+  /**
+   * 当前是否处于最大化状态（支持 v-model:isMaximized）。
+   * @default false
+   */
+  isMaximized?: boolean;
 }
 
 /**
@@ -81,6 +111,26 @@ export interface AtengTabsNavEmits {
    * 点击标签关闭图标时触发。
    */
   (e: 'tabClose', key: string, tab: TabItem): void;
+
+  /**
+   * 标签刷新时触发。
+   */
+  (e: 'tabRefresh', key: string, tab: TabItem): void;
+
+  /**
+   * 拖拽完成改变标签顺序时触发。
+   */
+  (e: 'tabOrderChange', newTabs: TabItem[]): void;
+
+  /**
+   * 最大化状态切换时派发。
+   */
+  (e: 'maximizeChange', isMaximized: boolean): void;
+
+  /**
+   * 双向绑定更新最大化状态（v-model:isMaximized）。
+   */
+  (e: 'update:isMaximized', isMaximized: boolean): void;
 }
 
 /**
@@ -101,4 +151,9 @@ export interface AtengTabsNavSlots {
    * 后置内容插槽。
    */
   suffix?: () => unknown;
+
+  /**
+   * 快捷操作区右侧扩展插槽。
+   */
+  extra?: () => unknown;
 }

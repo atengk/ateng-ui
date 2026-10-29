@@ -2,13 +2,15 @@
 /**
  * AtengTabsNav 企业级多标签页导航组件。
  *
- * 具备视口溢出滚动感知、卡片/胶囊/下划线三大视觉形态、固定标签防关与激活流转。
+ * 具备视口溢出平滑滚动、鼠标滚轮横向滑动、激活项居中自适应、原生拖拽排序防呆、
+ * Element Plus 原生右键上下文菜单、快捷批量关闭下拉面板、内容区最大化协同与三大视觉形态。
  *
  * @author Ateng
  * @since 2026-10-29
  */
 
-import { computed } from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus';
 import type { AtengTabsNavProps, AtengTabsNavEmits, AtengTabsNavSlots, TabItem } from './types';
 
 defineOptions({
@@ -22,14 +24,115 @@ const props = withDefaults(defineProps<AtengTabsNavProps>(), {
   height: '38px',
   showIcon: true,
   closable: true,
+  draggable: true,
+  contextMenu: true,
+  showQuickActions: true,
+  showMaximize: true,
+  isMaximized: false,
 });
 
 const emit = defineEmits<AtengTabsNavEmits>();
 defineSlots<AtengTabsNavSlots>();
 
-// 格式化高度尺寸
+// DOM 引用
+const viewportRef = ref<HTMLDivElement | null>(null);
+const trackRef = ref<HTMLDivElement | null>(null);
+
+// 尺寸与滚动状态
 const containerHeight = computed<string>(() => {
   return typeof props.height === 'number' ? `${props.height}px` : props.height;
+});
+
+const overflow = reactive({
+  hasOverflow: false,
+  canScrollLeft: false,
+  canScrollRight: false,
+});
+
+// 拖拽状态
+const dragIndex = ref<number | null>(null);
+const dragTargetIndex = ref<number | null>(null);
+
+// 更新滚动容器溢出与边界状态
+const updateScrollStatus = (): void => {
+  const el = viewportRef.value;
+  if (!el) {
+    return;
+  }
+  const { scrollLeft, scrollWidth, clientWidth } = el;
+  overflow.hasOverflow = scrollWidth > clientWidth + 2;
+  overflow.canScrollLeft = scrollLeft > 2;
+  overflow.canScrollRight = scrollLeft + clientWidth < scrollWidth - 2;
+};
+
+// 视口按步长平滑滚动
+const scrollByOffset = (offset: number): void => {
+  viewportRef.value?.scrollBy({ left: offset, behavior: 'smooth' });
+};
+
+// 鼠标滚轮横向滑动
+const onWheelScroll = (event: WheelEvent): void => {
+  const el = viewportRef.value;
+  if (!el || !overflow.hasOverflow) {
+    return;
+  }
+  const delta = event.deltaY || event.deltaX;
+  if (delta !== 0) {
+    el.scrollLeft += delta;
+    event.preventDefault();
+    updateScrollStatus();
+  }
+};
+
+// 激活项平滑居中展示
+const scrollToActiveTab = (): void => {
+  nextTick(() => {
+    const el = viewportRef.value;
+    if (!el) {
+      return;
+    }
+    const activeEl = el.querySelector<HTMLElement>('.at-tabs-nav__item.is-active');
+    if (activeEl) {
+      activeEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+    updateScrollStatus();
+  });
+};
+
+// 监听激活标签变化，平滑自适应滚动居中
+watch(() => props.modelValue, scrollToActiveTab);
+watch(() => props.tabs.length, scrollToActiveTab);
+
+// 几何自适应监听
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  updateScrollStatus();
+  scrollToActiveTab();
+
+  if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      updateScrollStatus();
+    });
+    resizeObserver.observe(viewportRef.value);
+    if (trackRef.value) {
+      resizeObserver.observe(trackRef.value);
+    }
+  }
+
+  viewportRef.value?.addEventListener('scroll', updateScrollStatus, {
+    passive: true,
+  });
+});
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  viewportRef.value?.removeEventListener('scroll', updateScrollStatus);
 });
 
 // 判断单标签是否可被关闭
@@ -40,7 +143,27 @@ const isTabClosable = (tab: TabItem): boolean => {
   return tab.closable ?? props.closable;
 };
 
-// 点击标签处理
+// 判断是否能执行“关闭其他”
+const canCloseOthers = (tab: TabItem): boolean => {
+  return props.tabs.some(t => !t.affix && t.key !== tab.key);
+};
+
+// 判断是否能执行“关闭左侧”
+const canCloseLeft = (index: number): boolean => {
+  return props.tabs.slice(0, index).some(t => !t.affix);
+};
+
+// 判断是否能执行“关闭右侧”
+const canCloseRight = (index: number): boolean => {
+  return props.tabs.slice(index + 1).some(t => !t.affix);
+};
+
+// 判断是否能执行“全部关闭”
+const canCloseAll = (): boolean => {
+  return props.tabs.some(t => !t.affix);
+};
+
+// 点击标签项
 const onTabItemClick = (tab: TabItem): void => {
   if (props.modelValue !== tab.key) {
     emit('update:modelValue', tab.key);
@@ -48,10 +171,142 @@ const onTabItemClick = (tab: TabItem): void => {
   emit('tabClick', tab);
 };
 
-// 点击关闭按钮处理
+// 点击关闭小图标
 const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
   event.stopPropagation();
   emit('tabClose', tab.key, tab);
+};
+
+// 拖拽事件处理
+const onDragStart = (event: DragEvent, index: number, tab: TabItem): void => {
+  if (tab.affix) {
+    event.preventDefault();
+    return;
+  }
+  dragIndex.value = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('text/plain', String(index));
+    event.dataTransfer.effectAllowed = 'move';
+  }
+};
+
+const onDragOver = (event: DragEvent, index: number, tab: TabItem): void => {
+  event.preventDefault();
+  if (tab.affix) {
+    return;
+  }
+  dragTargetIndex.value = index;
+};
+
+const onDragLeave = (index: number): void => {
+  if (dragTargetIndex.value === index) {
+    dragTargetIndex.value = null;
+  }
+};
+
+const onDrop = (event: DragEvent, toIndex: number, targetTab: TabItem): void => {
+  event.preventDefault();
+  const fromIndex = dragIndex.value;
+  dragIndex.value = null;
+  dragTargetIndex.value = null;
+
+  if (
+    fromIndex === null ||
+    fromIndex === toIndex ||
+    targetTab.affix ||
+    fromIndex < 0 ||
+    fromIndex >= props.tabs.length
+  ) {
+    return;
+  }
+
+  const movingTab = props.tabs[fromIndex];
+  if (!movingTab || movingTab.affix) {
+    return;
+  }
+
+  // 保证不能被拖到固定标签之前
+  const firstUnpinnedIndex = props.tabs.findIndex(t => !t.affix);
+  const validToIndex = Math.max(firstUnpinnedIndex >= 0 ? firstUnpinnedIndex : 0, toIndex);
+
+  const newTabs = [...props.tabs];
+  const [removed] = newTabs.splice(fromIndex, 1);
+  if (removed) {
+    newTabs.splice(validToIndex, 0, removed);
+    emit('update:tabs', newTabs);
+    emit('tabOrderChange', newTabs);
+  }
+};
+
+const onDragEnd = (): void => {
+  dragIndex.value = null;
+  dragTargetIndex.value = null;
+};
+
+// 上下文菜单与快捷指令派发
+const handleCommand = (command: string, tab: TabItem, index: number): void => {
+  switch (command) {
+    case 'refresh':
+      emit('tabRefresh', tab.key, tab);
+      break;
+    case 'close':
+      emit('tabClose', tab.key, tab);
+      break;
+    case 'closeOthers': {
+      const newTabs = props.tabs.filter(t => t.affix || t.key === tab.key);
+      emit('update:tabs', newTabs);
+      if (tab.key !== props.modelValue) {
+        emit('update:modelValue', tab.key);
+      }
+      break;
+    }
+    case 'closeLeft': {
+      const newTabs = props.tabs.filter((t, idx) => idx >= index || t.affix);
+      emit('update:tabs', newTabs);
+      if (!newTabs.some(t => t.key === props.modelValue)) {
+        emit('update:modelValue', tab.key);
+      }
+      break;
+    }
+    case 'closeRight': {
+      const newTabs = props.tabs.filter((t, idx) => idx <= index || t.affix);
+      emit('update:tabs', newTabs);
+      if (!newTabs.some(t => t.key === props.modelValue)) {
+        emit('update:modelValue', tab.key);
+      }
+      break;
+    }
+    case 'closeAll': {
+      const newTabs = props.tabs.filter(t => t.affix);
+      emit('update:tabs', newTabs);
+      const firstTab = newTabs[0];
+      emit('update:modelValue', firstTab ? firstTab.key : '');
+      break;
+    }
+  }
+};
+
+// 快捷操作下拉菜单命令处理（基于当前 activeKey）
+const handleQuickCommand = (command: string): void => {
+  const currentTab = props.tabs.find(t => t.key === props.modelValue);
+  const currentIndex = props.tabs.findIndex(t => t.key === props.modelValue);
+  if (!currentTab || currentIndex < 0) {
+    if (command === 'closeAll') {
+      const newTabs = props.tabs.filter(t => t.affix);
+      emit('update:tabs', newTabs);
+      const firstTab = newTabs[0];
+      emit('update:modelValue', firstTab ? firstTab.key : '');
+    }
+    return;
+  }
+  handleCommand(command, currentTab, currentIndex);
+};
+
+// 切换最大化模式
+const toggleMaximize = (): void => {
+  const nextVal = !props.isMaximized;
+  emit('update:isMaximized', nextVal);
+  emit('maximizeChange', nextVal);
 };
 </script>
 
@@ -67,54 +322,231 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
       <slot name="prefix" />
     </div>
 
+    <!-- 左侧溢出滚动按钮 -->
+    <button
+      v-if="overflow.hasOverflow"
+      type="button"
+      class="at-tabs-nav__scroll-btn at-tabs-nav__scroll-btn--left"
+      :disabled="!overflow.canScrollLeft"
+      aria-label="向左滚动"
+      @click="scrollByOffset(-200)"
+    >
+      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+        <path
+          d="M608 768c-8.192 0-16.384-3.072-22.528-9.216l-216-216a32 32 0 0 1 0-45.568l216-216a32 32 0 0 1 45.248 45.248L437.248 512l193.472 193.536A32 32 0 0 1 608 768z"
+        />
+      </svg>
+    </button>
+
     <!-- 标签滚动视口区域 -->
-    <div class="at-tabs-nav__viewport">
-      <div class="at-tabs-nav__track">
-        <div
-          v-for="(tab, index) in tabs"
-          :key="tab.key"
-          class="at-tabs-nav__item"
-          :class="{
-            'is-active': tab.key === modelValue,
-            'is-affix': tab.affix,
-          }"
-          role="tab"
-          :aria-selected="tab.key === modelValue"
-          @click="onTabItemClick(tab)"
-        >
-          <!-- 自定义插槽优先 -->
-          <slot name="tab" :tab="tab" :active="tab.key === modelValue" :index="index">
-            <!-- 标签图标 -->
-            <span v-if="showIcon && tab.icon" class="at-tabs-nav__icon">
-              <component :is="tab.icon" v-if="typeof tab.icon === 'object'" />
-              <i v-else-if="typeof tab.icon === 'string'" :class="tab.icon" />
-            </span>
-
-            <!-- 标签标题 -->
-            <span class="at-tabs-nav__title">{{ tab.title }}</span>
-
-            <!-- 关闭按钮 -->
-            <button
-              v-if="isTabClosable(tab)"
-              type="button"
-              class="at-tabs-nav__close"
-              aria-label="关闭标签"
-              @click="onTabItemClose($event, tab)"
+    <div ref="viewportRef" class="at-tabs-nav__viewport" @wheel="onWheelScroll">
+      <div ref="trackRef" class="at-tabs-nav__track">
+        <template v-for="(tab, index) in tabs" :key="tab.key">
+          <!-- 开启右键菜单时使用 ElDropdown 包裹 -->
+          <ElDropdown
+            v-if="contextMenu"
+            trigger="contextmenu"
+            :teleported="true"
+            @command="(cmd: string) => handleCommand(cmd, tab, index)"
+          >
+            <div
+              class="at-tabs-nav__item"
+              :class="{
+                'is-active': tab.key === modelValue,
+                'is-affix': tab.affix,
+                'is-dragover': dragTargetIndex === index,
+              }"
+              role="tab"
+              :aria-selected="tab.key === modelValue"
+              :draggable="draggable && !tab.affix ? 'true' : 'false'"
+              @click="onTabItemClick(tab)"
+              @dragstart="onDragStart($event, index, tab)"
+              @dragover="onDragOver($event, index, tab)"
+              @dragleave="onDragLeave(index)"
+              @drop="onDrop($event, index, tab)"
+              @dragend="onDragEnd"
             >
-              <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
-                <path
-                  d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
-                />
-              </svg>
-            </button>
-          </slot>
-        </div>
+              <!-- 自定义插槽优先 -->
+              <slot name="tab" :tab="tab" :active="tab.key === modelValue" :index="index">
+                <!-- 标签图标 -->
+                <span v-if="showIcon && tab.icon" class="at-tabs-nav__icon">
+                  <component :is="tab.icon" v-if="typeof tab.icon === 'object'" />
+                  <i v-else-if="typeof tab.icon === 'string'" :class="tab.icon" />
+                </span>
+
+                <!-- 标签标题 -->
+                <span class="at-tabs-nav__title">{{ tab.title }}</span>
+
+                <!-- 关闭按钮 -->
+                <button
+                  v-if="isTabClosable(tab)"
+                  type="button"
+                  class="at-tabs-nav__close"
+                  aria-label="关闭标签"
+                  @click="onTabItemClose($event, tab)"
+                >
+                  <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+                    <path
+                      d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
+                    />
+                  </svg>
+                </button>
+              </slot>
+            </div>
+
+            <template #dropdown>
+              <ElDropdownMenu class="at-tabs-nav__dropdown-menu">
+                <ElDropdownItem command="refresh">
+                  <span class="dropdown-item-flex">🔄 刷新当前</span>
+                </ElDropdownItem>
+                <ElDropdownItem command="close" :disabled="!isTabClosable(tab)" divided>
+                  <span class="dropdown-item-flex">❌ 关闭当前</span>
+                </ElDropdownItem>
+                <ElDropdownItem command="closeOthers" :disabled="!canCloseOthers(tab)">
+                  <span class="dropdown-item-flex">🚫 关闭其他</span>
+                </ElDropdownItem>
+                <ElDropdownItem command="closeLeft" :disabled="!canCloseLeft(index)">
+                  <span class="dropdown-item-flex">⬅️ 关闭左侧</span>
+                </ElDropdownItem>
+                <ElDropdownItem command="closeRight" :disabled="!canCloseRight(index)">
+                  <span class="dropdown-item-flex">➡️ 关闭右侧</span>
+                </ElDropdownItem>
+                <ElDropdownItem command="closeAll" :disabled="!canCloseAll()" divided>
+                  <span class="dropdown-item-flex">🧹 全部关闭</span>
+                </ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+
+          <!-- 未开启右键菜单时的纯节点渲染 -->
+          <div
+            v-else
+            class="at-tabs-nav__item"
+            :class="{
+              'is-active': tab.key === modelValue,
+              'is-affix': tab.affix,
+              'is-dragover': dragTargetIndex === index,
+            }"
+            role="tab"
+            :aria-selected="tab.key === modelValue"
+            :draggable="draggable && !tab.affix ? 'true' : 'false'"
+            @click="onTabItemClick(tab)"
+            @dragstart="onDragStart($event, index, tab)"
+            @dragover="onDragOver($event, index, tab)"
+            @dragleave="onDragLeave(index)"
+            @drop="onDrop($event, index, tab)"
+            @dragend="onDragEnd"
+          >
+            <slot name="tab" :tab="tab" :active="tab.key === modelValue" :index="index">
+              <span v-if="showIcon && tab.icon" class="at-tabs-nav__icon">
+                <component :is="tab.icon" v-if="typeof tab.icon === 'object'" />
+                <i v-else-if="typeof tab.icon === 'string'" :class="tab.icon" />
+              </span>
+              <span class="at-tabs-nav__title">{{ tab.title }}</span>
+              <button
+                v-if="isTabClosable(tab)"
+                type="button"
+                class="at-tabs-nav__close"
+                aria-label="关闭标签"
+                @click="onTabItemClose($event, tab)"
+              >
+                <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+                  <path
+                    d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
+                  />
+                </svg>
+              </button>
+            </slot>
+          </div>
+        </template>
       </div>
     </div>
 
-    <!-- 后置插槽 -->
-    <div v-if="$slots.suffix" class="at-tabs-nav__suffix">
+    <!-- 右侧溢出滚动按钮 -->
+    <button
+      v-if="overflow.hasOverflow"
+      type="button"
+      class="at-tabs-nav__scroll-btn at-tabs-nav__scroll-btn--right"
+      :disabled="!overflow.canScrollRight"
+      aria-label="向右滚动"
+      @click="scrollByOffset(200)"
+    >
+      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+        <path
+          d="M416 768a32 32 0 0 1-22.528-54.656L586.944 512 393.472 318.528a32 32 0 1 1 45.248-45.248l216 216a32 32 0 0 1 0 45.568l-216 216A32 32 0 0 1 416 768z"
+        />
+      </svg>
+    </button>
+
+    <!-- 后置插槽与操作区 -->
+    <div
+      v-if="$slots.suffix || showQuickActions || showMaximize || $slots.extra"
+      class="at-tabs-nav__suffix"
+    >
       <slot name="suffix" />
+
+      <!-- 快捷批量操作下拉菜单 -->
+      <div v-if="showQuickActions" class="at-tabs-nav__quick-actions">
+        <ElDropdown trigger="click" @command="handleQuickCommand">
+          <button
+            type="button"
+            class="at-tabs-nav__action-btn"
+            title="标签快捷操作"
+            aria-label="标签快捷操作"
+          >
+            <svg viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor">
+              <path
+                d="M512 640a32 32 0 0 1-22.528-9.376l-256-256a32 32 0 0 1 45.056-45.248L512 562.624l233.472-233.248a32 32 0 1 1 45.056 45.248l-256 256A32 32 0 0 1 512 640z"
+              />
+            </svg>
+          </button>
+
+          <template #dropdown>
+            <ElDropdownMenu class="at-tabs-nav__dropdown-menu">
+              <ElDropdownItem command="refresh">
+                <span class="dropdown-item-flex">🔄 刷新当前</span>
+              </ElDropdownItem>
+              <ElDropdownItem command="closeOthers" divided>
+                <span class="dropdown-item-flex">🚫 关闭其他</span>
+              </ElDropdownItem>
+              <ElDropdownItem command="closeLeft">
+                <span class="dropdown-item-flex">⬅️ 关闭左侧</span>
+              </ElDropdownItem>
+              <ElDropdownItem command="closeRight">
+                <span class="dropdown-item-flex">➡️ 关闭右侧</span>
+              </ElDropdownItem>
+              <ElDropdownItem command="closeAll" divided>
+                <span class="dropdown-item-flex">🧹 全部关闭</span>
+              </ElDropdownItem>
+            </ElDropdownMenu>
+          </template>
+        </ElDropdown>
+      </div>
+
+      <!-- 内容区一键全屏最大化按钮 -->
+      <button
+        v-if="showMaximize"
+        type="button"
+        class="at-tabs-nav__action-btn at-tabs-nav__maximize-btn"
+        :title="isMaximized ? '还原视图' : '内容最大化'"
+        :aria-label="isMaximized ? '还原视图' : '内容最大化'"
+        @click="toggleMaximize"
+      >
+        <!-- 展开最大化图标 -->
+        <svg v-if="!isMaximized" viewBox="0 0 1024 1024" width="13" height="13" fill="currentColor">
+          <path
+            d="M320 160H160v160h64v-96h96V160z m544 0h-160v64h96v96h64V160zM224 704h-64v160h160v-64h-96v-96z m640 0h-64v96h-96v64h160v-160z"
+          />
+        </svg>
+        <!-- 还原缩小图标 -->
+        <svg v-else viewBox="0 0 1024 1024" width="13" height="13" fill="currentColor">
+          <path
+            d="M160 320h160V160h-64v96H160v64z m544 0h160v-64h-96v-96h-64v160zM256 864h64V704H160v64h96v96z m448 0h64v-96h96v-64H704v160z"
+          />
+        </svg>
+      </button>
+
+      <slot name="extra" />
     </div>
   </div>
 </template>
@@ -128,7 +560,7 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
   box-sizing: border-box;
   background-color: var(--el-bg-color, #ffffff);
   border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
-  padding: 0 8px;
+  padding: 0 4px;
   overflow: hidden;
   user-select: none;
   transition:
@@ -140,6 +572,59 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+    gap: 4px;
+  }
+
+  &__suffix {
+    padding-left: 4px;
+    border-left: 1px solid var(--el-border-color-extra-light, #f2f6fc);
+  }
+
+  &__scroll-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0 2px;
+    border: none;
+    border-radius: var(--el-border-radius-base, 4px);
+    background: transparent;
+    color: var(--el-text-color-regular, #606266);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--el-fill-color-light, #f5f7fa);
+      color: var(--el-color-primary, #409eff);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
+
+  &__action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--el-border-radius-base, 4px);
+    background: transparent;
+    color: var(--el-text-color-regular, #606266);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: var(--el-fill-color-light, #f5f7fa);
+      color: var(--el-color-primary, #409eff);
+    }
   }
 
   &__viewport {
@@ -147,7 +632,12 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
     align-items: center;
     flex: 1;
     height: 100%;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none; // Firefox
+    &::-webkit-scrollbar {
+      display: none; // Chrome/Safari
+    }
   }
 
   &__track {
@@ -155,6 +645,7 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
     align-items: center;
     height: 100%;
     gap: 4px;
+    white-space: nowrap;
   }
 
   &__item {
@@ -182,6 +673,11 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
       color: var(--el-color-primary, #409eff);
       background-color: var(--el-color-primary-light-9, #ecf5ff);
       font-weight: 500;
+    }
+
+    &.is-dragover {
+      outline: 2px dashed var(--el-color-primary, #409eff);
+      outline-offset: -2px;
     }
   }
 
@@ -240,7 +736,7 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
 
   // --- 风格 2: pill 胶囊风格 ---
   &--pill {
-    padding: 2px 8px;
+    padding: 2px 6px;
     .at-tabs-nav__item {
       border-radius: 9999px;
       padding: 0 12px;
@@ -272,5 +768,12 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
       }
     }
   }
+}
+
+.dropdown-item-flex {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  gap: 6px;
 }
 </style>

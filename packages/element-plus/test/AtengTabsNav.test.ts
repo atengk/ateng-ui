@@ -114,4 +114,67 @@ describe('AtengTabsNav Component', () => {
     expect(wrapper.classes()).toContain('at-tabs-nav--pill');
     expect(wrapper.classes()).not.toContain('at-tabs-nav--card');
   });
+
+  it('7. 最大化按钮切换：点击最大化按钮派发 maximizeChange 与 update:isMaximized', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/home',
+        showMaximize: true,
+        isMaximized: false,
+      },
+    });
+
+    const maxBtn = wrapper.find('.at-tabs-nav__maximize-btn');
+    expect(maxBtn.exists()).toBe(true);
+
+    await maxBtn.trigger('click');
+    expect(wrapper.emitted('maximizeChange')).toBeTruthy();
+    expect(wrapper.emitted('maximizeChange')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('update:isMaximized')?.[0]?.[0]).toBe(true);
+  });
+
+  it('8. 原生拖拽排序：固定标签不可拖拽，普通标签支持拖拽重排并派发 tabOrderChange', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/home',
+        draggable: true,
+      },
+    });
+
+    const items = wrapper.findAll('.at-tabs-nav__item');
+    // 首项 affix: true 不可拖拽
+    expect(items[0].attributes('draggable')).toBe('false');
+    // 第二项普通标签可拖拽
+    expect(items[1].attributes('draggable')).toBe('true');
+
+    // 模拟拖拽操作：从索引 2 (settings) 拖到索引 1 (users)
+    await items[2].trigger('dragstart', {
+      dataTransfer: {
+        setData: () => {},
+        effectAllowed: 'move',
+      },
+    });
+
+    await items[1].trigger('dragover');
+    await items[1].trigger('drop');
+
+    expect(wrapper.emitted('tabOrderChange')).toBeTruthy();
+    const newTabs = wrapper.emitted('tabOrderChange')?.[0]?.[0] as TabItem[];
+    expect(newTabs.map(t => t.key)).toEqual(['/home', '/settings', '/users']);
+  });
+
+  it('9. 快捷操作下拉面板：showQuickActions 为 true 时渲染快捷操作按钮', () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/home',
+        showQuickActions: true,
+      },
+    });
+
+    const quickActions = wrapper.find('.at-tabs-nav__quick-actions');
+    expect(quickActions.exists()).toBe(true);
+  });
 });
