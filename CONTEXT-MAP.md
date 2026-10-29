@@ -30,6 +30,8 @@
   面向现代 Web 应用与企业级工控大盘的工业级 ECharts 5 响应式数据可视化扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 `echarts`，严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/echarts-react`）。提供 `<AtengECharts />` 通用表现容器、ResizeObserver 几何自感知与 `0x0` 挂起自愈、声明式全量 Option 同步、Loading/Empty/Error 三态 DOM 级遮罩、暗黑模式无损热切换；提供趋势对比（`<AtengTrendChart />`）、分类占比（`<AtengDonutChart />`）、转化漏斗（`<AtengFunnelChart />`）、极值 KPI 达成率（`<AtengGaugeChart />`）、多维雷达画像（`<AtengRadarChart />`）与三级地图下钻（`<AtengMapChart />`）六大高频预设卡片，以及 GeoJSON SPI 驱动器、脱壳全屏双模状态机与高清图片导出工具链。
 - **[FlowVue 企业级流程与审批流转扩展](./packages/flow-vue/CONTEXT.md)**（`@atengk/flow-vue`，当前已立项入驻）：
   面向现代 Web 应用与企业级审批流、状态机的工业级流程设计与流转可视化扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 LogicFlow，严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/flow-react`）。提供 `<AtengFlowDesigner />` 可视化流程编排设计器、`<AtengFlowViewer />` 运行态只读流转追踪器与 `useFlow()` 无头状态机；具备三段式预设物料面板、属性配置抽屉插槽解构回写、四向吸附正交折线防呆连线、五态运行轨迹动效与悬停审计浮层；内置 `FlowValidator` 拓扑静态校验引擎、`AutoLayoutEngine` DAG 自动排版算法、`FlowSnapshot` 高清全景防虚导出与 `BpmnAdapter` BPMN 2.0 XML 双向转译器；标配 `ResizeObserver` 几何自愈与确定性四步生命周期销毁清理。
+- **[CodeEditorVue 企业级代码与Diff比对扩展](./packages/code-editor-vue/CONTEXT.md)**（`@atengk/code-editor-vue`，当前已立项入驻）：
+  面向现代 Web 应用、SQL 审计与发布配置中心的工业级 Monaco Editor 代码编辑与高保真 Diff 差异比对基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 Monaco Editor，严格中立并与具体 UI 库解耦。提供 `<AtengCodeEditor />` 高保真单体编辑器、`<AtengCodeDiffEditor />` 双栏/内联差异比对容器与 `useCodeEditor()` / `useCodeDiff()` 无头状态机；以 `.at-code-editor-*` 隔离原生微工具栏并 100% 暴露插槽反转；内置三级弹性 WorkerProvider SPI 与离线单线程静默降级防线；确立 `shallowRef` 零深层代理与 `executeEdits` 增量光标防丢失契约；提供暗黑模式 `theme: 'auto'` 响应式热跟随、`ResizeObserver` 弹窗/标签页 `0x0` 几何自愈、受管补全 SPI 与 JSON Schema 语法校验。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展，如 `@atengk/editor` 等）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -48,6 +50,7 @@
 - **[Sample VideoPlayerVue 流媒体播放自验展厅](./apps/sample-video-player-vue/README.md)**（`sample-video-player-vue`）：音视频沙箱，1:1 对标 `@atengk/video-player-vue`，验证点播、HLS/FLV 低延迟直播、1/4/9/16 分屏协同、PTZ 云台与安全防篡改水印。
 - **[Sample EChartsVue 响应式图表自验展厅](./apps/sample-echarts-vue/README.md)**（`sample-echarts-vue`）：数据可视化沙箱，1:1 对标 `@atengk/echarts-vue`，验证通用容器、几何感知自愈、声明式同步、多态遮罩、暗黑模式、6 大高频预设卡片、地图多级下钻与全屏脱壳导出。
 - **[Sample FlowVue 流程与流转自验展厅](./apps/sample-flow-vue/README.md)**（`sample-flow-vue`）：流程设计与运行态沙箱，1:1 对标 `@atengk/flow-vue`，验证设计器拖拽编排、BPMN XML 双向转译、运行态五态高亮与悬停审计、Vue 3 SFC 自定义节点与 DAG 规则链拓扑。
+- **[Sample CodeEditorVue 代码与Diff比对自验展厅](./apps/sample-code-editor-vue/README.md)**（`sample-code-editor-vue`）：代码与比对沙箱，1:1 对标 `@atengk/code-editor-vue`，固定端口 3008，验证代码高亮、SQL 美化、JSON Schema 校验、Diff 双模比对、审计行高亮与弹窗生命周期自愈清理。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -75,6 +78,7 @@ flowchart TD
         VP["@atengk/video-player-vue<br/>(流媒体与多路视频播放扩展)"]
         ECH["@atengk/echarts-vue<br/>(企业级响应式图表可视化扩展)"]
         FLOW["@atengk/flow-vue<br/>(企业级流程与审批流转扩展)"]
+        CODE["@atengk/code-editor-vue<br/>(代码编辑与Diff比对扩展)"]
         EXT["未来的 editor ...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -94,6 +98,7 @@ flowchart TD
         S_VP["apps/sample-video-player-vue"]
         S_ECH["apps/sample-echarts-vue"]
         S_FLOW["apps/sample-flow-vue"]
+        S_CODE["apps/sample-code-editor-vue"]
         S_EP["apps/sample-element-plus"]
     end
 
@@ -111,6 +116,7 @@ flowchart TD
     VP --> S_VP
     ECH --> S_ECH
     FLOW --> S_FLOW
+    CODE --> S_CODE
     EP --> S_EP
 ```
 
@@ -159,3 +165,7 @@ flowchart TD
 - [ADR-0029: Element Plus 全局样式体系与现代多主题引擎工业级全维优化架构](./docs/adr/0029-element-plus-global-style-and-theme-engine-industrial-perfection.md)
 - [ADR-0030: FileViewer L2 专用能力扩展包架构与弹性预设治理策略](./docs/adr/0030-file-viewer-l2-extension-architecture-and-preset-strategy.md)
 - [ADR-0031: VideoPlayer L2 专用扩展层架构、流媒体解耦与安防矩阵治理策略](./docs/adr/0031-video-player-l2-architecture-and-stream-governance.md)
+- [ADR-0032: EChartsVue L2 专用扩展层架构、响应式状态解耦与预设看板治理策略](./docs/adr/0032-echarts-vue-l2-architecture-and-preset-governance.md)
+- [ADR-0033: FlowVue L2 扩展层架构与双轨运行态治理规范](./docs/adr/0033-flow-vue-l2-architecture-and-dual-track-governance.md)
+- [ADR-0034: ProLayout 与 TabsNav 企业级框架布局架构规范与契约设计](./docs/adr/0034-pro-layout-and-tabs-nav-architecture-and-contracts.md)
+- [ADR-0035: CodeEditorVue L2 扩展层架构与 Monaco 工业级治理规范](./docs/adr/0035-code-editor-vue-l2-architecture-and-monaco-governance.md)
