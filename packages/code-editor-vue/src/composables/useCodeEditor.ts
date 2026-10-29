@@ -26,6 +26,7 @@ import type { MaybeRefOrGetter } from 'vue';
 import * as monaco from 'monaco-editor';
 import type { UseCodeEditorOptions } from '../types';
 import { setupMonacoWorkers } from '../workers';
+import { formatSql } from '../sql/formatter';
 
 export interface UseCodeEditorReturn {
   /** Monaco 编辑器原生实例 (shallowRef) */
@@ -87,6 +88,7 @@ export function useCodeEditor(
   let contentChangeListener: monaco.IDisposable | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let layoutHealingTimer: ReturnType<typeof setTimeout> | null = null;
+  let completionDisposables: monaco.IDisposable[] = [];
 
   // 探测当前视口是否处于 0x0 挂起状态
   const checkViewportSuspension = (): boolean => {
@@ -102,9 +104,25 @@ export function useCodeEditor(
     return suspended;
   };
 
-  // 格式化当前文档
+  // 格式化当前文档（支持 SQL 原生格式化与可替换 SPI）
   const format = async (): Promise<void> => {
     if (!editor.value) return;
+
+    const currentLang = options.language ?? 'typescript';
+    if (currentLang === 'sql') {
+      const currentCode = getValue();
+      let formatted = '';
+      if (options.formatSqlProvider) {
+        formatted = await options.formatSqlProvider(currentCode);
+      } else {
+        formatted = formatSql(currentCode);
+      }
+      if (formatted && formatted !== currentCode) {
+        applyIncrementalEdit(formatted);
+      }
+      return;
+    }
+
     const action = editor.value.getAction('editor.action.formatDocument');
     if (action) {
       await action.run();
@@ -255,6 +273,9 @@ export function useCodeEditor(
 
   // 彻底销毁释放
   const dispose = (): void => {
+    completionDisposables.forEach(d => d.dispose());
+    completionDisposables = [];
+
     if (layoutHealingTimer) {
       clearTimeout(layoutHealingTimer);
       layoutHealingTimer = null;
@@ -330,7 +351,52 @@ export function useCodeEditor(
     // 5. 初始大文件阈值检查
     checkLargeFile(initialValue);
 
-    // 6. 注册 ResizeObserver 视口自愈监听
+    // 6. 注册受管 CompletionProvider
+    if (options.completionProvider) {
+      const lang = initialLanguage;
+      const disposable = monaco.languages.registerCompletionItemProvider(lang, {
+        provideCompletionItems: async (m, p) => {
+          const res = await options.completionProvider!(m, p);
+          if (Array.isArray(res)) {
+            return { suggestions: res };
+          }
+          return res as monaco.languages.CompletionList;
+        },
+      });
+      completionDisposables.push(disposable);
+    }
+
+    // 7. 注册声明式 JSON Schema 诊断
+    if (options.jsonSchema && (initialLanguage === 'json' || !options.language)) {
+      const modelUri = createdModel.uri.toString();
+      interface MonacoJsonModule {
+        jsonDefaults?: {
+          setDiagnosticsOptions: (opts: {
+            validate?: boolean;
+            schemas?: Array<{
+              uri: string;
+              fileMatch?: string[];
+              schema?: object;
+            }>;
+          }) => void;
+        };
+      }
+      const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
+      if (jsonLang?.jsonDefaults) {
+        jsonLang.jsonDefaults.setDiagnosticsOptions({
+          validate: true,
+          schemas: [
+            {
+              uri: 'http://ateng-ui/schema.json',
+              fileMatch: [modelUri],
+              schema: options.jsonSchema,
+            },
+          ],
+        });
+      }
+    }
+
+    // 8. 注册 ResizeObserver 视口自愈监听
     if (autoLayoutHealing && typeof window !== 'undefined' && 'ResizeObserver' in window) {
       resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {

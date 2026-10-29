@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<CodeEditorProps>(), {
   bordered: true,
   largeFileThreshold: 50000,
   autoLayoutHealing: true,
+  highlightLines: () => [],
   options: () => ({}),
   workerOptions: () => ({}),
 });
@@ -135,11 +136,35 @@ const {
   workerOptions: props.workerOptions,
   largeFileThreshold: props.largeFileThreshold,
   autoLayoutHealing: props.autoLayoutHealing,
+  formatSqlProvider: props.formatSqlProvider,
+  completionProvider: props.completionProvider,
+  jsonSchema: props.jsonSchema,
   onChange: (val, event) => {
     emit('update:modelValue', val);
     emit('change', val, event);
   },
 });
+
+let decorationsCollection: monaco.editor.IEditorDecorationsCollection | null = null;
+
+const applyHighlightLines = (): void => {
+  if (!editor.value) return;
+  const lines = props.highlightLines ?? [];
+  const decorations: monaco.editor.IModelDeltaDecoration[] = lines.map(line => ({
+    range: new monaco.Range(line, 1, line, 1),
+    options: {
+      isWholeLine: true,
+      className: 'at-code-editor__highlight-line',
+      linesDecorationsClassName: 'at-code-editor__highlight-gutter',
+    },
+  }));
+
+  if (decorationsCollection) {
+    decorationsCollection.set(decorations);
+  } else {
+    decorationsCollection = editor.value.createDecorationsCollection(decorations);
+  }
+};
 
 // 监听光标与挂载
 watch(
@@ -164,8 +189,18 @@ watch(
 
     emit('mount', ed, monaco);
     syncTheme();
+    applyHighlightLines();
   },
   { immediate: true },
+);
+
+// 监听高亮行变更
+watch(
+  () => props.highlightLines,
+  () => {
+    applyHighlightLines();
+  },
+  { deep: true },
 );
 
 // 监听外部 modelValue 变更（单向防回环增量同步，光标防丢与 Undo 栈保持）
@@ -277,6 +312,10 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (decorationsCollection) {
+    decorationsCollection.clear();
+    decorationsCollection = null;
+  }
   if (themeObserver) {
     themeObserver.disconnect();
     themeObserver = null;

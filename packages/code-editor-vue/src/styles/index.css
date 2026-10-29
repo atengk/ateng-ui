@@ -175,3 +175,18 @@
   align-items: center;
   gap: 12px;
 }
+
+/* Audit & Highlight Lines */
+.at-code-editor__highlight-line {
+  background-color: rgba(254, 240, 138, 0.35) !important;
+}
+
+.at-code-editor--dark .at-code-editor__highlight-line {
+  background-color: rgba(161, 98, 7, 0.35) !important;
+}
+
+.at-code-editor__highlight-gutter {
+  background-color: #eab308 !important;
+  width: 4px !important;
+  margin-left: 3px;
+}

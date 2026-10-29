@@ -18,6 +18,9 @@ export type { UseCodeEditorReturn } from './composables/useCodeEditor';
 
 export { setupMonacoWorkers } from './workers';
 
+export { formatSql } from './sql/formatter';
+export type { SqlFormatProvider } from './sql/formatter';
+
 export type {
   CodeLanguage,
   EditorTheme,
@@ -26,4 +29,5 @@ export type {
   CodeEditorEmits,
   CodeEditorExpose,
   UseCodeEditorOptions,
+  CompletionProviderFn,
 } from './types';

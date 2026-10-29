@@ -6,6 +6,21 @@
  */
 
 import type * as monaco from 'monaco-editor';
+import type { SqlFormatProvider } from '../sql/formatter';
+
+export type { SqlFormatProvider };
+
+/**
+ * 自定义代码智能补全提供者函数契约。
+ */
+export type CompletionProviderFn = (
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) =>
+  | monaco.languages.CompletionItem[]
+  | Promise<monaco.languages.CompletionItem[]>
+  | monaco.languages.CompletionList
+  | Promise<monaco.languages.CompletionList>;
 
 /**
  * 常用支持的代码语言类型。
@@ -95,6 +110,14 @@ export interface CodeEditorProps {
   largeFileThreshold?: number;
   /** 是否启用 0x0 视口几何挂起与恢复可见自愈（默认 true） */
   autoLayoutHealing?: boolean;
+  /** 自定义 SQL 格式化提供者 SPI (针对 sql 语言生效) */
+  formatSqlProvider?: SqlFormatProvider;
+  /** 自定义智能补全项提供者 (受管生命周期，自动卸载注销) */
+  completionProvider?: CompletionProviderFn;
+  /** 声明式 JSON Schema 校验规范对象 (针对 json 语言生效) */
+  jsonSchema?: object;
+  /** 只读审计高亮行号列表 (1-based 行号) */
+  highlightLines?: number[];
 }
 
 /**
@@ -173,6 +196,12 @@ export interface UseCodeEditorOptions {
   largeFileThreshold?: number;
   /** 是否启用 0x0 视口几何挂起与恢复可见自愈（默认 true） */
   autoLayoutHealing?: boolean;
+  /** 自定义 SQL 格式化提供者 SPI */
+  formatSqlProvider?: SqlFormatProvider;
+  /** 自定义智能补全项提供者 */
+  completionProvider?: CompletionProviderFn;
+  /** 声明式 JSON Schema 校验规范对象 */
+  jsonSchema?: object;
   /** 内容变更回调 */
   onChange?: (value: string, event: monaco.editor.IModelContentChangedEvent) => void;
 }

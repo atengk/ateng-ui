@@ -8,6 +8,9 @@
 
 import { ref } from 'vue';
 import BasicCodeEditorScenario from './scenarios/BasicCodeEditorScenario.vue';
+import SqlFormattingScenario from './scenarios/SqlFormattingScenario.vue';
+import JsonSchemaValidationScenario from './scenarios/JsonSchemaValidationScenario.vue';
+import AuditReadOnlyScenario from './scenarios/AuditReadOnlyScenario.vue';
 import DialogTabsLifecycleScenario from './scenarios/DialogTabsLifecycleScenario.vue';
 
 const activeTab = ref<string>('basic');
@@ -48,14 +51,14 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景二：Diff 差异双模比对 (Diff)" name="diff" disabled>
           <div class="placeholder">等待后续 Ticket 交付...</div>
         </el-tab-pane>
-        <el-tab-pane label="场景三：SQL 智能补全与美化 (SQL)" name="sql" disabled>
-          <div class="placeholder">等待后续 Ticket 交付...</div>
+        <el-tab-pane label="场景三：SQL 智能补全与美化 (SQL)" name="sql">
+          <SqlFormattingScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景四：JSON Schema 语法校验 (JSON)" name="json" disabled>
-          <div class="placeholder">等待后续 Ticket 交付...</div>
+        <el-tab-pane label="场景四：JSON Schema 语法校验 (JSON)" name="json">
+          <JsonSchemaValidationScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景五：只读审计与行高亮 (Audit)" name="audit" disabled>
-          <div class="placeholder">等待后续 Ticket 交付...</div>
+        <el-tab-pane label="场景五：只读审计与行高亮 (Audit)" name="audit">
+          <AuditReadOnlyScenario />
         </el-tab-pane>
         <el-tab-pane label="场景六：弹窗与 Tabs 几何自愈 (Lifecycle)" name="lifecycle">
           <DialogTabsLifecycleScenario />
