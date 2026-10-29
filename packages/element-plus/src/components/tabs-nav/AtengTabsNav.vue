@@ -9,10 +9,18 @@
  * @since 2026-10-29
  */
 
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue';
+import { ref, computed, inject } from 'vue';
 import { ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus';
-import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout/types';
-import type { AtengTabsNavProps, AtengTabsNavEmits, AtengTabsNavSlots, TabItem } from './types';
+import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout/context';
+import type {
+  AtengTabsNavProps,
+  AtengTabsNavEmits,
+  AtengTabsNavSlots,
+  TabItem,
+  TabCommand,
+} from './types';
+import { useTabsScroll } from './useTabsScroll';
+import { useTabsDrag } from './useTabsDrag';
 
 defineOptions({
   name: 'AtengTabsNav',
@@ -39,110 +47,13 @@ defineSlots<AtengTabsNavSlots>();
 const viewportRef = ref<HTMLDivElement | null>(null);
 const trackRef = ref<HTMLDivElement | null>(null);
 
-// 尺寸与滚动状态
-const containerHeight = computed<string>(() => {
-  return typeof props.height === 'number' ? `${props.height}px` : props.height;
-});
-
-const overflow = reactive({
-  hasOverflow: false,
-  canScrollLeft: false,
-  canScrollRight: false,
-});
-
-// 拖拽状态
-const dragIndex = ref<number | null>(null);
-const dragTargetIndex = ref<number | null>(null);
-
-// 更新滚动容器溢出与边界状态
-const updateScrollStatus = (): void => {
-  const el = viewportRef.value;
-  if (!el) {
-    return;
-  }
-  const { scrollLeft, scrollWidth, clientWidth } = el;
-  overflow.hasOverflow = scrollWidth > clientWidth + 2;
-  overflow.canScrollLeft = scrollLeft > 2;
-  overflow.canScrollRight = scrollLeft + clientWidth < scrollWidth - 2;
-};
-
-// 视口按步长平滑滚动
-const scrollByOffset = (offset: number): void => {
-  viewportRef.value?.scrollBy({ left: offset, behavior: 'smooth' });
-};
-
-// 鼠标滚轮横向滑动
-const onWheelScroll = (event: WheelEvent): void => {
-  const el = viewportRef.value;
-  if (!el || !overflow.hasOverflow) {
-    return;
-  }
-  const delta = event.deltaY || event.deltaX;
-  if (delta !== 0) {
-    el.scrollLeft += delta;
-    event.preventDefault();
-    updateScrollStatus();
-  }
-};
-
-// 激活项平滑居中展示（视口内原生自闭环平滑滚动，杜绝外部视口抖动）
-const scrollToActiveTab = (): void => {
-  nextTick(() => {
-    const el = viewportRef.value;
-    if (!el) {
-      return;
-    }
-    updateScrollStatus();
-    if (!overflow.hasOverflow) {
-      el.scrollLeft = 0;
-      return;
-    }
-    const activeEl = el.querySelector<HTMLElement>('.at-tabs-nav__item.is-active');
-    if (!activeEl) {
-      return;
-    }
-    const activeLeft = activeEl.offsetLeft;
-    const activeWidth = activeEl.offsetWidth;
-    const viewportWidth = el.clientWidth;
-    const targetScrollLeft = activeLeft - (viewportWidth - activeWidth) / 2;
-    el.scrollTo({
-      left: Math.max(0, targetScrollLeft),
-      behavior: 'smooth',
-    });
-    updateScrollStatus();
-  });
-};
-
-// 监听激活标签变化，平滑自适应滚动居中
-watch(() => props.modelValue, scrollToActiveTab);
-watch(() => props.tabs.length, scrollToActiveTab);
-
-// 几何自适应监听
-let resizeObserver: ResizeObserver | null = null;
-
-onMounted(() => {
-  updateScrollStatus();
-  scrollToActiveTab();
-
-  if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
-    resizeObserver = new ResizeObserver(() => {
-      updateScrollStatus();
-    });
-    resizeObserver.observe(viewportRef.value);
-    if (trackRef.value) {
-      resizeObserver.observe(trackRef.value);
-    }
-  }
-
-  viewportRef.value?.addEventListener('scroll', updateScrollStatus, {
-    passive: true,
-  });
-});
-
-onUnmounted(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-  viewportRef.value?.removeEventListener('scroll', updateScrollStatus);
+// 视口横向平滑滚动与溢出状态监测
+const { containerHeight, overflow, scrollByOffset, onWheelScroll } = useTabsScroll({
+  viewportRef,
+  trackRef,
+  modelValue: () => props.modelValue,
+  tabsLength: () => props.tabs.length,
+  height: () => props.height,
 });
 
 // 判断单标签是否可被关闭
@@ -187,74 +98,14 @@ const onTabItemClose = (event: MouseEvent, tab: TabItem): void => {
   emit('tabClose', tab.key, tab);
 };
 
-// 拖拽事件处理
-const onDragStart = (event: DragEvent, index: number, tab: TabItem): void => {
-  if (tab.affix) {
-    event.preventDefault();
-    return;
-  }
-  dragIndex.value = index;
-  if (event.dataTransfer) {
-    event.dataTransfer.setData('text/plain', String(index));
-    event.dataTransfer.effectAllowed = 'move';
-  }
-};
-
-const onDragOver = (event: DragEvent, index: number, tab: TabItem): void => {
-  event.preventDefault();
-  if (tab.affix) {
-    return;
-  }
-  dragTargetIndex.value = index;
-};
-
-const onDragLeave = (index: number): void => {
-  if (dragTargetIndex.value === index) {
-    dragTargetIndex.value = null;
-  }
-};
-
-const onDrop = (event: DragEvent, toIndex: number, targetTab: TabItem): void => {
-  event.preventDefault();
-  const fromIndex = dragIndex.value;
-  dragIndex.value = null;
-  dragTargetIndex.value = null;
-
-  if (
-    fromIndex === null ||
-    fromIndex === toIndex ||
-    targetTab.affix ||
-    fromIndex < 0 ||
-    fromIndex >= props.tabs.length
-  ) {
-    return;
-  }
-
-  const movingTab = props.tabs[fromIndex];
-  if (!movingTab || movingTab.affix) {
-    return;
-  }
-
-  // 保证不能被拖到固定标签之前
-  const firstUnpinnedIndex = props.tabs.findIndex(t => !t.affix);
-  const validToIndex = Math.max(firstUnpinnedIndex >= 0 ? firstUnpinnedIndex : 0, toIndex);
-
-  const newTabs = [...props.tabs];
-  const [removed] = newTabs.splice(fromIndex, 1);
-  if (removed) {
-    newTabs.splice(validToIndex, 0, removed);
-    emit('update:tabs', newTabs);
-    emit('tabOrderChange', newTabs);
-  }
-};
-
-const onDragEnd = (): void => {
-  dragIndex.value = null;
-  dragTargetIndex.value = null;
-};
+// 原生拖拽排序防呆
+const { dragTargetIndex, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } = useTabsDrag({
+  tabs: () => props.tabs,
+  emit,
+});
 
 // 上下文菜单与快捷指令派发
-const handleCommand = (command: string, tab: TabItem, index: number): void => {
+const handleCommand = (command: TabCommand | string, tab: TabItem, index: number): void => {
   switch (command) {
     case 'refresh':
       emit('tabRefresh', tab.key, tab);
@@ -263,7 +114,11 @@ const handleCommand = (command: string, tab: TabItem, index: number): void => {
       emit('tabClose', tab.key, tab);
       break;
     case 'closeOthers': {
+      const closedTabs = props.tabs.filter(t => !t.affix && t.key !== tab.key);
       const newTabs = props.tabs.filter(t => t.affix || t.key === tab.key);
+      for (const ct of closedTabs) {
+        emit('tabClose', ct.key, ct);
+      }
       emit('update:tabs', newTabs);
       if (tab.key !== props.modelValue) {
         emit('update:modelValue', tab.key);
@@ -271,7 +126,11 @@ const handleCommand = (command: string, tab: TabItem, index: number): void => {
       break;
     }
     case 'closeLeft': {
+      const closedTabs = props.tabs.filter((t, idx) => idx < index && !t.affix);
       const newTabs = props.tabs.filter((t, idx) => idx >= index || t.affix);
+      for (const ct of closedTabs) {
+        emit('tabClose', ct.key, ct);
+      }
       emit('update:tabs', newTabs);
       if (!newTabs.some(t => t.key === props.modelValue)) {
         emit('update:modelValue', tab.key);
@@ -279,7 +138,11 @@ const handleCommand = (command: string, tab: TabItem, index: number): void => {
       break;
     }
     case 'closeRight': {
+      const closedTabs = props.tabs.filter((t, idx) => idx > index && !t.affix);
       const newTabs = props.tabs.filter((t, idx) => idx <= index || t.affix);
+      for (const ct of closedTabs) {
+        emit('tabClose', ct.key, ct);
+      }
       emit('update:tabs', newTabs);
       if (!newTabs.some(t => t.key === props.modelValue)) {
         emit('update:modelValue', tab.key);
@@ -287,7 +150,11 @@ const handleCommand = (command: string, tab: TabItem, index: number): void => {
       break;
     }
     case 'closeAll': {
+      const closedTabs = props.tabs.filter(t => !t.affix);
       const newTabs = props.tabs.filter(t => t.affix);
+      for (const ct of closedTabs) {
+        emit('tabClose', ct.key, ct);
+      }
       emit('update:tabs', newTabs);
       const firstTab = newTabs[0];
       emit('update:modelValue', firstTab ? firstTab.key : '');
@@ -297,12 +164,16 @@ const handleCommand = (command: string, tab: TabItem, index: number): void => {
 };
 
 // 快捷操作下拉菜单命令处理（基于当前 activeKey）
-const handleQuickCommand = (command: string): void => {
+const handleQuickCommand = (command: TabCommand | string): void => {
   const currentTab = props.tabs.find(t => t.key === props.modelValue);
   const currentIndex = props.tabs.findIndex(t => t.key === props.modelValue);
   if (!currentTab || currentIndex < 0) {
     if (command === 'closeAll') {
+      const closedTabs = props.tabs.filter(t => !t.affix);
       const newTabs = props.tabs.filter(t => t.affix);
+      for (const ct of closedTabs) {
+        emit('tabClose', ct.key, ct);
+      }
       emit('update:tabs', newTabs);
       const firstTab = newTabs[0];
       emit('update:modelValue', firstTab ? firstTab.key : '');

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable vue/one-component-per-file */
 /**
  * AtengProLayout 框架布局套件实装展厅。
  *
@@ -13,7 +12,7 @@
  * @since 2026-10-29
  */
 
-import { ref, computed, defineComponent, h } from 'vue';
+import { ref, computed, type Component } from 'vue';
 import { useTabsNav } from '@atengk/vue';
 import {
   AtengProLayout,
@@ -30,59 +29,12 @@ import {
   ElBadge,
   ElAvatar,
   ElSwitch,
-  ElInput,
   ElMessage,
 } from 'element-plus';
-
-// 纯原生企业级 SVG 图标组件（零臃肿第三方依赖）
-const IconDashboard = defineComponent({
-  name: 'IconDashboard',
-  render: () =>
-    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
-      h('path', {
-        d: 'M880 112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V144c0-17.7-14.3-32-32-32z m-40 728H184V184h656v656z',
-      }),
-      h('path', {
-        d: 'M256 256h216v216H256zM552 256h216v328H552zM256 552h216v216H256zM552 664h216v104H552z',
-      }),
-    ]),
-});
-
-const IconSetting = defineComponent({
-  name: 'IconSetting',
-  render: () =>
-    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
-      h('path', {
-        d: 'M512 640a128 128 0 1 0 0-256 128 128 0 0 0 0 256z m360-176.4l-52.6-40.4c-4.4-3.4-6.8-8.8-6.4-14.4 2-26.6 2-53.6 0-80.2-0.4-5.6 2-11 6.4-14.4l52.6-40.4c13.4-10.4 17.2-28.8 8.8-43.6l-50-86.6c-8.4-14.6-26.2-21.2-41.8-15.4l-62.4 23.4c-5.2 2-11.2 1.2-15.8-2-21.8-15.4-45.2-28.8-69.8-40-5.2-2.4-8.8-7.2-9.6-12.8L630 84.6C627.6 68.8 614 57 598.2 57h-100c-15.8 0-29.4 11.8-31.8 27.6l-10.8 68.6c-0.8 5.6-4.4 10.4-9.6 12.8-24.6 11.2-48 24.6-69.8 40-4.6 3.2-10.6 4-15.8 2l-62.4-23.4c-15.6-5.8-33.4 0.8-41.8 15.4l-50 86.6c-8.4 14.8-4.6 33.2 8.8 43.6l52.6 40.4c4.4 3.4 6.8 8.8 6.4 14.4-2 26.6-2 53.6 0 80.2 0.4 5.6-2 11-6.4 14.4l-52.6 40.4c-13.4 10.4-17.2 28.8-8.8 43.6l50 86.6c8.4 14.6 26.2 21.2 41.8 15.4l62.4-23.4c5.2-2 11.2-1.2 15.8 2 21.8 15.4 45.2 28.8 69.8 40 5.2 2.4 8.8 7.2 9.6 12.8l10.8 68.6c2.4 15.8 16 27.6 31.8 27.6h100c15.8 0 29.4-11.8 31.8-27.6l10.8-68.6c0.8-5.6 4.4-10.4 9.6-12.8 24.6-11.2 48-24.6 69.8-40 4.6-3.2 10.6-4 15.8-2l62.4 23.4c15.6 5.8 33.4-0.8 41.8-15.4l50-86.6c8.4-14.8 4.6-33.2-8.8-43.6z',
-      }),
-    ]),
-});
-
-const IconAnalytics = defineComponent({
-  name: 'IconAnalytics',
-  render: () =>
-    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
-      h('path', {
-        d: 'M888 792H200V168c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v688c0 17.7 14.3 32 32 32h730c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8z',
-      }),
-      h('path', {
-        d: 'M288 624h96v104h-96zM448 456h96v272h-96zM608 320h96v408h-96zM768 184h96v544h-96z',
-      }),
-    ]),
-});
-
-const IconInfo = defineComponent({
-  name: 'IconInfo',
-  render: () =>
-    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
-      h('path', {
-        d: 'M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z',
-      }),
-      h('path', {
-        d: 'M464 336a48 48 0 1 0 96 0 48 48 0 1 0-96 0zM472 456h80v256h-80z',
-      }),
-    ]),
-});
+import { IconDashboard, IconSetting, IconAnalytics, IconInfo } from './components/LayoutIcons';
+import DashboardSandbox from './components/DashboardSandbox.vue';
+import UserListSandbox from './components/UserListSandbox.vue';
+import AnalyticsSandbox from './components/AnalyticsSandbox.vue';
 
 // 1. 标准菜单源数据
 const standardMenuData: ProMenuItem[] = [
@@ -119,102 +71,6 @@ const useBuiltinTabs = ref(true);
 // 移动端沙箱状态控制
 const mobileDrawerCollapsed = ref(true);
 
-// 真实 KeepAlive 缓存组件定义（显式 name 契约）
-const DashboardSandbox = defineComponent({
-  name: 'DashboardSandbox',
-  setup() {
-    const note = ref('工作台草稿备忘：测试 KeepAlive 缓存保留');
-    const counter = ref(10);
-    const mountTime = new Date().toLocaleTimeString();
-    return () =>
-      h('div', { class: 'sandbox-subview' }, [
-        h('h4', '📊 工作台首页 (KeepAlive 缓存组件: DashboardSandbox)'),
-        h('p', { class: 'time-info' }, [
-          '实例挂载时间戳: ',
-          h('strong', mountTime),
-          '（切换标签保持输入，右键刷新局部重新挂载）',
-        ]),
-        h('div', { class: 'form-group' }, [
-          h('span', '草稿输入：'),
-          h(ElInput, {
-            modelValue: note.value,
-            'onUpdate:modelValue': (v: string) => (note.value = v),
-            placeholder: '输入内容测试切换标签缓存保留...',
-            style: 'width: 320px;',
-          }),
-        ]),
-        h('div', { class: 'form-group', style: 'margin-top: 10px;' }, [
-          h('span', '计数器状态：'),
-          h(
-            ElButton,
-            { size: 'small', type: 'primary', plain: true, onClick: () => counter.value++ },
-            () => `点击增加计数: ${counter.value}`,
-          ),
-        ]),
-      ]);
-  },
-});
-
-const UserListSandbox = defineComponent({
-  name: 'UserListSandbox',
-  setup() {
-    const keyword = ref('张三');
-    const role = ref('admin');
-    const mountTime = new Date().toLocaleTimeString();
-    return () =>
-      h('div', { class: 'sandbox-subview' }, [
-        h('h4', '👥 用户列表 (KeepAlive 缓存组件: UserListSandbox)'),
-        h('p', { class: 'time-info' }, [
-          '实例挂载时间戳: ',
-          h('strong', mountTime),
-          '（切换标签保持输入，右键刷新局部重新挂载）',
-        ]),
-        h('div', { class: 'form-group' }, [
-          h('span', '搜索用户名：'),
-          h(ElInput, {
-            modelValue: keyword.value,
-            'onUpdate:modelValue': (v: string) => (keyword.value = v),
-            placeholder: '输入搜索用户名',
-            style: 'width: 200px;',
-          }),
-          h('span', { style: 'margin-left: 16px;' }, '分配角色：'),
-          h(ElInput, {
-            modelValue: role.value,
-            'onUpdate:modelValue': (v: string) => (role.value = v),
-            placeholder: '输入角色',
-            style: 'width: 160px;',
-          }),
-        ]),
-      ]);
-  },
-});
-
-const AnalyticsSandbox = defineComponent({
-  name: 'AnalyticsSandbox',
-  setup() {
-    const metric = ref('2026 Q4 核心财务指标');
-    const mountTime = new Date().toLocaleTimeString();
-    return () =>
-      h('div', { class: 'sandbox-subview' }, [
-        h('h4', '📈 实时大盘 (KeepAlive 缓存组件: AnalyticsSandbox)'),
-        h('p', { class: 'time-info' }, [
-          '实例挂载时间戳: ',
-          h('strong', mountTime),
-          '（切换标签保持输入，右键刷新局部重新挂载）',
-        ]),
-        h('div', { class: 'form-group' }, [
-          h('span', '报表主题：'),
-          h(ElInput, {
-            modelValue: metric.value,
-            'onUpdate:modelValue': (v: string) => (metric.value = v),
-            placeholder: '输入大盘指标主题',
-            style: 'width: 300px;',
-          }),
-        ]),
-      ]);
-  },
-});
-
 // useTabsNav 无头响应式状态机
 const {
   tabs: layoutTabs,
@@ -234,7 +90,7 @@ const {
 });
 
 // 组件映射表
-const componentMap: Record<string, ReturnType<typeof defineComponent>> = {
+const componentMap: Record<string, Component> = {
   '/dashboard': DashboardSandbox,
   '/system/user': UserListSandbox,
   '/analytics/realtime': AnalyticsSandbox,
@@ -515,7 +371,7 @@ const backendCollapsed = ref(false);
           v-model:collapsed="backendCollapsed"
           v-model:active-menu="activeBackendMenu"
           layout="side"
-          :menu-data="backendData as any"
+          :menu-data="backendData"
           :field-names="{
             path: 'url',
             title: 'name',
@@ -561,7 +417,7 @@ const backendCollapsed = ref(false);
 
           <template #footer>
             <AtengFooterBar
-              position="sticky"
+              position="fixed"
               show-submit
               show-reset
               show-cancel

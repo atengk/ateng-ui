@@ -8,7 +8,7 @@
 
 import { computed } from 'vue';
 import { ElMenuItem, ElSubMenu, ElIcon, ElBadge } from 'element-plus';
-import type { ProMenuItem, ProMenuFieldNames } from './types';
+import type { ProMenuFieldNames, ProMenuRawItem } from './types';
 
 defineOptions({
   name: 'ProMenuItemNode',
@@ -16,7 +16,7 @@ defineOptions({
 
 const props = withDefaults(
   defineProps<{
-    item: ProMenuItem;
+    item: ProMenuRawItem;
     fieldNames?: ProMenuFieldNames;
     depth?: number;
     mode?: 'horizontal' | 'vertical';
@@ -39,6 +39,11 @@ const badgeKey = computed(() => props.fieldNames?.badge || 'badge');
 const badgeTypeKey = computed(() => props.fieldNames?.badgeType || 'badgeType');
 const disabledKey = computed(() => props.fieldNames?.disabled || 'disabled');
 const hiddenKey = computed(() => props.fieldNames?.hidden || 'hidden');
+const targetKey = computed(() => props.fieldNames?.target || 'target');
+
+defineSlots<{
+  menuItem?: (props: { item: ProMenuRawItem; depth: number }) => unknown;
+}>();
 
 const itemPath = computed(() => String(props.item[pathKey.value] ?? ''));
 const itemTitle = computed(() => String(props.item[titleKey.value] ?? ''));
@@ -49,19 +54,42 @@ const fallbackChar = computed(() => {
 const itemChildren = computed(() => {
   const children = props.item[childrenKey.value];
   if (Array.isArray(children) && children.length > 0) {
-    return children as ProMenuItem[];
+    return children as ProMenuRawItem[];
   }
   return undefined;
 });
 const itemIcon = computed(() => props.item[iconKey.value]);
 const itemBadge = computed(() => props.item[badgeKey.value]);
-const itemBadgeType = computed(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  () => (props.item[badgeTypeKey.value] as any) || 'danger',
-);
+type BadgeType = '' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
+const itemBadgeType = computed<BadgeType>(() => {
+  const val = props.item[badgeTypeKey.value];
+  if (
+    val === 'primary' ||
+    val === 'success' ||
+    val === 'warning' ||
+    val === 'danger' ||
+    val === 'info' ||
+    val === ''
+  ) {
+    return val;
+  }
+  return 'danger';
+});
+const itemTarget = computed<string | undefined>(() => {
+  const val = props.item[targetKey.value];
+  return typeof val === 'string' ? val : (props.item.target ?? undefined);
+});
 const isDisabled = computed(() => Boolean(props.item[disabledKey.value]));
 const isHidden = computed(() => Boolean(props.item[hiddenKey.value]));
 const hasChildren = computed(() => Boolean(itemChildren.value && itemChildren.value.length > 0));
+
+const handleItemClick = () => {
+  if (itemTarget.value === '_blank' && itemPath.value) {
+    if (typeof window !== 'undefined') {
+      window.open(itemPath.value, '_blank', 'noopener,noreferrer');
+    }
+  }
+};
 
 // 深度缩进样式计算（保证子菜单文字严格缩进在父菜单内侧，杜绝无图标子菜单视觉倒挂）
 const menuItemStyle = computed(() => {
@@ -100,23 +128,26 @@ const subMenuTitlePadding = computed(() => {
       :class="{ 'at-pro-submenu--no-icon': currentDepth >= 1 && !itemIcon }"
     >
       <template #title>
-        <el-icon v-if="itemIcon" class="at-pro-menu__icon">
-          <component
-            :is="itemIcon"
-            v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
+        <slot v-if="$slots.menuItem" name="menuItem" :item="item" :depth="currentDepth" />
+        <template v-else>
+          <el-icon v-if="itemIcon" class="at-pro-menu__icon">
+            <component
+              :is="itemIcon"
+              v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
+            />
+            <i v-else :class="itemIcon" />
+          </el-icon>
+          <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
+            {{ fallbackChar }}
+          </i>
+          <span class="at-pro-menu__title">{{ itemTitle }}</span>
+          <el-badge
+            v-if="itemBadge !== undefined && itemBadge !== null && itemBadge !== ''"
+            :value="itemBadge"
+            :type="itemBadgeType"
+            class="at-pro-menu__badge"
           />
-          <i v-else :class="itemIcon" />
-        </el-icon>
-        <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
-          {{ fallbackChar }}
-        </i>
-        <span class="at-pro-menu__title">{{ itemTitle }}</span>
-        <el-badge
-          v-if="itemBadge !== undefined && itemBadge !== null && itemBadge !== ''"
-          :value="itemBadge"
-          :type="itemBadgeType"
-          class="at-pro-menu__badge"
-        />
+        </template>
       </template>
 
       <!-- 递归渲染子项 -->
@@ -127,22 +158,36 @@ const subMenuTitlePadding = computed(() => {
         :field-names="fieldNames"
         :depth="currentDepth + 1"
         :mode="mode"
-      />
+      >
+        <template v-if="$slots.menuItem" #menuItem="slotProps">
+          <slot name="menuItem" v-bind="slotProps" />
+        </template>
+      </ProMenuItemNode>
     </el-sub-menu>
 
     <!-- 2. 叶子 MenuItem 节点 -->
-    <el-menu-item v-else :index="itemPath" :disabled="isDisabled" :style="menuItemStyle">
-      <el-icon v-if="itemIcon" class="at-pro-menu__icon">
-        <component
-          :is="itemIcon"
-          v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
-        />
-        <i v-else :class="itemIcon" />
-      </el-icon>
-      <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
-        {{ fallbackChar }}
-      </i>
-      <template #title>
+    <el-menu-item
+      v-else
+      :index="itemPath"
+      :disabled="isDisabled"
+      :style="menuItemStyle"
+      @click="handleItemClick"
+    >
+      <slot v-if="$slots.menuItem" name="menuItem" :item="item" :depth="currentDepth" />
+      <template v-else>
+        <el-icon v-if="itemIcon" class="at-pro-menu__icon">
+          <component
+            :is="itemIcon"
+            v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
+          />
+          <i v-else :class="itemIcon" />
+        </el-icon>
+        <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
+          {{ fallbackChar }}
+        </i>
+      </template>
+
+      <template v-if="!$slots.menuItem" #title>
         <span class="at-pro-menu__title">{{ itemTitle }}</span>
         <el-badge
           v-if="itemBadge !== undefined && itemBadge !== null && itemBadge !== ''"

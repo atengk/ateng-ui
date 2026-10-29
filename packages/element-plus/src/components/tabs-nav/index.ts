@@ -10,3 +10,5 @@ import AtengTabsNav from './AtengTabsNav.vue';
 export { AtengTabsNav };
 export type AtengTabsNavInstance = InstanceType<typeof AtengTabsNav>;
 export * from './types';
+export * from './useTabsScroll';
+export * from './useTabsDrag';

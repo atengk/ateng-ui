@@ -177,4 +177,30 @@ describe('AtengTabsNav Component', () => {
     const quickActions = wrapper.find('.at-tabs-nav__quick-actions');
     expect(quickActions.exists()).toBe(true);
   });
+
+  it('10. 批量关闭操作：触发关闭其他/全部关闭时为每个关闭项派发 tabClose 并同步 update:tabs', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs, // [/home (affix), /users, /settings]
+        modelValue: '/users',
+        showQuickActions: true,
+      },
+    });
+
+    const quickDropdown = wrapper
+      .find('.at-tabs-nav__quick-actions')
+      .findComponent({ name: 'ElDropdown' });
+    expect(quickDropdown.exists()).toBe(true);
+
+    // 触发 closeOthers 命令（当前在 /users）
+    quickDropdown.vm.$emit('command', 'closeOthers');
+
+    // /settings 是非固定且非激活项，应被关闭并派发 tabClose
+    expect(wrapper.emitted('tabClose')).toBeTruthy();
+    expect(wrapper.emitted('tabClose')?.[0]?.[0]).toBe('/settings');
+
+    // 剩余标签为 /home 和 /users
+    const updatedTabs = wrapper.emitted('update:tabs')?.[0]?.[0] as TabItem[];
+    expect(updatedTabs.map(t => t.key)).toEqual(['/home', '/users']);
+  });
 });

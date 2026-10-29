@@ -17,6 +17,7 @@ export { ATENG_PRO_LAYOUT_KEY } from './types';
 export type {
   ProLayoutMode,
   ProMenuItem,
+  ProMenuRawItem,
   ProMenuFieldNames,
   AtengProLayoutProps,
   AtengProLayoutEmits,

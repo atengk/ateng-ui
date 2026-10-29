@@ -112,10 +112,12 @@ const { tabs, activeKey, cachedViews, openTab, closeTab, refreshTab, closeOthers
       </button>
     </div>
 
-    <!-- KeepAlive 真实缓存视口与局部刷新调度 -->
-    <KeepAlive :include="cachedViews">
-      <router-view :key="activeKey" />
-    </KeepAlive>
+    <!-- KeepAlive 真实缓存视口与局部刷新调度 (遵循 Vue Router 4 规范插槽范式) -->
+    <router-view v-slot="{ Component }">
+      <KeepAlive :include="cachedViews">
+        <component :is="Component" :key="activeKey" />
+      </KeepAlive>
+    </router-view>
   </div>
 </template>
 ```

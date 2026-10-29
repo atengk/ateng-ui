@@ -7,8 +7,9 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { nextTick, ref } from 'vue';
 import { AtengFooterBar } from '../src/components/footer-bar';
+import { ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
 
 describe('AtengFooterBar 组件测试', () => {
   let wrapper: VueWrapper | null = null;
@@ -450,5 +451,40 @@ describe('AtengFooterBar 组件测试', () => {
     expect(typeof exposed.submit).toBe('function');
     expect(typeof exposed.reset).toBe('function');
     expect(typeof exposed.cancel).toBe('function');
+  });
+
+  it('响应 ATENG_PRO_LAYOUT_KEY 容器总线：fixed 模式下动态避让侧边栏宽度', async () => {
+    const asideWidth = ref('220px');
+    wrapper = mount(AtengFooterBar, {
+      props: {
+        position: 'fixed',
+      },
+      global: {
+        provide: {
+          [ATENG_PRO_LAYOUT_KEY as symbol]: {
+            asideWidth,
+            collapsed: ref(false),
+            isMaximized: ref(false),
+            isMobile: ref(false),
+            toggleCollapse: () => {},
+            toggleMaximize: () => {},
+          },
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const bar = wrapper.find('.at-footer-bar');
+    expect(bar.attributes('style')).toContain('left: 220px');
+
+    // 折叠侧边栏至 64px
+    asideWidth.value = '64px';
+    await nextTick();
+    expect(bar.attributes('style')).toContain('left: 64px');
+
+    // 最大化模式下侧边栏归零
+    asideWidth.value = '0px';
+    await nextTick();
+    expect(bar.attributes('style')).toContain('left: 0px');
   });
 });

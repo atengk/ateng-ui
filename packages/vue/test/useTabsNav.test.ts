@@ -350,4 +350,62 @@ describe('useTabsNav', () => {
     });
     scope2.stop();
   });
+
+  it('should lock affix: true tabs at the head on openTab and initialize', () => {
+    const scope = effectScope();
+    scope.run(() => {
+      // 初始数据中无序排列
+      const { tabs, openTab } = useTabsNav({
+        defaultTabs: [
+          { key: '/unpinned1', title: '普通页1' },
+          { key: '/pinned1', title: '固定页1', affix: true },
+          { key: '/unpinned2', title: '普通页2' },
+        ],
+      });
+
+      // 初始化后固定标签自动排序至前端
+      expect(tabs.value[0].key).toBe('/pinned1');
+      expect(tabs.value[1].key).toBe('/unpinned1');
+      expect(tabs.value[2].key).toBe('/unpinned2');
+
+      // 打开新的 affix: true 标签，必须插入至非固定标签之前（首部固定区）
+      openTab({ key: '/pinned2', title: '固定页2', affix: true });
+      expect(tabs.value[0].key).toBe('/pinned1');
+      expect(tabs.value[1].key).toBe('/pinned2');
+      expect(tabs.value[2].key).toBe('/unpinned1');
+      expect(tabs.value[3].key).toBe('/unpinned2');
+
+      // 打开普通标签，插入至尾部
+      openTab({ key: '/unpinned3', title: '普通页3' });
+      expect(tabs.value[4].key).toBe('/unpinned3');
+    });
+    scope.stop();
+  });
+
+  it('should support MaybeRefOrGetter options and explicit setter methods', () => {
+    const scope = effectScope();
+    scope.run(() => {
+      // 通过 Getter 函数传入 options (Vue 3.5 MaybeRefOrGetter 契约)
+      const maxLimit = 5;
+      const { tabs, activeKey, setTabs, setActiveKey } = useTabsNav(() => ({
+        maxTabs: maxLimit,
+        defaultActiveKey: '/init',
+        defaultTabs: [{ key: '/init', title: 'Init' }],
+      }));
+
+      expect(tabs.value).toHaveLength(1);
+      expect(activeKey.value).toBe('/init');
+
+      // 显式 setTabs 与 setActiveKey
+      setTabs([
+        { key: '/t1', title: 'Tab 1' },
+        { key: '/t2', title: 'Tab 2' },
+      ]);
+      expect(tabs.value).toHaveLength(2);
+
+      setActiveKey('/t2');
+      expect(activeKey.value).toBe('/t2');
+    });
+    scope.stop();
+  });
 });

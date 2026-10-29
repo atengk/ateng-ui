@@ -6,7 +6,7 @@
  * @since 2026-10-29
  */
 
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useTabsNav } from '@atengk/vue';
 import {
   ElAlert,
@@ -98,17 +98,30 @@ const handleTabClose = (key: string, tab: TabItem): void => {
   ElMessage.info(`已关闭标签: ${tab.title}`);
 };
 
-const handleTabRefresh = async (key: string, tab: TabItem): void => {
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+const handleTabRefresh = async (key: string, tab: TabItem): Promise<void> => {
   refreshingKey.value = key;
   await refreshTab(key);
   addLog('refresh', '局部刷新', `${tab.title} (${key})，瞬态从 cachedViews 剔除并重新挂载`);
   ElMessage.success(`🔄 正在局部刷新页面: ${tab.title}`);
-  setTimeout(() => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+  refreshTimer = setTimeout(() => {
     if (refreshingKey.value === key) {
       refreshingKey.value = null;
     }
+    refreshTimer = null;
   }, 180);
 };
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+});
 
 const handleTabOrderChange = (newTabs: TabItem[]): void => {
   tabs.value = newTabs;

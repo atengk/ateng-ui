@@ -15,7 +15,7 @@
 import { computed } from 'vue';
 import { ElMenu } from 'element-plus';
 import ProMenuItemNode from './ProMenuItemNode.vue';
-import type { ProMenuItem, ProMenuFieldNames } from './types';
+import type { ProMenuItem, ProMenuFieldNames, ProMenuRawItem } from './types';
 
 defineOptions({
   name: 'ProMenu',
@@ -23,7 +23,7 @@ defineOptions({
 
 const props = withDefaults(
   defineProps<{
-    menuData?: ProMenuItem[];
+    menuData?: ProMenuRawItem[];
     mode?: 'horizontal' | 'vertical';
     collapse?: boolean;
     fieldNames?: ProMenuFieldNames;
@@ -44,16 +44,20 @@ const emit = defineEmits<{
   (e: 'select', path: string, item?: ProMenuItem): void;
 }>();
 
+defineSlots<{
+  menuItem?: (props: { item: ProMenuRawItem; depth: number }) => unknown;
+}>();
+
 const pathKey = computed(() => props.fieldNames?.path || 'path');
 const childrenKey = computed(() => props.fieldNames?.children || 'children');
 
 // 递归查找选中的菜单实体
-function findMenuItem(items: ProMenuItem[], targetPath: string): ProMenuItem | undefined {
+function findMenuItem(items: ProMenuRawItem[], targetPath: string): ProMenuRawItem | undefined {
   for (const item of items) {
-    if (String(item[pathKey.value] ?? item.path) === targetPath) {
+    if (String(item[pathKey.value] ?? (item as ProMenuItem).path) === targetPath) {
       return item;
     }
-    const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+    const children = item[childrenKey.value] as ProMenuRawItem[] | undefined;
     if (Array.isArray(children) && children.length > 0) {
       const found = findMenuItem(children, targetPath);
       if (found) return found;
@@ -64,7 +68,7 @@ function findMenuItem(items: ProMenuItem[], targetPath: string): ProMenuItem | u
 
 const handleSelect = (index: string) => {
   const item = findMenuItem(props.menuData, index);
-  emit('select', index, item);
+  emit('select', index, item as ProMenuItem | undefined);
 };
 </script>
 
@@ -86,7 +90,11 @@ const handleSelect = (index: string) => {
       :field-names="fieldNames"
       :depth="0"
       :mode="mode"
-    />
+    >
+      <template v-if="$slots.menuItem" #menuItem="slotProps">
+        <slot name="menuItem" v-bind="slotProps" />
+      </template>
+    </ProMenuItemNode>
   </el-menu>
 </template>
 

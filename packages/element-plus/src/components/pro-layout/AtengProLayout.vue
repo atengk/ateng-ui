@@ -16,9 +16,9 @@
 import { ref, computed, watch, provide, onMounted, onBeforeUnmount } from 'vue';
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
 import { AtengLayout, AtengHeader, AtengAside, AtengContent } from '../layout';
-import { AtengTabsNav } from '../tabs-nav';
 import type { TabItem } from '../tabs-nav';
 import ProMenu from './ProMenu.vue';
+import ProLayoutTabs from './ProLayoutTabs.vue';
 import {
   type AtengProLayoutProps,
   type AtengProLayoutEmits,
@@ -384,7 +384,11 @@ defineExpose<AtengProLayoutExpose>({
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
-              />
+              >
+                <template v-if="$slots.menuItem" #menuItem="slotProps">
+                  <slot name="menuItem" v-bind="slotProps" />
+                </template>
+              </ProMenu>
             </slot>
           </div>
 
@@ -473,20 +477,23 @@ defineExpose<AtengProLayoutExpose>({
           </AtengHeader>
 
           <!-- 多标签栏插槽（AtengTabsNav） -->
-          <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
-            <slot name="tabs">
-              <AtengTabsNav
-                v-if="showTabs"
-                v-bind="tabsProps"
-                :is-maximized="internalMaximized"
-                @update:is-maximized="toggleMaximize"
-                @maximize-change="toggleMaximize"
-                @tab-click="(tab: TabItem) => emit('tabClick', tab)"
-                @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
-                @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
-              />
-            </slot>
-          </div>
+          <ProLayoutTabs
+            v-if="$slots.tabs || showTabs"
+            :show-tabs="showTabs"
+            :tabs-props="tabsProps"
+            :is-maximized="internalMaximized"
+            @update:is-maximized="toggleMaximize"
+            @maximize-change="toggleMaximize"
+            @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+            @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+            @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+            @update:tabs="(tabs: TabItem[]) => emit('update:tabs', tabs)"
+            @tab-order-change="(tabs: TabItem[]) => emit('tabOrderChange', tabs)"
+          >
+            <template v-if="$slots.tabs" #tabs>
+              <slot name="tabs" />
+            </template>
+          </ProLayoutTabs>
 
           <!-- 内容主体区 -->
           <AtengContent class="at-pro-layout__content">
@@ -524,7 +531,11 @@ defineExpose<AtengProLayoutExpose>({
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
-              />
+              >
+                <template v-if="$slots.menuItem" #menuItem="slotProps">
+                  <slot name="menuItem" v-bind="slotProps" />
+                </template>
+              </ProMenu>
             </slot>
           </div>
 
@@ -542,20 +553,23 @@ defineExpose<AtengProLayoutExpose>({
         </AtengHeader>
 
         <!-- 多标签栏插槽（AtengTabsNav） -->
-        <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
-          <slot name="tabs">
-            <AtengTabsNav
-              v-if="showTabs"
-              v-bind="tabsProps"
-              :is-maximized="internalMaximized"
-              @update:is-maximized="toggleMaximize"
-              @maximize-change="toggleMaximize"
-              @tab-click="(tab: TabItem) => emit('tabClick', tab)"
-              @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
-              @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
-            />
-          </slot>
-        </div>
+        <ProLayoutTabs
+          v-if="$slots.tabs || showTabs"
+          :show-tabs="showTabs"
+          :tabs-props="tabsProps"
+          :is-maximized="internalMaximized"
+          @update:is-maximized="toggleMaximize"
+          @maximize-change="toggleMaximize"
+          @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+          @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+          @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+          @update:tabs="(tabs: TabItem[]) => emit('update:tabs', tabs)"
+          @tab-order-change="(tabs: TabItem[]) => emit('tabOrderChange', tabs)"
+        >
+          <template v-if="$slots.tabs" #tabs>
+            <slot name="tabs" />
+          </template>
+        </ProLayoutTabs>
 
         <!-- 内容主体区 -->
         <AtengContent class="at-pro-layout__content">
@@ -588,7 +602,11 @@ defineExpose<AtengProLayoutExpose>({
               :field-names="fieldNames"
               :active-menu="activeTopMenuPath || activeMenu"
               @select="handleMixTopSelect"
-            />
+            >
+              <template v-if="$slots.menuItem" #menuItem="slotProps">
+                <slot name="menuItem" v-bind="slotProps" />
+              </template>
+            </ProMenu>
           </div>
 
           <div class="at-pro-layout__header-right">
@@ -622,26 +640,33 @@ defineExpose<AtengProLayoutExpose>({
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
-              />
+              >
+                <template v-if="$slots.menuItem" #menuItem="slotProps">
+                  <slot name="menuItem" v-bind="slotProps" />
+                </template>
+              </ProMenu>
             </div>
           </AtengAside>
 
           <AtengLayout direction="vertical" class="at-pro-layout__main">
             <!-- 多标签栏插槽（AtengTabsNav） -->
-            <div v-if="$slots.tabs || showTabs" class="at-pro-layout__tabs">
-              <slot name="tabs">
-                <AtengTabsNav
-                  v-if="showTabs"
-                  v-bind="tabsProps"
-                  :is-maximized="internalMaximized"
-                  @update:is-maximized="toggleMaximize"
-                  @maximize-change="toggleMaximize"
-                  @tab-click="(tab: TabItem) => emit('tabClick', tab)"
-                  @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
-                  @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
-                />
-              </slot>
-            </div>
+            <ProLayoutTabs
+              v-if="$slots.tabs || showTabs"
+              :show-tabs="showTabs"
+              :tabs-props="tabsProps"
+              :is-maximized="internalMaximized"
+              @update:is-maximized="toggleMaximize"
+              @maximize-change="toggleMaximize"
+              @tab-click="(tab: TabItem) => emit('tabClick', tab)"
+              @tab-close="(key: string, tab: TabItem) => emit('tabClose', key, tab)"
+              @tab-refresh="(key: string, tab: TabItem) => emit('tabRefresh', key, tab)"
+              @update:tabs="(tabs: TabItem[]) => emit('update:tabs', tabs)"
+              @tab-order-change="(tabs: TabItem[]) => emit('tabOrderChange', tabs)"
+            >
+              <template v-if="$slots.tabs" #tabs>
+                <slot name="tabs" />
+              </template>
+            </ProLayoutTabs>
             <AtengContent class="at-pro-layout__content">
               <slot />
             </AtengContent>

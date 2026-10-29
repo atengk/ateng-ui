@@ -5,7 +5,7 @@
  * @since 2026-10-29
  */
 
-import type { InjectionKey, ComputedRef, Component, VNode } from 'vue';
+import type { ComputedRef, Component, VNode } from 'vue';
 import type { AtengTabsNavProps, TabItem } from '../tabs-nav/types';
 
 /**
@@ -82,6 +82,11 @@ export interface ProMenuItem {
 }
 
 /**
+ * 菜单项原始数据契约（支持标准 ProMenuItem 或后端异构 DTO 记录）。
+ */
+export type ProMenuRawItem = ProMenuItem | Record<string, unknown>;
+
+/**
  * 菜单字段别名自适应映射契约。
  * 解决后端接口命名差异（如 url 代替 path、name 代替 title、subList 代替 children）。
  */
@@ -102,6 +107,8 @@ export interface ProMenuFieldNames {
   disabled?: string;
   /** 隐藏字段名，默认 'hidden' */
   hidden?: string;
+  /** 外链打开方式字段名，默认 'target' */
+  target?: string;
 }
 
 /**
@@ -124,9 +131,9 @@ export interface AtengProLayoutProps {
   logo?: string;
 
   /**
-   * 数据驱动菜单源数组。
+   * 数据驱动菜单源数组。支持标准 ProMenuItem 或后端异构 DTO 对象。
    */
-  menuData?: ProMenuItem[];
+  menuData?: (ProMenuItem | Record<string, unknown>)[];
 
   /**
    * 菜单字段别名自适应映射。
@@ -282,6 +289,16 @@ export interface AtengProLayoutEmits {
    * 内置多标签刷新事件。
    */
   (e: 'tabRefresh', key: string, tab: TabItem): void;
+
+  /**
+   * 内置多标签列表变更事件（支持 v-model:tabs 同步）。
+   */
+  (e: 'update:tabs', tabs: TabItem[]): void;
+
+  /**
+   * 内置多标签拖拽调序完成事件。
+   */
+  (e: 'tabOrderChange', tabs: TabItem[]): void;
 }
 
 /**
@@ -306,7 +323,7 @@ export interface AtengProLayoutSlots {
   user?: () => VNode[];
   /** 自定义菜单全量接管插槽 */
   menu?: (props: {
-    menuData: ProMenuItem[];
+    menuData: (ProMenuItem | Record<string, unknown>)[];
     mode: 'horizontal' | 'vertical';
     collapsed: boolean;
   }) => VNode[];
@@ -320,56 +337,8 @@ export interface AtengProLayoutSlots {
   footer?: () => VNode[];
 }
 
-/**
- * 布局上下文总线接口（由 AtengProLayout 向上向下 provide）。
- */
-export interface AtengProLayoutContext {
-  /**
-   * 当前是否处于折叠状态。
-   */
-  collapsed: ComputedRef<boolean>;
-
-  /**
-   * 当前侧边栏实际生效宽度（展开或折叠）。
-   */
-  asideWidth: ComputedRef<string>;
-
-  /**
-   * 顶栏实际高度。
-   */
-  headerHeight: ComputedRef<string>;
-
-  /**
-   * 布局形态。
-   */
-  layout: ComputedRef<ProLayoutMode>;
-
-  /**
-   * 是否处于移动端窄屏模式。
-   */
-  isMobile?: ComputedRef<boolean>;
-
-  /**
-   * 是否处于全屏沉浸最大化模式。
-   */
-  isMaximized?: ComputedRef<boolean>;
-
-  /**
-   * 切换折叠方法。
-   */
-  toggleCollapse: () => void;
-
-  /**
-   * 切换全屏沉浸最大化方法。
-   */
-  toggleMaximize?: (val?: boolean) => void;
-}
-
-/**
- * AtengProLayout 依赖注入 Key。
- */
-export const ATENG_PRO_LAYOUT_KEY: InjectionKey<AtengProLayoutContext> =
-  Symbol('ATENG_PRO_LAYOUT_KEY');
+export type { AtengProLayoutContext } from './context';
+export { ATENG_PRO_LAYOUT_KEY } from './context';
 
 /**
  * AtengProLayout 暴露实例方法。

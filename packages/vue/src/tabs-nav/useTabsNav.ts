@@ -5,7 +5,7 @@
  * @since 2026-10-29
  */
 
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, toValue, type MaybeRefOrGetter } from 'vue';
 import type { TabItem, UseTabsNavOptions, UseTabsNavReturn } from './types';
 
 /**
@@ -13,10 +13,11 @@ import type { TabItem, UseTabsNavOptions, UseTabsNavReturn } from './types';
  *
  * 负责标签增删查改、FIFO 容量淘汰、Affix 锁定保护、KeepAlive 缓存名单计算与刷新调度。
  *
- * @param options 配置选项
+ * @param options 配置选项（支持普通对象、Ref 或 Getter 函数）
  * @returns 状态机实体对象
  */
-export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
+export function useTabsNav(options: MaybeRefOrGetter<UseTabsNavOptions> = {}): UseTabsNavReturn {
+  const resolvedOptions = toValue(options) || {};
   const {
     defaultTabs = [],
     defaultActiveKey = '',
@@ -25,7 +26,7 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
     storageType = 'session',
     onRefresh,
     onClose,
-  } = options;
+  } = resolvedOptions;
 
   // 获取 Storage 引用（兼容 SSR 环境）
   const getStorage = (): Storage | null => {
@@ -60,6 +61,9 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
       }
     }
   }
+
+  // 保证初始标签中固定项始终锁定在首部
+  initialTabs.sort((a, b) => (b.affix ? 1 : 0) - (a.affix ? 1 : 0));
 
   // 2. 核心响应式状态
   const tabs = ref<TabItem[]>(initialTabs);
@@ -120,6 +124,10 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
         ...existing,
         ...normalizedTab,
       };
+      // 若更新后成为固定标签，确保其处于前端固定区
+      if (normalizedTab.affix && !existing.affix) {
+        tabs.value.sort((a, b) => (b.affix ? 1 : 0) - (a.affix ? 1 : 0));
+      }
       activeKey.value = normalizedTab.key;
     } else {
       // 容量超限时，执行 FIFO 淘汰最早打开的非固定标签
@@ -130,7 +138,17 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
         }
       }
 
-      tabs.value.push(normalizedTab);
+      // 固定标签强制锁定插入至前端固定区，普通标签追加至尾部
+      if (normalizedTab.affix) {
+        const firstUnpinnedIndex = tabs.value.findIndex(t => !t.affix);
+        if (firstUnpinnedIndex >= 0) {
+          tabs.value.splice(firstUnpinnedIndex, 0, normalizedTab);
+        } else {
+          tabs.value.push(normalizedTab);
+        }
+      } else {
+        tabs.value.push(normalizedTab);
+      }
       activeKey.value = normalizedTab.key;
     }
 
@@ -283,6 +301,17 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
     isMaximized.value = typeof val === 'boolean' ? val : !isMaximized.value;
   };
 
+  // 14. 显式设置与同步方法（提供单向流直接更新支持）
+  const setTabs = (newTabs: TabItem[]): void => {
+    tabs.value = [...newTabs];
+    persistState();
+  };
+
+  const setActiveKey = (key: string): void => {
+    activeKey.value = key;
+    persistState();
+  };
+
   return {
     tabs,
     activeKey,
@@ -299,5 +328,7 @@ export function useTabsNav(options: UseTabsNavOptions = {}): UseTabsNavReturn {
     pinTab,
     refreshTab,
     toggleMaximize,
+    setTabs,
+    setActiveKey,
   };
 }

@@ -174,6 +174,16 @@ export interface UseTabsNavReturn {
   refreshTab: (key?: string) => Promise<void>;
 
   /**
+   * 显式批量替换/同步标签页列表（单向流受控更新）。
+   */
+  setTabs: (newTabs: TabItem[]) => void;
+
+  /**
+   * 显式设置当前激活标签 key。
+   */
+  setActiveKey: (key: string) => void;
+
+  /**
    * 切换内容区最大化/还原状态。
    */
   toggleMaximize: (val?: boolean) => void;

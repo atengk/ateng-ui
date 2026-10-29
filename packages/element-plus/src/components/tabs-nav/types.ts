@@ -15,6 +15,12 @@ export type { TabItem };
 export type TabsStyle = 'card' | 'pill' | 'line';
 
 /**
+ * 标签栏快捷操作与上下文菜单指令类型。
+ */
+export type TabCommand =
+  'refresh' | 'close' | 'closeOthers' | 'closeLeft' | 'closeRight' | 'closeAll';
+
+/**
  * AtengTabsNav 属性契约。
  */
 export interface AtengTabsNavProps {

@@ -477,4 +477,63 @@ describe('AtengProLayout Component', () => {
     expect(fallback.exists()).toBe(true);
     expect(fallback.text()).toBe('无');
   });
+
+  it('21. #menuItem 作用域插槽：自定义单菜单项内容渲染', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        menuData: [{ path: '/custom', title: '自定义菜单项' }],
+      },
+      slots: {
+        menuItem: ({ item, depth }: { item: ProMenuItem; depth: number }) => [
+          h('span', { class: 'custom-menu-slot' }, `[D:${depth}] ${item.title}`),
+        ],
+      },
+    });
+
+    const customSlot = wrapper.find('.custom-menu-slot');
+    expect(customSlot.exists()).toBe(true);
+    expect(customSlot.text()).toBe('[D:0] 自定义菜单项');
+  });
+
+  it('22. 菜单项外链支持：配置 target="_blank" 时点击调用 window.open', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        menuData: [{ path: 'https://example.com', title: '外部链接', target: '_blank' }],
+      },
+    });
+
+    const menuItem = wrapper.find('.el-menu-item');
+    expect(menuItem.exists()).toBe(true);
+    await menuItem.trigger('click');
+
+    expect(openSpy).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer');
+  });
+
+  it('23. 内置 AtengTabsNav 列表变动与调序事件由 AtengProLayout 转发', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        showTabs: true,
+        tabsProps: {
+          tabs: [
+            { key: '/t1', title: 'T1' },
+            { key: '/t2', title: 'T2' },
+          ],
+        },
+      },
+    });
+
+    const tabsNav = wrapper.findComponent({ name: 'AtengTabsNav' });
+    expect(tabsNav.exists()).toBe(true);
+
+    // 模拟 TabsNav 派发 update:tabs
+    const updatedTabs = [{ key: '/t1', title: 'T1' }];
+    tabsNav.vm.$emit('update:tabs', updatedTabs);
+    expect(wrapper.emitted('update:tabs')?.[0]?.[0]).toEqual(updatedTabs);
+
+    // 模拟 TabsNav 派发 tabOrderChange
+    tabsNav.vm.$emit('tabOrderChange', updatedTabs);
+    expect(wrapper.emitted('tabOrderChange')?.[0]?.[0]).toEqual(updatedTabs);
+  });
 });
