@@ -5,7 +5,7 @@
  * @since 2026-10-29
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, inject, h } from 'vue';
 import { AtengProLayout, ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
@@ -20,6 +20,7 @@ describe('AtengProLayout Component', () => {
       wrapper.unmount();
       wrapper = null;
     }
+    vi.restoreAllMocks();
     document.body.innerHTML = '';
   });
 
@@ -189,5 +190,176 @@ describe('AtengProLayout Component', () => {
     expect(footerBar.exists()).toBe(true);
     const footerEl = footerBar.find('.at-footer-bar');
     expect(footerEl.attributes('style')).toContain('left: 260px');
+  });
+
+  it('9. mix 模式：顶栏呈现一级大类，侧边栏联动呈现其子树菜单', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: mockMenuData,
+        activeMenu: '/system/user',
+      },
+    });
+
+    expect(wrapper.classes()).toContain('at-pro-layout--mix');
+    const topMenu = wrapper.find('.at-pro-layout__header .el-menu--horizontal');
+    expect(topMenu.exists()).toBe(true);
+    expect(topMenu.text()).toContain('工作台首页');
+    expect(topMenu.text()).toContain('系统管理');
+
+    const aside = wrapper.find('.at-pro-layout__aside');
+    expect(aside.exists()).toBe(true);
+    expect(aside.text()).toContain('用户列表');
+    expect(aside.text()).toContain('角色权限');
+  });
+
+  it('10. mix 模式 mixAutoSelectFirstLeaf 导航策略：点击一级大类自动选中首个叶子节点', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: mockMenuData,
+        activeMenu: '/dashboard',
+        mixAutoSelectFirstLeaf: true,
+      },
+    });
+
+    const topMenuItems = wrapper.findAll('.at-pro-layout__header .el-menu-item');
+    const systemTopItem = topMenuItems.find(item => item.text().includes('系统管理'));
+    expect(systemTopItem).toBeDefined();
+    await systemTopItem!.trigger('click');
+
+    expect(wrapper.emitted('update:activeMenu')).toBeTruthy();
+    expect(wrapper.emitted('update:activeMenu')?.[0]?.[0]).toBe('/system/user');
+    expect(wrapper.emitted('menuSelect')).toBeTruthy();
+    expect(wrapper.emitted('menuSelect')?.[0]?.[0]).toBe('/system/user');
+  });
+
+  it('11. mix 模式 mixAutoSelectFirstLeaf: false：点击一级大类仅切换侧边栏子菜单，不触发导航', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: mockMenuData,
+        activeMenu: '/dashboard',
+        mixAutoSelectFirstLeaf: false,
+      },
+    });
+
+    const topMenuItems = wrapper.findAll('.at-pro-layout__header .el-menu-item');
+    const systemTopItem = topMenuItems.find(item => item.text().includes('系统管理'));
+    expect(systemTopItem).toBeDefined();
+    await systemTopItem!.trigger('click');
+
+    expect(wrapper.emitted('update:activeMenu')).toBeFalsy();
+    expect(wrapper.emitted('menuSelect')).toBeFalsy();
+
+    const aside = wrapper.find('.at-pro-layout__aside');
+    expect(aside.exists()).toBe(true);
+    expect(aside.text()).toContain('用户列表');
+  });
+
+  it('12. 移动端响应式断点识别与抽屉遮罩渲染', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let capturedContext: any = null;
+    const ChildComponent = defineComponent({
+      setup() {
+        capturedContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+        return () => h('div');
+      },
+    });
+
+    const mockMql = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: false,
+        menuData: mockMenuData,
+      },
+      slots: {
+        default: () => h(ChildComponent),
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain('is-mobile');
+    expect(wrapper.find('.at-pro-layout__drawer-mask').exists()).toBe(true);
+    expect(wrapper.find('.at-pro-layout__aside').classes()).toContain('is-mobile-drawer');
+    expect(capturedContext.isMobile?.value).toBe(true);
+    expect(capturedContext.asideWidth.value).toBe('0px');
+  });
+
+  it('13. 移动端抽屉：点击遮罩或选中叶子菜单自动收起抽屉', async () => {
+    const mockMql = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: false,
+        menuData: mockMenuData,
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    const mask = wrapper.find('.at-pro-layout__drawer-mask');
+    expect(mask.exists()).toBe(true);
+    await mask.trigger('click');
+
+    expect(wrapper.emitted('update:collapsed')).toBeTruthy();
+    expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
+  });
+
+  it('14. 确定性生命周期清理：组件销毁时解绑 matchMedia 监听器', () => {
+    const removeEventListener = vi.fn();
+    const mockMql = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+
+    wrapper = mount(AtengProLayout);
+    wrapper.unmount();
+    wrapper = null;
+
+    expect(removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+  });
+
+  it('15. 移动端抽屉：点击叶子菜单项自动收起抽屉', async () => {
+    const mockMql = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: false,
+        menuData: mockMenuData,
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    const menuItems = wrapper.findAll('.el-menu-item');
+    const dashboardItem = menuItems.find(item => item.text().includes('工作台首页'));
+    expect(dashboardItem).toBeDefined();
+    await dashboardItem!.trigger('click');
+
+    expect(wrapper.emitted('update:collapsed')).toBeTruthy();
+    expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
   });
 });

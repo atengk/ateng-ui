@@ -13,7 +13,7 @@
  * @since 2026-10-29
  */
 
-import { ref, computed, watch, provide } from 'vue';
+import { ref, computed, watch, provide, onMounted, onBeforeUnmount } from 'vue';
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus';
 import { AtengLayout, AtengHeader, AtengAside, AtengContent } from '../layout';
 import ProMenu from './ProMenu.vue';
@@ -59,8 +59,64 @@ const props = withDefaults(defineProps<AtengProLayoutProps>(), {
 const emit = defineEmits<AtengProLayoutEmits>();
 defineSlots<AtengProLayoutSlots>();
 
-// 1. 折叠状态机
+// 1. 折叠状态机与移动端响应式识别
 const internalCollapsed = ref(Boolean(props.collapsed));
+const isMobile = ref(false);
+let mql: MediaQueryList | null = null;
+
+const updateMobileState = (matches: boolean, isInit = false) => {
+  isMobile.value = matches;
+  if (matches && !isInit) {
+    internalCollapsed.value = true;
+    emit('update:collapsed', true);
+    emit('collapseChange', true);
+  }
+};
+
+const closeMobileDrawer = () => {
+  if (!isMobile.value) return;
+  internalCollapsed.value = true;
+  emit('update:collapsed', true);
+  emit('collapseChange', true);
+};
+
+let mqlListener: ((e: MediaQueryListEvent | MediaQueryList) => void) | null = null;
+
+onMounted(() => {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    props.responsive
+  ) {
+    mql = window.matchMedia(`(max-width: ${props.mobileBreakpoint}px)`);
+    updateMobileState(mql.matches, true);
+    mqlListener = (e: MediaQueryListEvent | MediaQueryList) => {
+      updateMobileState(e.matches, false);
+    };
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', mqlListener);
+    } else if (
+      typeof (mql as unknown as { addListener?: (fn: unknown) => void }).addListener === 'function'
+    ) {
+      (mql as unknown as { addListener: (fn: unknown) => void }).addListener(mqlListener);
+    }
+  }
+});
+
+onBeforeUnmount(() => {
+  if (mql && mqlListener) {
+    if (typeof mql.removeEventListener === 'function') {
+      mql.removeEventListener('change', mqlListener);
+    } else if (
+      typeof (mql as unknown as { removeListener?: (fn: unknown) => void }).removeListener ===
+      'function'
+    ) {
+      (mql as unknown as { removeListener: (fn: unknown) => void }).removeListener(mqlListener);
+    }
+    mql = null;
+    mqlListener = null;
+  }
+});
 
 watch(
   () => props.collapsed,
@@ -86,6 +142,8 @@ function toPx(val: string | number | undefined): string {
 const currentHeaderHeight = computed(() => toPx(props.headerHeight));
 const currentAsideWidth = computed(() => {
   if (props.layout === 'top') return '0px';
+  if (isMobile.value) return '0px';
+  if (props.layout === 'mix' && currentAsideMenuData.value.length === 0) return '0px';
   return internalCollapsed.value ? toPx(props.asideCollapsedWidth) : toPx(props.asideWidth);
 });
 
@@ -95,6 +153,7 @@ const proLayoutContext: AtengProLayoutContext = {
   asideWidth: currentAsideWidth,
   headerHeight: currentHeaderHeight,
   layout: computed(() => props.layout),
+  isMobile: computed(() => isMobile.value),
   toggleCollapse,
 };
 provide(ATENG_PRO_LAYOUT_KEY, proLayoutContext);
@@ -109,10 +168,66 @@ const handleMenuSelect = (path: string, item?: ProMenuItem) => {
   if (item) {
     emit('menuSelect', path, item);
   }
+  if (isMobile.value) {
+    closeMobileDrawer();
+  }
 };
 
-// 5. mix 模式下菜单数据分流
+// 5. mix 模式下菜单数据分流与第一叶子导航
 const activeTopMenuPath = ref<string>('');
+
+function isItemOrDescendant(item: ProMenuItem, targetPath: string): boolean {
+  const p = String(item[pathKey.value] ?? item.path);
+  if (p === targetPath) return true;
+  const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+  if (Array.isArray(children)) {
+    return children.some(child => isItemOrDescendant(child, targetPath));
+  }
+  return false;
+}
+
+function findFirstLeaf(item: ProMenuItem): ProMenuItem {
+  const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+  if (Array.isArray(children) && children.length > 0) {
+    const firstChild = children[0];
+    if (firstChild) {
+      return findFirstLeaf(firstChild);
+    }
+  }
+  return item;
+}
+
+// 自动根据 activeMenu 同步当前激活的一级顶级菜单
+watch(
+  () => [props.activeMenu, props.menuData],
+  () => {
+    if (props.layout !== 'mix' || !props.activeMenu) return;
+    const matchedTop = props.menuData.find(item => isItemOrDescendant(item, props.activeMenu!));
+    if (matchedTop) {
+      activeTopMenuPath.value = String(matchedTop[pathKey.value] ?? matchedTop.path);
+    }
+  },
+  { immediate: true },
+);
+
+const handleMixTopSelect = (path: string) => {
+  activeTopMenuPath.value = path;
+  const topItem = props.menuData.find(i => String(i[pathKey.value] ?? i.path) === path);
+  if (!topItem) return;
+
+  const children = topItem[childrenKey.value] as ProMenuItem[] | undefined;
+  const hasChildren = Array.isArray(children) && children.length > 0;
+
+  if (hasChildren) {
+    if (props.mixAutoSelectFirstLeaf) {
+      const firstLeaf = findFirstLeaf(topItem);
+      const leafPath = String(firstLeaf[pathKey.value] ?? firstLeaf.path);
+      handleMenuSelect(leafPath, firstLeaf);
+    }
+  } else {
+    handleMenuSelect(path, topItem);
+  }
+};
 
 // 计算当前 Aside 渲染的菜单项
 const currentAsideMenuData = computed<ProMenuItem[]>(() => {
@@ -126,8 +241,7 @@ const currentAsideMenuData = computed<ProMenuItem[]>(() => {
       if (activeTopMenuPath.value) {
         return p === activeTopMenuPath.value;
       }
-      // 默认匹配与 activeMenu 前缀相同的
-      if (props.activeMenu && props.activeMenu.startsWith(p)) {
+      if (props.activeMenu && isItemOrDescendant(item, props.activeMenu)) {
         return true;
       }
       return false;
@@ -193,15 +307,24 @@ defineExpose<AtengProLayoutExpose>({
       `at-pro-layout--${layout}`,
       {
         'is-collapsed': internalCollapsed,
+        'is-mobile': isMobile,
       },
     ]"
   >
     <!-- ===================== A. SIDE 模式 ===================== -->
     <template v-if="layout === 'side'">
+      <!-- 移动端抽屉遮罩 -->
+      <div
+        v-if="isMobile && !internalCollapsed"
+        class="at-pro-layout__drawer-mask"
+        @click="closeMobileDrawer"
+      />
+
       <AtengLayout direction="horizontal" class="at-pro-layout__container">
         <!-- 侧边栏 Aside -->
         <AtengAside
           class="at-pro-layout__aside"
+          :class="{ 'is-mobile-drawer': isMobile }"
           :width="asideWidth"
           :collapsed-width="asideCollapsedWidth"
           :collapsed="internalCollapsed"
@@ -411,7 +534,7 @@ defineExpose<AtengProLayoutExpose>({
               mode="horizontal"
               :field-names="fieldNames"
               :active-menu="activeTopMenuPath || activeMenu"
-              @select="p => (activeTopMenuPath = p)"
+              @select="handleMixTopSelect"
             />
           </div>
 
@@ -422,9 +545,17 @@ defineExpose<AtengProLayoutExpose>({
 
         <!-- 下方横向分栏：Aside + Main -->
         <AtengLayout direction="horizontal" class="at-pro-layout__container">
+          <!-- 移动端抽屉遮罩 -->
+          <div
+            v-if="isMobile && !internalCollapsed && currentAsideMenuData.length > 0"
+            class="at-pro-layout__drawer-mask"
+            @click="closeMobileDrawer"
+          />
+
           <AtengAside
             v-if="currentAsideMenuData.length > 0"
             class="at-pro-layout__aside"
+            :class="{ 'is-mobile-drawer': isMobile }"
             :width="asideWidth"
             :collapsed-width="asideCollapsedWidth"
             :collapsed="internalCollapsed"
@@ -620,5 +751,39 @@ defineExpose<AtengProLayoutExpose>({
   color: var(--el-text-color-secondary);
   font-size: 13px;
   flex-shrink: 0;
+}
+
+.at-pro-layout__drawer-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 1999;
+  backdrop-filter: blur(2px);
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.at-pro-layout__aside.is-mobile-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 2000;
+  box-shadow: var(--el-box-shadow-dark);
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    width 0.25s;
+}
+
+.at-pro-layout.is-mobile.is-collapsed .at-pro-layout__aside.is-mobile-drawer {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.at-pro-layout.is-mobile:not(.is-collapsed) .at-pro-layout__aside.is-mobile-drawer {
+  transform: translateX(0);
 }
 </style>

@@ -27,6 +27,7 @@ import {
   ElTag,
   ElBadge,
   ElAvatar,
+  ElSwitch,
   ElMessage,
 } from 'element-plus';
 
@@ -56,9 +57,13 @@ const standardMenuData: ProMenuItem[] = [
 ];
 
 // 2. 状态控制
-const activeLayout = ref<'side' | 'top'>('side');
+const activeLayout = ref<'side' | 'top' | 'mix'>('side');
 const collapsed = ref(false);
 const activeMenu = ref('/system/user');
+const mixAutoSelectFirstLeaf = ref(true);
+
+// 移动端沙箱状态控制
+const mobileDrawerCollapsed = ref(true);
 
 // 多标签栏协同数据
 const tabsList = ref([
@@ -122,22 +127,27 @@ const activeBackendMenu = ref('/biz/order');
       </p>
     </div>
 
-    <!-- 演示 1: 经典 Side / Top 交互骨架沙箱 -->
-    <ElCard class="sample-card" header="1. 模式切换与数据驱动菜单（Side / Top 模式）">
+    <!-- 演示 1: 经典 Side / Top / Mix 交互骨架沙箱 -->
+    <ElCard class="sample-card" header="1. 模式切换与数据驱动菜单（Side / Top / Mix 三大模式）">
       <div class="card-controls">
         <span class="control-label">布局模式：</span>
         <ElRadioGroup v-model="activeLayout" size="small">
-          <ElRadioButton value="side">Side 侧边导航模式</ElRadioButton>
-          <ElRadioButton value="top">Top 顶部通栏模式</ElRadioButton>
+          <ElRadioButton value="side">Side 侧边导航</ElRadioButton>
+          <ElRadioButton value="top">Top 顶部通栏</ElRadioButton>
+          <ElRadioButton value="mix">Mix 顶左混合</ElRadioButton>
         </ElRadioGroup>
 
-        <template v-if="activeLayout === 'side'">
+        <template v-if="activeLayout === 'side' || activeLayout === 'mix'">
           <ElButton size="small" type="primary" plain @click="collapsed = !collapsed">
             {{ collapsed ? '展开侧边栏' : '折叠侧边栏' }}
           </ElButton>
           <span class="status-tip">
             状态: {{ collapsed ? '已折叠 (64px)' : '已展开 (220px)' }}
           </span>
+        </template>
+
+        <template v-if="activeLayout === 'mix'">
+          <ElSwitch v-model="mixAutoSelectFirstLeaf" active-text="点击一级模块自动导航首个叶子" />
         </template>
       </div>
 
@@ -148,6 +158,7 @@ const activeBackendMenu = ref('/biz/order');
           v-model:active-menu="activeMenu"
           :layout="activeLayout"
           :menu-data="standardMenuData"
+          :mix-auto-select-first-leaf="mixAutoSelectFirstLeaf"
           title="Ateng Cloud Admin"
           style="min-height: 480px; height: 480px"
           @menu-select="handleMenuSelect"
@@ -270,6 +281,48 @@ const activeBackendMenu = ref('/biz/order');
               </template>
             </AtengFooterBar>
           </template>
+        </AtengProLayout>
+      </div>
+    </ElCard>
+
+    <!-- 演示 4: 移动端抽屉遮罩 (Mobile Drawer Overlay) -->
+    <ElCard class="sample-card" header="4. 移动端抽屉遮罩交互沙箱 (Mobile Drawer Overlay)">
+      <p class="section-desc">
+        当屏幕视口宽度小于断点阈值（默认 768px）时，侧边栏自动收起，展开时以<strong
+          >抽屉遮罩浮层（Mobile Drawer Overlay）</strong
+        >呈现。 点击背景半透明暗黑遮罩或选择任意菜单叶子节点，抽屉将自动平滑关闭。
+      </p>
+
+      <div class="card-controls">
+        <ElButton
+          type="primary"
+          size="small"
+          @click="mobileDrawerCollapsed = !mobileDrawerCollapsed"
+        >
+          {{ !mobileDrawerCollapsed ? '关闭移动端抽屉' : '呼出移动端抽屉' }}
+        </ElButton>
+        <span class="status-tip">
+          抽屉状态: {{ !mobileDrawerCollapsed ? '已呼出展开 (遮罩显示)' : '已收起 (64px/隐藏)' }}
+        </span>
+      </div>
+
+      <!-- 模拟窄屏移动端容器 -->
+      <div class="demo-viewport" style="max-width: 480px; height: 380px; position: relative">
+        <AtengProLayout
+          v-model:collapsed="mobileDrawerCollapsed"
+          layout="side"
+          :menu-data="standardMenuData"
+          :mobile-breakpoint="1920"
+          title="移动端抽屉"
+          style="min-height: 380px; height: 380px"
+        >
+          <div class="sandbox-content">
+            <h4>📱 移动端窄屏模拟沙箱</h4>
+            <p>
+              在移动端模式下，侧边栏不挤压内容区宽度（asideWidth 自动归零）。
+              点击遮罩背景或点击菜单项时，抽屉将自动收回。
+            </p>
+          </div>
         </AtengProLayout>
       </div>
     </ElCard>
