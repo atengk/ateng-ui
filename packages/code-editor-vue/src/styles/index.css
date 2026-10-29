@@ -91,6 +91,16 @@
   color: #fcd34d;
 }
 
+.at-code-editor__badge--warning {
+  background-color: #fef08a;
+  color: #854d0e;
+}
+
+.at-code-editor--dark .at-code-editor__badge--warning {
+  background-color: #713f12;
+  color: #fde047;
+}
+
 .at-code-editor__btn {
   display: inline-flex;
   align-items: center;

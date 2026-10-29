@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<CodeEditorProps>(), {
   showToolbar: true,
   showStatusbar: true,
   bordered: true,
+  largeFileThreshold: 50000,
   options: () => ({}),
   workerOptions: () => ({}),
 });
@@ -103,7 +104,19 @@ const syncTheme = (): void => {
 };
 
 // 初始化无头编辑器状态机
-const { editor, model, format, layout, focus, getValue, setValue } = useCodeEditor(canvasRef, {
+const {
+  editor,
+  model,
+  isLargeFile,
+  format,
+  layout,
+  focus,
+  undo,
+  redo,
+  getValue,
+  setValue,
+  applyIncrementalEdit,
+} = useCodeEditor(canvasRef, {
   value: props.modelValue,
   language: props.language,
   theme: props.theme === 'auto' ? (checkDarkMode() ? 'vs-dark' : 'vs') : props.theme,
@@ -115,6 +128,7 @@ const { editor, model, format, layout, focus, getValue, setValue } = useCodeEdit
   minimap: props.minimap,
   options: props.options,
   workerOptions: props.workerOptions,
+  largeFileThreshold: props.largeFileThreshold,
   onChange: (val, event) => {
     emit('update:modelValue', val);
     emit('change', val, event);
@@ -148,12 +162,12 @@ watch(
   { immediate: true },
 );
 
-// 监听外部 modelValue 变更（单向防回环同步）
+// 监听外部 modelValue 变更（单向防回环增量同步，光标防丢与 Undo 栈保持）
 watch(
   () => props.modelValue,
   newVal => {
     if (!editor.value || newVal === getValue()) return;
-    setValue(newVal ?? '');
+    applyIncrementalEdit(newVal ?? '', { preserveCursor: true, recordUndo: true });
   },
 );
 
@@ -267,6 +281,10 @@ defineExpose<CodeEditorExpose>({
   layout,
   getValue,
   setValue,
+  applyIncrementalEdit,
+  undo,
+  redo,
+  isLargeFile: () => isLargeFile.value,
 });
 </script>
 
@@ -334,6 +352,9 @@ defineExpose<CodeEditorExpose>({
       <slot name="statusbar">
         <div class="at-code-editor__statusbar-left">
           <span>行 {{ cursorPosition.line }}, 列 {{ cursorPosition.column }}</span>
+          <span v-if="isLargeFile" class="at-code-editor__badge at-code-editor__badge--warning">
+            ⚡ 大文件保护已启用
+          </span>
         </div>
         <div class="at-code-editor__statusbar-right">
           <span>{{ charCount }} 字符</span>

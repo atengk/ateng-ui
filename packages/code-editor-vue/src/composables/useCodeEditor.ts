@@ -1,10 +1,12 @@
 /**
  * useCodeEditor 无头响应式状态机 Hook。
  *
- * 依据 ADR-0035：
+ * 依据 ADR-0035 与工单 #179：
  * 1. 实例与 TextModel 强制使用 shallowRef 与 markRaw 封装，杜绝 Vue Proxy 劫持导致的性能雪崩；
- * 2. 集中编排创建、销毁、格式化、尺寸调整与事件监听；
- * 3. 确定性生命周期治理，在 onScopeDispose 或 onUnmounted 中自动释放资源。
+ * 2. 增量更新管道（applyIncrementalEdit），外部更新代码时 100% 保持光标位置与 Undo/Redo 历史记录；
+ * 3. 集中编排创建、销毁、格式化、撤销重做、尺寸调整与事件监听；
+ * 4. 超长文本（> 50,000 行）自适应性能降级治理（自动关闭 minimap、folding 与高开销装饰项）；
+ * 5. 确定性生命周期治理，在 onScopeDispose 或 onUnmounted 中自动释放资源。
  *
  * @author Ateng
  * @since 2026-10-29
@@ -16,6 +18,7 @@ import {
   onMounted,
   onScopeDispose,
   getCurrentInstance,
+  getCurrentScope,
   toValue,
   type ShallowRef,
 } from 'vue';
@@ -31,6 +34,8 @@ export interface UseCodeEditorReturn {
   model: ShallowRef<monaco.editor.ITextModel | null>;
   /** 是否已初始化就绪 */
   isReady: ShallowRef<boolean>;
+  /** 是否处于超大文件自适应保护降级模式 */
+  isLargeFile: ShallowRef<boolean>;
   /** 手动初始化 */
   init: () => void;
   /** 手动触发格式化文档 */
@@ -41,8 +46,17 @@ export interface UseCodeEditorReturn {
   focus: () => void;
   /** 获取当前代码内容 */
   getValue: () => string;
-  /** 设置当前代码内容 */
+  /** 设置当前代码内容（全量重置模式） */
   setValue: (value: string) => void;
+  /** 增量应用代码文本变更（保持光标位置、选区与 Undo/Redo 历史栈） */
+  applyIncrementalEdit: (
+    newText: string,
+    options?: { preserveCursor?: boolean; recordUndo?: boolean },
+  ) => void;
+  /** 撤销操作 (Undo) */
+  undo: () => void;
+  /** 重做操作 (Redo) */
+  redo: () => void;
   /** 销毁当前实例与监听 */
   dispose: () => void;
 }
@@ -60,7 +74,9 @@ export function useCodeEditor(
   const editor = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const model = shallowRef<monaco.editor.ITextModel | null>(null);
   const isReady = shallowRef<boolean>(false);
+  const isLargeFile = shallowRef<boolean>(false);
 
+  const largeThreshold = options.largeFileThreshold ?? 50000;
   let contentChangeListener: monaco.IDisposable | null = null;
 
   // 格式化当前文档
@@ -86,18 +102,112 @@ export function useCodeEditor(
     }
   };
 
+  // 撤销 (Undo)
+  const undo = (): void => {
+    if (!editor.value) return;
+    editor.value.trigger('keyboard', 'undo', null);
+  };
+
+  // 重做 (Redo)
+  const redo = (): void => {
+    if (!editor.value) return;
+    editor.value.trigger('keyboard', 'redo', null);
+  };
+
   // 获取文本
   const getValue = (): string => {
     return model.value ? model.value.getValue() : editor.value ? editor.value.getValue() : '';
   };
 
-  // 设置文本
+  // 检查并自适应大文件性能配置
+  const checkLargeFile = (text: string): void => {
+    const lines = text ? text.split('\n').length : 0;
+    const shouldBeLarge = lines > largeThreshold;
+
+    if (shouldBeLarge !== isLargeFile.value) {
+      isLargeFile.value = shouldBeLarge;
+      if (editor.value) {
+        if (shouldBeLarge) {
+          // 降级高开销装饰项
+          editor.value.updateOptions({
+            minimap: { enabled: false },
+            folding: false,
+            renderLineHighlight: 'none',
+            wordWrap: 'off',
+          });
+        } else {
+          // 恢复正常配置
+          editor.value.updateOptions({
+            minimap:
+              typeof options.minimap === 'boolean'
+                ? { enabled: options.minimap }
+                : (options.minimap ?? { enabled: true }),
+            folding: true,
+            renderLineHighlight: 'all',
+            wordWrap: options.wordWrap ?? 'on',
+          });
+        }
+      }
+    }
+  };
+
+  // 设置文本（全量重置）
   const setValue = (val: string): void => {
     if (model.value) {
       model.value.setValue(val);
     } else if (editor.value) {
       editor.value.setValue(val);
     }
+    checkLargeFile(val);
+  };
+
+  // 增量应用代码文本变更（保持光标位置、选区与 Undo 历史）
+  const applyIncrementalEdit = (
+    newText: string,
+    opts?: { preserveCursor?: boolean; recordUndo?: boolean },
+  ): void => {
+    if (!model.value) return;
+    const currentVal = getValue();
+    if (newText === currentVal) return;
+
+    const preserveCursor = opts?.preserveCursor ?? true;
+    const recordUndo = opts?.recordUndo ?? true;
+
+    // 1. 捕获当前光标位置与选区
+    const prevSelections = editor.value ? editor.value.getSelections() : null;
+
+    // 2. 构造全量替换的单次原子编辑操作
+    const fullRange = model.value.getFullModelRange();
+    const editOp: monaco.editor.IIdentifiedSingleEditOperation = {
+      range: fullRange,
+      text: newText,
+      forceMoveMarkers: true,
+    };
+
+    // 3. 应用编辑操作
+    if (editor.value && recordUndo) {
+      // 通过 executeEdits 注入 UndoManager 历史栈
+      editor.value.executeEdits('incremental-update', [editOp], prevSelections ?? undefined);
+
+      // 4. 精准恢复或弹性修剪光标位置
+      if (preserveCursor && prevSelections && prevSelections.length > 0) {
+        const lineCount = model.value.getLineCount();
+        const adjustedSelections = prevSelections.map(sel => {
+          const startLine = Math.min(sel.startLineNumber, lineCount);
+          const startCol = Math.min(sel.startColumn, model.value!.getLineMaxColumn(startLine));
+          const endLine = Math.min(sel.endLineNumber, lineCount);
+          const endCol = Math.min(sel.endColumn, model.value!.getLineMaxColumn(endLine));
+          return new monaco.Selection(startLine, startCol, endLine, endCol);
+        });
+        editor.value.setSelections(adjustedSelections);
+      }
+    } else {
+      // 降级使用 pushEditOperations
+      model.value.pushEditOperations(prevSelections ?? [], [editOp], () => prevSelections ?? []);
+    }
+
+    // 5. 检查大文件性能阈值
+    checkLargeFile(newText);
   };
 
   // 彻底销毁释放
@@ -158,8 +268,12 @@ export function useCodeEditor(
     // 4. 绑定内容变更事件
     contentChangeListener = createdEditor.onDidChangeModelContent(e => {
       const currentVal = createdEditor.getValue();
+      checkLargeFile(currentVal);
       options.onChange?.(currentVal, e);
     });
+
+    // 5. 初始大文件阈值检查
+    checkLargeFile(initialValue);
 
     isReady.value = true;
   };
@@ -173,20 +287,26 @@ export function useCodeEditor(
     init();
   }
 
-  onScopeDispose(() => {
-    dispose();
-  });
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      dispose();
+    });
+  }
 
   return {
     editor,
     model,
     isReady,
+    isLargeFile,
     init,
     format,
     layout,
     focus,
+    undo,
+    redo,
     getValue,
     setValue,
+    applyIncrementalEdit,
     dispose,
   };
 }

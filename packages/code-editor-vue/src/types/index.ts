@@ -91,6 +91,8 @@ export interface CodeEditorProps {
   options?: monaco.editor.IStandaloneEditorConstructionOptions;
   /** 自定义 Worker 寻址选项 */
   workerOptions?: MonacoWorkerOptions;
+  /** 大文件性能保护行数阈值（默认 50,000 行） */
+  largeFileThreshold?: number;
 }
 
 /**
@@ -120,8 +122,19 @@ export interface CodeEditorExpose {
   layout: () => void;
   /** 获取当前代码文本 */
   getValue: () => string;
-  /** 设置代码文本 */
+  /** 设置代码文本（全量重置） */
   setValue: (value: string) => void;
+  /** 增量应用代码文本变更（保持光标、选区与撤销历史） */
+  applyIncrementalEdit: (
+    newText: string,
+    options?: { preserveCursor?: boolean; recordUndo?: boolean },
+  ) => void;
+  /** 撤销操作 (Undo) */
+  undo: () => void;
+  /** 重做操作 (Redo) */
+  redo: () => void;
+  /** 当前是否激活超大文件自适应保护模式 */
+  isLargeFile: () => boolean;
 }
 
 /**
@@ -150,6 +163,8 @@ export interface UseCodeEditorOptions {
   options?: monaco.editor.IStandaloneEditorConstructionOptions;
   /** 自定义 Worker 寻址选项 */
   workerOptions?: MonacoWorkerOptions;
+  /** 大文件性能保护行数阈值（默认 50,000 行） */
+  largeFileThreshold?: number;
   /** 内容变更回调 */
   onChange?: (value: string, event: monaco.editor.IModelContentChangedEvent) => void;
 }

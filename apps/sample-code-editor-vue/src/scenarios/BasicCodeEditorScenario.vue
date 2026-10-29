@@ -175,10 +175,29 @@ const handleFormatDoc = (): void => {
   editorRef.value?.format();
 };
 
-// 外部向底部追加代码片段
+// 撤销 (Undo)
+const handleUndo = (): void => {
+  editorRef.value?.undo();
+};
+
+// 重做 (Redo)
+const handleRedo = (): void => {
+  editorRef.value?.redo();
+};
+
+// 外部向底部追加代码片段（增量保持光标与 Undo 栈）
 const handleAppendCode = (): void => {
-  const appendSnippet = `\n// [外部追加记录: ${new Date().toLocaleTimeString()}]\nconsole.log("Heartbeat ping");\n`;
+  const appendSnippet = `\n// [外部异步追加记录: ${new Date().toLocaleTimeString()}]\nexport const timestamp = ${Date.now()};\n`;
   code.value += appendSnippet;
+};
+
+// 生成 60,000 行业务大文本（大文件自适应保护降级模式）
+const handleGenerateLargeFile = (): void => {
+  const lines: string[] = ['// === 60,000 行业务大文本性能治理测试数据集 ==='];
+  for (let i = 1; i <= 60000; i++) {
+    lines.push(`const record_${i} = { id: ${i}, status: 'active', code: 'CODE_${i}' };`);
+  }
+  code.value = lines.join('\n');
 };
 
 // 重置代码
@@ -195,11 +214,18 @@ const handleReset = (): void => {
         <div class="panel-header">
           <span class="panel-title">⚙️ 编辑器运行时配置与控制台</span>
           <div class="actions">
+            <el-button-group size="small">
+              <el-button title="撤销操作 (Ctrl+Z)" @click="handleUndo"> 撤销 (Undo) </el-button>
+              <el-button title="重做操作 (Ctrl+Y)" @click="handleRedo"> 重做 (Redo) </el-button>
+            </el-button-group>
             <el-button type="primary" size="small" @click="handleFormatDoc">
               格式化文档 (format)
             </el-button>
             <el-button type="success" size="small" @click="handleAppendCode">
-              外部异步追加代码
+              外部异步追加代码 (保持光标/Undo)
+            </el-button>
+            <el-button type="warning" size="small" @click="handleGenerateLargeFile">
+              ⚡ 模拟 60,000 行业务大文本
             </el-button>
             <el-button size="small" @click="handleReset"> 重置预设 </el-button>
           </div>
