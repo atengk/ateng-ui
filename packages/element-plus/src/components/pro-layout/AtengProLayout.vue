@@ -666,8 +666,10 @@ defineExpose<AtengProLayoutExpose>({
 }
 
 .at-pro-layout__container {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 100%;
   width: 100%;
+  flex: 1;
 }
 
 .at-pro-layout__aside {
@@ -678,6 +680,9 @@ defineExpose<AtengProLayoutExpose>({
   transition: width 0.25s cubic-bezier(0.2, 0, 0, 1);
   overflow-x: hidden;
   overflow-y: auto;
+  position: relative;
+  z-index: 101;
+  flex-shrink: 0;
 }
 
 .at-pro-layout__logo {
@@ -731,7 +736,10 @@ defineExpose<AtengProLayoutExpose>({
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
   background-color: var(--el-bg-color-page);
+  position: relative;
+  overflow: hidden;
 }
 
 .at-pro-layout__header {
@@ -743,6 +751,8 @@ defineExpose<AtengProLayoutExpose>({
   border-bottom: 1px solid var(--el-border-color-lighter);
   flex-shrink: 0;
   box-sizing: border-box;
+  position: relative;
+  z-index: 100;
 }
 
 .at-pro-layout__header-left {
@@ -798,9 +808,8 @@ defineExpose<AtengProLayoutExpose>({
 }
 
 .at-pro-layout__tabs {
-  background-color: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-lighter);
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .at-pro-layout__content {
@@ -811,11 +820,8 @@ defineExpose<AtengProLayoutExpose>({
 }
 
 .at-pro-layout__footer {
-  padding: 16px;
-  text-align: center;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
   flex-shrink: 0;
+  z-index: 99;
 }
 
 .at-pro-layout__drawer-mask {
@@ -835,7 +841,7 @@ defineExpose<AtengProLayoutExpose>({
   top: 0;
   bottom: 0;
   left: 0;
-  height: 100vh;
+  height: 100%;
   z-index: 2000;
   box-shadow: var(--el-box-shadow-dark);
   transition:

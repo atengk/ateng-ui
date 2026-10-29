@@ -34,13 +34,63 @@ import {
   ElMessage,
 } from 'element-plus';
 
+// 纯原生企业级 SVG 图标组件（零臃肿第三方依赖）
+const IconDashboard = defineComponent({
+  name: 'IconDashboard',
+  render: () =>
+    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
+      h('path', {
+        d: 'M880 112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V144c0-17.7-14.3-32-32-32z m-40 728H184V184h656v656z',
+      }),
+      h('path', {
+        d: 'M256 256h216v216H256zM552 256h216v328H552zM256 552h216v216H256zM552 664h216v104H552z',
+      }),
+    ]),
+});
+
+const IconSetting = defineComponent({
+  name: 'IconSetting',
+  render: () =>
+    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
+      h('path', {
+        d: 'M512 640a128 128 0 1 0 0-256 128 128 0 0 0 0 256z m360-176.4l-52.6-40.4c-4.4-3.4-6.8-8.8-6.4-14.4 2-26.6 2-53.6 0-80.2-0.4-5.6 2-11 6.4-14.4l52.6-40.4c13.4-10.4 17.2-28.8 8.8-43.6l-50-86.6c-8.4-14.6-26.2-21.2-41.8-15.4l-62.4 23.4c-5.2 2-11.2 1.2-15.8-2-21.8-15.4-45.2-28.8-69.8-40-5.2-2.4-8.8-7.2-9.6-12.8L630 84.6C627.6 68.8 614 57 598.2 57h-100c-15.8 0-29.4 11.8-31.8 27.6l-10.8 68.6c-0.8 5.6-4.4 10.4-9.6 12.8-24.6 11.2-48 24.6-69.8 40-4.6 3.2-10.6 4-15.8 2l-62.4-23.4c-15.6-5.8-33.4 0.8-41.8 15.4l-50 86.6c-8.4 14.8-4.6 33.2 8.8 43.6l52.6 40.4c4.4 3.4 6.8 8.8 6.4 14.4-2 26.6-2 53.6 0 80.2 0.4 5.6-2 11-6.4 14.4l-52.6 40.4c-13.4 10.4-17.2 28.8-8.8 43.6l50 86.6c8.4 14.6 26.2 21.2 41.8 15.4l62.4-23.4c5.2-2 11.2-1.2 15.8 2 21.8 15.4 45.2 28.8 69.8 40 5.2 2.4 8.8 7.2 9.6 12.8l10.8 68.6c2.4 15.8 16 27.6 31.8 27.6h100c15.8 0 29.4-11.8 31.8-27.6l10.8-68.6c0.8-5.6 4.4-10.4 9.6-12.8 24.6-11.2 48-24.6 69.8-40 4.6-3.2 10.6-4 15.8-2l62.4 23.4c15.6 5.8 33.4-0.8 41.8-15.4l50-86.6c8.4-14.8 4.6-33.2-8.8-43.6z',
+      }),
+    ]),
+});
+
+const IconAnalytics = defineComponent({
+  name: 'IconAnalytics',
+  render: () =>
+    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
+      h('path', {
+        d: 'M888 792H200V168c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v688c0 17.7 14.3 32 32 32h730c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8z',
+      }),
+      h('path', {
+        d: 'M288 624h96v104h-96zM448 456h96v272h-96zM608 320h96v408h-96zM768 184h96v544h-96z',
+      }),
+    ]),
+});
+
+const IconInfo = defineComponent({
+  name: 'IconInfo',
+  render: () =>
+    h('svg', { viewBox: '0 0 1024 1024', width: '1em', height: '1em', fill: 'currentColor' }, [
+      h('path', {
+        d: 'M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z',
+      }),
+      h('path', {
+        d: 'M464 336a48 48 0 1 0 96 0 48 48 0 1 0-96 0zM472 456h80v256h-80z',
+      }),
+    ]),
+});
+
 // 1. 标准菜单源数据
 const standardMenuData: ProMenuItem[] = [
-  { path: '/dashboard', title: '工作台首页', icon: 'el-icon-monitor', affix: true },
+  { path: '/dashboard', title: '工作台首页', icon: IconDashboard, affix: true },
   {
     path: '/system',
     title: '系统管理',
-    icon: 'el-icon-setting',
+    icon: IconSetting,
     children: [
       { path: '/system/user', title: '用户列表', badge: 12, badgeType: 'danger' },
       { path: '/system/role', title: '角色权限' },
@@ -50,13 +100,13 @@ const standardMenuData: ProMenuItem[] = [
   {
     path: '/analytics',
     title: '统计分析',
-    icon: 'el-icon-data-line',
+    icon: IconAnalytics,
     children: [
       { path: '/analytics/realtime', title: '实时大盘', badge: 'NEW', badgeType: 'success' },
       { path: '/analytics/report', title: '月度报表' },
     ],
   },
-  { path: '/about', title: '关于项目', icon: 'el-icon-info' },
+  { path: '/about', title: '关于项目', icon: IconInfo },
 ];
 
 // 2. 状态控制与 useTabsNav 状态机集成
@@ -224,10 +274,35 @@ const handleTabClose = (key: string) => {
   activeMenu.value = layoutActiveTab.value;
 };
 
+const refreshingTabKey = ref<string | null>(null);
+const isRefreshing = computed(() => !!refreshingTabKey.value);
+
 const handleTabRefresh = async (key: string) => {
+  if (refreshingTabKey.value) return;
+  refreshingTabKey.value = key;
   await refreshTab(key);
+  // 留出 180ms 平滑状态缓冲，杜绝人眼可见的组件销毁/重载抽搐跳跃
+  await new Promise(resolve => setTimeout(resolve, 180));
+  refreshingTabKey.value = null;
   ElMessage.success(`🔄 页面已局部重新挂载刷新: ${key}`);
 };
+
+// 保持 KeepAlive 缓存名单在界面上稳定展示，避免 refreshTab 瞬态销毁重建时引起 DOM 跳跃裂开
+const displayCachedViews = computed(() => {
+  const names = new Set<string>();
+  for (const tab of layoutTabs.value) {
+    if (tab.componentName && tab.componentName.trim().length > 0) {
+      names.add(tab.componentName.trim());
+    }
+  }
+  return Array.from(names);
+});
+
+const refreshingComponentName = computed(() => {
+  if (!refreshingTabKey.value) return null;
+  const targetTab = layoutTabs.value.find(t => t.key === refreshingTabKey.value);
+  return targetTab?.componentName || null;
+});
 
 // 3. 后端异构字段源数据
 interface BackendMenuItem {
@@ -250,6 +325,7 @@ const backendData: BackendMenuItem[] = [
   { url: '/doc', name: '开发文档' },
 ];
 const activeBackendMenu = ref('/biz/order');
+const backendCollapsed = ref(false);
 </script>
 
 <template>
@@ -358,20 +434,26 @@ const activeBackendMenu = ref('/biz/order');
           <!-- 内容主体区：KeepAlive 真实实装 -->
           <div class="sandbox-content">
             <div class="cache-status-bar">
-              <span class="cache-label">📦 KeepAlive 缓存名单 (:include="cachedViews")：</span>
-              <ElTag
-                v-for="view in cachedViews"
-                :key="view"
-                size="small"
-                type="success"
-                class="cache-tag"
-              >
-                {{ view }}
-              </ElTag>
+              <div class="cache-status-left">
+                <span class="cache-label">📦 KeepAlive 缓存名单 (:include="cachedViews")：</span>
+                <div class="cache-tags-list">
+                  <ElTag
+                    v-for="view in displayCachedViews"
+                    :key="view"
+                    size="small"
+                    :type="view === refreshingComponentName ? 'warning' : 'success'"
+                    :disable-transitions="true"
+                    class="cache-tag"
+                  >
+                    {{ view }}
+                  </ElTag>
+                </div>
+              </div>
               <ElButton
                 size="small"
                 type="primary"
                 plain
+                :loading="isRefreshing"
                 class="refresh-btn"
                 @click="handleTabRefresh(layoutActiveTab)"
               >
@@ -379,7 +461,7 @@ const activeBackendMenu = ref('/biz/order');
               </ElButton>
             </div>
 
-            <div class="keep-alive-wrapper">
+            <div class="keep-alive-wrapper" :class="{ 'is-refreshing': isRefreshing }">
               <KeepAlive :include="cachedViews">
                 <component :is="activeComponent" :key="layoutActiveTab" />
               </KeepAlive>
@@ -405,17 +487,32 @@ const activeBackendMenu = ref('/biz/order');
     </ElCard>
 
     <!-- 演示 2: 后端异构字段自适应映射 (fieldNames) -->
-    <ElCard class="sample-card" header="2. 异构菜单字段自适应映射（fieldNames 配置）">
+    <ElCard
+      class="sample-card"
+      header="2. 异构菜单字段自适应映射（fieldNames 配置）与无图标回退徽标"
+    >
       <p class="section-desc">
-        无需业务层手写递归遍历转换数据字段。通过声明 <code>fieldNames</code>， 框架底层自动解析
+        无需业务层手写递归遍历转换数据字段。通过声明 <code>fieldNames</code>，框架底层自动解析
         <code>url</code> ➔ <code>path</code>、<code>name</code> ➔ <code>title</code>、<code
           >subList</code
         >
-        ➔ <code>children</code>。
+        ➔ <code>children</code>。当菜单未配置图标时，收起侧边栏自动激活<strong
+          >首字徽标回退（Fallback Avatar）</strong
+        >，绝不留白。
       </p>
+
+      <div class="card-controls" style="margin-bottom: 12px">
+        <ElButton size="small" type="primary" plain @click="backendCollapsed = !backendCollapsed">
+          {{ backendCollapsed ? '展开侧边栏 (240px)' : '收起侧边栏 (测试首字回退 64px)' }}
+        </ElButton>
+        <span class="status-tip">
+          状态: {{ backendCollapsed ? '已折叠（首字徽章高亮展示，悬停出 Tooltip）' : '已展开' }}
+        </span>
+      </div>
 
       <div class="demo-viewport" style="height: 320px">
         <AtengProLayout
+          v-model:collapsed="backendCollapsed"
           v-model:active-menu="activeBackendMenu"
           layout="side"
           :menu-data="backendData as any"
@@ -431,7 +528,10 @@ const activeBackendMenu = ref('/biz/order');
         >
           <div class="sandbox-content">
             <h4>选中后端路由：{{ activeBackendMenu }}</h4>
-            <p>后端数据结构保持原样，无需手动转译为 ProMenuItem 标准结构。</p>
+            <p>
+              后端数据结构保持原样，无需手动转译为 ProMenuItem
+              标准结构；未配图标时折叠自动回退首字徽章。
+            </p>
           </div>
         </AtengProLayout>
       </div>
@@ -445,15 +545,15 @@ const activeBackendMenu = ref('/biz/order');
         自动感知侧边栏展开（220px）与折叠（64px），并在折叠展开时平滑过渡对齐！
       </p>
 
-      <div class="demo-viewport" style="height: 300px; position: relative">
+      <div class="demo-viewport" style="height: 380px">
         <AtengProLayout
           v-model:collapsed="collapsed"
           layout="side"
           :menu-data="standardMenuData"
           title="避让演示"
-          style="min-height: 300px; height: 300px"
+          style="min-height: 380px; height: 380px"
         >
-          <div class="sandbox-content">
+          <div class="sandbox-content" style="min-height: 140px">
             <ElButton size="small" type="primary" @click="collapsed = !collapsed">
               点击切换折叠（观察底部操作栏 left 自动随动）
             </ElButton>
@@ -584,6 +684,8 @@ const activeBackendMenu = ref('/biz/order');
   border-radius: 8px;
   overflow: hidden;
   box-shadow: var(--el-box-shadow-light);
+  position: relative;
+  transform: translateZ(0);
 }
 
 .header-action-badge {
@@ -628,18 +730,36 @@ const activeBackendMenu = ref('/biz/order');
 .cache-status-bar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: space-between;
   padding: 10px 14px;
   background-color: var(--el-fill-color-light);
   border-radius: 6px;
   margin-bottom: 16px;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.cache-status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.cache-tags-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .cache-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-regular);
+  flex-shrink: 0;
 }
 
 .cache-tag {
@@ -647,7 +767,7 @@ const activeBackendMenu = ref('/biz/order');
 }
 
 .refresh-btn {
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .keep-alive-wrapper {
@@ -655,6 +775,13 @@ const activeBackendMenu = ref('/biz/order');
   border: 1px dashed var(--el-border-color);
   border-radius: 6px;
   padding: 16px;
+  min-height: 140px;
+  box-sizing: border-box;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.keep-alive-wrapper.is-refreshing {
+  opacity: 0.45;
 }
 
 :deep(.sandbox-subview h4) {

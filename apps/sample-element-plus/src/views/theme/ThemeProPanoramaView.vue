@@ -90,7 +90,7 @@ import {
   ElCheckTag,
   ElStatistic,
 } from 'element-plus';
-import { AtengCard, AtengDialog, setThemeColor, initTheme } from '@atengk/element-plus';
+import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
 // 1. 暗黑模式监听与主动感知
 const isDark = ref(false);

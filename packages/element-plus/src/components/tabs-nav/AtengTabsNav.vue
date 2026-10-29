@@ -85,21 +85,30 @@ const onWheelScroll = (event: WheelEvent): void => {
   }
 };
 
-// 激活项平滑居中展示
+// 激活项平滑居中展示（视口内原生自闭环平滑滚动，杜绝外部视口抖动）
 const scrollToActiveTab = (): void => {
   nextTick(() => {
     const el = viewportRef.value;
     if (!el) {
       return;
     }
-    const activeEl = el.querySelector<HTMLElement>('.at-tabs-nav__item.is-active');
-    if (activeEl) {
-      activeEl.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      });
+    updateScrollStatus();
+    if (!overflow.hasOverflow) {
+      el.scrollLeft = 0;
+      return;
     }
+    const activeEl = el.querySelector<HTMLElement>('.at-tabs-nav__item.is-active');
+    if (!activeEl) {
+      return;
+    }
+    const activeLeft = activeEl.offsetLeft;
+    const activeWidth = activeEl.offsetWidth;
+    const viewportWidth = el.clientWidth;
+    const targetScrollLeft = activeLeft - (viewportWidth - activeWidth) / 2;
+    el.scrollTo({
+      left: Math.max(0, targetScrollLeft),
+      behavior: 'smooth',
+    });
     updateScrollStatus();
   });
 };
@@ -399,7 +408,7 @@ const toggleMaximize = (): void => {
                   aria-label="关闭标签"
                   @click="onTabItemClose($event, tab)"
                 >
-                  <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+                  <svg viewBox="0 0 1024 1024" width="10" height="10" fill="currentColor">
                     <path
                       d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
                     />
@@ -464,7 +473,7 @@ const toggleMaximize = (): void => {
                 aria-label="关闭标签"
                 @click="onTabItemClose($event, tab)"
               >
-                <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+                <svg viewBox="0 0 1024 1024" width="10" height="10" fill="currentColor">
                   <path
                     d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
                   />
@@ -580,7 +589,7 @@ const toggleMaximize = (): void => {
   box-sizing: border-box;
   background-color: var(--el-bg-color, #ffffff);
   border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
-  padding: 0 4px;
+  padding: 0 8px;
   overflow: hidden;
   user-select: none;
   transition:
@@ -593,11 +602,13 @@ const toggleMaximize = (): void => {
     align-items: center;
     flex-shrink: 0;
     gap: 4px;
+    z-index: 2;
   }
 
   &__suffix {
-    padding-left: 4px;
-    border-left: 1px solid var(--el-border-color-extra-light, #f2f6fc);
+    padding-left: 6px;
+    margin-left: 4px;
+    border-left: 1px solid var(--el-border-color-lighter, #ebeef5);
   }
 
   &__scroll-btn {
@@ -609,21 +620,31 @@ const toggleMaximize = (): void => {
     height: 24px;
     padding: 0;
     margin: 0 2px;
-    border: none;
-    border-radius: var(--el-border-radius-base, 4px);
-    background: transparent;
+    border: 1px solid var(--el-border-color-extra-light, #f2f6fc);
+    border-radius: 50%;
+    background: var(--el-fill-color-blank, #ffffff);
     color: var(--el-text-color-regular, #606266);
     cursor: pointer;
-    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    z-index: 2;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover:not(:disabled) {
-      background-color: var(--el-fill-color-light, #f5f7fa);
+      background-color: var(--el-color-primary-light-9, #ecf5ff);
+      border-color: var(--el-color-primary-light-6, #b3d8ff);
       color: var(--el-color-primary, #409eff);
+      transform: scale(1.05);
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.95);
     }
 
     &:disabled {
       opacity: 0.35;
       cursor: not-allowed;
+      border-color: transparent;
+      box-shadow: none;
     }
   }
 
@@ -631,18 +652,30 @@ const toggleMaximize = (): void => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: none;
+    border: 1px solid transparent;
     border-radius: var(--el-border-radius-base, 4px);
     background: transparent;
-    color: var(--el-text-color-regular, #606266);
+    color: var(--el-text-color-secondary, #909399);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       background-color: var(--el-fill-color-light, #f5f7fa);
+      border-color: var(--el-border-color-lighter, #ebeef5);
+      color: var(--el-color-primary, #409eff);
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  &__maximize-btn {
+    &:hover {
       color: var(--el-color-primary, #409eff);
     }
   }
@@ -664,8 +697,15 @@ const toggleMaximize = (): void => {
     display: flex;
     align-items: center;
     height: 100%;
-    gap: 4px;
+    gap: 6px;
     white-space: nowrap;
+
+    :deep(.el-dropdown) {
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
+      line-height: normal;
+    }
   }
 
   &__item {
@@ -675,29 +715,35 @@ const toggleMaximize = (): void => {
     position: relative;
     cursor: pointer;
     white-space: nowrap;
-    padding: 0 10px;
-    height: calc(100% - 6px);
     font-size: 13px;
     color: var(--el-text-color-regular, #606266);
-    border-radius: var(--el-border-radius-base, 4px);
+    box-sizing: border-box;
     transition:
       all 0.2s cubic-bezier(0.4, 0, 0.2, 1),
       color 0.15s ease;
 
     &:hover {
       color: var(--el-color-primary, #409eff);
-      background-color: var(--el-fill-color-light, #f5f7fa);
+
+      .at-tabs-nav__close {
+        opacity: 0.85;
+      }
     }
 
     &.is-active {
       color: var(--el-color-primary, #409eff);
-      background-color: var(--el-color-primary-light-9, #ecf5ff);
-      font-weight: 500;
+      font-weight: 600;
+
+      .at-tabs-nav__close {
+        opacity: 0.85;
+      }
     }
 
     &.is-dragover {
-      outline: 2px dashed var(--el-color-primary, #409eff);
-      outline-offset: -2px;
+      border-color: var(--el-color-primary, #409eff) !important;
+      background-color: var(--el-color-primary-light-8, #d9ecff) !important;
+      transform: scale(1.03);
+      box-shadow: 0 2px 10px rgba(64, 158, 255, 0.25) !important;
     }
   }
 
@@ -706,6 +752,7 @@ const toggleMaximize = (): void => {
     align-items: center;
     margin-right: 6px;
     font-size: 14px;
+    line-height: 1;
   }
 
   &__title {
@@ -714,6 +761,7 @@ const toggleMaximize = (): void => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1;
   }
 
   &__close {
@@ -727,64 +775,159 @@ const toggleMaximize = (): void => {
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: var(--el-text-color-secondary, #909399);
+    color: var(--el-text-color-placeholder, #a8abb2);
     cursor: pointer;
-    transition: all 0.15s ease;
+    opacity: 0.45;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
-      background-color: var(--el-fill-color-dark, #dcdfe6);
-      color: var(--el-text-color-primary, #303133);
+      background-color: var(--el-fill-color-darker, rgba(0, 0, 0, 0.08));
+      color: var(--el-color-danger, #f56c6c);
+      opacity: 1 !important;
+      transform: scale(1.15);
+    }
+
+    &:active {
+      transform: scale(0.92);
     }
   }
 
-  // --- 风格 1: card 卡片风格 ---
+  // ==========================================
+  // 风格 1: Card 卡片风格 (现代悬浮卡片高保真美学)
+  // ==========================================
   &--card {
-    .at-tabs-nav__item {
-      border: 1px solid var(--el-border-color-lighter, #ebeef5);
-      background-color: var(--el-bg-color, #ffffff);
+    background-color: var(--el-fill-color-blank, #ffffff);
 
-      &:hover {
-        border-color: var(--el-color-primary-light-7, #c6e2ff);
+    .at-tabs-nav__item {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 6px;
+      border: 1px solid var(--el-border-color-lighter, #ebeef5);
+      background-color: var(--el-fill-color-blank, #ffffff);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+
+      &:hover:not(.is-active) {
+        border-color: var(--el-color-primary-light-6, #b3d8ff);
+        background-color: var(--el-color-primary-light-9, #ecf5ff);
+        color: var(--el-color-primary, #409eff);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
       }
 
       &.is-active {
-        border-color: var(--el-color-primary, #409eff);
-        background-color: var(--el-bg-color, #ffffff);
+        border-color: var(--el-color-primary-light-5, #a0cfff);
+        background-color: var(--el-color-primary-light-9, #ecf5ff);
+        color: var(--el-color-primary, #409eff);
+        font-weight: 600;
+        box-shadow: 0 2px 8px 0 rgba(64, 158, 255, 0.16);
       }
     }
   }
 
-  // --- 风格 2: pill 胶囊风格 ---
+  // ==========================================
+  // 风格 2: Pill 胶囊风格 (现代灵动柔和胶囊美学)
+  // ==========================================
   &--pill {
-    padding: 2px 6px;
+    background-color: var(--el-fill-color-blank, #ffffff);
+
     .at-tabs-nav__item {
+      height: 26px;
+      padding: 0 14px;
       border-radius: 9999px;
-      padding: 0 12px;
-      height: calc(100% - 8px);
-      border: none;
+      border: 1px solid var(--el-border-color-lighter, #ebeef5);
+      background-color: var(--el-fill-color-light, #f5f7fa);
+      color: var(--el-text-color-regular, #606266);
+      transition:
+        background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover:not(.is-active) {
+        background-color: var(--el-fill-color, #e4e7ed);
+        border-color: var(--el-color-primary-light-7, #c6e2ff);
+        color: var(--el-color-primary, #409eff);
+      }
+
+      &.is-active {
+        background-color: var(--el-color-primary-light-9, #ecf5ff);
+        border-color: var(--el-color-primary-light-5, #a0cfff);
+        color: var(--el-color-primary, #409eff);
+        font-weight: 600;
+        box-shadow: 0 1px 4px 0 rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.16);
+
+        .at-tabs-nav__close {
+          color: var(--el-color-primary, #409eff);
+        }
+      }
     }
   }
 
-  // --- 风格 3: line 下划线风格 ---
+  // ==========================================
+  // 风格 3: Line 极简下划线风格 (经典扁平贴底美学)
+  // ==========================================
   &--line {
+    border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
+    background-color: var(--el-bg-color, #ffffff);
+
+    .at-tabs-nav__track {
+      gap: 0;
+    }
+
     .at-tabs-nav__item {
+      height: 100%;
+      padding: 0 16px;
       border-radius: 0;
       border: none;
       background: transparent !important;
+      color: var(--el-text-color-regular, #606266);
+      position: relative;
+      z-index: 1;
 
+      // 标签之间典雅的极细竖线微细分割线
+      &::before {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 28%;
+        height: 44%;
+        width: 1px;
+        background-color: var(--el-border-color-lighter, #ebeef5);
+        transition: opacity 0.2s ease;
+      }
+
+      &:last-child::before,
+      &.is-active::before {
+        opacity: 0;
+      }
+
+      &:hover:not(.is-active) {
+        color: var(--el-color-primary, #409eff);
+      }
+
+      // 贴合最底部的精致指示条
       &::after {
         content: '';
         position: absolute;
         bottom: 0;
-        left: 0;
-        width: 100%;
+        left: 8px;
+        right: 8px;
         height: 2px;
+        border-radius: 2px 2px 0 0;
         background-color: transparent;
-        transition: background-color 0.2s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: scaleX(0);
       }
 
-      &.is-active::after {
-        background-color: var(--el-color-primary, #409eff);
+      &.is-active {
+        color: var(--el-color-primary, #409eff);
+        font-weight: 600;
+
+        &::after {
+          background-color: var(--el-color-primary, #409eff);
+          box-shadow: 0 1px 4px 0 rgba(64, 158, 255, 0.3);
+          transform: scaleX(1);
+        }
       }
     }
   }

@@ -461,4 +461,20 @@ describe('AtengProLayout Component', () => {
     expect(wrapper.emitted('update:isMaximized')?.[0]?.[0]).toBe(true);
     expect(wrapper.emitted('maximizeChange')?.[0]?.[0]).toBe(true);
   });
+
+  it('20. 侧边栏折叠态 (collapse)：未配置图标时自动回退首字徽标 (Fallback Avatar)', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        menuData: [
+          { path: '/dashboard', title: '工作台首页', icon: 'el-icon-monitor' },
+          { path: '/no-icon', title: '无图标模块' },
+        ],
+        collapsed: true,
+      },
+    });
+
+    const fallback = wrapper.find('.at-pro-menu__fallback-icon');
+    expect(fallback.exists()).toBe(true);
+    expect(fallback.text()).toBe('无');
+  });
 });

@@ -85,6 +85,7 @@ const handleSelect = (index: string) => {
       :item="item"
       :field-names="fieldNames"
       :depth="0"
+      :mode="mode"
     />
   </el-menu>
 </template>
@@ -98,5 +99,54 @@ const handleSelect = (index: string) => {
 
 .at-pro-menu--horizontal {
   border-bottom: none;
+}
+
+/* ===================== 折叠态 (Collapse) 绝对居中与对齐防御规约 ===================== */
+.at-pro-menu.el-menu--collapse :deep(.el-menu-item),
+.at-pro-menu.el-menu--collapse :deep(.el-sub-menu__title) {
+  padding: 0 !important;
+  justify-content: center !important;
+  display: flex !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.at-pro-menu.el-menu--collapse :deep(.el-menu-tooltip__trigger) {
+  padding: 0 !important;
+  justify-content: center !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.at-pro-menu.el-menu--collapse :deep(.at-pro-menu__icon) {
+  margin-right: 0 !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.at-pro-menu.el-menu--collapse :deep(.at-pro-menu__fallback-icon) {
+  visibility: visible !important;
+  display: inline-flex !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-size: 12px !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.at-pro-menu.el-menu--collapse :deep(.at-pro-menu__title),
+.at-pro-menu.el-menu--collapse :deep(.at-pro-menu__badge),
+.at-pro-menu.el-menu--collapse :deep(.el-sub-menu__icon-arrow) {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  flex: 0 0 0 !important;
 }
 </style>
