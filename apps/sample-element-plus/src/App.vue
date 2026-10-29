@@ -127,6 +127,9 @@ onMounted(() => {
                     <ElIcon class="sub-menu-icon"><span>🏛️</span></ElIcon>
                     <span class="sub-menu-title">页面骨架与容器 (Layout)</span>
                   </template>
+                  <ElMenuItem index="/layout/pro-layout" title="框架布局容器 (AtengProLayout)">
+                    框架布局容器 (AtengProLayout)
+                  </ElMenuItem>
                   <ElMenuItem index="/layout/tabs-nav" title="多标签页导航 (AtengTabsNav)">
                     多标签页导航 (AtengTabsNav)
                   </ElMenuItem>

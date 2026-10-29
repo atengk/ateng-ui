@@ -74,6 +74,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '现代轻量加载与防闪烁 AtengLoading' },
   },
   {
+    path: '/layout/pro-layout',
+    name: 'LayoutProLayout',
+    component: () => import('../views/layout/ProLayoutView.vue'),
+    meta: { title: '框架布局容器 AtengProLayout' },
+  },
+  {
     path: '/layout/tabs-nav',
     name: 'LayoutTabsNav',
     component: () => import('../views/layout/TabsNavView.vue'),

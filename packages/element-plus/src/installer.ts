@@ -50,6 +50,7 @@ import {
   AtengFooter,
 } from './components/layout';
 import { AtengTabsNav } from './components/tabs-nav';
+import { AtengProLayout } from './components/pro-layout';
 import { AtengLoading } from './loading';
 import { vPermission } from './directives/permission';
 import { vRole } from './directives/role';
@@ -111,6 +112,7 @@ const components: Record<string, Component> = {
   AtengContent,
   AtengFooter,
   AtengTabsNav,
+  AtengProLayout,
   AtengLoading,
 };
 

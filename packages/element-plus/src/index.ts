@@ -57,6 +57,7 @@ export {
   AtengContent as AtContent,
   AtengFooter as AtFooter,
   AtengTabsNav as AtTabsNav,
+  AtengProLayout as AtProLayout,
 } from './components';
 export { AtengLoading as AtLoading } from './loading';
 

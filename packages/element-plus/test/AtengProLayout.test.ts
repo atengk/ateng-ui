@@ -1,0 +1,193 @@
+/**
+ * AtengProLayout 框架布局容器单元测试。
+ *
+ * @author Ateng
+ * @since 2026-10-29
+ */
+
+import { describe, it, expect, afterEach } from 'vitest';
+import { mount, type VueWrapper } from '@vue/test-utils';
+import { defineComponent, inject, h } from 'vue';
+import { AtengProLayout, ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
+import { AtengFooterBar } from '../src/components/footer-bar';
+import type { ProMenuItem } from '../src/components/pro-layout';
+
+describe('AtengProLayout Component', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    if (wrapper) {
+      wrapper.unmount();
+      wrapper = null;
+    }
+    document.body.innerHTML = '';
+  });
+
+  const mockMenuData: ProMenuItem[] = [
+    { path: '/dashboard', title: '工作台首页' },
+    {
+      path: '/system',
+      title: '系统管理',
+      children: [
+        { path: '/system/user', title: '用户列表' },
+        { path: '/system/role', title: '角色权限' },
+      ],
+    },
+  ];
+
+  it('1. 默认渲染 side 模式：包含 Header、Aside 与 Content 骨架', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        title: '测试系统',
+        menuData: mockMenuData,
+      },
+      slots: {
+        default: () => [h('div', { class: 'test-content' }, '页面主体内容')],
+      },
+    });
+
+    expect(wrapper.classes()).toContain('at-pro-layout');
+    expect(wrapper.classes()).toContain('at-pro-layout--side');
+    expect(wrapper.find('.at-pro-layout__header').exists()).toBe(true);
+    expect(wrapper.find('.at-pro-layout__aside').exists()).toBe(true);
+    expect(wrapper.find('.test-content').text()).toBe('页面主体内容');
+  });
+
+  it('2. 数据驱动菜单渲染：根据 menuData 正确递归渲染菜单项与子菜单', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        menuData: mockMenuData,
+        activeMenu: '/dashboard',
+      },
+    });
+
+    const menuItems = wrapper.findAll('.el-menu-item');
+    expect(menuItems.length).toBeGreaterThanOrEqual(1);
+    expect(wrapper.text()).toContain('工作台首页');
+    expect(wrapper.text()).toContain('系统管理');
+  });
+
+  it('3. fieldNames 别名映射：自适应映射后端异构菜单字段', () => {
+    interface BackendMenuItem {
+      url: string;
+      name: string;
+      subList?: BackendMenuItem[];
+    }
+
+    const backendData: BackendMenuItem[] = [
+      { url: '/home', name: '自定义首页' },
+      {
+        url: '/nested',
+        name: '嵌套大类',
+        subList: [{ url: '/nested/sub1', name: '子节点 1' }],
+      },
+    ];
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        menuData: backendData as any,
+        fieldNames: {
+          path: 'url',
+          title: 'name',
+          children: 'subList',
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('自定义首页');
+    expect(wrapper.text()).toContain('嵌套大类');
+  });
+
+  it('4. 侧边栏折叠：点击折叠把手派发 update:collapsed 与 collapseChange 事件', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: false,
+        collapsible: true,
+        showCollapseTrigger: true,
+      },
+    });
+
+    const trigger = wrapper.find('.at-pro-layout__collapse-btn');
+    expect(trigger.exists()).toBe(true);
+
+    await trigger.trigger('click');
+    expect(wrapper.emitted('update:collapsed')).toBeTruthy();
+    expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
+    expect(wrapper.emitted('collapseChange')).toBeTruthy();
+    expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
+  });
+
+  it('5. top 模式：顶栏承载水平菜单，不渲染 Aside 侧边栏', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'top',
+        menuData: mockMenuData,
+      },
+    });
+
+    expect(wrapper.classes()).toContain('at-pro-layout--top');
+    expect(wrapper.find('.at-pro-layout__aside').exists()).toBe(false);
+    expect(wrapper.find('.at-pro-layout__header .el-menu--horizontal').exists()).toBe(true);
+  });
+
+  it('6. 上下文注入总线：正确提供 ATENG_PRO_LAYOUT_KEY 供子组件感知 asideWidth 与 collapsed', () => {
+    let capturedContext: unknown = null;
+
+    const ChildComponent = defineComponent({
+      setup() {
+        capturedContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+        return () => h('div', 'Child');
+      },
+    });
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        asideWidth: '240px',
+        asideCollapsedWidth: '60px',
+        collapsed: false,
+      },
+      slots: {
+        default: () => h(ChildComponent),
+      },
+    });
+
+    expect(capturedContext).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = capturedContext as any;
+    expect(ctx.asideWidth.value).toBe('240px');
+    expect(ctx.collapsed.value).toBe(false);
+  });
+
+  it('7. 插槽覆盖：#logo、#headerLeft、#breadcrumb、#headerRight 支持深度定制', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        title: 'Original Title',
+      },
+      slots: {
+        logo: () => h('div', { class: 'custom-logo' }, 'My Brand'),
+        headerRight: () => h('div', { class: 'custom-user' }, 'User Admin'),
+      },
+    });
+
+    expect(wrapper.find('.custom-logo').text()).toBe('My Brand');
+    expect(wrapper.find('.custom-user').text()).toBe('User Admin');
+  });
+
+  it('8. 协同总线：AtengFooterBar 在 AtengProLayout 内部自动感知 asideWidth 并避让', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        asideWidth: '260px',
+        collapsed: false,
+      },
+      slots: {
+        default: () => h(AtengFooterBar, { position: 'fixed', leftOffset: 'auto' }),
+      },
+    });
+
+    const footerBar = wrapper.findComponent(AtengFooterBar);
+    expect(footerBar.exists()).toBe(true);
+    const footerEl = footerBar.find('.at-footer-bar');
+    expect(footerEl.attributes('style')).toContain('left: 260px');
+  });
+});

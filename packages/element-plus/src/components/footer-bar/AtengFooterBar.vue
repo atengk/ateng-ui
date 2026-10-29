@@ -18,6 +18,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue';
 import { ElButton } from 'element-plus';
 import { PAGE_CONTAINER_INJECTION_KEY } from '../page-container';
+import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout';
 import type {
   AtengFooterBarProps,
   AtengFooterBarEmits,
@@ -60,6 +61,7 @@ const dynamicOffset = ref<{ left: number; width: number } | null>(null);
 
 // 容器上下文总线 (Container Context Bus)
 const pageContainerContext = inject(PAGE_CONTAINER_INJECTION_KEY, null);
+const proLayoutContext = inject(ATENG_PRO_LAYOUT_KEY, null);
 let unregisterFooter: (() => void) | null = null;
 
 const syncRegisterFooter = () => {
@@ -307,6 +309,8 @@ const fixedStyles = computed(() => {
   styles.right = 0;
   if (props.leftOffset !== 'auto') {
     styles.left = typeof props.leftOffset === 'number' ? `${props.leftOffset}px` : props.leftOffset;
+  } else if (proLayoutContext && proLayoutContext.asideWidth.value) {
+    styles.left = proLayoutContext.asideWidth.value;
   } else {
     styles.left = 0;
   }
