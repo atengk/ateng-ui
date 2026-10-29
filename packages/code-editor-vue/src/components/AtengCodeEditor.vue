@@ -122,6 +122,13 @@ const {
   getValue,
   setValue,
   applyIncrementalEdit,
+  createModel,
+  setModel,
+  disposeModel,
+  getActiveModel,
+  getModels,
+  saveViewState,
+  restoreViewState,
 } = useCodeEditor(canvasRef, {
   value: props.modelValue,
   language: props.language,
@@ -346,6 +353,13 @@ defineExpose<CodeEditorExpose>({
   redo,
   isLargeFile: () => isLargeFile.value,
   isSuspended: () => isSuspended.value,
+  createModel,
+  setModel,
+  disposeModel,
+  getActiveModel,
+  getModels,
+  saveViewState,
+  restoreViewState,
 });
 </script>
 

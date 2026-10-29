@@ -183,6 +183,29 @@ export interface CodeEditorExpose {
   isSuspended: () => boolean;
   /** 触发视口几何自愈布局（从 0x0 恢复可见时调用） */
   healLayout: () => void;
+  /** 在模型池中创建受管 TextModel */
+  createModel: (
+    value: string,
+    language?: CodeLanguage,
+    uri?: string | monaco.Uri,
+  ) => monaco.editor.ITextModel;
+  /** 切换当前编辑器绑定的活动 TextModel 并平滑保持视口与光标状态 */
+  setModel: (modelOrUri: monaco.editor.ITextModel | string) => void;
+  /** 销毁模型池中的指定 TextModel */
+  disposeModel: (modelOrUri: monaco.editor.ITextModel | string) => boolean;
+  /** 获取当前活动的 TextModel */
+  getActiveModel: () => monaco.editor.ITextModel | null;
+  /** 获取模型池中所有受管的 TextModel 列表 */
+  getModels: () => monaco.editor.ITextModel[];
+  /** 保存指定模型或当前活动的视图状态 (光标与滚动位置) */
+  saveViewState: (
+    modelOrUri?: monaco.editor.ITextModel | string,
+  ) => monaco.editor.ICodeEditorViewState | null;
+  /** 恢复指定模型的视图状态 */
+  restoreViewState: (
+    modelOrUri: monaco.editor.ITextModel | string,
+    state?: monaco.editor.ICodeEditorViewState | null,
+  ) => void;
 }
 
 /**

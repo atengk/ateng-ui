@@ -204,6 +204,44 @@ const handleGenerateLargeFile = (): void => {
 const handleReset = (): void => {
   code.value = languageSnippets[currentLang.value] ?? '';
 };
+
+// 多文件 TextModel 模型池状态 (Ticket #183)
+interface FileTab {
+  id: string;
+  name: string;
+  lang: CodeLanguage;
+  uri: string;
+}
+
+const activeFileId = ref<string>('main');
+const fileTabs = ref<FileTab[]>([
+  { id: 'main', name: 'main.ts', lang: 'typescript', uri: 'file:///workspace/main.ts' },
+  { id: 'config', name: 'config.json', lang: 'json', uri: 'file:///workspace/config.json' },
+  { id: 'queries', name: 'queries.sql', lang: 'sql', uri: 'file:///workspace/queries.sql' },
+]);
+
+let modelPoolInitialized = false;
+
+const initModelPool = (): void => {
+  if (modelPoolInitialized || !editorRef.value) return;
+  modelPoolInitialized = true;
+  editorRef.value.createModel(
+    languageSnippets.typescript ?? '',
+    'typescript',
+    'file:///workspace/main.ts',
+  );
+  editorRef.value.createModel(languageSnippets.json ?? '', 'json', 'file:///workspace/config.json');
+  editorRef.value.createModel(languageSnippets.sql ?? '', 'sql', 'file:///workspace/queries.sql');
+};
+
+const handleSwitchFileTab = (tab: FileTab): void => {
+  if (!editorRef.value) return;
+  initModelPool();
+  activeFileId.value = tab.id;
+  currentLang.value = tab.lang;
+  editorRef.value.setModel(tab.uri);
+  code.value = editorRef.value.getValue();
+};
 </script>
 
 <template>
@@ -270,6 +308,24 @@ const handleReset = (): void => {
       </el-form>
     </el-card>
 
+    <!-- 多文件 TextModel 模型池秒切工具栏 -->
+    <div class="file-tabs-bar">
+      <span class="file-tabs-label">🗂️ 模型池多文件秒切：</span>
+      <el-button-group size="small">
+        <el-button
+          v-for="tab in fileTabs"
+          :key="tab.id"
+          :type="activeFileId === tab.id ? 'primary' : 'default'"
+          @click="handleSwitchFileTab(tab)"
+        >
+          {{ tab.name }}
+        </el-button>
+      </el-button-group>
+      <el-tag size="small" type="info" effect="plain">
+        共享单底座 Canvas · 独立保留各文件光标位置与撤销历史
+      </el-tag>
+    </div>
+
     <!-- 编辑器展示区 -->
     <div class="editor-wrapper">
       <AtengCodeEditor
@@ -311,6 +367,31 @@ const handleReset = (): void => {
 .panel-title {
   font-weight: 600;
   font-size: 15px;
+}
+
+.file-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+:global(html.dark) .file-tabs-bar {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.file-tabs-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+:global(html.dark) .file-tabs-label {
+  color: #cbd5e1;
 }
 
 .editor-wrapper {
