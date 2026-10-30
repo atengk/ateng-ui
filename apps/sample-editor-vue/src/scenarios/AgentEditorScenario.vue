@@ -12,9 +12,14 @@
  * @since 2026-10-30
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
+import {
+  AtengEditor,
+  type AtengEditorInstance,
+  useAiStream,
+  createMockAiStreamHandler,
+} from '@atengk/editor-vue';
 
 const editorRef = ref<AtengEditorInstance | null>(null);
 
@@ -36,36 +41,45 @@ const defaultAgentHtml = `<h1>🤖 AI-Native 智能辅助创作研报</h1>
 </ul>`;
 
 const agentContent = ref<string>(defaultAgentHtml);
-const isGenerating = ref<boolean>(false);
-const streamOutput = ref<string>('');
 const showDiffPreview = ref<boolean>(false);
+
+const editorInstance = computed(() => editorRef.value?.editor ?? null);
+
+const mockHandler = createMockAiStreamHandler({
+  delayMs: 25,
+  responseResolver: () =>
+    '【AI 智能扩写建议】：基于洋葱拓扑与深模块契约，本套基础设施在 L2 专用层实现了对 TipTap 2.x 的纯原生封装，彻底移除了对外部重型 UI 库的直接物理依赖。在面对现代高并发协作与离线单测守护时，展现出了卓越的确定性与抗脆性。',
+});
+
+const { isStreaming, streamingText, startStream, stopStream } = useAiStream({
+  editor: editorInstance,
+  handler: mockHandler,
+  useDecoration: true,
+  onFinish: () => {
+    showDiffPreview.value = true;
+    ElMessage.success('✨ AI 流式生成完成，已在下方呼出行内审阅对比卡片 (AiDiffCard)');
+  },
+  onError: err => {
+    ElMessage.error(`AI 生成异常：${err.message}`);
+  },
+});
 
 // 模拟打字机流式生成
 const handleSimulateAiStream = async (): Promise<void> => {
-  if (isGenerating.value) return;
-  isGenerating.value = true;
-  streamOutput.value = '';
+  if (isStreaming.value) return;
   showDiffPreview.value = false;
 
-  const textToStream =
-    '【AI 智能扩写建议】：基于洋葱拓扑与深模块契约，本套基础设施在 L2 专用层实现了对 TipTap 2.x 的纯原生封装，彻底移除了对外部重型 UI 库的直接物理依赖。在面对现代高并发协作与离线单测守护时，展现出了卓越的确定性与抗脆性。';
-
-  const chars = textToStream.split('');
-  for (let i = 0; i < chars.length; i++) {
-    await new Promise(resolve => setTimeout(resolve, 35));
-    streamOutput.value += chars[i];
-  }
-
-  isGenerating.value = false;
-  showDiffPreview.value = true;
-  ElMessage.success('✨ AI 流式生成完成，已在下方呼出行内审阅对比卡片 (AiDiffCard)');
+  await startStream({
+    prompt: '扩写说明',
+    action: 'expand',
+  });
 };
 
 const handleAcceptReplace = (): void => {
-  if (editorRef.value && streamOutput.value) {
+  if (editorRef.value && streamingText.value) {
     const currentHtml = editorRef.value.getHTML();
     editorRef.value.setContent(
-      currentHtml + `<div class="ai-generated-block"><p>${streamOutput.value}</p></div>`,
+      currentHtml + `<div class="ai-generated-block"><p>${streamingText.value}</p></div>`,
     );
   }
   showDiffPreview.value = false;
@@ -73,10 +87,10 @@ const handleAcceptReplace = (): void => {
 };
 
 const handleAcceptAppend = (): void => {
-  if (editorRef.value && streamOutput.value) {
+  if (editorRef.value && streamingText.value) {
     const currentHtml = editorRef.value.getHTML();
     editorRef.value.setContent(
-      currentHtml + `<p style="color: #409eff;">${streamOutput.value}</p>`,
+      currentHtml + `<p style="color: #409eff;">${streamingText.value}</p>`,
     );
   }
   showDiffPreview.value = false;
@@ -85,7 +99,7 @@ const handleAcceptAppend = (): void => {
 
 const handleDiscard = (): void => {
   showDiffPreview.value = false;
-  streamOutput.value = '';
+  stopStream();
   ElMessage.info('🗑️ 已放弃本次 AI 建议');
 };
 </script>
@@ -138,10 +152,10 @@ const handleDiscard = (): void => {
           <el-button
             type="primary"
             size="small"
-            :loading="isGenerating"
+            :loading="isStreaming"
             @click="handleSimulateAiStream"
           >
-            {{ isGenerating ? 'AI 正在流式打字生成中...' : '🤖 模拟触发行内 AI 扩写润色' }}
+            {{ isStreaming ? 'AI 正在流式打字生成中...' : '🤖 模拟触发行内 AI 扩写润色' }}
           </el-button>
         </div>
 
@@ -152,11 +166,11 @@ const handleDiscard = (): void => {
     </el-card>
 
     <!-- 行内 Diff 审阅卡片仿真展示 -->
-    <el-card v-if="showDiffPreview || isGenerating" shadow="hover" class="diff-card-preview">
+    <el-card v-if="showDiffPreview || isStreaming" shadow="hover" class="diff-card-preview">
       <template #header>
         <div class="diff-header">
           <span class="diff-title">✨ 行内审阅对比卡片 (AiDiffCard 仿真原型)</span>
-          <el-tag v-if="isGenerating" size="small" type="warning" effect="dark"
+          <el-tag v-if="isStreaming" size="small" type="warning" effect="dark"
             >流式接收中...</el-tag
           >
           <el-tag v-else size="small" type="success" effect="dark">生成完毕 · 待审阅</el-tag>
@@ -165,12 +179,12 @@ const handleDiscard = (): void => {
 
       <div class="diff-body">
         <div class="stream-text">
-          {{ streamOutput }}
-          <span v-if="isGenerating" class="typing-cursor">|</span>
+          {{ streamingText }}
+          <span v-if="isStreaming" class="typing-cursor">|</span>
         </div>
       </div>
 
-      <div v-if="!isGenerating && showDiffPreview" class="diff-footer">
+      <div v-if="!isStreaming && showDiffPreview" class="diff-footer">
         <div class="footer-actions">
           <el-button type="success" size="small" @click="handleAcceptReplace">
             ✅ 全部替换原段落

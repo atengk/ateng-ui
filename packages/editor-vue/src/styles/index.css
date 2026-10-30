@@ -863,3 +863,50 @@ html.dark .at-editor-slash-menu {
 .at-notion-editor.is-fullscreen .at-editor__body {
   padding-top: 40px;
 }
+
+/* ==========================================================================
+   AI 打字机流式生成与装饰层样式 (AiStreaming)
+   ========================================================================== */
+
+.at-editor-ai-streaming {
+  background-color: rgba(64, 158, 255, 0.1);
+  border-radius: 2px;
+  padding: 1px 2px;
+  animation: at-editor-ai-breathe 2s ease-in-out infinite;
+}
+
+.at-editor-ai-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  font-weight: 700;
+  color: var(--at-editor-primary, #409eff);
+  animation: at-editor-ai-blink 0.8s infinite;
+  user-select: none;
+  pointer-events: none;
+}
+
+.at-editor-ai-original-dimmed {
+  opacity: 0.45;
+  text-decoration: line-through;
+  background-color: rgba(245, 108, 108, 0.08);
+}
+
+@keyframes at-editor-ai-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes at-editor-ai-breathe {
+  0%,
+  100% {
+    background-color: rgba(64, 158, 255, 0.08);
+  }
+  50% {
+    background-color: rgba(64, 158, 255, 0.18);
+  }
+}

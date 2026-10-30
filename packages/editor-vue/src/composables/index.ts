@@ -7,3 +7,4 @@
 
 export * from './useEditor';
 export * from './useEditorDom';
+export * from './useAiStream';

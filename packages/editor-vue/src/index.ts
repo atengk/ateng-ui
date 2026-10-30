@@ -52,6 +52,9 @@ export type { UseEditorReturn } from './composables/useEditor';
 export { useEditorDom } from './composables/useEditorDom';
 export type { UseEditorDomOptions, UseEditorDomReturn } from './composables/useEditorDom';
 
+export { useAiStream } from './composables/useAiStream';
+export type { UseAiStreamOptions, UseAiStreamReturn } from './composables/useAiStream';
+
 export { createDefaultExtensions } from './extensions/default-extensions';
 export type { CreateDefaultExtensionsOptions } from './extensions/default-extensions';
 
@@ -63,6 +66,10 @@ export type { CalloutType, CalloutBlockOptions } from './extensions/callout';
 
 export { ToggleList } from './extensions/toggle';
 export type { ToggleListOptions } from './extensions/toggle';
+
+export { AiStreamingExtension, aiStreamingPluginKey } from './extensions/ai-streaming';
+
+export { createMockAiStreamHandler, defaultMockAiStreamHandler } from './utils/ai-mock';
 
 export {
   isContentEqual,
@@ -103,4 +110,9 @@ export type {
   UploadHandler,
   UploadSuccessPayload,
   FullHtmlOptions,
+  AiStreamPayload,
+  AiStreamHandler,
+  MockAiStreamHandlerOptions,
+  AiStreamingState,
+  AiStreamingOptions,
 } from './types';

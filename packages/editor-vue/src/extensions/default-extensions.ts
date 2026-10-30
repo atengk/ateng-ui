@@ -28,6 +28,7 @@ import { createLowlight, common } from 'lowlight';
 import { FileUploadExtension } from './upload';
 import { CalloutBlock } from './callout';
 import { ToggleList } from './toggle';
+import { AiStreamingExtension } from './ai-streaming';
 import type { UploadHandler, UploadSuccessPayload } from '../types';
 
 const lowlight = createLowlight(common);
@@ -119,6 +120,7 @@ export function createDefaultExtensions(
     }),
     CalloutBlock,
     ToggleList,
+    AiStreamingExtension,
   ];
 
   if (options.extraExtensions && options.extraExtensions.length > 0) {
