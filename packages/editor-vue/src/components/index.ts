@@ -12,6 +12,7 @@ export { default as AtengImageBubbleMenu } from './AtengImageBubbleMenu.vue';
 export { default as AtengLinkBubbleMenu } from './AtengLinkBubbleMenu.vue';
 export { default as AtengBubbleMenu } from './AtengBubbleMenu.vue';
 export { default as AtengSlashCommand } from './AtengSlashCommand.vue';
+export { default as AtengStatusBar } from './AtengStatusBar.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengEditorToolbarInstance = InstanceType<
@@ -30,3 +31,4 @@ export type AtengBubbleMenuInstance = InstanceType<typeof import('./AtengBubbleM
 export type AtengSlashCommandInstance = InstanceType<
   typeof import('./AtengSlashCommand.vue').default
 >;
+export type AtengStatusBarInstance = InstanceType<typeof import('./AtengStatusBar.vue').default>;

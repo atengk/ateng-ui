@@ -67,6 +67,11 @@ export interface UseEditorOptions {
   extensions?: AnyExtension[];
 
   /**
+   * 纯文本字符数硬限制上限。达到上限时通过 ProseMirror 事务拦截输入与粘贴。
+   */
+  maxLength?: number;
+
+  /**
    * 媒体资产上传拦截器 SPI 处理函数。
    */
   uploadHandler?: UploadHandler;
@@ -192,6 +197,26 @@ export interface AtengEditorProps {
   showSlashCommand?: boolean;
 
   /**
+   * 纯文本字符数硬限制上限。达到上限时通过 ProseMirror 事务拦截输入与粘贴。
+   */
+  maxLength?: number;
+
+  /**
+   * 是否展示吸底状态栏，默认 true。
+   */
+  showStatusBar?: boolean;
+
+  /**
+   * 是否展示状态栏词数统计，默认 true。
+   */
+  showWordCount?: boolean;
+
+  /**
+   * 是否展示状态栏段落数统计，默认 true。
+   */
+  showParagraphCount?: boolean;
+
+  /**
    * 媒体资产上传拦截器 SPI 处理函数。
    * 若未提供，默认自动降级为安全 Base64 Data URL 内联。
    */
@@ -225,6 +250,33 @@ export interface AtengEditorEmits {
   (e: 'blur'): void;
   (e: 'uploadSuccess', payload: UploadSuccessPayload): void;
   (e: 'uploadError', error: Error, file: File): void;
+  (e: 'update:fullscreen', isFullscreen: boolean): void;
+  (e: 'themeChange', isDark: boolean): void;
+}
+
+/**
+ * <AtengStatusBar /> 吸底状态栏组件入参 Props 接口。
+ */
+export interface AtengStatusBarProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 纯文本字符数上限限制。
+   */
+  maxLength?: number;
+
+  /**
+   * 是否展示词数统计，默认 true。
+   */
+  showWordCount?: boolean;
+
+  /**
+   * 是否展示段落数统计，默认 true。
+   */
+  showParagraphCount?: boolean;
 }
 
 /**
@@ -495,4 +547,29 @@ export interface AtengEditorExpose {
    * 当前编辑器内容是否为空。
    */
   isEmpty: ComputedRef<boolean>;
+
+  /**
+   * 当前是否处于脱壳全屏状态。
+   */
+  isFullscreen: ShallowRef<boolean> | ComputedRef<boolean>;
+
+  /**
+   * 切换全屏沉浸模式与普通模式。
+   */
+  toggleFullscreen: () => void;
+
+  /**
+   * 获取当前纯文本字符数统计。
+   */
+  getCharacters: () => number;
+
+  /**
+   * 获取当前词数统计。
+   */
+  getWords: () => number;
+
+  /**
+   * 获取当前段落与标题块数统计。
+   */
+  getParagraphs: () => number;
 }

@@ -31,6 +31,9 @@ export type { AtengBubbleMenuInstance } from './components';
 export { default as AtengSlashCommand } from './components/AtengSlashCommand.vue';
 export type { AtengSlashCommandInstance } from './components';
 
+export { default as AtengStatusBar } from './components/AtengStatusBar.vue';
+export type { AtengStatusBarInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
@@ -53,6 +56,7 @@ export type {
   AtengLinkBubbleMenuProps,
   AtengBubbleMenuProps,
   AtengSlashCommandProps,
+  AtengStatusBarProps,
   SlashCommandItem,
   UploadHandlerResult,
   UploadHandler,

@@ -51,6 +51,10 @@ export interface CreateDefaultExtensionsOptions {
    * 媒体资产上传失败回调。
    */
   onUploadError?: (error: Error, file: File) => void;
+  /**
+   * 纯文本字符数硬限制上限。
+   */
+  maxLength?: number;
 }
 
 /**
@@ -104,7 +108,9 @@ export function createDefaultExtensions(
     TableRow,
     TableHeader,
     TableCell,
-    CharacterCount,
+    CharacterCount.configure({
+      limit: options.maxLength ?? null,
+    }),
     Markdown.configure({
       html: true,
       tightLists: true,

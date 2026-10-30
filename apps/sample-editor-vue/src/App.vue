@@ -11,6 +11,8 @@ import BasicEditorScenario from './scenarios/BasicEditorScenario.vue';
 import TableErgonomicsScenario from './scenarios/TableErgonomicsScenario.vue';
 import AssetUploadScenario from './scenarios/AssetUploadScenario.vue';
 import SlashAndBubbleScenario from './scenarios/SlashAndBubbleScenario.vue';
+import FormValidationScenario from './scenarios/FormValidationScenario.vue';
+import DialogReadOnlyScenario from './scenarios/DialogReadOnlyScenario.vue';
 
 const activeTab = ref<string>('basic');
 const isDark = ref<boolean>(false);
@@ -56,11 +58,11 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景四：选区气泡与斜杠命令 (Slash & Bubble)" name="slash">
           <SlashAndBubbleScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景五：表单联动与字数硬限制 (Form)" name="form" disabled>
-          <div class="placeholder-tip">（工单 #190 阶段建设中）</div>
+        <el-tab-pane label="场景五：表单联动与字数硬限制 (Form)" name="form">
+          <FormValidationScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景六：弹窗挂载自愈与阅读器模式 (Dialog)" name="dialog" disabled>
-          <div class="placeholder-tip">（工单 #190 阶段建设中）</div>
+        <el-tab-pane label="场景六：弹窗挂载自愈与阅读器模式 (Dialog)" name="dialog">
+          <DialogReadOnlyScenario />
         </el-tab-pane>
       </el-tabs>
     </main>

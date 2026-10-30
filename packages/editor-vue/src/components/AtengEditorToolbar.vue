@@ -20,12 +20,21 @@ interface Props {
    * 是否禁用操作。
    */
   disabled?: boolean;
+  /**
+   * 当前是否处于全屏模式。
+   */
+  isFullscreen?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   editor: null,
   disabled: false,
+  isFullscreen: false,
 });
+
+const emit = defineEmits<{
+  (e: 'toggleFullscreen'): void;
+}>();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -403,6 +412,26 @@ const handleImageFileChange = (event: Event) => {
         <path
           d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z"
         />
+      </svg>
+    </button>
+
+    <div class="at-editor__divider" />
+
+    <!-- 全屏模式切换 -->
+    <button
+      type="button"
+      class="at-editor__btn"
+      :title="props.isFullscreen ? '退出全屏 (Esc)' : '全屏模式'"
+      :aria-label="props.isFullscreen ? '退出全屏' : '全屏模式'"
+      :class="{ 'is-active': props.isFullscreen }"
+      :disabled="props.disabled"
+      @click="emit('toggleFullscreen')"
+    >
+      <svg v-if="props.isFullscreen" viewBox="0 0 24 24">
+        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+      </svg>
+      <svg v-else viewBox="0 0 24 24">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
       </svg>
     </button>
   </div>

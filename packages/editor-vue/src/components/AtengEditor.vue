@@ -9,7 +9,7 @@
  * @since 2026-10-30
  */
 
-import { computed, watch, ref } from 'vue';
+import { computed, watch, ref, onMounted, onBeforeUnmount } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import { useEditor } from '../composables/useEditor';
 import {
@@ -23,6 +23,7 @@ import AtengImageBubbleMenu from './AtengImageBubbleMenu.vue';
 import AtengLinkBubbleMenu from './AtengLinkBubbleMenu.vue';
 import AtengBubbleMenu from './AtengBubbleMenu.vue';
 import AtengSlashCommand from './AtengSlashCommand.vue';
+import AtengStatusBar from './AtengStatusBar.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
@@ -47,6 +48,10 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   showImageMenu: true,
   showBubbleMenu: true,
   showSlashCommand: true,
+  maxLength: undefined,
+  showStatusBar: true,
+  showWordCount: true,
+  showParagraphCount: true,
   uploadHandler: undefined,
   height: undefined,
   minHeight: undefined,
@@ -112,6 +117,9 @@ const {
   focus,
   blur,
   uploadImage,
+  getCharacters,
+  getWords,
+  getParagraphs,
 } = useEditor({
   content: initialContent.value,
   placeholder: props.placeholder,
@@ -119,6 +127,7 @@ const {
   autofocus: props.autofocus,
   extensions: props.extensions,
   uploadHandler: props.uploadHandler,
+  maxLength: props.maxLength,
   onUploadSuccess: payload => {
     emit('uploadSuccess', payload);
   },
@@ -210,6 +219,113 @@ watch(isEditable, newEditable => {
   }
 });
 
+// 脱壳全屏状态机
+const isFullscreen = ref<boolean>(false);
+let originalParent: Node | null = null;
+let originalNextSibling: Node | null = null;
+
+const toggleFullscreen = (): void => {
+  isFullscreen.value = !isFullscreen.value;
+  emit('update:fullscreen', isFullscreen.value);
+};
+
+// 监听全屏状态，脱壳提升至 document.body 顶层突破局部弹窗裁剪
+watch(isFullscreen, fullscreen => {
+  if (typeof document === 'undefined' || !rootRef.value) return;
+  if (fullscreen) {
+    originalParent = rootRef.value.parentNode;
+    originalNextSibling = rootRef.value.nextSibling;
+    document.body.appendChild(rootRef.value);
+  } else if (originalParent && rootRef.value) {
+    if (originalNextSibling && originalParent.contains(originalNextSibling)) {
+      originalParent.insertBefore(rootRef.value, originalNextSibling);
+    } else {
+      originalParent.appendChild(rootRef.value);
+    }
+  }
+});
+
+const handleEscKeyDown = (e: KeyboardEvent): void => {
+  if (e.key === 'Escape' && isFullscreen.value) {
+    e.preventDefault();
+    isFullscreen.value = false;
+    emit('update:fullscreen', false);
+  }
+};
+
+// ResizeObserver 弹窗隐藏唤起 0x0 几何自愈
+let resizeObserver: ResizeObserver | null = null;
+let previousWidth = 0;
+let previousHeight = 0;
+
+const initResizeObserver = (): void => {
+  if (typeof ResizeObserver === 'undefined' || !rootRef.value) return;
+  resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const { width, height } = entry.contentRect;
+      // 当容器从 0x0 展开时触发重新派发事务与几何自愈
+      if ((previousWidth === 0 || previousHeight === 0) && width > 0 && height > 0) {
+        if (editor.value && editor.value.view) {
+          editor.value.view.dispatch(editor.value.state.tr);
+        }
+      }
+      previousWidth = width;
+      previousHeight = height;
+    }
+  });
+  resizeObserver.observe(rootRef.value);
+};
+
+// MutationObserver 监听 html.dark 无损热跟随
+let mutationObserver: MutationObserver | null = null;
+
+const initMutationObserver = (): void => {
+  if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+  const checkTheme = (): void => {
+    const isDark = document.documentElement.classList.contains('dark');
+    emit('themeChange', isDark);
+  };
+  checkTheme();
+
+  mutationObserver = new MutationObserver(mutations => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        checkTheme();
+      }
+    }
+  });
+
+  mutationObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+};
+
+onMounted(() => {
+  initResizeObserver();
+  initMutationObserver();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', handleEscKeyDown);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+    mutationObserver = null;
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleEscKeyDown);
+  }
+  if (isFullscreen.value && rootRef.value?.parentNode === document.body) {
+    document.body.removeChild(rootRef.value);
+  }
+});
+
 // 显式暴露受管实例与核心方法
 defineExpose<AtengEditorExpose>({
   editor,
@@ -223,6 +339,11 @@ defineExpose<AtengEditorExpose>({
   getMarkdown,
   getText,
   isEmpty,
+  isFullscreen,
+  toggleFullscreen,
+  getCharacters,
+  getWords,
+  getParagraphs,
 });
 </script>
 
@@ -234,13 +355,19 @@ defineExpose<AtengEditorExpose>({
       'is-disabled': props.disabled,
       'is-readonly': props.readOnly,
       'is-sticky-toolbar': props.stickyToolbar,
+      'is-fullscreen': isFullscreen,
     }"
-    :style="containerStyle"
+    :style="isFullscreen ? undefined : containerStyle"
   >
     <!-- 工具栏插槽 (readOnly 下不展示) -->
     <template v-if="props.showToolbar && !props.readOnly">
       <slot name="toolbar" :editor="editor">
-        <AtengEditorToolbar :editor="editor" :disabled="props.disabled" />
+        <AtengEditorToolbar
+          :editor="editor"
+          :disabled="props.disabled"
+          :is-fullscreen="isFullscreen"
+          @toggle-fullscreen="toggleFullscreen"
+        />
       </slot>
     </template>
 
@@ -248,6 +375,19 @@ defineExpose<AtengEditorExpose>({
     <div class="at-editor__body">
       <EditorContent class="at-editor__content" :editor="editor ?? undefined" />
     </div>
+
+    <!-- 吸底状态栏 (readOnly 下不展示) -->
+    <template v-if="props.showStatusBar && !props.readOnly">
+      <slot name="statusbar" :editor="editor" :max-length="props.maxLength">
+        <AtengStatusBar
+          v-if="editor"
+          :editor="editor"
+          :max-length="props.maxLength"
+          :show-word-count="props.showWordCount"
+          :show-paragraph-count="props.showParagraphCount"
+        />
+      </slot>
+    </template>
 
     <!-- 表格动态上下文气泡菜单 (readOnly 下不展示) -->
     <template v-if="props.showTableMenu && !props.readOnly">

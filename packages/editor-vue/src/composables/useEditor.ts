@@ -79,6 +79,21 @@ export interface UseEditorReturn {
    * 手动触发图片文件上传并插入当前光标位置。
    */
   uploadImage: (file: File) => void;
+
+  /**
+   * 获取当前纯文本字符数统计。
+   */
+  getCharacters: () => number;
+
+  /**
+   * 获取当前词数统计。
+   */
+  getWords: () => number;
+
+  /**
+   * 获取当前段落与标题块数统计。
+   */
+  getParagraphs: () => number;
 }
 
 /**
@@ -97,6 +112,7 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     uploadHandler: options.uploadHandler,
     onUploadSuccess: options.onUploadSuccess,
     onUploadError: options.onUploadError,
+    maxLength: options.maxLength,
   });
 
   const instance = new Editor({
@@ -153,6 +169,37 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     return editor.value ? editor.value.getText() : '';
   };
 
+  const getCharacters = (): number => {
+    if (!editor.value) return 0;
+    const storage = editor.value.storage as Record<string, unknown>;
+    const charStorage = storage.characterCount as { characters?: () => number } | undefined;
+    if (charStorage && typeof charStorage.characters === 'function') {
+      return charStorage.characters();
+    }
+    return editor.value.getText().length;
+  };
+
+  const getWords = (): number => {
+    if (!editor.value) return 0;
+    const storage = editor.value.storage as Record<string, unknown>;
+    const charStorage = storage.characterCount as { words?: () => number } | undefined;
+    if (charStorage && typeof charStorage.words === 'function') {
+      return charStorage.words();
+    }
+    return 0;
+  };
+
+  const getParagraphs = (): number => {
+    if (!editor.value) return 0;
+    let count = 0;
+    editor.value.state.doc.descendants(node => {
+      if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+        count++;
+      }
+    });
+    return count;
+  };
+
   const setContent = (content: string | Record<string, unknown>, emitUpdate = false): void => {
     if (!editor.value) return;
     editor.value.commands.setContent(content, emitUpdate);
@@ -199,5 +246,8 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     focus,
     blur,
     uploadImage,
+    getCharacters,
+    getWords,
+    getParagraphs,
   };
 }
