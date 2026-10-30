@@ -2,7 +2,7 @@
 
 面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作响应式扩展基础设施。
 
-遵循四层洋葱拓扑之 **L2 专用能力/领域扩展层** 规范，保持纯 Vue 3 驱动与零外部 UI 框架强依赖，提供全中文微工具栏、表格人体工学、媒体资产直传拦截、选区气泡浮层、块级斜杠命令面板、字数硬限制与脱壳全屏自愈。
+遵循四层洋葱拓扑之 **L2 专用能力/领域扩展层** 规范，保持纯 Vue 3 驱动与零外部 UI 框架强依赖，提供四大场景预设（Simple, Notion-like, DOCX, Agent）、全中文微工具栏、表格人体工学、媒体资产直传拦截、选区气泡浮层、块级斜杠命令面板、字数硬限制、脱壳全屏自愈与纯前端 OpenXML Word 导出。
 
 ---
 
@@ -59,38 +59,17 @@
 pnpm add @atengk/editor-vue vue
 ```
 
-### 2. 引入样式与组件
+### 2. 引入基础样式
 
-在业务工程入口或组件中引入基础样式体系：
+在业务工程入口（如 `main.ts`）或组件中引入基础样式体系：
 
 ```ts
 import '@atengk/editor-vue/style.css';
 ```
 
-### 3. 开箱即用富文本编辑器
+### 3. 多态门面与高阶场景预设秒级分发
 
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-import { AtengEditor } from '@atengk/editor-vue';
-
-const htmlContent = ref<string>('<p>欢迎体验现代富文本创作套件！</p>');
-const markdownContent = ref<string>('');
-</script>
-
-<template>
-  <AtengEditor
-    v-model="htmlContent"
-    v-model:markdown="markdownContent"
-    placeholder="请输入正文内容（支持键入 '/' 呼出物料选择器）..."
-    min-height="400px"
-  />
-</template>
-```
-
-### 4. 多态门面与高阶场景预设秒级切换
-
-统一通过 `mode` 声明式分发场景，或直接使用独立预设组件：
+依据业务诉求，直接使用多态主门面 `<AtengEditor mode="..." />`，或引入四大开箱即用场景独立预设：
 
 ```vue
 <script setup lang="ts">
@@ -104,29 +83,29 @@ import {
   createMockAiStreamHandler,
 } from '@atengk/editor-vue';
 
-const content = ref<string>('<p>快速体验多态场景分发</p>');
+const content = ref<string>('<p>欢迎体验现代富文本创作套件！</p>');
 const currentMode = ref<'simple' | 'notion' | 'docx' | 'agent'>('simple');
 const mockHandler = createMockAiStreamHandler();
 </script>
 
 <template>
-  <!-- 方式一：多态门面动态切换 -->
+  <!-- 方式一：多态主门面动态切换 -->
   <AtengEditor v-model="content" :mode="currentMode" :dense="true" />
 
-  <!-- 方式二：经典轻量自适应独立预设 -->
+  <!-- 方式二：经典轻量预设（单行自适应折叠工具栏、紧凑模式、隔离斜杠浮层） -->
   <AtengSimpleEditor
     v-model="content"
     :dense="true"
-    :tools="['bold', 'italic', 'heading', 'undo', 'redo']"
+    :tools="['bold', 'italic', 'heading', 'bulletList', 'undo', 'redo']"
   />
 
-  <!-- 方式三：沉浸式知识库无界白板预设（含六点手柄、Callout 与 Toggle） -->
+  <!-- 方式三：知识库无界白板预设（纯净无顶栏、六点悬浮手柄、Callout 卡片、Toggle 列表与斜杠面板） -->
   <AtengNotionEditor v-model="content" max-width="860px" />
 
-  <!-- 方式四：AI 智能写作与审阅预设（双通道唤起、Diff 对比卡片与撤销保全） -->
+  <!-- 方式四：AI 智能创作预设（双通道唤起、打字机流式光标、行内 Diff 审阅卡片与原子事务保全） -->
   <AtengAgentEditor v-model="content" :ai-stream-handler="mockHandler" />
 
-  <!-- 方式五：DOCX 物理分页排版预设（A4 仿真纸张、动态断页、刻度标尺与页眉页脚） -->
+  <!-- 方式五：DOCX 物理排版预设（A4 仿真纸张、动态断页槽、刻度标尺、双击页眉页脚与 OpenXML 导出） -->
   <AtengDocxEditor
     v-model="content"
     orientation="portrait"
@@ -144,7 +123,7 @@ const mockHandler = createMockAiStreamHandler();
 
 ### 1. 自定义媒体资产直传 SPI (UploadHandler)
 
-通过传入 `uploadHandler`，拦截剪贴板截图粘贴与拖拽文件，接入业务私有 OSS / MinIO 直传管道。未决期间使用 ProseMirror 装饰器插入骨架加载占位块，上传成功后平滑置换为图片：
+通过传入 `uploadHandler`，拦截剪贴板截图粘贴与外部拖拽文件，接入业务私有 OSS / MinIO 直传管道。未决期间使用 ProseMirror 装饰器插入骨架加载占位块，上传成功后平滑置换为图片：
 
 ```vue
 <script setup lang="ts">
@@ -239,6 +218,43 @@ const handleExport = async () => {
 </template>
 ```
 
+### 4. 自定义大模型通信 SPI 与 AI 流式状态机接管
+
+通过传递自定义 `aiStreamHandler`，解耦接入业务内网大模型网关、SSE 或 WebSocket，支持流式光标渲染与行内审阅对比：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengAgentEditor, type AiStreamHandler } from '@atengk/editor-vue';
+
+const content = ref<string>('');
+
+// 自定义大模型流式适配器
+const customAiStreamHandler: AiStreamHandler = async function* ({ prompt, context, signal }) {
+  const response = await fetch('/api/ai/chat-stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, context }),
+    signal,
+  });
+
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    yield decoder.decode(value, { stream: true });
+  }
+};
+</script>
+
+<template>
+  <AtengAgentEditor v-model="content" :ai-stream-handler="customAiStreamHandler" />
+</template>
+```
+
 ---
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
@@ -259,6 +275,15 @@ const handleExport = async () => {
 5. **双态解耦纪律 (Decoupled Disabled & ReadOnly Invariant)**：
    - `disabled`: 表单禁用态，保留输入框边框与工具栏灰色禁用态，阻止聚焦编辑；
    - `readOnly`: 纯净文章阅读态，移除边框与内外阴影，隐藏工具栏、全部上下文气泡浮层与状态栏，以优雅排版呈现阅读模式。
+6. **撤销历史栈零污染与单次原子事务保全 (Zero Undo Corruption Invariant)**：
+   - AI 流式打字生成过程中，基于 ProseMirror 独立 Decorations 渲染打字机光标与呼吸高亮光晕，不将中间百步吐字过程写入真实文档树，避免撤销栈（Undo Stack）被流式字符彻底冲垮；
+   - 在 `<AiDiffCard />` 确认采纳替换或外部数据同步时，统一采用单次原子事务（Transaction）写入，彻底保全光标位置并支持单步一键撤销（Ctrl+Z）。
+7. **100% 离线打字机仿真与零网络泄露 (Hermetic Offline AI Mock Invariant)**：
+   - 内置 `createMockAiStreamHandler`，通过异步生成器模拟渐进吐字与 AbortSignal 中断，保障单元测试与自验展厅 100% 离线自洽，绝对杜绝向外部物理网络泄露敏感数据。
+8. **A4 物理分页断页与确定性内存回收 (A4 Layout & ObjectURL Revocation Invariant)**：
+   - 基于 `ResizeObserver` 动态计算可用排版高度，视觉上动态插入虚拟分页槽而非硬切碎 ProseMirror 节点，长表格与长段落智能跨页流畅滚动；
+   - `@media print` 强制对齐真实 A4 物理纸张（`@page { size: A4; margin: 0; }`）；
+   - `saveDocxFile` 触发客户端下载后，通过延迟定时器确定性调用 `URL.revokeObjectURL(url)` 回收临时句柄，彻底消除内存泄漏。
 
 ---
 
@@ -266,7 +291,7 @@ const handleExport = async () => {
 
 本项目所有对外能力与用例均已在自验展厅与对抗单测中 100% 跑通闭环：
 
-### 1. 本地单测全量回归
+### 1. 本地单测全量回归 (15 套件 / 105 用例全绿)
 
 ```bash
 pnpm --filter @atengk/editor-vue test
@@ -285,11 +310,17 @@ pnpm --filter @atengk/editor-vue --filter sample-editor-vue lint
 pnpm --filter sample-editor-vue dev
 ```
 
-展厅包含 6 大全功能端到端场景：
+展厅包含顶级四大场景模板与二级工程自验抽屉：
 
-- **场景一：基础现代富文本编辑 (Basic)**：验证常用排版、代码高亮、多轨响应式绑定与 Ref 实例操控；
-- **场景二：表格操控与列宽拖拽 (Table)**：验证 TipTap Table、列宽鼠标拖拽与动态表格气泡菜单；
-- **场景三：媒体上传与骨架占位 (Upload)**：验证 UploadHandler SPI、图片直传、模拟延迟、骨架占位与优雅降级；
-- **场景四：选区气泡与斜杠命令 (Slash & Bubble)**：验证划词跟随气泡、纯键盘斜杠命令与类 Notion 创作流；
-- **场景五：表单联动与字数硬限制 (Form)**：验证 Element Plus 表单校验联动与 maxLength 事务硬拦截；
-- **场景六：弹窗挂载自愈与阅读器模式 (Dialog)**：验证 0x0 弹窗几何自愈、脱壳全屏穿透与纯净阅读态。
+- **四大核心模板一级大导航**：
+  - **[Simple editor] 经典轻量自适应编辑器**：单行折叠微工具栏、紧凑模式、严格隔离斜杠与浮层干扰；
+  - **[Notion-like editor] 现代无界知识库白板**：原生六点悬浮手柄、Callout 4 态语义卡片、Toggle 折叠列表与斜杠面板；
+  - **[DOCX editor] A4 物理分页与公文排版预设**：物理纸张阴影、纵横向切换、厘米标尺、双击页眉页脚与纯前端 OpenXML 导出；
+  - **[Agent editor] AI 智能创作与行内审阅预设**：划词浮动气泡、空白行提示条、流式光标与 AiDiffCard 增删对比审阅卡片。
+- **右侧工程自验抽屉（6 大极限边缘场景）**：
+  - 表单联动校验与 maxLength 事务硬拦截；
+  - 模态弹窗 0x0 视口几何自愈与脱壳全屏穿透；
+  - 表格操控、列宽拖拽与单元格合并拆分；
+  - 媒体资产上传拦截 SPI 与骨架加载占位；
+  - 选区高频排版气泡与斜杠物料选择器；
+  - 纯净阅读模式与暗黑主题 0ms 热跟随。
