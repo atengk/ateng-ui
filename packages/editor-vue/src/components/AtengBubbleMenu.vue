@@ -54,6 +54,7 @@ const computedTippyOptions = computed(() => ({
   offset: [0, 8] as [number, number],
   duration: 150,
   theme: 'at-editor-menu',
+  appendTo: (ref: Element) => (typeof document !== 'undefined' ? document.body : ref),
   ...props.tippyOptions,
 }));
 

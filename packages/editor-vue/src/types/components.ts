@@ -26,6 +26,7 @@ import type {
   DocxHeaderFooterAlign,
 } from './docx';
 import type { FullHtmlOptions } from '../utils/export';
+import type { DocxExportOptions } from '../utils/docx-export';
 
 /**
  * 企业级富文本预设统一基线契约接口。
@@ -141,6 +142,22 @@ export interface AtengEditorProps extends EditorBaseProps {
    * 预设画布最大宽度（主要用于 Notion 知识库流式居中排版，如 '860px'）。
    */
   maxWidth?: string;
+
+  /**
+   * 是否启用重点高亮卡片扩展 (CalloutBlock)，默认 true。
+   */
+  callout?: boolean;
+
+  /**
+   * 是否启用折叠列表扩展 (ToggleList)，默认 true。
+   */
+  toggle?: boolean;
+
+  /**
+   * 是否启用 AI 流式生成状态机与装饰器扩展 (AiStreamingExtension)。
+   * 当 mode='agent' 时默认启用；其余模式缺省不启用。
+   */
+  aiStreaming?: boolean;
 
   /**
    * 纸张方向（仅在 mode='docx' 时生效）。
@@ -269,7 +286,7 @@ export interface AtengEditorExpose {
   /**
    * 底层受管的 TipTap Editor 原生实例引用。
    */
-  editor: ShallowRef<Editor | null>;
+  editor: ShallowRef<Editor | null> | ComputedRef<Editor | null>;
 
   /**
    * 手动聚焦编辑器。
@@ -410,6 +427,14 @@ export interface AtengEditorExpose {
    * 清空表格所有单元格内容。
    */
   clearTable: () => boolean;
+
+  /**
+   * 将当前文档生成为合规 OpenXML .docx 二进制数据并自动调起浏览器下载（主要用于 mode='docx' 排版）。
+   *
+   * @param options 导出文件名或高级配置选项
+   * @returns 生成的二进制 Blob 对象
+   */
+  exportDocx?: (options?: DocxExportOptions | string) => Promise<Blob>;
 }
 
 /**
@@ -755,12 +780,33 @@ export interface AgentEditorProps extends EditorBaseProps {
 }
 
 /**
+ * <AtengAgentEditor /> 预设组件对外暴露的核心状态与操作门面契约。
+ */
+export interface AgentEditorExpose extends AtengEditorExpose {
+  /**
+   * 手动呼出空白行沉浸式 AI 输入条。
+   */
+  openPromptBar: () => void;
+
+  /**
+   * 关闭空白行沉浸式 AI 输入条。
+   */
+  closePromptBar: () => void;
+
+  /**
+   * 空白行沉浸式 AI 输入条当前是否处于激活展示状态。
+   */
+  isPromptBarActive: ComputedRef<boolean> | ShallowRef<boolean>;
+}
+
+/**
  * <AtengAiBubbleMenu /> 选区 AI 快捷气泡组件入参 Props 接口。
  */
 export interface AtengAiBubbleMenuProps {
   editor: Editor | null;
   disabled?: boolean;
   actions?: AiPromptAction[];
+  tippyOptions?: Record<string, unknown>;
 }
 
 /**

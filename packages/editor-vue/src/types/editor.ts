@@ -71,6 +71,21 @@ export interface UseEditorOptions {
   maxLength?: MaybeRefOrGetter<number | undefined>;
 
   /**
+   * 是否启用重点高亮卡片扩展 (CalloutBlock)，默认 true。
+   */
+  callout?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
+   * 是否启用折叠列表扩展 (ToggleList)，默认 true。
+   */
+  toggle?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
+   * 是否启用 AI 流式生成状态机与装饰器扩展 (AiStreamingExtension)，默认 false。
+   */
+  aiStreaming?: MaybeRefOrGetter<boolean | undefined>;
+
+  /**
    * 媒体资产上传拦截器 SPI 处理函数。
    */
   uploadHandler?: UploadHandler;

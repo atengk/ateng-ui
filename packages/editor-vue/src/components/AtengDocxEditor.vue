@@ -13,9 +13,14 @@
  * @since 2026-10-30
  */
 
-import { ref, computed, toRef } from 'vue';
+import { ref, computed, toRef, watch } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
-import type { DocxEditorProps, DocxEditorEmits, PageOrientation } from '../types/docx';
+import type {
+  DocxEditorProps,
+  DocxEditorEmits,
+  DocxEditorExpose,
+  PageOrientation,
+} from '../types/docx';
 import { useEditor } from '../composables/useEditor';
 import { useEditorDom } from '../composables/useEditorDom';
 import {
@@ -23,6 +28,7 @@ import {
   saveDocxFile,
   type DocxExportOptions,
 } from '../utils/docx-export';
+import { clearTableContent } from '../utils/table';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengPageCanvas from './AtengPageCanvas.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
@@ -71,6 +77,34 @@ const isEditable = computed(() => {
 // 计算当前排版方向
 const currentOrientation = computed<PageOrientation>(() => props.orientation);
 
+// 内部响应式页眉与页脚，确保双击行内修改后未受控绑定时导出仍然生效
+const currentHeader = ref<string>(props.header ?? '');
+const currentFooter = ref<string>(props.footer ?? '');
+
+watch(
+  () => props.header,
+  val => {
+    if (val !== undefined) currentHeader.value = val;
+  },
+);
+
+watch(
+  () => props.footer,
+  val => {
+    if (val !== undefined) currentFooter.value = val;
+  },
+);
+
+const handleHeaderUpdate = (val: string): void => {
+  currentHeader.value = val;
+  emit('update:header', val);
+};
+
+const handleFooterUpdate = (val: string): void => {
+  currentFooter.value = val;
+  emit('update:footer', val);
+};
+
 // 提取初始内容（优先 HTML，其次 Markdown）
 const initialContent = computed(() => {
   if (props.modelValue !== undefined && props.modelValue !== '') {
@@ -86,7 +120,23 @@ const initialContent = computed(() => {
 });
 
 // 装配核心 useEditor 状态机
-const { editor, clearContent, getHTML, getMarkdown, getJSON } = useEditor({
+const {
+  editor,
+  isEmpty,
+  getHTML,
+  getFullHTML,
+  getJSON,
+  getMarkdown,
+  getText,
+  setContent,
+  clearContent,
+  focus,
+  blur,
+  uploadImage,
+  getCharacters,
+  getWords,
+  getParagraphs,
+} = useEditor({
   content: initialContent,
   editable: isEditable,
   autofocus: toRef(props, 'autofocus'),
@@ -119,11 +169,6 @@ const handlePrint = (): void => {
   }
 };
 
-// 聚焦
-const handleFocus = (): void => {
-  editor.value?.commands.focus();
-};
-
 // 导出为 Word 二进制 Blob 并触发自动下载
 const handleExportDocx = async (options?: DocxExportOptions | string): Promise<Blob> => {
   const jsonTree = getJSON();
@@ -132,8 +177,10 @@ const handleExportDocx = async (options?: DocxExportOptions | string): Promise<B
     fileName: opts?.fileName ?? 'document.docx',
     orientation: props.orientation,
     pageMargin: props.pageMargin,
-    header: props.header,
-    footer: props.footer,
+    header: currentHeader.value,
+    footer: currentFooter.value,
+    headerAlign: props.headerAlign,
+    footerAlign: props.footerAlign,
     showPageNumber: props.showPageNumber,
     ...opts,
   };
@@ -142,17 +189,71 @@ const handleExportDocx = async (options?: DocxExportOptions | string): Promise<B
   return blob;
 };
 
-// 暴露对外方法与状态
-defineExpose({
+// 暴露对外方法与状态，完整对齐 DocxEditorExpose 强类型契约
+defineExpose<DocxEditorExpose>({
   editor,
   totalPages: computed(() => pageCanvasRef.value?.totalPages ?? 1),
   orientation: currentOrientation,
   print: handlePrint,
-  focus: handleFocus,
+  focus: () => focus(),
+  blur: () => blur(),
   clear: () => clearContent(),
-  clearContent,
-  exportDocx: handleExportDocx,
+  clearContent: () => clearContent(),
+  setContent: (content, emitUpdate) => setContent(content, emitUpdate),
+  uploadImage: file => uploadImage(file),
+  getHTML,
+  getFullHTML,
+  getJSON,
+  getMarkdown,
+  getText,
+  isEmpty,
+  isFullscreen,
   toggleFullscreen,
+  getCharacters,
+  getWords,
+  getParagraphs,
+  insertTable: (...args) => {
+    editor.value
+      ?.chain()
+      .focus()
+      .insertTable(...args)
+      .run();
+  },
+  addColumnBefore: () => {
+    editor.value?.chain().focus().addColumnBefore().run();
+  },
+  addColumnAfter: () => {
+    editor.value?.chain().focus().addColumnAfter().run();
+  },
+  deleteColumn: () => {
+    editor.value?.chain().focus().deleteColumn().run();
+  },
+  addRowBefore: () => {
+    editor.value?.chain().focus().addRowBefore().run();
+  },
+  addRowAfter: () => {
+    editor.value?.chain().focus().addRowAfter().run();
+  },
+  deleteRow: () => {
+    editor.value?.chain().focus().deleteRow().run();
+  },
+  mergeCells: () => {
+    editor.value?.chain().focus().mergeCells().run();
+  },
+  splitCell: () => {
+    editor.value?.chain().focus().splitCell().run();
+  },
+  toggleHeaderRow: () => {
+    editor.value?.chain().focus().toggleHeaderRow().run();
+  },
+  deleteTable: () => {
+    editor.value?.chain().focus().deleteTable().run();
+  },
+  clearTable: () => {
+    if (!editor.value) return false;
+    return clearTableContent(editor.value);
+  },
+  exportDocx: handleExportDocx,
 });
 </script>
 
@@ -199,14 +300,14 @@ defineExpose({
       :orientation="orientation"
       :page-margin="pageMargin"
       :show-ruler="showRuler"
-      :header="header"
-      :footer="footer"
+      :header="currentHeader"
+      :footer="currentFooter"
       :show-page-number="showPageNumber"
       :header-align="headerAlign"
       :footer-align="footerAlign"
       :editable-header-footer="!disabled && !readOnly"
-      @update:header="val => emit('update:header', val)"
-      @update:footer="val => emit('update:footer', val)"
+      @update:header="handleHeaderUpdate"
+      @update:footer="handleFooterUpdate"
       @page-count-change="handlePageCountChange"
     >
       <!-- TipTap 正文编辑区 -->

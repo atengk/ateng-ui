@@ -14,3 +14,5 @@ export * from './export';
 export * from './ai-mock';
 export * from './diff';
 export * from './docx-export';
+export * from './page-metrics';
+export * from './expose';

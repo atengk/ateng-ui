@@ -20,6 +20,8 @@ import {
   AtengAiPromptBar,
   computeTextDiff,
   createMockAiStreamHandler,
+  createDefaultExtensions,
+  AiStreamingExtension,
   type AtengAgentEditorInstance,
 } from '../src';
 
@@ -78,6 +80,10 @@ describe('Agent Editor 智能创作预设与 AiDiffCard 审阅状态机', () => 
       await nextTick();
 
       expect(wrapper.classes()).toContain('at-ai-diff-card');
+      expect(wrapper.find('.at-ai-diff-card__title-icon').exists()).toBe(true);
+      expect(wrapper.find('.at-ai-diff-card__badge-tag').exists()).toBe(true);
+      expect(wrapper.find('.at-ai-diff-card__diff-view').exists()).toBe(true);
+      expect(wrapper.find('.at-ai-diff-card__footer-actions').exists()).toBe(true);
       expect(wrapper.find('.at-diff-chunk--removed').exists()).toBe(true);
       expect(wrapper.find('.at-diff-chunk--added').exists()).toBe(true);
 
@@ -178,6 +184,91 @@ describe('Agent Editor 智能创作预设与 AiDiffCard 审阅状态机', () => 
       expect(instance.getText()).toContain('初始正文段落');
       expect(typeof instance.focus).toBe('function');
       expect(typeof instance.clearContent).toBe('function');
+      expect(typeof instance.openPromptBar).toBe('function');
+      expect(typeof instance.closePromptBar).toBe('function');
+      const getPromptBarActive = (): boolean => {
+        const val = instance.isPromptBarActive;
+        return typeof val === 'object' && val && 'value' in val
+          ? (val as { value: boolean }).value
+          : Boolean(val);
+      };
+
+      expect(getPromptBarActive()).toBe(false);
+
+      // 测试手动呼出与关闭 PromptBar
+      instance.openPromptBar();
+      await nextTick();
+      expect(getPromptBarActive()).toBe(true);
+      expect(wrapper.findComponent(AtengAiPromptBar).exists()).toBe(true);
+
+      instance.closePromptBar();
+      await nextTick();
+      expect(getPromptBarActive()).toBe(false);
+      expect(wrapper.findComponent(AtengAiPromptBar).exists()).toBe(false);
+    });
+
+    it('支持通过 Ctrl+J 键盘快捷键快速唤起 PromptBar', async () => {
+      wrapper = mount(AtengAgentEditor, {
+        props: {
+          modelValue: '<p>测试内容</p>',
+        },
+      });
+
+      await nextTick();
+
+      const instance = wrapper.vm as unknown as AtengAgentEditorInstance;
+      const getPromptBarActive = (): boolean => {
+        const val = instance.isPromptBarActive;
+        return typeof val === 'object' && val && 'value' in val
+          ? (val as { value: boolean }).value
+          : Boolean(val);
+      };
+
+      expect(getPromptBarActive()).toBe(false);
+
+      // 模拟容器接收到 Ctrl+J 快捷键
+      await wrapper.trigger('keydown', { key: 'j', ctrlKey: true });
+      expect(getPromptBarActive()).toBe(true);
+      expect(wrapper.findComponent(AtengAiPromptBar).exists()).toBe(true);
+    });
+
+    it('在空行处按下空格键能够自动唤起 PromptBar', async () => {
+      wrapper = mount(AtengAgentEditor, {
+        props: {
+          modelValue: '<p></p>',
+        },
+      });
+
+      await nextTick();
+
+      const instance = wrapper.vm as unknown as AtengAgentEditorInstance;
+      const getPromptBarActive = (): boolean => {
+        const val = instance.isPromptBarActive;
+        return typeof val === 'object' && val && 'value' in val
+          ? (val as { value: boolean }).value
+          : Boolean(val);
+      };
+
+      expect(getPromptBarActive()).toBe(false);
+
+      // 模拟在空段落按空格
+      await wrapper.trigger('keydown', { key: ' ' });
+      expect(getPromptBarActive()).toBe(true);
+      expect(wrapper.findComponent(AtengAiPromptBar).exists()).toBe(true);
+    });
+  });
+
+  describe('createDefaultExtensions 按需加载 AI 流式扩展契约', () => {
+    it('默认配置下不加载 AiStreamingExtension 扩展', () => {
+      const exts = createDefaultExtensions();
+      const hasAi = exts.some(ext => ext.name === AiStreamingExtension.name);
+      expect(hasAi).toBe(false);
+    });
+
+    it('当显式传入 aiStreaming: true 时正确加载 AiStreamingExtension', () => {
+      const exts = createDefaultExtensions({ aiStreaming: true });
+      const hasAi = exts.some(ext => ext.name === AiStreamingExtension.name);
+      expect(hasAi).toBe(true);
     });
   });
 });

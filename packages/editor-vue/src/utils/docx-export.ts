@@ -31,7 +31,13 @@ import {
   type ISectionOptions,
   type ParagraphChild,
 } from 'docx';
-import type { PageOrientation, PageMarginPreset, PageMarginConfig } from '../types/docx';
+import type {
+  PageOrientation,
+  PageMarginPreset,
+  PageMarginConfig,
+  DocxHeaderFooterAlign,
+} from '../types/docx';
+import { resolvePageMargins, resolvePageSpecs, mmToTwip } from './page-metrics';
 
 /**
  * DOCX 导出配置选项接口。
@@ -45,65 +51,14 @@ export interface DocxExportOptions {
   pageMargin?: PageMarginPreset | PageMarginConfig;
   /** 页眉文本内容 */
   header?: string;
+  /** 页眉文字对齐方式，默认 'center' */
+  headerAlign?: DocxHeaderFooterAlign;
   /** 页脚文本内容 */
   footer?: string;
+  /** 页脚文字对齐方式，默认 'center' */
+  footerAlign?: DocxHeaderFooterAlign;
   /** 是否展示动态页码，默认 true */
   showPageNumber?: boolean;
-}
-
-/**
- * 将毫米 (mm) 转换为 Word 的 Twip 单位（1 inch = 1440 twip, 1 mm = 56.6929 twip）。
- */
-function mmToTwip(mm: number): number {
-  return Math.round(mm * 56.6929);
-}
-
-/**
- * 解析边距配置为 twip 单位。
- */
-function resolveMarginsTwip(margin?: PageMarginPreset | PageMarginConfig): {
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-} {
-  if (margin === 'narrow') {
-    const twip = mmToTwip(12.7);
-    return { top: twip, bottom: twip, left: twip, right: twip };
-  }
-  if (margin === 'wide') {
-    return {
-      top: mmToTwip(25.4),
-      bottom: mmToTwip(25.4),
-      left: mmToTwip(50.8),
-      right: mmToTwip(50.8),
-    };
-  }
-  if (typeof margin === 'object' && margin !== null) {
-    const parseVal = (v?: string, fallbackMm = 25.4): number => {
-      if (!v) return mmToTwip(fallbackMm);
-      const num = parseFloat(v);
-      if (Number.isNaN(num)) return mmToTwip(fallbackMm);
-      if (v.endsWith('mm')) return mmToTwip(num);
-      if (v.endsWith('cm')) return mmToTwip(num * 10);
-      if (v.endsWith('in')) return Math.round(num * 1440);
-      if (v.endsWith('px')) return Math.round((num / 3.7795) * 56.6929);
-      return mmToTwip(num);
-    };
-    return {
-      top: parseVal(margin.top, 25.4),
-      bottom: parseVal(margin.bottom, 25.4),
-      left: parseVal(margin.left, 31.8),
-      right: parseVal(margin.right, 31.8),
-    };
-  }
-  // standard: 上下 25.4mm (1440 twip), 左右 31.8mm (1803 twip)
-  return {
-    top: mmToTwip(25.4),
-    bottom: mmToTwip(25.4),
-    left: mmToTwip(31.8),
-    right: mmToTwip(31.8),
-  };
 }
 
 /**
@@ -366,13 +321,10 @@ export async function prosemirrorJsonToDocxBlob(
   json: Record<string, unknown>,
   options: DocxExportOptions = {},
 ): Promise<Blob> {
-  const isLandscape = options.orientation === 'landscape';
-
-  // A4 规格标准（Twip）：纵向 11906 × 16838 (210mm × 297mm)
-  const pageWidthTwip = isLandscape ? 16838 : 11906;
-  const pageHeightTwip = isLandscape ? 11906 : 16838;
-
-  const margins = resolveMarginsTwip(options.pageMargin);
+  const specs = resolvePageSpecs(options.orientation);
+  const pageWidthTwip = mmToTwip(specs.widthMm);
+  const pageHeightTwip = mmToTwip(specs.heightMm);
+  const margins = resolvePageMargins(options.pageMargin);
 
   // 转换正文块级元素
   const bodyContent = (json.content as Array<Record<string, unknown>>) ?? [];
@@ -395,7 +347,7 @@ export async function prosemirrorJsonToDocxBlob(
       default: new Header({
         children: [
           new Paragraph({
-            alignment: AlignmentType.CENTER,
+            alignment: resolveAlignment(options.headerAlign ?? 'center'),
             children: [
               new TextRun({
                 text: options.header,
@@ -441,7 +393,7 @@ export async function prosemirrorJsonToDocxBlob(
       default: new Footer({
         children: [
           new Paragraph({
-            alignment: AlignmentType.CENTER,
+            alignment: resolveAlignment(options.footerAlign ?? 'center'),
             children: footerChildren,
           }),
         ],
@@ -458,9 +410,14 @@ export async function prosemirrorJsonToDocxBlob(
             size: {
               width: pageWidthTwip,
               height: pageHeightTwip,
-              orientation: isLandscape ? 'landscape' : 'portrait',
+              orientation: specs.isLandscape ? 'landscape' : 'portrait',
             },
-            margin: margins,
+            margin: {
+              top: margins.topTwip,
+              bottom: margins.bottomTwip,
+              left: margins.leftTwip,
+              right: margins.rightTwip,
+            },
           },
         },
         headers: headersConfig,

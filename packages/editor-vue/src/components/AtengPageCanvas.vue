@@ -15,6 +15,7 @@
 
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import type { AtengPageCanvasProps } from '../types/docx';
+import { resolvePageMargins, resolvePageSpecs, MM_TO_PX } from '../utils/page-metrics';
 import AtengPageRuler from './AtengPageRuler.vue';
 
 interface PageCanvasEmits {
@@ -66,98 +67,9 @@ watch(
   },
 );
 
-// 边距换算工具：解析为数字（mm）与 CSS 属性值
-interface ResolvedMargins {
-  topMm: number;
-  bottomMm: number;
-  leftMm: number;
-  rightMm: number;
-  topCss: string;
-  bottomCss: string;
-  leftCss: string;
-  rightCss: string;
-}
-
-const resolvedMargins = computed<ResolvedMargins>(() => {
-  const margin = props.pageMargin;
-  if (typeof margin === 'string') {
-    if (margin === 'narrow') {
-      return {
-        topMm: 12.7,
-        bottomMm: 12.7,
-        leftMm: 12.7,
-        rightMm: 12.7,
-        topCss: '12.7mm',
-        bottomCss: '12.7mm',
-        leftCss: '12.7mm',
-        rightCss: '12.7mm',
-      };
-    }
-    if (margin === 'wide') {
-      return {
-        topMm: 25.4,
-        bottomMm: 25.4,
-        leftMm: 50.8,
-        rightMm: 50.8,
-        topCss: '25.4mm',
-        bottomCss: '25.4mm',
-        leftCss: '50.8mm',
-        rightCss: '50.8mm',
-      };
-    }
-    // standard 标准 Office 边距
-    return {
-      topMm: 25.4,
-      bottomMm: 25.4,
-      leftMm: 31.8,
-      rightMm: 31.8,
-      topCss: '25.4mm',
-      bottomCss: '25.4mm',
-      leftCss: '31.8mm',
-      rightCss: '31.8mm',
-    };
-  }
-
-  // 自定义对象
-  const parseCssToMm = (val?: string, fallback = 25.4): number => {
-    if (!val) return fallback;
-    const num = parseFloat(val);
-    if (Number.isNaN(num)) return fallback;
-    if (val.endsWith('mm')) return num;
-    if (val.endsWith('cm')) return num * 10;
-    if (val.endsWith('in')) return num * 25.4;
-    if (val.endsWith('px')) return num / 3.7795;
-    return num;
-  };
-
-  const topMm = parseCssToMm(margin?.top, 25.4);
-  const bottomMm = parseCssToMm(margin?.bottom, 25.4);
-  const leftMm = parseCssToMm(margin?.left, 31.8);
-  const rightMm = parseCssToMm(margin?.right, 31.8);
-
-  return {
-    topMm,
-    bottomMm,
-    leftMm,
-    rightMm,
-    topCss: margin?.top ?? '25.4mm',
-    bottomCss: margin?.bottom ?? '25.4mm',
-    leftCss: margin?.left ?? '31.8mm',
-    rightCss: margin?.right ?? '31.8mm',
-  };
-});
-
-// 计算 A4 物理毫米规格
-const pageSpecs = computed(() => {
-  const isLandscape = props.orientation === 'landscape';
-  return {
-    widthMm: isLandscape ? 297 : 210,
-    heightMm: isLandscape ? 210 : 297,
-  };
-});
-
-// 屏幕 96 DPI 下，1mm ≈ 3.7795px
-const MM_TO_PX = 3.7795;
+// 边距换算指标与 A4 物理规格指标
+const resolvedMargins = computed(() => resolvePageMargins(props.pageMargin));
+const pageSpecs = computed(() => resolvePageSpecs(props.orientation));
 
 // 计算单页物理高度（像素）与可用排版高度（像素）
 const singlePageHeightPx = computed(() => pageSpecs.value.heightMm * MM_TO_PX);
@@ -379,7 +291,7 @@ defineExpose({
           >
             <div class="at-page-canvas__break-tag">
               <span class="at-page-canvas__break-icon">📄</span>
-              第 {{ item.pageNumber }} 页 · 虚拟断页槽
+              第 {{ item.pageNumber }} 页 · 虚拟断页槽 (共 {{ totalPages }} 页)
             </div>
           </div>
         </template>
@@ -583,7 +495,7 @@ defineExpose({
     margin: 0;
   }
 
-  body {
+  :global(body) {
     background: transparent !important;
   }
 

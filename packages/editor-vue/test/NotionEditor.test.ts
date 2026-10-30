@@ -106,6 +106,44 @@ describe('AtengNotionEditor 沉浸式无界白板预设', () => {
     const customBtn = wrapper.find('.custom-notion-handle');
     expect(customBtn.exists()).toBe(true);
     expect(customBtn.text()).toBe('自定义手柄');
+    // 验证 AtengDragHandle 容器未被抹除，坐标与事件体系依然完整就绪
+    expect(wrapper.findComponent({ name: 'AtengDragHandle' }).exists()).toBe(true);
+  });
+
+  it('支持通过 #drag-handle-container 插槽完全自接管外层容器', async () => {
+    wrapper = mount(AtengNotionEditor, {
+      props: {
+        modelValue: '<p>容器接管测试</p>',
+      },
+      slots: {
+        'drag-handle-container': '<div class="custom-drag-container">Custom Container</div>',
+      },
+    });
+
+    await nextTick();
+
+    expect(wrapper.find('.custom-drag-container').exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'AtengDragHandle' }).exists()).toBe(false);
+  });
+
+  it('支持通过 callout 与 toggle 属性声明式禁用专属物料扩展', async () => {
+    wrapper = mount(AtengNotionEditor, {
+      props: {
+        modelValue: '<p>测试扩展开关</p>',
+        callout: false,
+        toggle: false,
+      },
+    });
+
+    await nextTick();
+
+    const inst = wrapper.vm as unknown as AtengNotionEditorInstance;
+    const editor =
+      (inst.editor as unknown as { value?: Editor })?.value ?? (inst.editor as unknown as Editor);
+    expect(editor).toBeTruthy();
+    // 验证禁用后 Schema 中不包含 calloutBlock 与 toggleList
+    expect(editor?.schema.nodes['calloutBlock']).toBeUndefined();
+    expect(editor?.schema.nodes['toggleList']).toBeUndefined();
   });
 
   it('提供完整的 Editor 门面方法与字数统计统计闭环', async () => {

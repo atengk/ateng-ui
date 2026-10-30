@@ -9,17 +9,10 @@
  * @since 2026-10-30
  */
 
-import { ref, computed, shallowRef, watch } from 'vue';
-import type { ShallowRef, ComputedRef } from 'vue';
-import type { Editor } from '@tiptap/vue-3';
+import { ref } from 'vue';
 import AtengEditor from './AtengEditor.vue';
-import AtengSimpleToolbar from './AtengSimpleToolbar.vue';
-import type {
-  SimpleEditorProps,
-  AtengEditorEmits,
-  AtengEditorExpose,
-  FullHtmlOptions,
-} from '../types';
+import { createEditorExpose } from '../utils/expose';
+import type { SimpleEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
   name: 'AtengSimpleEditor',
@@ -59,59 +52,17 @@ const emit = defineEmits<AtengEditorEmits>();
 
 const editorRef = ref<InstanceType<typeof AtengEditor> | null>(null);
 
-// 状态代理转发
-const editor = shallowRef<Editor | null>(null);
-watch(
-  () => editorRef.value?.editor,
-  newEditor => {
-    if (newEditor) {
-      editor.value = newEditor;
-    }
-  },
-  { immediate: true },
-);
-
-const isEmpty: ComputedRef<boolean> = computed(() => editorRef.value?.isEmpty ?? true);
-const isFullscreen: ComputedRef<boolean> = computed(() => editorRef.value?.isFullscreen ?? false);
-
-// 显式对外暴露全部核心门面
-defineExpose<AtengEditorExpose>({
-  editor: editor as ShallowRef<Editor | null>,
-  focus: (...args) => editorRef.value?.focus(...args),
-  blur: () => editorRef.value?.blur(),
-  clearContent: (...args) => editorRef.value?.clearContent(...args),
-  setContent: (...args) => editorRef.value?.setContent(...args),
-  uploadImage: (...args) => editorRef.value?.uploadImage(...args),
-  getHTML: () => editorRef.value?.getHTML() ?? '',
-  getFullHTML: (options?: FullHtmlOptions) => editorRef.value?.getFullHTML(options) ?? '',
-  getJSON: () => editorRef.value?.getJSON() ?? {},
-  getMarkdown: () => editorRef.value?.getMarkdown() ?? '',
-  getText: () => editorRef.value?.getText() ?? '',
-  isEmpty,
-  isFullscreen,
-  toggleFullscreen: () => editorRef.value?.toggleFullscreen(),
-  getCharacters: () => editorRef.value?.getCharacters() ?? 0,
-  getWords: () => editorRef.value?.getWords() ?? 0,
-  getParagraphs: () => editorRef.value?.getParagraphs() ?? 0,
-  insertTable: (...args) => editorRef.value?.insertTable(...args),
-  addColumnBefore: () => editorRef.value?.addColumnBefore(),
-  addColumnAfter: () => editorRef.value?.addColumnAfter(),
-  deleteColumn: () => editorRef.value?.deleteColumn(),
-  addRowBefore: () => editorRef.value?.addRowBefore(),
-  addRowAfter: () => editorRef.value?.addRowAfter(),
-  deleteRow: () => editorRef.value?.deleteRow(),
-  mergeCells: () => editorRef.value?.mergeCells(),
-  splitCell: () => editorRef.value?.splitCell(),
-  toggleHeaderRow: () => editorRef.value?.toggleHeaderRow(),
-  deleteTable: () => editorRef.value?.deleteTable(),
-  clearTable: () => editorRef.value?.clearTable() ?? false,
-});
+// 显式对外暴露全部核心门面（通过受管代理消除 Middle Man 样板重复）
+defineExpose<AtengEditorExpose>(createEditorExpose(editorRef));
 </script>
 
 <template>
   <AtengEditor
     ref="editorRef"
     v-bind="$attrs"
+    mode="simple"
+    :tools="props.tools"
+    :dense="props.dense"
     :model-value="props.modelValue"
     :markdown="props.markdown"
     :json="props.json"
@@ -150,18 +101,9 @@ defineExpose<AtengEditorExpose>({
     @update:fullscreen="emit('update:fullscreen', $event)"
     @theme-change="emit('themeChange', $event)"
   >
-    <!-- 工具栏插槽：默认渲染 AtengSimpleToolbar，同时允许调用方使用 #toolbar 自定义 -->
-    <template #toolbar="{ editor: currentEditor }">
-      <slot name="toolbar" :editor="currentEditor">
-        <AtengSimpleToolbar
-          :editor="currentEditor"
-          :tools="props.tools"
-          :dense="props.dense"
-          :disabled="props.disabled"
-          :is-fullscreen="isFullscreen"
-          @toggle-fullscreen="() => editorRef?.toggleFullscreen()"
-        />
-      </slot>
+    <!-- 工具栏插槽透传（调用方自定义时接管，缺省由底层根据 mode='simple' 自动渲染 AtengSimpleToolbar） -->
+    <template v-if="$slots.toolbar" #toolbar="slotProps">
+      <slot name="toolbar" v-bind="slotProps" />
     </template>
 
     <!-- 状态栏插槽透传 -->

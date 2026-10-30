@@ -107,7 +107,13 @@ export {
   computeTextDiff,
   prosemirrorJsonToDocxBlob,
   saveDocxFile,
+  createEditorExpose,
+  resolvePageMargins,
+  resolvePageSpecs,
+  mmToTwip,
+  parseLengthToMm,
 } from './utils';
+export type { CreateEditorExposeOptions, ResolvedPageMargins } from './utils';
 
 export type {
   EditorOutputFormat,
@@ -119,6 +125,7 @@ export type {
   SimpleEditorProps,
   NotionEditorProps,
   AgentEditorProps,
+  AgentEditorExpose,
   AtengAiBubbleMenuProps,
   AtengAiPromptBarProps,
   AtengAiDiffCardProps,
@@ -154,6 +161,7 @@ export type {
   AtengPageCanvasProps,
   DocxEditorProps,
   DocxEditorEmits,
+  DocxEditorExpose,
   AtengDocxEditorMethods,
   DocxExportOptions,
 } from './types';

@@ -17,6 +17,9 @@ import {
   applyContentPreservingSelection,
   defaultSlashCommandItems,
   createTableActions,
+  prosemirrorJsonToDocxBlob,
+  saveDocxFile,
+  type DocxExportOptions,
 } from '../utils';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengSimpleToolbar from './AtengSimpleToolbar.vue';
@@ -49,6 +52,9 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   tools: undefined,
   dense: false,
   maxWidth: undefined,
+  callout: true,
+  toggle: true,
+  aiStreaming: undefined,
   showToolbar: undefined,
   stickyToolbar: false,
   showTableMenu: true,
@@ -184,6 +190,9 @@ const {
   extensions: props.extensions,
   uploadHandler: props.uploadHandler,
   maxLength: () => props.maxLength,
+  callout: () => props.callout,
+  toggle: () => props.toggle,
+  aiStreaming: () => props.mode === 'agent' || props.aiStreaming === true,
   onUploadSuccess: payload => {
     emit('uploadSuccess', payload);
   },
@@ -308,6 +317,26 @@ const { isFullscreen, toggleFullscreen } = useEditorDom({
 // 组装表格高阶人体工学门面方法
 const tableActions = createTableActions(() => editor.value);
 
+// 导出为 Word 二进制 Blob 并触发下载（主要用于 mode='docx' 预设）
+const handleExportDocx = async (options?: DocxExportOptions | string): Promise<Blob> => {
+  const jsonTree = getJSON();
+  const opts = typeof options === 'string' ? { fileName: options } : options;
+  const mergedOpts: DocxExportOptions = {
+    fileName: opts?.fileName ?? 'document.docx',
+    orientation: props.orientation,
+    pageMargin: props.pageMargin,
+    header: props.header,
+    footer: props.footer,
+    showPageNumber: props.showPageNumber,
+    headerAlign: props.headerAlign,
+    footerAlign: props.footerAlign,
+    ...opts,
+  };
+  const blob = await prosemirrorJsonToDocxBlob(jsonTree, mergedOpts);
+  saveDocxFile(blob, mergedOpts.fileName);
+  return blob;
+};
+
 // 显式暴露受管实例与核心方法
 defineExpose<AtengEditorExpose>({
   editor,
@@ -328,6 +357,7 @@ defineExpose<AtengEditorExpose>({
   getWords,
   getParagraphs,
   ...tableActions,
+  exportDocx: handleExportDocx,
 });
 </script>
 
@@ -441,13 +471,15 @@ defineExpose<AtengEditorExpose>({
 
     <!-- 块级六点悬浮拖拽手柄 (readOnly 下不展示) -->
     <template v-if="effectiveShowDragHandle && !props.readOnly">
-      <slot name="drag-handle" :editor="editor">
-        <AtengDragHandle v-if="editor" :editor="editor" :disabled="props.disabled">
-          <template v-if="$slots['block-menu']" #block-menu="slotProps">
-            <slot name="block-menu" v-bind="slotProps" />
-          </template>
-        </AtengDragHandle>
-      </slot>
+      <slot v-if="$slots['drag-handle-container']" name="drag-handle-container" :editor="editor" />
+      <AtengDragHandle v-else-if="editor" :editor="editor" :disabled="props.disabled">
+        <template v-if="$slots['drag-handle']" #drag-handle="slotProps">
+          <slot name="drag-handle" v-bind="slotProps" />
+        </template>
+        <template v-if="$slots['block-menu']" #block-menu="slotProps">
+          <slot name="block-menu" v-bind="slotProps" />
+        </template>
+      </AtengDragHandle>
     </template>
   </div>
 </template>

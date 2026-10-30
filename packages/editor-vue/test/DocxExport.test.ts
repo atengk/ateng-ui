@@ -86,6 +86,28 @@ describe('纯前端 OpenXML docx 二进制生成器与一键导出 (prosemirrorJ
       );
     });
 
+    it('支持 headerAlign 与 footerAlign 自定义对齐并成功生成文档', async () => {
+      const blob = await prosemirrorJsonToDocxBlob(
+        {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: '对齐测试正文' }],
+            },
+          ],
+        },
+        {
+          header: '居左页眉',
+          headerAlign: 'left',
+          footer: '居右页脚',
+          footerAlign: 'right',
+        },
+      );
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob.size).toBeGreaterThan(0);
+    });
+
     it('正确转译无序列表与有序列表', async () => {
       const mockListJson = {
         type: 'doc',

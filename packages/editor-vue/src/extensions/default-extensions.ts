@@ -58,6 +58,18 @@ export interface CreateDefaultExtensionsOptions {
    * 纯文本字符数硬限制上限。
    */
   maxLength?: number;
+  /**
+   * 是否启用重点高亮卡片扩展 (CalloutBlock)，默认 true。
+   */
+  callout?: boolean;
+  /**
+   * 是否启用折叠列表扩展 (ToggleList)，默认 true。
+   */
+  toggle?: boolean;
+  /**
+   * 是否启用 AI 流式生成状态机与装饰器扩展 (AiStreamingExtension)，默认 false。
+   */
+  aiStreaming?: boolean;
 }
 
 /**
@@ -118,10 +130,19 @@ export function createDefaultExtensions(
       html: true,
       tightLists: true,
     }),
-    CalloutBlock,
-    ToggleList,
-    AiStreamingExtension,
   ];
+
+  if (options.aiStreaming === true) {
+    baseExtensions.push(AiStreamingExtension);
+  }
+
+  if (options.callout !== false) {
+    baseExtensions.push(CalloutBlock);
+  }
+
+  if (options.toggle !== false) {
+    baseExtensions.push(ToggleList);
+  }
 
   if (options.extraExtensions && options.extraExtensions.length > 0) {
     baseExtensions.push(...options.extraExtensions);

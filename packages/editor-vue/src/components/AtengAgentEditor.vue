@@ -10,20 +10,19 @@
  * @since 2026-10-30
  */
 
-import { ref, computed, shallowRef, watch } from 'vue';
-import type { ShallowRef, ComputedRef } from 'vue';
+import { ref, computed } from 'vue';
 import type { Editor } from '@tiptap/vue-3';
 import AtengEditor from './AtengEditor.vue';
 import AtengAiBubbleMenu from './AtengAiBubbleMenu.vue';
 import AtengAiPromptBar from './AtengAiPromptBar.vue';
 import AtengAiDiffCard from './AtengAiDiffCard.vue';
 import { useAiStream } from '../composables/useAiStream';
+import { createEditorExpose } from '../utils/expose';
 import type {
   AgentEditorProps,
   AtengEditorEmits,
-  AtengEditorExpose,
+  AgentEditorExpose,
   AiPromptAction,
-  FullHtmlOptions,
 } from '../types';
 
 defineOptions({
@@ -59,20 +58,13 @@ const emit = defineEmits<AtengEditorEmits>();
 
 const editorRef = ref<InstanceType<typeof AtengEditor> | null>(null);
 
-// 编辑器实例浅代理
-const editor = shallowRef<Editor | null>(null);
-watch(
-  () => editorRef.value?.editor,
-  newEditor => {
-    if (newEditor) {
-      editor.value = newEditor;
-    }
-  },
-  { immediate: true },
-);
-
-const isEmpty: ComputedRef<boolean> = computed(() => editorRef.value?.isEmpty ?? true);
-const isFullscreen: ComputedRef<boolean> = computed(() => editorRef.value?.isFullscreen ?? false);
+// 编辑器实例动态代理
+const editor = computed<Editor | null>(() => {
+  const target = editorRef.value?.editor;
+  return target && typeof target === 'object' && 'value' in target
+    ? (target.value as Editor | null)
+    : ((target as unknown as Editor) ?? null);
+});
 
 // 记录当前触发 AI 动作时的选区快照
 interface SelectionSnapshot {
@@ -144,18 +136,83 @@ const handlePromptSubmit = (prompt: string): void => {
 };
 
 /**
- * 采纳并全部替换原选区内容（增量单次原子事务提交，保全撤销历史）
+ * 手动或通过事件呼出空白行沉浸式 AI 输入条
  */
-const handleAcceptReplace = (newText: string): void => {
+const openPromptBar = (): void => {
+  if (props.disabled || props.readOnly || isStreaming.value || !props.aiPromptBar) return;
+  isPromptBarActive.value = true;
+};
+
+/**
+ * 关闭空白行沉浸式 AI 输入条
+ */
+const closePromptBar = (): void => {
+  isPromptBarActive.value = false;
+};
+
+/**
+ * 判断当前光标是否处于空文本块（如空段落）
+ */
+const isSelectionAtEmptyBlock = (ed: Editor): boolean => {
+  const { $from, empty } = ed.state.selection;
+  if (!empty) return false;
+  const parent = $from.parent;
+  return parent.isTextblock && parent.textContent.trim().length === 0;
+};
+
+/**
+ * 监听容器键盘事件，支持在空行按空格或快捷键 Ctrl/Cmd + J 沉浸式唤起 AI 创作条
+ */
+const handleContainerKeyDown = (event: KeyboardEvent): void => {
+  if (props.disabled || props.readOnly || isStreaming.value || !props.aiPromptBar) {
+    return;
+  }
+
+  // 若 PromptBar 已处于激活态，交由输入框处理
+  if (isPromptBarActive.value) {
+    return;
+  }
+
+  if (!editor.value) return;
+
+  // 1. 空白行处按下空格唤起
+  if (
+    event.key === ' ' &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    isSelectionAtEmptyBlock(editor.value)
+  ) {
+    event.preventDefault();
+    openPromptBar();
+    return;
+  }
+
+  // 2. 快捷键 Ctrl+J 或 Cmd+J 呼出
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'j') {
+    event.preventDefault();
+    openPromptBar();
+  }
+};
+
+/**
+ * 统一执行采纳新文本事务（替换或追加），确保原子事务与段落语义结构合规
+ */
+const applyAcceptedContent = (mode: 'replace' | 'append', newText: string): void => {
   if (!editor.value || !newText) return;
 
   const sel = activeSelection.value;
-  if (sel) {
-    const { from, to } = sel;
-    // 使用 TipTap 事务链原子替换，并保全焦点
-    editor.value.chain().focus().setTextSelection({ from, to }).insertContent(newText).run();
+  const chain = editor.value.chain().focus();
+
+  if (mode === 'replace') {
+    if (sel) {
+      chain.setTextSelection({ from: sel.from, to: sel.to });
+    }
+    chain.insertContent(newText).run();
   } else {
-    editor.value.chain().focus().insertContent(newText).run();
+    const insertPos = sel ? sel.to : editor.value.state.selection.to;
+    // 使用 splitBlock 开启新段落，避免裸字符换行破坏文档树
+    chain.setTextSelection(insertPos).splitBlock().insertContent(newText).run();
   }
 
   isDiffCardVisible.value = false;
@@ -163,23 +220,17 @@ const handleAcceptReplace = (newText: string): void => {
 };
 
 /**
+ * 采纳并全部替换原选区内容（增量单次原子事务提交，保全撤销历史）
+ */
+const handleAcceptReplace = (newText: string): void => {
+  applyAcceptedContent('replace', newText);
+};
+
+/**
  * 采纳并在下方插入新内容
  */
 const handleAcceptAppend = (newText: string): void => {
-  if (!editor.value || !newText) return;
-
-  const sel = activeSelection.value;
-  const insertPos = sel ? sel.to : editor.value.state.selection.to;
-
-  editor.value
-    .chain()
-    .focus()
-    .setTextSelection(insertPos)
-    .insertContent('\n' + newText)
-    .run();
-
-  isDiffCardVisible.value = false;
-  activeSelection.value = null;
+  applyAcceptedContent('append', newText);
 };
 
 /**
@@ -192,42 +243,19 @@ const handleDiscard = (): void => {
   editor.value?.commands.focus();
 };
 
-// 显式对外暴露全部核心门面
-defineExpose<AtengEditorExpose>({
-  editor: editor as ShallowRef<Editor | null>,
-  focus: (...args) => editorRef.value?.focus(...args),
-  blur: () => editorRef.value?.blur(),
-  clearContent: (...args) => editorRef.value?.clearContent(...args),
-  setContent: (...args) => editorRef.value?.setContent(...args),
-  uploadImage: (...args) => editorRef.value?.uploadImage(...args),
-  getHTML: () => editorRef.value?.getHTML() ?? '',
-  getFullHTML: (options?: FullHtmlOptions) => editorRef.value?.getFullHTML(options) ?? '',
-  getJSON: () => editorRef.value?.getJSON() ?? {},
-  getMarkdown: () => editorRef.value?.getMarkdown() ?? '',
-  getText: () => editorRef.value?.getText() ?? '',
-  isEmpty,
-  isFullscreen,
-  toggleFullscreen: () => editorRef.value?.toggleFullscreen(),
-  getCharacters: () => editorRef.value?.getCharacters() ?? 0,
-  getWords: () => editorRef.value?.getWords() ?? 0,
-  getParagraphs: () => editorRef.value?.getParagraphs() ?? 0,
-  insertTable: (...args) => editorRef.value?.insertTable(...args),
-  addColumnBefore: () => editorRef.value?.addColumnBefore(),
-  addColumnAfter: () => editorRef.value?.addColumnAfter(),
-  deleteColumn: () => editorRef.value?.deleteColumn(),
-  addRowBefore: () => editorRef.value?.addRowBefore(),
-  addRowAfter: () => editorRef.value?.addRowAfter(),
-  deleteRow: () => editorRef.value?.deleteRow(),
-  mergeCells: () => editorRef.value?.mergeCells(),
-  splitCell: () => editorRef.value?.splitCell(),
-  toggleHeaderRow: () => editorRef.value?.toggleHeaderRow(),
-  deleteTable: () => editorRef.value?.deleteTable(),
-  clearTable: () => editorRef.value?.clearTable() ?? false,
+const baseExpose = createEditorExpose(editorRef);
+
+// 显式对外暴露全部核心门面与 Agent 专属控制方法
+defineExpose<AgentEditorExpose>({
+  ...baseExpose,
+  openPromptBar,
+  closePromptBar,
+  isPromptBarActive: computed(() => isPromptBarActive.value),
 });
 </script>
 
 <template>
-  <div class="at-agent-editor-container">
+  <div class="at-agent-editor-container" @keydown="handleContainerKeyDown">
     <AtengEditor
       ref="editorRef"
       v-bind="$attrs"

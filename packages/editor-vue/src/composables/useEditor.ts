@@ -125,6 +125,9 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
   const initialEditable = toValue(options.editable) ?? true;
   const initialAutofocus = toValue(options.autofocus) ?? false;
   const initialMaxLength = toValue(options.maxLength);
+  const initialCallout = toValue(options.callout);
+  const initialToggle = toValue(options.toggle);
+  const initialAiStreaming = toValue(options.aiStreaming);
 
   const extensions = createDefaultExtensions({
     placeholder: initialPlaceholder,
@@ -133,6 +136,9 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     onUploadSuccess: options.onUploadSuccess,
     onUploadError: options.onUploadError,
     maxLength: initialMaxLength,
+    callout: initialCallout !== false,
+    toggle: initialToggle !== false,
+    aiStreaming: initialAiStreaming === true,
   });
 
   const instance = new Editor({

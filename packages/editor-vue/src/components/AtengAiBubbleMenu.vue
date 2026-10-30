@@ -26,6 +26,7 @@ const props = withDefaults(defineProps<AtengAiBubbleMenuProps>(), {
   editor: null,
   disabled: false,
   actions: undefined,
+  tippyOptions: () => ({}),
 });
 
 const emit = defineEmits<{
@@ -119,6 +120,13 @@ const handleCustomSubmit = (): void => {
   isCustomPromptOpen.value = false;
   customPromptInput.value = '';
 };
+
+const computedTippyOptions = computed(() => ({
+  duration: 150,
+  placement: 'top-start' as const,
+  appendTo: (ref: Element) => (typeof document !== 'undefined' ? document.body : ref),
+  ...props.tippyOptions,
+}));
 </script>
 
 <template>
@@ -127,7 +135,7 @@ const handleCustomSubmit = (): void => {
     plugin-key="atengAiBubbleMenu"
     :editor="props.editor as Editor"
     :should-show="shouldShow"
-    :tippy-options="{ duration: 150, placement: 'top-start' }"
+    :tippy-options="computedTippyOptions"
   >
     <slot
       :actions="effectiveActions"
@@ -149,8 +157,8 @@ const handleCustomSubmit = (): void => {
             :title="act.defaultPrompt"
             @click="handleActionClick(act)"
           >
-            <span class="btn-icon">{{ act.icon }}</span>
-            <span class="btn-label">{{ act.label }}</span>
+            <span class="at-ai-bubble-menu__btn-icon">{{ act.icon }}</span>
+            <span class="at-ai-bubble-menu__btn-label">{{ act.label }}</span>
           </button>
 
           <div class="at-ai-bubble-menu__divider" />
@@ -250,11 +258,11 @@ const handleCustomSubmit = (): void => {
   color: var(--at-editor-primary, #409eff);
 }
 
-.btn-icon {
+.at-ai-bubble-menu__btn-icon {
   font-size: 12px;
 }
 
-.btn-label {
+.at-ai-bubble-menu__btn-label {
   font-size: 12px;
   white-space: nowrap;
 }

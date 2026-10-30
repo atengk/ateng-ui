@@ -67,6 +67,7 @@ const computedTippyOptions = computed(() => ({
   duration: 150,
   theme: 'at-editor-menu',
   interactive: true,
+  appendTo: (ref: Element) => (typeof document !== 'undefined' ? document.body : ref),
   ...props.tippyOptions,
 }));
 

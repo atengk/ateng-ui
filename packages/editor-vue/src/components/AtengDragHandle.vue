@@ -135,7 +135,7 @@ const handleMouseMove = (event: MouseEvent) => {
       currentDom.value = targetChild;
       isVisible.value = true;
     } catch {
-      // 容错处理
+      // 容错降级：当鼠标移动至 ProseMirror 尚未就绪或非内容 DOM 节点（如装饰器、滚动条）时安全忽略
     }
   } else if (!isHoveringHandle.value) {
     isVisible.value = false;
@@ -158,7 +158,7 @@ const handleDragStart = (e: DragEvent) => {
     const nodeSelection = NodeSelection.create(doc, currentPos.value);
     view.dispatch(view.state.tr.setSelection(nodeSelection));
   } catch {
-    // 降级支持
+    // 容错降级：目标块不可被 NodeSelection 选定时安全跳过选区调度
   }
 
   const slice = view.state.selection.content();
@@ -190,7 +190,7 @@ const toggleMenu = () => {
       const nodeSelection = NodeSelection.create(view.state.doc, currentPos.value);
       view.dispatch(view.state.tr.setSelection(nodeSelection));
     } catch {
-      // 容错处理
+      // 容错降级：当鼠标移动至 ProseMirror 尚未就绪或非内容 DOM 节点（如装饰器、滚动条）时安全忽略
     }
   }
 };

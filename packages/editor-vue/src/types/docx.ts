@@ -7,8 +7,8 @@
  * @since 2026-10-30
  */
 
-import type { Editor } from '@tiptap/vue-3';
-import type { EditorBaseProps } from './components';
+import type { ComputedRef } from 'vue';
+import type { EditorBaseProps, AtengEditorExpose } from './components';
 import type { DocxExportOptions } from '../utils/docx-export';
 
 /**
@@ -181,23 +181,17 @@ export interface DocxEditorEmits {
 }
 
 /**
- * <AtengDocxEditor /> 组件对外暴露的 Ref 实例方法与状态接口。
+ * <AtengDocxEditor /> 场景预设组件对外暴露的核心门面契约接口。
  */
-export interface AtengDocxEditorMethods {
-  /** TipTap 核心实例 */
-  editor: Editor | null;
-  /** 当前总页数 */
-  totalPages: number;
-  /** 当前纸张方向 */
-  orientation: PageOrientation;
+export interface DocxEditorExpose extends AtengEditorExpose {
+  /** 当前总页数计算属性 */
+  totalPages: ComputedRef<number>;
+  /** 当前纸张排版方向计算属性 */
+  orientation: ComputedRef<PageOrientation>;
   /** 调起原生浏览器 A4 物理分页打印预览 */
   print: () => void;
-  /** 获取焦点 */
-  focus: () => void;
-  /** 清空正文内容 */
+  /** 清空正文内容（快捷别名） */
   clear: () => void;
-  /** 清空正文内容（对齐 useEditor 契约） */
-  clearContent: () => void;
   /**
    * 将当前文档生成为合规 OpenXML .docx 二进制数据并自动调起浏览器下载。
    *
@@ -206,5 +200,10 @@ export interface AtengDocxEditorMethods {
    */
   exportDocx: (options?: DocxExportOptions | string) => Promise<Blob>;
 }
+
+/**
+ * <AtengDocxEditor /> 组件对外暴露的 Ref 实例方法与状态接口（对齐 DocxEditorExpose）。
+ */
+export type AtengDocxEditorMethods = DocxEditorExpose;
 
 export type { DocxExportOptions };

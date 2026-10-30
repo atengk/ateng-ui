@@ -58,14 +58,19 @@ const handleDiscard = (): void => {
     <slot name="diff-header" :is-streaming="props.isStreaming">
       <div class="at-ai-diff-card__header">
         <div class="at-ai-diff-card__title">
-          <span class="title-icon">✨</span>
-          <span class="title-text">AI 建议审阅与对比</span>
+          <span class="at-ai-diff-card__title-icon">✨</span>
+          <span class="at-ai-diff-card__title-text">AI 建议审阅与对比</span>
         </div>
         <div class="at-ai-diff-card__badge">
-          <span v-if="props.isStreaming" class="badge-tag badge-tag--streaming">
+          <span
+            v-if="props.isStreaming"
+            class="at-ai-diff-card__badge-tag at-ai-diff-card__badge-tag--streaming"
+          >
             打字生成中...
           </span>
-          <span v-else class="badge-tag badge-tag--ready">待审阅</span>
+          <span v-else class="at-ai-diff-card__badge-tag at-ai-diff-card__badge-tag--ready">
+            待审阅
+          </span>
         </div>
       </div>
     </slot>
@@ -79,7 +84,7 @@ const handleDiscard = (): void => {
     >
       <div class="at-ai-diff-card__body">
         <!-- 流式未决态或对比态展示 -->
-        <div class="diff-view">
+        <div class="at-ai-diff-card__diff-view">
           <template v-for="(chunk, idx) in diffChunks" :key="idx">
             <span
               v-if="chunk.type === 'added'"
@@ -100,7 +105,7 @@ const handleDiscard = (): void => {
             </span>
           </template>
 
-          <span v-if="props.isStreaming" class="streaming-cursor">|</span>
+          <span v-if="props.isStreaming" class="at-ai-diff-card__streaming-cursor">|</span>
         </div>
       </div>
     </slot>
@@ -114,7 +119,7 @@ const handleDiscard = (): void => {
       :discard="handleDiscard"
     >
       <div class="at-ai-diff-card__footer">
-        <div class="footer-actions">
+        <div class="at-ai-diff-card__footer-actions">
           <button
             type="button"
             class="at-ai-diff-btn at-ai-diff-btn--replace"
@@ -177,23 +182,23 @@ const handleDiscard = (): void => {
   color: var(--at-editor-text-color, #303133);
 }
 
-.title-icon {
+.at-ai-diff-card__title-icon {
   font-size: 14px;
 }
 
-.badge-tag {
+.at-ai-diff-card__badge-tag {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 500;
 }
 
-.badge-tag--streaming {
+.at-ai-diff-card__badge-tag--streaming {
   background-color: rgba(230, 162, 60, 0.15);
   color: #e6a23c;
 }
 
-.badge-tag--ready {
+.at-ai-diff-card__badge-tag--ready {
   background-color: rgba(103, 194, 58, 0.15);
   color: #67c23a;
 }
@@ -205,7 +210,7 @@ const handleDiscard = (): void => {
   padding: 4px 0 10px;
 }
 
-.diff-view {
+.at-ai-diff-card__diff-view {
   word-break: break-word;
 }
 
@@ -232,7 +237,7 @@ const handleDiscard = (): void => {
   color: var(--at-editor-text-color, #303133);
 }
 
-.streaming-cursor {
+.at-ai-diff-card__streaming-cursor {
   display: inline-block;
   color: var(--at-editor-primary, #409eff);
   font-weight: 700;
@@ -258,7 +263,7 @@ const handleDiscard = (): void => {
   padding-top: 10px;
 }
 
-.footer-actions {
+.at-ai-diff-card__footer-actions {
   display: flex;
   align-items: center;
   gap: 8px;

@@ -198,6 +198,39 @@ describe('DOCX Editor A4 物理分页排版与纸张仿真体系', () => {
       expect(typeof vm.print).toBe('function');
       expect(typeof vm.clear).toBe('function');
       expect(typeof vm.focus).toBe('function');
+      expect(typeof vm.getHTML).toBe('function');
+      expect(typeof vm.getText).toBe('function');
+      expect(typeof vm.toggleFullscreen).toBe('function');
+      expect(typeof vm.exportDocx).toBe('function');
+    });
+
+    it('双击行内修改页眉后，调用 exportDocx() 能够捕获最新修改值', async () => {
+      wrapper = mount(AtengDocxEditor, {
+        props: {
+          modelValue: '<p>公文测试内容</p>',
+          header: '初始旧页眉',
+        },
+      });
+
+      await nextTick();
+
+      // 双击激活页眉编辑
+      const header = wrapper.find('[data-test="page-header"]');
+      await header.trigger('dblclick');
+      await nextTick();
+
+      const input = wrapper.find('.at-page-canvas__input');
+      expect(input.exists()).toBe(true);
+
+      // 修改为新页眉
+      await input.setValue('行内就地修改后的新公文标题');
+      await input.trigger('keydown.enter');
+      await nextTick();
+
+      const vm = wrapper.vm as unknown as AtengDocxEditorInstance;
+      const blob = await vm.exportDocx();
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob.size).toBeGreaterThan(0);
     });
 
     it('调用 vm.clear() 成功清空文档内容', async () => {
@@ -234,6 +267,11 @@ describe('DOCX Editor A4 物理分页排版与纸张仿真体系', () => {
       expect(wrapper.find('[data-test="page-canvas"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="page-sheet"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="page-ruler"]').exists()).toBe(true);
+
+      const vm = wrapper.vm as unknown as { exportDocx?: () => Promise<Blob> };
+      expect(typeof vm.exportDocx).toBe('function');
+      const blob = await vm.exportDocx?.();
+      expect(blob).toBeInstanceOf(Blob);
     });
   });
 });

@@ -184,7 +184,7 @@ export const ToggleList = Node.create<ToggleListOptions>({
                   }
                 }
               } catch {
-                // 忽略 DOM 到选区解析异常
+                // 容错降级：折叠 caret 点击时若 DOM 节点已从文档树脱离或坐标失真则安全终止
               }
               return false;
             },

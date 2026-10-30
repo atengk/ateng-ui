@@ -10,16 +10,10 @@
  * @since 2026-10-30
  */
 
-import { ref, computed, shallowRef, watch } from 'vue';
-import type { ShallowRef, ComputedRef } from 'vue';
-import type { Editor } from '@tiptap/vue-3';
+import { ref } from 'vue';
 import AtengEditor from './AtengEditor.vue';
-import type {
-  NotionEditorProps,
-  AtengEditorEmits,
-  AtengEditorExpose,
-  FullHtmlOptions,
-} from '../types';
+import { createEditorExpose } from '../utils/expose';
+import type { NotionEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
   name: 'AtengNotionEditor',
@@ -55,59 +49,15 @@ const emit = defineEmits<AtengEditorEmits>();
 
 const editorRef = ref<InstanceType<typeof AtengEditor> | null>(null);
 
-// 移除重复注入以避免 TipTap 同名扩展警告
-const editor = shallowRef<Editor | null>(null);
-watch(
-  () => editorRef.value?.editor,
-  newEditor => {
-    if (newEditor) {
-      editor.value = newEditor;
-    }
-  },
-  { immediate: true },
-);
-
-const isEmpty: ComputedRef<boolean> = computed(() => editorRef.value?.isEmpty ?? true);
-const isFullscreen: ComputedRef<boolean> = computed(() => editorRef.value?.isFullscreen ?? false);
-
-// 显式对外暴露全部核心门面
-defineExpose<AtengEditorExpose>({
-  editor: editor as ShallowRef<Editor | null>,
-  focus: (...args) => editorRef.value?.focus(...args),
-  blur: () => editorRef.value?.blur(),
-  clearContent: (...args) => editorRef.value?.clearContent(...args),
-  setContent: (...args) => editorRef.value?.setContent(...args),
-  uploadImage: (...args) => editorRef.value?.uploadImage(...args),
-  getHTML: () => editorRef.value?.getHTML() ?? '',
-  getFullHTML: (options?: FullHtmlOptions) => editorRef.value?.getFullHTML(options) ?? '',
-  getJSON: () => editorRef.value?.getJSON() ?? {},
-  getMarkdown: () => editorRef.value?.getMarkdown() ?? '',
-  getText: () => editorRef.value?.getText() ?? '',
-  isEmpty,
-  isFullscreen,
-  toggleFullscreen: () => editorRef.value?.toggleFullscreen(),
-  getCharacters: () => editorRef.value?.getCharacters() ?? 0,
-  getWords: () => editorRef.value?.getWords() ?? 0,
-  getParagraphs: () => editorRef.value?.getParagraphs() ?? 0,
-  insertTable: (...args) => editorRef.value?.insertTable(...args),
-  addColumnBefore: () => editorRef.value?.addColumnBefore(),
-  addColumnAfter: () => editorRef.value?.addColumnAfter(),
-  deleteColumn: () => editorRef.value?.deleteColumn(),
-  addRowBefore: () => editorRef.value?.addRowBefore(),
-  addRowAfter: () => editorRef.value?.addRowAfter(),
-  deleteRow: () => editorRef.value?.deleteRow(),
-  mergeCells: () => editorRef.value?.mergeCells(),
-  splitCell: () => editorRef.value?.splitCell(),
-  toggleHeaderRow: () => editorRef.value?.toggleHeaderRow(),
-  deleteTable: () => editorRef.value?.deleteTable(),
-  clearTable: () => editorRef.value?.clearTable() ?? false,
-});
+// 显式对外暴露全部核心门面（通过受管代理消除 Middle Man 样板重复）
+defineExpose<AtengEditorExpose>(createEditorExpose(editorRef));
 </script>
 
 <template>
   <AtengEditor
     ref="editorRef"
     v-bind="$attrs"
+    mode="notion"
     :model-value="props.modelValue"
     :markdown="props.markdown"
     :json="props.json"
@@ -121,16 +71,18 @@ defineExpose<AtengEditorExpose>({
     :show-toolbar="false"
     :show-drag-handle="props.dragHandle"
     :show-slash-command="props.slashCommand"
+    :callout="props.callout"
+    :toggle="props.toggle"
     :show-bubble-menu="props.bubbleMenu"
     :show-table-menu="props.tableMenu"
     :show-status-bar="props.showStatusBar"
     :max-length="props.maxLength"
     :upload-handler="props.uploadHandler"
+    :max-width="props.maxWidth"
     :height="props.height"
     :min-height="props.minHeight"
     :max-height="props.maxHeight"
     class="at-notion-editor"
-    :style="{ '--at-notion-max-width': props.maxWidth }"
     @update:model-value="emit('update:modelValue', $event)"
     @update:markdown="emit('update:markdown', $event)"
     @update:json="emit('update:json', $event)"
@@ -142,9 +94,14 @@ defineExpose<AtengEditorExpose>({
     @update:fullscreen="emit('update:fullscreen', $event)"
     @theme-change="emit('themeChange', $event)"
   >
-    <!-- 手柄插槽透传 -->
+    <!-- 手柄按钮插槽透传 -->
     <template v-if="$slots['drag-handle']" #drag-handle="slotProps">
       <slot name="drag-handle" v-bind="slotProps" />
+    </template>
+
+    <!-- 手柄容器插槽透传 -->
+    <template v-if="$slots['drag-handle-container']" #drag-handle-container="slotProps">
+      <slot name="drag-handle-container" v-bind="slotProps" />
     </template>
 
     <!-- 块级菜单插槽透传 -->
