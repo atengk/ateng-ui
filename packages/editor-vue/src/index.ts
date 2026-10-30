@@ -13,8 +13,14 @@ import './styles/index.css';
 export { default as AtengEditor } from './components/AtengEditor.vue';
 export type { AtengEditorInstance } from './components';
 
+export { default as AtengSimpleEditor } from './components/AtengSimpleEditor.vue';
+export type { AtengSimpleEditorInstance } from './components';
+
 export { default as AtengEditorToolbar } from './components/AtengEditorToolbar.vue';
 export type { AtengEditorToolbarInstance } from './components';
+
+export { default as AtengSimpleToolbar } from './components/AtengSimpleToolbar.vue';
+export type { AtengSimpleToolbarInstance } from './components';
 
 export { default as AtengTableBubbleMenu } from './components/AtengTableBubbleMenu.vue';
 export type { AtengTableBubbleMenuInstance } from './components';
@@ -64,6 +70,9 @@ export type {
   EditorOutputFormat,
   UseEditorOptions,
   AtengEditorProps,
+  SimpleToolbarItem,
+  SimpleEditorProps,
+  AtengSimpleToolbarProps,
   AtengEditorEmits,
   AtengEditorExpose,
   AtengTableBubbleMenuProps,

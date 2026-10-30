@@ -427,4 +427,73 @@ export interface AtengStatusBarProps {
   showParagraphCount?: boolean;
 }
 
+/**
+ * Simple Editor 工具栏可用功能项声明。
+ */
+export type SimpleToolbarItem =
+  | 'undo'
+  | 'redo'
+  | 'heading'
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'highlight'
+  | 'align'
+  | 'list'
+  | 'taskList'
+  | 'blockquote'
+  | 'code'
+  | 'codeBlock'
+  | 'link'
+  | 'image'
+  | 'table'
+  | 'clear'
+  | 'fullscreen';
+
+/**
+ * <AtengSimpleEditor /> 预设组件 Props 契约声明。
+ */
+export interface SimpleEditorProps extends AtengEditorProps {
+  /**
+   * 自定义声明的工具栏项集合。缺省时展示全套预设工具。
+   */
+  tools?: SimpleToolbarItem[];
+
+  /**
+   * 紧凑模式。开启后工具栏按钮更小、内外边距更紧凑。
+   */
+  dense?: boolean;
+}
+
+/**
+ * <AtengSimpleToolbar /> 组件入参 Props 接口。
+ */
+export interface AtengSimpleToolbarProps {
+  /**
+   * TipTap 原生 Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 声明式挑选的工具栏项。
+   */
+  tools?: SimpleToolbarItem[];
+
+  /**
+   * 是否启用紧凑模式。
+   */
+  dense?: boolean;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 当前是否处于全屏模式。
+   */
+  isFullscreen?: boolean;
+}
+
 export type { FullHtmlOptions };

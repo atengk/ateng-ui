@@ -8,6 +8,7 @@
 
 import { ref } from 'vue';
 import BasicEditorScenario from './scenarios/BasicEditorScenario.vue';
+import SimpleEditorScenario from './scenarios/SimpleEditorScenario.vue';
 import TableErgonomicsScenario from './scenarios/TableErgonomicsScenario.vue';
 import AssetUploadScenario from './scenarios/AssetUploadScenario.vue';
 import SlashAndBubbleScenario from './scenarios/SlashAndBubbleScenario.vue';
@@ -46,6 +47,9 @@ const toggleDarkMode = (val: boolean): void => {
 
     <main class="sample-main">
       <el-tabs v-model="activeTab" type="border-card">
+        <el-tab-pane label="预设：经典轻量 (Simple Editor)" name="simple">
+          <SimpleEditorScenario />
+        </el-tab-pane>
         <el-tab-pane label="场景一：基础现代富文本编辑 (Basic)" name="basic">
           <BasicEditorScenario />
         </el-tab-pane>
