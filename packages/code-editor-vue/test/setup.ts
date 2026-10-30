@@ -10,18 +10,25 @@
 import { beforeEach, afterEach, vi } from 'vitest';
 import * as monaco from 'monaco-editor';
 
-// 在单测离线环境中禁用 TS/JS 后台异步诊断轮询，杜绝哑 Worker 引发未捕获 RPC 异常
-if (monaco.languages?.typescript) {
-  monaco.languages.typescript.typescriptDefaults?.setDiagnosticsOptions({
-    noSemanticValidation: true,
-    noSyntaxValidation: true,
-    noSuggestionDiagnostics: true,
-  });
-  monaco.languages.typescript.javascriptDefaults?.setDiagnosticsOptions({
-    noSemanticValidation: true,
-    noSyntaxValidation: true,
-    noSuggestionDiagnostics: true,
-  });
+const createSafeProxy = (): unknown => {
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === 'then') return undefined;
+        return () => Promise.resolve([]);
+      },
+    },
+  );
+};
+
+// 在单测离线环境中安全 Mock createWebWorker，拦截后台异步语义诊断与 CodeAction，杜绝未决异常
+if (monaco.editor && monaco.editor.createWebWorker) {
+  monaco.editor.createWebWorker = vi.fn().mockImplementation(() => ({
+    dispose: vi.fn(),
+    getProxy: () => Promise.resolve(createSafeProxy()),
+    withSyncedResources: () => Promise.resolve(createSafeProxy()),
+  })) as unknown as typeof monaco.editor.createWebWorker;
 }
 
 const _originalGetContext = HTMLCanvasElement.prototype.getContext;
