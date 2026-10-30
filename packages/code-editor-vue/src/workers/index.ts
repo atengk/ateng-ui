@@ -48,27 +48,7 @@ function createDummyMockWorker(): Worker {
  * 当宿主环境 Worker 报错或 CSP 限制时，避免 Monaco 抛出致命异常。
  */
 function createFallbackWorker(): Worker {
-  if (typeof Blob === 'undefined' || typeof Worker === 'undefined' || typeof URL === 'undefined') {
-    return createDummyMockWorker();
-  }
-
-  try {
-    const dummyBlob = new Blob(
-      [
-        `self.onmessage = function() {
-          // 单线程降级：对接收到的消息统一静默响应或空处理
-        };`,
-      ],
-      { type: 'application/javascript' },
-    );
-    const blobUrl = URL.createObjectURL(dummyBlob);
-    const worker = new Worker(blobUrl);
-    // 确定性注销瞬态 Blob URL，防内存泄漏
-    URL.revokeObjectURL(blobUrl);
-    return worker;
-  } catch {
-    return createDummyMockWorker();
-  }
+  return createDummyMockWorker();
 }
 
 /**

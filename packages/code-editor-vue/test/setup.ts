@@ -8,6 +8,21 @@
  */
 
 import { beforeEach, afterEach, vi } from 'vitest';
+import * as monaco from 'monaco-editor';
+
+// 在单测离线环境中禁用 TS/JS 后台异步诊断轮询，杜绝哑 Worker 引发未捕获 RPC 异常
+if (monaco.languages?.typescript) {
+  monaco.languages.typescript.typescriptDefaults?.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+    noSuggestionDiagnostics: true,
+  });
+  monaco.languages.typescript.javascriptDefaults?.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+    noSuggestionDiagnostics: true,
+  });
+}
 
 const _originalGetContext = HTMLCanvasElement.prototype.getContext;
 
