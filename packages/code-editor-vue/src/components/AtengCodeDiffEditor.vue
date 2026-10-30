@@ -103,6 +103,7 @@ const {
   setOriginalValue,
   getModifiedValue,
   setModifiedValue,
+  setOriginalReadOnly,
   setDiffMode: internalSetDiffMode,
   goToPreviousDiff,
   goToNextDiff,
@@ -194,23 +195,11 @@ watch(
   },
 );
 
-// 监听外部 modified 变更
-watch(
-  () => props.modified,
-  newVal => {
-    if (!diffEditor.value || newVal === getModifiedValue()) return;
-    setModifiedValue(newVal ?? '');
-  },
-);
-
-// 监听外部 modelValue 变更（作为 modified 别名）
-watch(
-  () => props.modelValue,
-  newVal => {
-    if (newVal === undefined || !diffEditor.value || newVal === getModifiedValue()) return;
-    setModifiedValue(newVal);
-  },
-);
+// 监听外部 modified / modelValue 变更（单向防回环增量同步，光标与撤销历史保持）
+watch(effectiveModified, newVal => {
+  if (!diffEditor.value || newVal === getModifiedValue()) return;
+  setModifiedValue(newVal);
+});
 
 // 监听外部 diffMode 属性
 watch(
@@ -227,39 +216,32 @@ watch(
   () => props.language,
   newLang => {
     if (!newLang) return;
-    if (originalModel.value) {
-      monaco.editor.setModelLanguage(originalModel.value, newLang);
-    }
-    if (modifiedModel.value) {
-      monaco.editor.setModelLanguage(modifiedModel.value, newLang);
-    }
+    if (originalModel.value) monaco.editor.setModelLanguage(originalModel.value, newLang);
+    if (modifiedModel.value) monaco.editor.setModelLanguage(modifiedModel.value, newLang);
   },
 );
 
-// 监听只读状态变更
+// 监听只读与字体/换行属性变更
 watch(
   () => props.readOnly,
   ro => {
-    if (!diffEditor.value) return;
-    diffEditor.value.updateOptions({ readOnly: ro });
+    if (diffEditor.value) diffEditor.value.updateOptions({ readOnly: ro });
   },
 );
-
-// 监听字体大小
+watch(
+  () => props.originalReadOnly,
+  ro => setOriginalReadOnly(ro),
+);
 watch(
   () => props.fontSize,
   size => {
-    if (!diffEditor.value || !size) return;
-    diffEditor.value.updateOptions({ fontSize: size });
+    if (diffEditor.value && size) diffEditor.value.updateOptions({ fontSize: size });
   },
 );
-
-// 监听自动换行
 watch(
   () => props.wordWrap,
   wrap => {
-    if (!diffEditor.value || !wrap) return;
-    diffEditor.value.updateOptions({ wordWrap: wrap });
+    if (diffEditor.value && wrap) diffEditor.value.updateOptions({ wordWrap: wrap });
   },
 );
 
@@ -290,6 +272,7 @@ defineExpose<CodeDiffEditorExpose>({
   getDiffStats: () => diffStats.value,
   getDiffMode: () => currentMode.value,
   setDiffMode: handleDiffModeChange,
+  setOriginalReadOnly,
   goToPreviousDiff,
   goToNextDiff,
   layout,

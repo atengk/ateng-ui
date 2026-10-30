@@ -5,6 +5,7 @@
  * @since 2026-10-29
  */
 
+import type { ShallowRef } from 'vue';
 import type * as monaco from 'monaco-editor';
 import type { SqlFormatProvider } from '../sql/formatter';
 
@@ -249,6 +250,70 @@ export interface UseCodeEditorOptions {
 }
 
 /**
+ * useCodeEditor Composable 返回值接口定义。
+ */
+export interface UseCodeEditorReturn {
+  /** Monaco 编辑器原生实例 (shallowRef) */
+  editor: ShallowRef<monaco.editor.IStandaloneCodeEditor | null>;
+  /** 当前活动的 TextModel 实例 (shallowRef) */
+  model: ShallowRef<monaco.editor.ITextModel | null>;
+  /** 是否已初始化就绪 */
+  isReady: ShallowRef<boolean>;
+  /** 是否处于超大文件自适应保护降级模式 */
+  isLargeFile: ShallowRef<boolean>;
+  /** 当前视口是否处于 0x0 几何挂起状态 */
+  isSuspended: ShallowRef<boolean>;
+  /** 手动初始化 */
+  init: () => void;
+  /** 手动触发格式化文档 */
+  format: () => Promise<void>;
+  /** 重新计算并自适应布局尺寸（如果处于 0x0 则自动挂起） */
+  layout: () => void;
+  /** 手动触发视口自愈布局（从 0x0 恢复可见时安全重算） */
+  healLayout: () => void;
+  /** 聚焦当前编辑器 */
+  focus: () => void;
+  /** 获取当前代码内容 */
+  getValue: () => string;
+  /** 设置当前代码内容（全量重置模式） */
+  setValue: (value: string) => void;
+  /** 增量应用代码文本变更（保持光标位置、选区与 Undo/Redo 历史栈） */
+  applyIncrementalEdit: (
+    newText: string,
+    options?: { preserveCursor?: boolean; recordUndo?: boolean },
+  ) => void;
+  /** 撤销操作 (Undo) */
+  undo: () => void;
+  /** 重做操作 (Redo) */
+  redo: () => void;
+  /** 在模型池中创建受管 TextModel */
+  createModel: (
+    value: string,
+    language?: CodeLanguage,
+    uri?: string | monaco.Uri,
+  ) => monaco.editor.ITextModel;
+  /** 切换当前编辑器绑定的活动 TextModel 并平滑保持视口与光标状态 */
+  setModel: (modelOrUri: monaco.editor.ITextModel | string) => void;
+  /** 销毁模型池中的指定 TextModel */
+  disposeModel: (modelOrUri: monaco.editor.ITextModel | string) => boolean;
+  /** 获取当前活动的 TextModel */
+  getActiveModel: () => monaco.editor.ITextModel | null;
+  /** 获取模型池中所有受管的 TextModel 列表 */
+  getModels: () => monaco.editor.ITextModel[];
+  /** 保存指定模型或当前活动的视图状态 (光标与滚动位置) */
+  saveViewState: (
+    modelOrUri?: monaco.editor.ITextModel | string,
+  ) => monaco.editor.ICodeEditorViewState | null;
+  /** 恢复指定模型的视图状态 */
+  restoreViewState: (
+    modelOrUri: monaco.editor.ITextModel | string,
+    state?: monaco.editor.ICodeEditorViewState | null,
+  ) => void;
+  /** 销毁当前实例与监听，并彻底注销池内所有 Model */
+  dispose: () => void;
+}
+
+/**
  * AtengCodeDiffEditor 组件属性定义。
  */
 export interface CodeDiffEditorProps {
@@ -340,6 +405,8 @@ export interface CodeDiffEditorExpose {
   getDiffMode: () => DiffMode;
   /** 动态切换对比视图模式 */
   setDiffMode: (mode: DiffMode) => void;
+  /** 动态更新原始侧只读状态 */
+  setOriginalReadOnly: (readOnly: boolean) => void;
   /** 跳转至上一处差异 */
   goToPreviousDiff: () => void;
   /** 跳转至下一处差异 */

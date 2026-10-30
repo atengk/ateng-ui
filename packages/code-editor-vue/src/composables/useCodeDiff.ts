@@ -59,6 +59,8 @@ export interface UseCodeDiffReturn {
   getModifiedValue: () => string;
   /** 设置修改侧代码内容 */
   setModifiedValue: (value: string) => void;
+  /** 动态更新原始侧只读状态 */
+  setOriginalReadOnly: (readOnly: boolean) => void;
   /** 动态切换对比视图模式 ('split' | 'inline') */
   setDiffMode: (mode: DiffMode) => void;
   /** 跳转至上一处差异 */
@@ -142,15 +144,53 @@ export function useCodeDiff(
     }
   };
 
+  // 增量应用 Model 变更（可编辑时增量更新保持光标与 Undo 历史，只读时平滑赋值）
+  const applyIncrementalDiffEdit = (
+    editor: monaco.editor.IStandaloneCodeEditor | null,
+    targetModel: monaco.editor.ITextModel | null,
+    newText: string,
+  ): void => {
+    if (!targetModel) return;
+    if (newText === targetModel.getValue()) return;
+
+    const isReadOnly = editor
+      ? (editor.getOption(monaco.editor.EditorOption.readOnly) ?? false)
+      : false;
+
+    if (editor && !isReadOnly) {
+      const prevSelections = editor.getSelections();
+      const fullRange = targetModel.getFullModelRange();
+      const editOp: monaco.editor.IIdentifiedSingleEditOperation = {
+        range: fullRange,
+        text: newText,
+        forceMoveMarkers: true,
+      };
+
+      editor.executeEdits('diff-incremental-update', [editOp], prevSelections ?? undefined);
+      if (prevSelections && prevSelections.length > 0) {
+        try {
+          editor.setSelections(prevSelections);
+        } catch {
+          // 容错处理
+        }
+      }
+    } else {
+      targetModel.setValue(newText);
+    }
+  };
+
   // 获取原始侧文本
   const getOriginalValue = (): string => {
     return originalModel.value ? originalModel.value.getValue() : '';
   };
 
-  // 设置原始侧文本
+  // 设置原始侧文本（增量更新防线，保持光标与 Undo 历史）
   const setOriginalValue = (value: string): void => {
     if (originalModel.value) {
-      originalModel.value.setValue(value);
+      const origEditor = diffEditor.value
+        ? (diffEditor.value.getOriginalEditor() as monaco.editor.IStandaloneCodeEditor)
+        : null;
+      applyIncrementalDiffEdit(origEditor, originalModel.value, value);
     }
   };
 
@@ -159,10 +199,22 @@ export function useCodeDiff(
     return modifiedModel.value ? modifiedModel.value.getValue() : '';
   };
 
-  // 设置修改侧文本
+  // 设置修改侧文本（增量更新防线，保持光标与 Undo 历史）
   const setModifiedValue = (value: string): void => {
     if (modifiedModel.value) {
-      modifiedModel.value.setValue(value);
+      const modEditor = diffEditor.value
+        ? (diffEditor.value.getModifiedEditor() as monaco.editor.IStandaloneCodeEditor)
+        : null;
+      applyIncrementalDiffEdit(modEditor, modifiedModel.value, value);
+    }
+  };
+
+  // 动态更新原始侧只读状态
+  const setOriginalReadOnly = (readOnly: boolean): void => {
+    if (diffEditor.value) {
+      diffEditor.value.updateOptions({
+        originalEditable: !readOnly,
+      });
     }
   };
 
@@ -366,6 +418,7 @@ export function useCodeDiff(
     setOriginalValue,
     getModifiedValue,
     setModifiedValue,
+    setOriginalReadOnly,
     setDiffMode,
     goToPreviousDiff,
     goToNextDiff,

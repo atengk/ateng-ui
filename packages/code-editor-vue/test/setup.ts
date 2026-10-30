@@ -85,5 +85,5 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  HTMLCanvasElement.prototype.getContext = originalGetContext;
+  // 保持 Canvas 2D Mock 存活以支撑异步 Monaco 标尺渲染
 });

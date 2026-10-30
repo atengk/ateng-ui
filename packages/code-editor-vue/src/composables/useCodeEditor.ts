@@ -20,74 +20,28 @@ import {
   getCurrentInstance,
   getCurrentScope,
   toValue,
-  type ShallowRef,
 } from 'vue';
 import type { MaybeRefOrGetter } from 'vue';
 import * as monaco from 'monaco-editor';
-import type { UseCodeEditorOptions } from '../types';
+import type { UseCodeEditorOptions, UseCodeEditorReturn } from '../types';
 import { setupMonacoWorkers } from '../workers';
 import { formatSql } from '../sql/formatter';
 import { registerCompletionProvider } from '../completion/registry';
+import { createModelPoolManager } from '../model/modelPool';
 
-export interface UseCodeEditorReturn {
-  /** Monaco 编辑器原生实例 (shallowRef) */
-  editor: ShallowRef<monaco.editor.IStandaloneCodeEditor | null>;
-  /** 当前活动的 TextModel 实例 (shallowRef) */
-  model: ShallowRef<monaco.editor.ITextModel | null>;
-  /** 是否已初始化就绪 */
-  isReady: ShallowRef<boolean>;
-  /** 是否处于超大文件自适应保护降级模式 */
-  isLargeFile: ShallowRef<boolean>;
-  /** 当前视口是否处于 0x0 几何挂起状态 */
-  isSuspended: ShallowRef<boolean>;
-  /** 手动初始化 */
-  init: () => void;
-  /** 手动触发格式化文档 */
-  format: () => Promise<void>;
-  /** 重新计算并自适应布局尺寸（如果处于 0x0 则自动挂起） */
-  layout: () => void;
-  /** 手动触发视口自愈布局（从 0x0 恢复可见时安全重算） */
-  healLayout: () => void;
-  /** 聚焦当前编辑器 */
-  focus: () => void;
-  /** 获取当前代码内容 */
-  getValue: () => string;
-  /** 设置当前代码内容（全量重置模式） */
-  setValue: (value: string) => void;
-  /** 增量应用代码文本变更（保持光标位置、选区与 Undo/Redo 历史栈） */
-  applyIncrementalEdit: (
-    newText: string,
-    options?: { preserveCursor?: boolean; recordUndo?: boolean },
-  ) => void;
-  /** 撤销操作 (Undo) */
-  undo: () => void;
-  /** 重做操作 (Redo) */
-  redo: () => void;
-  /** 在模型池中创建受管 TextModel */
-  createModel: (
-    value: string,
-    language?: import('../types').CodeLanguage,
-    uri?: string | monaco.Uri,
-  ) => monaco.editor.ITextModel;
-  /** 切换当前编辑器绑定的活动 TextModel 并平滑保持视口与光标状态 */
-  setModel: (modelOrUri: monaco.editor.ITextModel | string) => void;
-  /** 销毁模型池中的指定 TextModel */
-  disposeModel: (modelOrUri: monaco.editor.ITextModel | string) => boolean;
-  /** 获取当前活动的 TextModel */
-  getActiveModel: () => monaco.editor.ITextModel | null;
-  /** 获取模型池中所有受管的 TextModel 列表 */
-  getModels: () => monaco.editor.ITextModel[];
-  /** 保存指定模型或当前活动的视图状态 (光标与滚动位置) */
-  saveViewState: (
-    modelOrUri?: monaco.editor.ITextModel | string,
-  ) => monaco.editor.ICodeEditorViewState | null;
-  /** 恢复指定模型的视图状态 */
-  restoreViewState: (
-    modelOrUri: monaco.editor.ITextModel | string,
-    state?: monaco.editor.ICodeEditorViewState | null,
-  ) => void;
-  /** 销毁当前实例与监听，并彻底注销池内所有 Model */
-  dispose: () => void;
+export type { UseCodeEditorReturn };
+
+interface MonacoJsonModule {
+  jsonDefaults?: {
+    setDiagnosticsOptions: (opts: {
+      validate?: boolean;
+      schemas?: Array<{
+        uri: string;
+        fileMatch?: string[];
+        schema?: object;
+      }>;
+    }) => void;
+  };
 }
 
 /**
@@ -114,10 +68,8 @@ export function useCodeEditor(
   let layoutHealingTimer: ReturnType<typeof setTimeout> | null = null;
   let completionDisposables: monaco.IDisposable[] = [];
 
-  // 受管模型池与视图状态缓存
-  const modelPool = new Map<string, monaco.editor.ITextModel>();
-  const viewStates = new Map<string, monaco.editor.ICodeEditorViewState | null>();
-  const selectionStates = new Map<string, monaco.Selection[] | null>();
+  // 受管模型池与视图状态管理器
+  const poolManager = createModelPoolManager(() => options.language ?? 'typescript');
 
   // 探测当前视口是否处于 0x0 挂起状态
   const checkViewportSuspension = (): boolean => {
@@ -301,67 +253,20 @@ export function useCodeEditor(
     checkLargeFile(newText);
   };
 
-  // 解析模型引用辅助函数
-  const resolveModel = (
-    modelOrUri: monaco.editor.ITextModel | string,
-  ): monaco.editor.ITextModel | null => {
-    if (typeof modelOrUri === 'string') {
-      const found = modelPool.get(modelOrUri);
-      if (found) return found;
-      try {
-        const parsedUri = monaco.Uri.parse(modelOrUri);
-        return monaco.editor.getModel(parsedUri);
-      } catch {
-        return null;
-      }
-    }
-    return modelOrUri;
-  };
-
   // 在模型池中创建新的受管 TextModel
   const createModel = (
     value: string,
     language?: import('../types').CodeLanguage,
     uri?: string | monaco.Uri,
   ): monaco.editor.ITextModel => {
-    const lang = language ?? options.language ?? 'typescript';
-    let targetUri: monaco.Uri | undefined = undefined;
-    if (uri) {
-      targetUri = typeof uri === 'string' ? monaco.Uri.parse(uri) : uri;
-      const existing = monaco.editor.getModel(targetUri);
-      if (existing) {
-        modelPool.set(existing.uri.toString(), existing);
-        return existing;
-      }
-    }
-    const newModel = markRaw(monaco.editor.createModel(value, lang, targetUri));
-    modelPool.set(newModel.uri.toString(), newModel);
-    return newModel;
+    return poolManager.createModel(value, language, uri);
   };
 
   // 保存视图状态
   const saveViewState = (
     modelOrUri?: monaco.editor.ITextModel | string,
   ): monaco.editor.ICodeEditorViewState | null => {
-    if (!editor.value) return null;
-    if (
-      !modelOrUri ||
-      (model.value && (modelOrUri === model.value || modelOrUri === model.value.uri.toString()))
-    ) {
-      const currentState = editor.value.saveViewState();
-      const currentSelections = editor.value.getSelections();
-      if (model.value) {
-        const uriStr = model.value.uri.toString();
-        viewStates.set(uriStr, currentState);
-        selectionStates.set(uriStr, currentSelections);
-      }
-      return currentState;
-    }
-    const target = resolveModel(modelOrUri);
-    if (target) {
-      return viewStates.get(target.uri.toString()) ?? null;
-    }
-    return null;
+    return poolManager.saveViewState(editor.value, model.value, modelOrUri);
   };
 
   // 恢复视图状态
@@ -369,88 +274,30 @@ export function useCodeEditor(
     modelOrUri: monaco.editor.ITextModel | string,
     state?: monaco.editor.ICodeEditorViewState | null,
   ): void => {
-    const target = resolveModel(modelOrUri);
-    if (!target) return;
-    const targetUri = target.uri.toString();
-    if (state !== undefined) {
-      viewStates.set(targetUri, state);
-    }
-    if (editor.value && model.value && model.value.uri.toString() === targetUri) {
-      const resolvedState = state ?? viewStates.get(targetUri);
-      if (resolvedState) {
-        editor.value.restoreViewState(resolvedState);
-      }
-      const savedSelections = selectionStates.get(targetUri);
-      if (savedSelections && savedSelections.length > 0) {
-        editor.value.setSelections(savedSelections);
-      }
-    }
+    poolManager.restoreViewState(editor.value, model.value, modelOrUri, state);
   };
 
   // 切换活动 TextModel 并保存与恢复视图状态
   const setModel = (modelOrUri: monaco.editor.ITextModel | string): void => {
-    const target = resolveModel(modelOrUri);
-    if (!target) return;
-    if (model.value && model.value.uri.toString() === target.uri.toString()) {
-      return;
+    const target = poolManager.switchModel(editor.value, model.value, modelOrUri);
+    if (target) {
+      model.value = target;
+      checkLargeFile(target.getValue());
     }
-
-    // 1. 保存前序模型的视图状态 (光标与滚动位置)
-    if (editor.value && model.value) {
-      const currentState = editor.value.saveViewState();
-      const currentSelections = editor.value.getSelections();
-      const prevUri = model.value.uri.toString();
-      viewStates.set(prevUri, currentState);
-      selectionStates.set(prevUri, currentSelections);
-    }
-
-    // 2. 确保新模型纳管在模型池中
-    modelPool.set(target.uri.toString(), target);
-
-    // 3. 切换底层 Editor 绑定的 TextModel
-    if (editor.value) {
-      editor.value.setModel(target);
-    }
-    model.value = target;
-
-    // 4. 恢复新模型的独立视图状态与光标选区
-    const targetUri = target.uri.toString();
-    const savedState = viewStates.get(targetUri);
-    const savedSelections = selectionStates.get(targetUri);
-    if (editor.value) {
-      if (savedState) {
-        editor.value.restoreViewState(savedState);
-      }
-      if (savedSelections && savedSelections.length > 0) {
-        editor.value.setSelections(savedSelections);
-      }
-    }
-
-    // 5. 触发大文件阈值安全校验
-    checkLargeFile(target.getValue());
   };
 
   // 销毁模型池中的指定 TextModel
   const disposeModel = (modelOrUri: monaco.editor.ITextModel | string): boolean => {
-    const target = resolveModel(modelOrUri);
-    if (!target) return false;
-    const uriStr = target.uri.toString();
-
-    // 如果销毁的是当前活动模型，先解绑
-    if (model.value && model.value.uri.toString() === uriStr) {
-      editor.value?.setModel(null);
+    const isCurrent =
+      model.value &&
+      (model.value === modelOrUri ||
+        model.value.uri.toString() ===
+          (typeof modelOrUri === 'string' ? modelOrUri : modelOrUri.uri.toString()));
+    const success = poolManager.disposeModel(editor.value, model.value, modelOrUri);
+    if (success && isCurrent) {
       model.value = null;
     }
-
-    viewStates.delete(uriStr);
-    selectionStates.delete(uriStr);
-    modelPool.delete(uriStr);
-    try {
-      target.dispose();
-    } catch {
-      // 容错处理
-    }
-    return true;
+    return success;
   };
 
   // 获取当前活动模型
@@ -460,7 +307,7 @@ export function useCodeEditor(
 
   // 获取池中所有模型
   const getModels = (): monaco.editor.ITextModel[] => {
-    return Array.from(modelPool.values());
+    return poolManager.getModels();
   };
 
   // 彻底销毁释放
@@ -482,29 +329,10 @@ export function useCodeEditor(
     }
     // 确定性清理全局 JSON Schema 诊断配置，杜绝跨页全局污染
     if (options.jsonSchema) {
-      interface MonacoJsonModule {
-        jsonDefaults?: {
-          setDiagnosticsOptions: (opts: { validate?: boolean; schemas?: unknown[] }) => void;
-        };
-      }
       const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
-      if (jsonLang?.jsonDefaults) {
-        jsonLang.jsonDefaults.setDiagnosticsOptions({
-          validate: true,
-          schemas: [],
-        });
-      }
+      jsonLang?.jsonDefaults?.setDiagnosticsOptions({ validate: true, schemas: [] });
     }
-    viewStates.clear();
-    selectionStates.clear();
-    modelPool.forEach(m => {
-      try {
-        m.dispose();
-      } catch {
-        // 容错处理
-      }
-    });
-    modelPool.clear();
+    poolManager.disposeAll();
     if (editor.value) {
       try {
         editor.value.setModel(null);
@@ -537,7 +365,7 @@ export function useCodeEditor(
     // 1. 创建独立 TextModel 并使用 markRaw 封装
     const createdModel = markRaw(monaco.editor.createModel(initialValue, initialLanguage));
     model.value = createdModel;
-    modelPool.set(createdModel.uri.toString(), createdModel);
+    poolManager.registerModel(createdModel);
 
     // 2. 构造配置项
     const editorOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
@@ -582,31 +410,17 @@ export function useCodeEditor(
     // 7. 注册声明式 JSON Schema 诊断
     if (options.jsonSchema && (initialLanguage === 'json' || !options.language)) {
       const modelUri = createdModel.uri.toString();
-      interface MonacoJsonModule {
-        jsonDefaults?: {
-          setDiagnosticsOptions: (opts: {
-            validate?: boolean;
-            schemas?: Array<{
-              uri: string;
-              fileMatch?: string[];
-              schema?: object;
-            }>;
-          }) => void;
-        };
-      }
       const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
-      if (jsonLang?.jsonDefaults) {
-        jsonLang.jsonDefaults.setDiagnosticsOptions({
-          validate: true,
-          schemas: [
-            {
-              uri: 'http://ateng-ui/schema.json',
-              fileMatch: [modelUri],
-              schema: options.jsonSchema,
-            },
-          ],
-        });
-      }
+      jsonLang?.jsonDefaults?.setDiagnosticsOptions({
+        validate: true,
+        schemas: [
+          {
+            uri: 'http://ateng-ui/schema.json',
+            fileMatch: [modelUri],
+            schema: options.jsonSchema,
+          },
+        ],
+      });
     }
 
     // 8. 注册 ResizeObserver 视口自愈监听

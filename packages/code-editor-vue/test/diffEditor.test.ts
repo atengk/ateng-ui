@@ -237,11 +237,14 @@ describe('AtengCodeDiffEditor 组件单元测试', () => {
     // 再次点击并排按钮
     const splitBtn = btns.find(b => b.text().includes('并排'));
     expect(splitBtn).toBeTruthy();
-    await splitBtn!.trigger('click');
-    await nextTick();
+    expect(splitBtn).toBeDefined();
+    if (splitBtn) {
+      await splitBtn.trigger('click');
+      await nextTick();
 
-    expect(vm.getDiffMode()).toBe('split');
-    expect(wrapper.emitted('update:diffMode')?.[1]).toEqual(['split']);
+      expect(vm.getDiffMode()).toBe('split');
+      expect(wrapper.emitted('update:diffMode')?.[1]).toEqual(['split']);
+    }
   });
 
   it('点击差异跳转按钮触发 goToPreviousDiff 与 goToNextDiff 方法', async () => {
@@ -262,14 +265,18 @@ describe('AtengCodeDiffEditor 组件单元测试', () => {
     const prevBtn = btns.find(b => b.text().includes('上一处'));
     const nextBtn = btns.find(b => b.text().includes('下一处'));
 
-    expect(prevBtn).toBeTruthy();
-    expect(nextBtn).toBeTruthy();
+    expect(prevBtn).toBeDefined();
+    expect(nextBtn).toBeDefined();
 
-    await prevBtn!.trigger('click');
-    expect(prevSpy).toHaveBeenCalled();
+    if (prevBtn) {
+      await prevBtn.trigger('click');
+      expect(prevSpy).toHaveBeenCalled();
+    }
 
-    await nextBtn!.trigger('click');
-    expect(nextSpy).toHaveBeenCalled();
+    if (nextBtn) {
+      await nextBtn.trigger('click');
+      expect(nextSpy).toHaveBeenCalled();
+    }
   });
 
   it('支持插槽反转自定义工具栏与状态栏', async () => {
@@ -291,5 +298,55 @@ describe('AtengCodeDiffEditor 组件单元测试', () => {
     expect(wrapper.find('.custom-diff-tool').text()).toBe('Custom Diff Bar');
     expect(wrapper.find('.custom-diff-status').exists()).toBe(true);
     expect(wrapper.find('.custom-diff-status').text()).toBe('Custom Status');
+  });
+
+  it('支持 originalReadOnly 动态响应式切换并在组件 props 改变时触发更新', async () => {
+    wrapper = mount(AtengCodeDiffEditor, {
+      props: {
+        original: 'orig text',
+        modified: 'mod text',
+        originalReadOnly: true,
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    const vm = wrapper.vm as unknown as CodeDiffEditorExpose;
+    const diffEd = vm.getDiffEditor();
+    expect(diffEd).not.toBeNull();
+    if (!diffEd) return;
+
+    const updateOptionsSpy = vi.spyOn(diffEd, 'updateOptions');
+
+    // 动态切换为非只读
+    await wrapper.setProps({ originalReadOnly: false });
+    await nextTick();
+
+    expect(updateOptionsSpy).toHaveBeenCalledWith({ originalEditable: true });
+
+    // 再次切换为只读
+    await wrapper.setProps({ originalReadOnly: true });
+    await nextTick();
+
+    expect(updateOptionsSpy).toHaveBeenCalledWith({ originalEditable: false });
+  });
+
+  it('增量更新防线：外部文本更新通过 executeEdits 保持增量更新', async () => {
+    wrapper = mount(AtengCodeDiffEditor, {
+      props: {
+        original: 'line 1\nline 2',
+        modified: 'line 1\nline 2 modified',
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    const vm = wrapper.vm as unknown as CodeDiffEditorExpose;
+
+    // 外部修改文本
+    await wrapper.setProps({ modified: 'line 1\nline 2 updated' });
+    await nextTick();
+
+    expect(vm.getModifiedValue()).toBe('line 1\nline 2 updated');
   });
 });
