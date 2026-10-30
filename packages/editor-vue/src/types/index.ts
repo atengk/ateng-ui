@@ -8,3 +8,4 @@
 export * from './editor';
 export * from './components';
 export * from './ai';
+export * from './docx';

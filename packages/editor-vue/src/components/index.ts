@@ -21,6 +21,9 @@ export { default as AtengAiBubbleMenu } from './AtengAiBubbleMenu.vue';
 export { default as AtengAiPromptBar } from './AtengAiPromptBar.vue';
 export { default as AtengAiDiffCard } from './AtengAiDiffCard.vue';
 export { default as AtengAgentEditor } from './AtengAgentEditor.vue';
+export { default as AtengPageRuler } from './AtengPageRuler.vue';
+export { default as AtengPageCanvas } from './AtengPageCanvas.vue';
+export { default as AtengDocxEditor } from './AtengDocxEditor.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengSimpleEditorInstance = InstanceType<
@@ -60,3 +63,6 @@ export type AtengAiDiffCardInstance = InstanceType<typeof import('./AtengAiDiffC
 export type AtengAgentEditorInstance = InstanceType<
   typeof import('./AtengAgentEditor.vue').default
 >;
+export type AtengPageRulerInstance = InstanceType<typeof import('./AtengPageRuler.vue').default>;
+export type AtengPageCanvasInstance = InstanceType<typeof import('./AtengPageCanvas.vue').default>;
+export type AtengDocxEditorInstance = InstanceType<typeof import('./AtengDocxEditor.vue').default>;

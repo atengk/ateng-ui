@@ -58,6 +58,15 @@ export type { AtengAiDiffCardInstance } from './components';
 export { default as AtengAgentEditor } from './components/AtengAgentEditor.vue';
 export type { AtengAgentEditorInstance } from './components';
 
+export { default as AtengPageRuler } from './components/AtengPageRuler.vue';
+export type { AtengPageRulerInstance } from './components';
+
+export { default as AtengPageCanvas } from './components/AtengPageCanvas.vue';
+export type { AtengPageCanvasInstance } from './components';
+
+export { default as AtengDocxEditor } from './components/AtengDocxEditor.vue';
+export type { AtengDocxEditorInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
@@ -135,4 +144,13 @@ export type {
   MockAiStreamHandlerOptions,
   AiStreamingState,
   AiStreamingOptions,
+  PageOrientation,
+  PageMarginPreset,
+  PageMarginConfig,
+  DocxHeaderFooterAlign,
+  AtengPageRulerProps,
+  AtengPageCanvasProps,
+  DocxEditorProps,
+  DocxEditorEmits,
+  AtengDocxEditorMethods,
 } from './types';

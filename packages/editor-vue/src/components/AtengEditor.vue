@@ -27,6 +27,7 @@ import AtengBubbleMenu from './AtengBubbleMenu.vue';
 import AtengSlashCommand from './AtengSlashCommand.vue';
 import AtengDragHandle from './AtengDragHandle.vue';
 import AtengStatusBar from './AtengStatusBar.vue';
+import AtengPageCanvas from './AtengPageCanvas.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
@@ -64,6 +65,14 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   height: undefined,
   minHeight: undefined,
   maxHeight: undefined,
+  orientation: 'portrait',
+  pageMargin: 'standard',
+  showRuler: true,
+  header: undefined,
+  footer: undefined,
+  showPageNumber: true,
+  headerAlign: 'center',
+  footerAlign: 'center',
 });
 
 const emit = defineEmits<AtengEditorEmits>();
@@ -363,7 +372,23 @@ defineExpose<AtengEditorExpose>({
 
     <!-- 正文内容编辑区域 -->
     <div class="at-editor__body">
-      <EditorContent class="at-editor__content" :editor="editor ?? undefined" />
+      <AtengPageCanvas
+        v-if="props.mode === 'docx'"
+        :orientation="props.orientation"
+        :page-margin="props.pageMargin"
+        :show-ruler="props.showRuler"
+        :header="props.header"
+        :footer="props.footer"
+        :show-page-number="props.showPageNumber"
+        :header-align="props.headerAlign"
+        :footer-align="props.footerAlign"
+        :editable-header-footer="!props.disabled && !props.readOnly"
+        @update:header="val => emit('update:header', val)"
+        @update:footer="val => emit('update:footer', val)"
+      >
+        <EditorContent class="at-editor__content" :editor="editor ?? undefined" />
+      </AtengPageCanvas>
+      <EditorContent v-else class="at-editor__content" :editor="editor ?? undefined" />
     </div>
 
     <!-- 吸底状态栏 (readOnly 下不展示) -->

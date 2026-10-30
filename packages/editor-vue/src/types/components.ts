@@ -19,6 +19,12 @@ import type {
   SlashCommandItem,
 } from './editor';
 import type { AiStreamHandler, AiPromptAction } from './ai';
+import type {
+  PageOrientation,
+  PageMarginPreset,
+  PageMarginConfig,
+  DocxHeaderFooterAlign,
+} from './docx';
 import type { FullHtmlOptions } from '../utils/export';
 
 /**
@@ -137,6 +143,52 @@ export interface AtengEditorProps extends EditorBaseProps {
   maxWidth?: string;
 
   /**
+   * 纸张方向（仅在 mode='docx' 时生效）。
+   * @default 'portrait'
+   */
+  orientation?: PageOrientation;
+
+  /**
+   * 页面边距预设或自定义（仅在 mode='docx' 时生效）。
+   * @default 'standard'
+   */
+  pageMargin?: PageMarginPreset | PageMarginConfig;
+
+  /**
+   * 是否展示顶部毫米标尺（仅在 mode='docx' 时生效）。
+   * @default true
+   */
+  showRuler?: boolean;
+
+  /**
+   * 页眉文本内容（仅在 mode='docx' 时生效）。
+   */
+  header?: string;
+
+  /**
+   * 页脚文本内容（仅在 mode='docx' 时生效）。
+   */
+  footer?: string;
+
+  /**
+   * 是否展示动态页码（仅在 mode='docx' 时生效）。
+   * @default true
+   */
+  showPageNumber?: boolean;
+
+  /**
+   * 页眉对齐方式（仅在 mode='docx' 时生效）。
+   * @default 'center'
+   */
+  headerAlign?: DocxHeaderFooterAlign;
+
+  /**
+   * 页脚对齐方式（仅在 mode='docx' 时生效）。
+   * @default 'center'
+   */
+  footerAlign?: DocxHeaderFooterAlign;
+
+  /**
    * 是否展示原生轻量微工具栏，默认根据 mode 自适应（default/simple 为 true，notion 为 false）。
    */
   showToolbar?: boolean;
@@ -206,6 +258,8 @@ export interface AtengEditorEmits {
   (e: 'uploadError', error: Error, file: File): void;
   (e: 'update:fullscreen', isFullscreen: boolean): void;
   (e: 'themeChange', isDark: boolean): void;
+  (e: 'update:header', header: string): void;
+  (e: 'update:footer', footer: string): void;
 }
 
 /**
@@ -719,3 +773,4 @@ export interface AtengAiPromptBarProps {
 }
 
 export type { FullHtmlOptions };
+export type * from './docx';

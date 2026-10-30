@@ -14,6 +14,9 @@
 | **场景预设**   | 经典轻量编辑器     | `AtengSimpleEditor`                        | `SimpleEditorProps (tools, dense) -> Expose`           | 经典轻量预设，标配自适应单行折叠工具栏与紧凑模式，严格隔离斜杠与浮层干扰                    | [SimpleEditor.test.ts](./test/SimpleEditor.test.ts) / [SimpleEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/SimpleEditorScenario.vue)             |
 | **场景预设**   | 知识库无界白板     | `AtengNotionEditor`                        | `NotionEditorProps (maxWidth) -> Expose`               | 现代知识库预设，纯净无顶栏白板，标配六点手柄、斜杠命令、Callout 与 Toggle 物料              | [NotionEditor.test.ts](./test/NotionEditor.test.ts) / [NotionEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/NotionEditorScenario.vue)             |
 | **场景预设**   | 智能创作协作预设   | `AtengAgentEditor`                         | `AgentEditorProps (aiStreamHandler) -> Expose`         | 智能创作预设，标配双通道 AI 唤起、行内原位对比审阅卡片与原子历史事务                        | [AgentEditor.test.ts](./test/AgentEditor.test.ts) / [AgentEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/AgentEditorScenario.vue)                 |
+| **场景预设**   | DOCX 物理排版预设  | `AtengDocxEditor`                          | `DocxEditorProps (orientation, pageMargin) -> Expose`  | DOCX 物理排版预设，标配 A4 仿真纸张画布、动态断页槽、刻度标尺与双击交互式页眉页脚           | [DocxEditor.test.ts](./test/DocxEditor.test.ts) / [DocxEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/DocxEditorScenario.vue)                     |
+| **排版容器**   | A4 仿真纸张画布    | `AtengPageCanvas`                          | `AtengPageCanvasProps (orientation, pageMargin)`       | A4 物理仿真纸张容器，支持纵横向切换、多档页边距、高度实时测量与虚拟动态断页                 | [DocxEditor.test.ts](./test/DocxEditor.test.ts) / [DocxEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/DocxEditorScenario.vue)                     |
+| **排版辅助**   | 毫米级刻度标尺     | `AtengPageRuler`                           | `AtengPageRulerProps (width, marginLeft, marginRight)` | A4 毫米级刻度标尺，纯 SVG/CSS 绘制 cm/mm 刻度，标示可排版区域与左右页边距游标滑块           | [DocxEditor.test.ts](./test/DocxEditor.test.ts) / [DocxEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/DocxEditorScenario.vue)                     |
 | **操作工具**   | 轻量微工具栏       | `AtengEditorToolbar`                       | `editor, disabled, isFullscreen`                       | 原生全中文排版操作栏，提供撤销/重做、标题、样式、列表、表格、代码、对齐、清除与全屏         | [AtengEditor.test.ts](./test/AtengEditor.test.ts) / [BasicEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/BasicEditorScenario.vue)                 |
 | **操作工具**   | 响应式折叠工具栏   | `AtengSimpleToolbar`                       | `AtengSimpleToolbarProps (tools, dense)`               | 自适应单行工具栏，宽度不足时将次要按钮折叠入“更多 (•••)”菜单，支持声明式 tools 筛选         | [SimpleEditor.test.ts](./test/SimpleEditor.test.ts) / [SimpleEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/SimpleEditorScenario.vue)             |
 | **块级交互**   | 六点悬浮拖拽手柄   | `AtengDragHandle`                          | `AtengDragHandleProps -> #drag-handle, #block-menu`    | 原生 DOM/SVG 驱动块级手柄，贴合鼠标位置，支持拖拽重排与纯中文块级上下文菜单，100% 插槽倒置  | [DragHandle.test.ts](./test/DragHandle.test.ts) / [NotionEditorScenario.vue](../../apps/sample-editor-vue/src/scenarios/NotionEditorScenario.vue)                 |
@@ -95,6 +98,7 @@ import {
   AtengSimpleEditor,
   AtengNotionEditor,
   AtengAgentEditor,
+  AtengDocxEditor,
   createMockAiStreamHandler,
 } from '@atengk/editor-vue';
 
@@ -119,6 +123,16 @@ const mockHandler = createMockAiStreamHandler();
 
   <!-- 方式四：AI 智能写作与审阅预设（双通道唤起、Diff 对比卡片与撤销保全） -->
   <AtengAgentEditor v-model="content" :ai-stream-handler="mockHandler" />
+
+  <!-- 方式五：DOCX 物理分页排版预设（A4 仿真纸张、动态断页、刻度标尺与页眉页脚） -->
+  <AtengDocxEditor
+    v-model="content"
+    orientation="portrait"
+    page-margin="standard"
+    :show-ruler="true"
+    header="数字化转型指导意见"
+    footer="绝密 · 内部流通"
+  />
 </template>
 ```
 
