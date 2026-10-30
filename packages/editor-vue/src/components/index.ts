@@ -7,6 +7,7 @@
 
 export { default as AtengEditor } from './AtengEditor.vue';
 export { default as AtengSimpleEditor } from './AtengSimpleEditor.vue';
+export { default as AtengNotionEditor } from './AtengNotionEditor.vue';
 export { default as AtengEditorToolbar } from './AtengEditorToolbar.vue';
 export { default as AtengSimpleToolbar } from './AtengSimpleToolbar.vue';
 export { default as AtengTableBubbleMenu } from './AtengTableBubbleMenu.vue';
@@ -20,6 +21,9 @@ export { default as AtengStatusBar } from './AtengStatusBar.vue';
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengSimpleEditorInstance = InstanceType<
   typeof import('./AtengSimpleEditor.vue').default
+>;
+export type AtengNotionEditorInstance = InstanceType<
+  typeof import('./AtengNotionEditor.vue').default
 >;
 export type AtengEditorToolbarInstance = InstanceType<
   typeof import('./AtengEditorToolbar.vue').default

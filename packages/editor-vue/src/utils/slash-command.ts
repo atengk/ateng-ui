@@ -78,6 +78,24 @@ export const defaultSlashCommandItems: SlashCommandItem[] = [
     },
   },
   {
+    id: 'toggle-list',
+    title: '折叠列表',
+    description: '可交互折叠展开的嵌套列表',
+    group: '列表',
+    action: (editor: CoreEditor) => {
+      editor.chain().focus().toggleToggleList().run();
+    },
+  },
+  {
+    id: 'callout',
+    title: '高亮提示',
+    description: '重点醒目提示卡片 (Callout)',
+    group: '排版',
+    action: (editor: CoreEditor) => {
+      editor.chain().focus().toggleCalloutBlock({ type: 'info' }).run();
+    },
+  },
+  {
     id: 'blockquote',
     title: '引用',
     description: '醒目的段落引用说明',

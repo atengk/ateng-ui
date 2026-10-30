@@ -150,9 +150,9 @@ describe('选区气泡浮层与斜杠命令 (Selection Bubble & Slash Commands)'
     await nextTick();
     expect(slashWrapper.find('.at-editor-slash-menu').exists()).toBe(true);
 
-    // 验证包含所有 11 种标准块级物料项
+    // 验证包含所有 13 种标准块级物料项（含折叠列表与高亮提示）
     const items = slashWrapper.findAll('.at-editor-slash-menu__item');
-    expect(items.length).toBe(11);
+    expect(items.length).toBe(13);
 
     const itemTitles = items.map(item => item.find('.at-editor-slash-menu__item-title').text());
     expect(itemTitles).toContain('一级标题');
@@ -162,6 +162,8 @@ describe('选区气泡浮层与斜杠命令 (Selection Bubble & Slash Commands)'
     expect(itemTitles).toContain('无序列表');
     expect(itemTitles).toContain('有序列表');
     expect(itemTitles).toContain('任务待办');
+    expect(itemTitles).toContain('折叠列表');
+    expect(itemTitles).toContain('高亮提示');
     expect(itemTitles).toContain('引用');
     expect(itemTitles).toContain('代码块');
     expect(itemTitles).toContain('表格');
@@ -319,7 +321,7 @@ describe('选区气泡浮层与斜杠命令 (Selection Bubble & Slash Commands)'
     await nextTick();
     const customSlot = wrapper.find('.custom-slash-command-slot');
     expect(customSlot.exists()).toBe(true);
-    expect(customSlot.text()).toContain('自定义斜杠物料数量: 11');
+    expect(customSlot.text()).toContain('自定义斜杠物料数量: 13');
   });
 
   it('支持通过 showBubbleMenu 与 showSlashCommand 显式关闭浮层渲染', async () => {

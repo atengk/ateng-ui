@@ -6,3 +6,6 @@
  */
 
 export * from './default-extensions';
+export * from './callout';
+export * from './toggle';
+export * from './upload';

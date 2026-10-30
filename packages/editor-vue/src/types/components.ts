@@ -21,9 +21,9 @@ import type {
 import type { FullHtmlOptions } from '../utils/export';
 
 /**
- * <AtengEditor /> 表现容器对外 Props 声明接口。
+ * 企业级富文本预设统一基线契约接口。
  */
-export interface AtengEditorProps {
+export interface EditorBaseProps {
   /**
    * 默认双向绑定：标准 HTML 内容字符串。
    */
@@ -75,6 +75,36 @@ export interface AtengEditorProps {
   extensions?: AnyExtension[];
 
   /**
+   * 纯文本字符数硬限制上限。达到上限时通过 ProseMirror 事务拦截物理键盘输入与外部粘贴。
+   */
+  maxLength?: number;
+
+  /**
+   * 媒体资产上传拦截器 SPI 处理函数。
+   */
+  uploadHandler?: UploadHandler;
+
+  /**
+   * 编辑器固定高度，支持数字（像素）或 CSS 长度字符串。
+   */
+  height?: number | string;
+
+  /**
+   * 编辑器最小高度。
+   */
+  minHeight?: number | string;
+
+  /**
+   * 编辑器最大高度。
+   */
+  maxHeight?: number | string;
+}
+
+/**
+ * <AtengEditor /> 表现容器对外 Props 声明接口。
+ */
+export interface AtengEditorProps extends EditorBaseProps {
+  /**
    * 是否展示原生轻量微工具栏，默认 true。
    */
   showToolbar?: boolean;
@@ -115,11 +145,6 @@ export interface AtengEditorProps {
   showDragHandle?: boolean;
 
   /**
-   * 纯文本字符数硬限制上限。达到上限时通过 ProseMirror 事务拦截物理键盘输入与外部粘贴。
-   */
-  maxLength?: number;
-
-  /**
    * 是否展示吸底状态栏，默认 true。
    */
   showStatusBar?: boolean;
@@ -133,26 +158,6 @@ export interface AtengEditorProps {
    * 是否在状态栏中展示段落数统计，默认 true。
    */
   showParagraphCount?: boolean;
-
-  /**
-   * 媒体资产上传拦截器 SPI 处理函数。
-   */
-  uploadHandler?: UploadHandler;
-
-  /**
-   * 编辑器固定高度，支持数字（像素）或 CSS 长度字符串。
-   */
-  height?: number | string;
-
-  /**
-   * 编辑器最小高度。
-   */
-  minHeight?: number | string;
-
-  /**
-   * 编辑器最大高度。
-   */
-  maxHeight?: number | string;
 }
 
 /**
@@ -552,6 +557,70 @@ export interface AtengDragHandleProps {
    * 手柄相对于块左侧的水平偏移量（像素），默认 -28。
    */
   offsetX?: number;
+}
+
+/**
+ * Notion-like 现代沉浸式无界白板预设配置。
+ */
+export interface NotionEditorProps extends EditorBaseProps {
+  /**
+   * 是否启用六点悬浮拖拽手柄。
+   * @default true
+   */
+  dragHandle?: boolean;
+
+  /**
+   * 是否启用斜杠快速命令。
+   * @default true
+   */
+  slashCommand?: boolean;
+
+  /**
+   * 是否启用重点高亮卡片扩展 (CalloutBlock)。
+   * @default true
+   */
+  callout?: boolean;
+
+  /**
+   * 是否启用折叠列表扩展 (ToggleList)。
+   * @default true
+   */
+  toggle?: boolean;
+
+  /**
+   * 是否启用划词浮动气泡菜单。
+   * @default true
+   */
+  bubbleMenu?: boolean;
+
+  /**
+   * 是否启用表格浮动气泡菜单。
+   * @default true
+   */
+  tableMenu?: boolean;
+
+  /**
+   * 是否展示底部状态栏。
+   * @default false
+   */
+  showStatusBar?: boolean;
+
+  /**
+   * 预设画布最大宽度，用于知识库流式排版（如 '860px'）。
+   * @default '860px'
+   */
+  maxWidth?: string;
+
+  /**
+   * 编辑容器最小高度。
+   * @default '400px'
+   */
+  minHeight?: string;
+
+  /**
+   * 编辑容器最大高度。
+   */
+  maxHeight?: string;
 }
 
 export type { FullHtmlOptions };

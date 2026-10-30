@@ -26,6 +26,8 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { Markdown } from 'tiptap-markdown';
 import { createLowlight, common } from 'lowlight';
 import { FileUploadExtension } from './upload';
+import { CalloutBlock } from './callout';
+import { ToggleList } from './toggle';
 import type { UploadHandler, UploadSuccessPayload } from '../types';
 
 const lowlight = createLowlight(common);
@@ -115,6 +117,8 @@ export function createDefaultExtensions(
       html: true,
       tightLists: true,
     }),
+    CalloutBlock,
+    ToggleList,
   ];
 
   if (options.extraExtensions && options.extraExtensions.length > 0) {

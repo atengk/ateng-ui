@@ -16,6 +16,9 @@ export type { AtengEditorInstance } from './components';
 export { default as AtengSimpleEditor } from './components/AtengSimpleEditor.vue';
 export type { AtengSimpleEditorInstance } from './components';
 
+export { default as AtengNotionEditor } from './components/AtengNotionEditor.vue';
+export type { AtengNotionEditorInstance } from './components';
+
 export { default as AtengEditorToolbar } from './components/AtengEditorToolbar.vue';
 export type { AtengEditorToolbarInstance } from './components';
 
@@ -55,6 +58,12 @@ export type { CreateDefaultExtensionsOptions } from './extensions/default-extens
 export { FileUploadExtension } from './extensions/upload';
 export type { FileUploadOptions } from './extensions/upload';
 
+export { CalloutBlock } from './extensions/callout';
+export type { CalloutType, CalloutBlockOptions } from './extensions/callout';
+
+export { ToggleList } from './extensions/toggle';
+export type { ToggleListOptions } from './extensions/toggle';
+
 export {
   isContentEqual,
   applyContentPreservingSelection,
@@ -72,9 +81,11 @@ export {
 export type {
   EditorOutputFormat,
   UseEditorOptions,
+  EditorBaseProps,
   AtengEditorProps,
   SimpleToolbarItem,
   SimpleEditorProps,
+  NotionEditorProps,
   AtengSimpleToolbarProps,
   AtengEditorEmits,
   AtengEditorExpose,
