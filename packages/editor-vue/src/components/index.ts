@@ -10,6 +10,8 @@ export { default as AtengEditorToolbar } from './AtengEditorToolbar.vue';
 export { default as AtengTableBubbleMenu } from './AtengTableBubbleMenu.vue';
 export { default as AtengImageBubbleMenu } from './AtengImageBubbleMenu.vue';
 export { default as AtengLinkBubbleMenu } from './AtengLinkBubbleMenu.vue';
+export { default as AtengBubbleMenu } from './AtengBubbleMenu.vue';
+export { default as AtengSlashCommand } from './AtengSlashCommand.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengEditorToolbarInstance = InstanceType<
@@ -23,4 +25,8 @@ export type AtengImageBubbleMenuInstance = InstanceType<
 >;
 export type AtengLinkBubbleMenuInstance = InstanceType<
   typeof import('./AtengLinkBubbleMenu.vue').default
+>;
+export type AtengBubbleMenuInstance = InstanceType<typeof import('./AtengBubbleMenu.vue').default>;
+export type AtengSlashCommandInstance = InstanceType<
+  typeof import('./AtengSlashCommand.vue').default
 >;

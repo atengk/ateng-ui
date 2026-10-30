@@ -25,6 +25,12 @@ export type { AtengImageBubbleMenuInstance } from './components';
 export { default as AtengLinkBubbleMenu } from './components/AtengLinkBubbleMenu.vue';
 export type { AtengLinkBubbleMenuInstance } from './components';
 
+export { default as AtengBubbleMenu } from './components/AtengBubbleMenu.vue';
+export type { AtengBubbleMenuInstance } from './components';
+
+export { default as AtengSlashCommand } from './components/AtengSlashCommand.vue';
+export type { AtengSlashCommandInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
@@ -34,7 +40,7 @@ export type { CreateDefaultExtensionsOptions } from './extensions/default-extens
 export { FileUploadExtension } from './extensions/upload';
 export type { FileUploadOptions } from './extensions/upload';
 
-export { isContentEqual, applyContentPreservingSelection } from './utils';
+export { isContentEqual, applyContentPreservingSelection, defaultSlashCommandItems } from './utils';
 
 export type {
   EditorOutputFormat,
@@ -45,6 +51,9 @@ export type {
   AtengTableBubbleMenuProps,
   AtengImageBubbleMenuProps,
   AtengLinkBubbleMenuProps,
+  AtengBubbleMenuProps,
+  AtengSlashCommandProps,
+  SlashCommandItem,
   UploadHandlerResult,
   UploadHandler,
   UploadSuccessPayload,

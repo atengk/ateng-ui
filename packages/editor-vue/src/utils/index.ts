@@ -6,3 +6,4 @@
  */
 
 export * from './sync';
+export * from './slash-command';

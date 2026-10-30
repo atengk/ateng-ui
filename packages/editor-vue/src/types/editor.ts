@@ -182,6 +182,16 @@ export interface AtengEditorProps {
   showImageMenu?: boolean;
 
   /**
+   * 是否展示划选文本高频排版气泡浮层，默认 true。
+   */
+  showBubbleMenu?: boolean;
+
+  /**
+   * 是否展示块级斜杠命令快速唤起面板，默认 true。
+   */
+  showSlashCommand?: boolean;
+
+  /**
    * 媒体资产上传拦截器 SPI 处理函数。
    * 若未提供，默认自动降级为安全 Base64 Data URL 内联。
    */
@@ -296,6 +306,117 @@ export interface AtengLinkBubbleMenuProps {
    * 是否禁用操作。
    */
   disabled?: boolean;
+
+  /**
+   * 自定义 Tippy.js 配置选项。
+   */
+  tippyOptions?: Record<string, unknown>;
+
+  /**
+   * 自定义浮层显示判定函数。
+   */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    oldState?: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+
+/**
+ * 块级斜杠命令面板物料项定义。
+ */
+export interface SlashCommandItem {
+  /**
+   * 物料唯一标识。
+   */
+  id: string;
+
+  /**
+   * 物料中文标题。
+   */
+  title: string;
+
+  /**
+   * 物料用途中文简述。
+   */
+  description: string;
+
+  /**
+   * 物料所属逻辑分组（如“基础块”、“列表”、“高级”等）。
+   */
+  group?: string;
+
+  /**
+   * 预留图标名称或 SVG 路径。
+   */
+  icon?: string;
+
+  /**
+   * 点击或回车选定该物料时执行的编辑器指令。
+   */
+  action: (editor: CoreEditor) => void;
+}
+
+/**
+ * <AtengBubbleMenu /> 划选文本高频排版气泡菜单组件入参 Props 接口。
+ */
+export interface AtengBubbleMenuProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 自定义 Tippy.js 配置选项。
+   */
+  tippyOptions?: Record<string, unknown>;
+
+  /**
+   * 自定义浮层显示判定函数。
+   */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    oldState?: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+
+/**
+ * <AtengSlashCommand /> 块级斜杠命令面板组件入参 Props 接口。
+ */
+export interface AtengSlashCommandProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 是否在空行时光标闪烁直接呼出，默认 true。若为 false 则仅在输入 '/' 时呼出。
+   */
+  triggerOnEmpty?: boolean;
+
+  /**
+   * 自定义物料清单列表。若未提供则使用内置标准全套物料。
+   */
+  items?: SlashCommandItem[];
 
   /**
    * 自定义 Tippy.js 配置选项。

@@ -10,6 +10,7 @@ import { ref } from 'vue';
 import BasicEditorScenario from './scenarios/BasicEditorScenario.vue';
 import TableErgonomicsScenario from './scenarios/TableErgonomicsScenario.vue';
 import AssetUploadScenario from './scenarios/AssetUploadScenario.vue';
+import SlashAndBubbleScenario from './scenarios/SlashAndBubbleScenario.vue';
 
 const activeTab = ref<string>('basic');
 const isDark = ref<boolean>(false);
@@ -52,8 +53,8 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景三：媒体上传与骨架占位 (Upload)" name="upload">
           <AssetUploadScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景四：选区气泡与斜杠命令 (Slash & Bubble)" name="slash" disabled>
-          <div class="placeholder-tip">（工单 #189 阶段建设中）</div>
+        <el-tab-pane label="场景四：选区气泡与斜杠命令 (Slash & Bubble)" name="slash">
+          <SlashAndBubbleScenario />
         </el-tab-pane>
         <el-tab-pane label="场景五：表单联动与字数硬限制 (Form)" name="form" disabled>
           <div class="placeholder-tip">（工单 #190 阶段建设中）</div>

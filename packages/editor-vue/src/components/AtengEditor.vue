@@ -12,11 +12,17 @@
 import { computed, watch, ref } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import { useEditor } from '../composables/useEditor';
-import { isContentEqual, applyContentPreservingSelection } from '../utils/sync';
+import {
+  isContentEqual,
+  applyContentPreservingSelection,
+  defaultSlashCommandItems,
+} from '../utils';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
 import AtengImageBubbleMenu from './AtengImageBubbleMenu.vue';
 import AtengLinkBubbleMenu from './AtengLinkBubbleMenu.vue';
+import AtengBubbleMenu from './AtengBubbleMenu.vue';
+import AtengSlashCommand from './AtengSlashCommand.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
@@ -39,6 +45,8 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   showTableMenu: true,
   showLinkMenu: true,
   showImageMenu: true,
+  showBubbleMenu: true,
+  showSlashCommand: true,
   uploadHandler: undefined,
   height: undefined,
   minHeight: undefined,
@@ -259,6 +267,20 @@ defineExpose<AtengEditorExpose>({
     <template v-if="props.showImageMenu && !props.readOnly">
       <slot name="image-menu" :editor="editor">
         <AtengImageBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
+
+    <!-- 选区文本高频排版气泡菜单 (readOnly 下不展示) -->
+    <template v-if="props.showBubbleMenu && !props.readOnly">
+      <slot name="bubble-menu" :editor="editor">
+        <AtengBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
+
+    <!-- 块级斜杠命令快速唤起面板 (readOnly 下不展示) -->
+    <template v-if="props.showSlashCommand && !props.readOnly">
+      <slot name="slash-command" :editor="editor" :items="defaultSlashCommandItems">
+        <AtengSlashCommand v-if="editor" :editor="editor" :disabled="props.disabled" />
       </slot>
     </template>
   </div>
