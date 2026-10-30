@@ -9,7 +9,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import * as monaco from 'monaco-editor';
-import { AtengCodeEditor, formatSql, type CodeEditorExpose } from '../src';
+import {
+  AtengCodeEditor,
+  formatSql,
+  CompletionRegistry,
+  registerCompletionProvider,
+  type CodeEditorExpose,
+} from '../src';
 
 describe('SQL 智能补全美化、JSON Schema 校验与只读审计高亮 (Ticket #181)', () => {
   let wrapper: VueWrapper | null = null;
@@ -38,6 +44,23 @@ describe('SQL 智能补全美化、JSON Schema 校验与只读审计高亮 (Tick
     expect(formatted).toContain('ORDER BY');
     expect(formatted).toContain('DESC');
     expect(formatted.split('\n').length).toBeGreaterThan(3);
+  });
+
+  it('防线 1.1：formatSql 能够完美隔离单双引号字符串、反引号与注释，不篡改内部文本', () => {
+    const sqlWithLiteral =
+      "select id, 'select * from user where id = 1' as query_str, \"desc\", `status` from t where note = 'order by name' and comment = '-- not a comment';";
+    const formatted = formatSql(sqlWithLiteral);
+
+    // 字符串内部的小写与特殊符号必须保持 100% 原始不变
+    expect(formatted).toContain("'select * from user where id = 1'");
+    expect(formatted).toContain("'order by name'");
+    expect(formatted).toContain("'-- not a comment'");
+    expect(formatted).toContain('"desc"');
+    expect(formatted).toContain('`status`');
+    // 外层关键字仍正确大写
+    expect(formatted).toContain('SELECT');
+    expect(formatted).toContain('AS query_str');
+    expect(formatted).toContain('FROM t');
   });
 
   it('防线 2：formatSqlProvider SPI 允许外部接管格式化，且在组件 format() 时优先调用', async () => {
@@ -107,10 +130,11 @@ describe('SQL 智能补全美化、JSON Schema 校验与只读审计高亮 (Tick
 
     await nextTick();
     const vm = wrapper.vm as unknown as CodeEditorExpose;
-    const ed = vm.getEditor()!;
+    const ed = vm.getEditor();
+    expect(ed).not.toBeNull();
 
     // 验证 decorations collection 已建立
-    const decorations = ed.getModel()?.getAllDecorations() ?? [];
+    const decorations = ed?.getModel()?.getAllDecorations() ?? [];
     const highlightDecs = decorations.filter(d =>
       d.options.className?.includes('at-code-editor__highlight-line'),
     );
@@ -120,10 +144,35 @@ describe('SQL 智能补全美化、JSON Schema 校验与只读审计高亮 (Tick
     await wrapper.setProps({ highlightLines: [3] });
     await nextTick();
 
-    const updatedDecs = ed.getModel()?.getAllDecorations() ?? [];
+    const updatedDecs = ed?.getModel()?.getAllDecorations() ?? [];
     const updatedHighlights = updatedDecs.filter(d =>
       d.options.className?.includes('at-code-editor__highlight-line'),
     );
     expect(updatedHighlights.length).toBe(1);
+  });
+
+  it('防线 5：CompletionRegistry 与 registerCompletionProvider 生命周期受管并支持集中式清理', () => {
+    const disposeSpy1 = vi.fn();
+    const disposeSpy2 = vi.fn();
+    let callCount = 0;
+    vi.spyOn(monaco.languages, 'registerCompletionItemProvider').mockImplementation(() => {
+      callCount++;
+      return { dispose: callCount === 1 ? disposeSpy1 : disposeSpy2 };
+    });
+
+    const handle1 = registerCompletionProvider('sql', () => []);
+    CompletionRegistry.register('json', () => []);
+
+    expect(CompletionRegistry.getActiveCount()).toBe(2);
+
+    // 单项释放
+    handle1.dispose();
+    expect(disposeSpy1).toHaveBeenCalledTimes(1);
+    expect(CompletionRegistry.getActiveCount()).toBe(1);
+
+    // 集中式全量清空
+    CompletionRegistry.disposeAll();
+    expect(disposeSpy2).toHaveBeenCalledTimes(1);
+    expect(CompletionRegistry.getActiveCount()).toBe(0);
   });
 });

@@ -8,7 +8,7 @@
  */
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { setupMonacoWorkers } from '../src/workers';
+import { setupMonacoWorkers, setupViteMonacoWorkers } from '../src/workers';
 
 describe('setupMonacoWorkers WorkerProvider SPI 测试', () => {
   const originalMonacoEnvironment = window.MonacoEnvironment;
@@ -47,13 +47,16 @@ describe('setupMonacoWorkers WorkerProvider SPI 测试', () => {
     expect(window.MonacoEnvironment).toBeDefined();
     expect(typeof window.MonacoEnvironment?.getWorkerUrl).toBe('function');
 
-    const getUrl = window.MonacoEnvironment!.getWorkerUrl!;
-    expect(getUrl('1', 'json')).toBe('https://cdn.example.com/monaco-workers/json.worker.js');
-    expect(getUrl('2', 'css')).toBe('https://cdn.example.com/monaco-workers/css.worker.js');
-    expect(getUrl('3', 'html')).toBe('https://cdn.example.com/monaco-workers/html.worker.js');
-    expect(getUrl('4', 'typescript')).toBe('https://cdn.example.com/monaco-workers/ts.worker.js');
-    expect(getUrl('5', 'javascript')).toBe('https://cdn.example.com/monaco-workers/ts.worker.js');
-    expect(getUrl('6', 'custom')).toBe('https://cdn.example.com/monaco-workers/editor.worker.js');
+    const getUrl = window.MonacoEnvironment?.getWorkerUrl;
+    expect(getUrl).toBeDefined();
+    if (getUrl) {
+      expect(getUrl('1', 'json')).toBe('https://cdn.example.com/monaco-workers/json.worker.js');
+      expect(getUrl('2', 'css')).toBe('https://cdn.example.com/monaco-workers/css.worker.js');
+      expect(getUrl('3', 'html')).toBe('https://cdn.example.com/monaco-workers/html.worker.js');
+      expect(getUrl('4', 'typescript')).toBe('https://cdn.example.com/monaco-workers/ts.worker.js');
+      expect(getUrl('5', 'javascript')).toBe('https://cdn.example.com/monaco-workers/ts.worker.js');
+      expect(getUrl('6', 'custom')).toBe('https://cdn.example.com/monaco-workers/editor.worker.js');
+    }
   });
 
   it('自定义 getWorker 函数时应优先使用自定义逻辑', () => {
@@ -66,5 +69,33 @@ describe('setupMonacoWorkers WorkerProvider SPI 测试', () => {
     const res = window.MonacoEnvironment?.getWorker?.('id', 'json');
     expect(res).toBe(customWorker);
     expect(customGetWorker).toHaveBeenCalledWith('id', 'json');
+  });
+
+  it('setupViteMonacoWorkers 正确挂载各类 ESM Worker 构造器与保底降级', () => {
+    class MockEditorWorker {}
+    class MockJsonWorker {}
+
+    setupViteMonacoWorkers({
+      editorWorker: MockEditorWorker as unknown as new () => Worker,
+      jsonWorker: MockJsonWorker as unknown as new () => Worker,
+    });
+
+    const getWorker = window.MonacoEnvironment?.getWorker;
+    expect(getWorker).toBeDefined();
+
+    if (getWorker) {
+      const jsonW = getWorker('1', 'json');
+      expect(jsonW).toBeInstanceOf(MockJsonWorker);
+
+      const edW = getWorker('2', 'typescript');
+      expect(edW).toBeInstanceOf(MockEditorWorker);
+
+      // 未注册的 worker 且未配置 editorWorker 时保底降级
+      delete window.MonacoEnvironment;
+      setupViteMonacoWorkers({});
+      const fallbackW = window.MonacoEnvironment?.getWorker?.('3', 'unknown');
+      expect(fallbackW).toBeDefined();
+      expect(typeof fallbackW?.postMessage).toBe('function');
+    }
   });
 });

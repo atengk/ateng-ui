@@ -336,7 +336,19 @@ const handleSwitchFileTab = (tab: FileTab): void => {
         :read-only="isReadOnly"
         :font-size="fontSize"
         height="500px"
-      />
+      >
+        <!-- 演示 #extra 插槽：与原生复制、全屏按钮共存并列 -->
+        <template #extra>
+          <button
+            type="button"
+            class="at-code-editor__btn"
+            title="自定义拓展操作（清空内容）"
+            @click="code = ''"
+          >
+            🧹 清空
+          </button>
+        </template>
+      </AtengCodeEditor>
     </div>
 
     <!-- 响应式数据观察窗 -->

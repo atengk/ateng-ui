@@ -13,7 +13,7 @@
  * @since 2026-10-30
  */
 
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, type CSSProperties } from 'vue';
+import { ref, computed, watch, onUnmounted, nextTick, type CSSProperties } from 'vue';
 import * as monaco from 'monaco-editor';
 import type {
   CodeDiffEditorProps,
@@ -22,6 +22,7 @@ import type {
   DiffMode,
 } from '../types';
 import { useCodeDiff } from '../composables/useCodeDiff';
+import { useEditorTheme } from '../composables/useEditorTheme';
 
 const props = withDefaults(defineProps<CodeDiffEditorProps>(), {
   original: '',
@@ -66,8 +67,10 @@ const rootRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
 const isFullscreen = ref<boolean>(false);
 const copySuccess = ref<boolean>(false);
-const isDark = ref<boolean>(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 主题热跟随监听
+const { isDark, syncTheme } = useEditorTheme(() => props.theme);
 
 // 实际生效的 modified 初始值（优先使用 modified，其次回退至 modelValue）
 const effectiveModified = computed(() => props.modified || props.modelValue || '');
@@ -84,28 +87,6 @@ const containerStyle = computed<CSSProperties>(() => {
     width: w,
   };
 });
-
-// 暗黑模式热感知
-const checkDarkMode = (): boolean => {
-  if (typeof document === 'undefined') return false;
-  if (props.theme === 'vs-dark' || props.theme === 'hc-black') return true;
-  if (props.theme === 'vs') return false;
-  return (
-    document.documentElement.classList.contains('dark') ||
-    (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
-  );
-};
-
-let themeObserver: MutationObserver | null = null;
-let mediaQuery: MediaQueryList | null = null;
-let mediaQueryListener: (() => void) | null = null;
-
-const syncTheme = (): void => {
-  const dark = checkDarkMode();
-  isDark.value = dark;
-  const resolvedTheme = props.theme === 'auto' ? (dark ? 'vs-dark' : 'vs') : props.theme;
-  monaco.editor.setTheme(resolvedTheme);
-};
 
 // 初始化无头 Diff 状态机
 const {
@@ -130,7 +111,7 @@ const {
   modified: effectiveModified.value,
   diffMode: props.diffMode,
   language: props.language,
-  theme: props.theme === 'auto' ? (checkDarkMode() ? 'vs-dark' : 'vs') : props.theme,
+  theme: props.theme,
   readOnly: props.readOnly,
   originalReadOnly: props.originalReadOnly,
   fontSize: props.fontSize,
@@ -282,48 +263,7 @@ watch(
   },
 );
 
-// 监听主题属性
-watch(
-  () => props.theme,
-  () => {
-    syncTheme();
-  },
-);
-
-onMounted(() => {
-  syncTheme();
-  if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
-    themeObserver = new MutationObserver(() => {
-      if (props.theme === 'auto') {
-        syncTheme();
-      }
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-  }
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQueryListener = () => {
-      if (props.theme === 'auto') {
-        syncTheme();
-      }
-    };
-    mediaQuery.addEventListener('change', mediaQueryListener);
-  }
-});
-
 onUnmounted(() => {
-  if (themeObserver) {
-    themeObserver.disconnect();
-    themeObserver = null;
-  }
-  if (mediaQuery && mediaQueryListener) {
-    mediaQuery.removeEventListener('change', mediaQueryListener);
-    mediaQuery = null;
-    mediaQueryListener = null;
-  }
   if (copyTimer) {
     clearTimeout(copyTimer);
     copyTimer = null;
@@ -433,24 +373,23 @@ defineExpose<CodeDiffEditorExpose>({
 
         <div class="at-code-editor__toolbar-right">
           <slot name="toolbar-right">
-            <slot name="extra">
-              <button
-                type="button"
-                class="at-code-editor__btn"
-                title="复制修改后代码"
-                @click="handleCopyModified"
-              >
-                {{ copySuccess ? '已复制' : '复制新代码' }}
-              </button>
-              <button
-                type="button"
-                class="at-code-editor__btn"
-                :title="isFullscreen ? '退出全屏' : '全屏展示'"
-                @click="toggleFullscreen"
-              >
-                {{ isFullscreen ? '还原' : '全屏' }}
-              </button>
-            </slot>
+            <slot name="extra" />
+            <button
+              type="button"
+              class="at-code-editor__btn"
+              title="复制修改后代码"
+              @click="handleCopyModified"
+            >
+              {{ copySuccess ? '已复制' : '复制新代码' }}
+            </button>
+            <button
+              type="button"
+              class="at-code-editor__btn"
+              :title="isFullscreen ? '退出全屏' : '全屏展示'"
+              @click="toggleFullscreen"
+            >
+              {{ isFullscreen ? '还原' : '全屏' }}
+            </button>
           </slot>
         </div>
       </slot>

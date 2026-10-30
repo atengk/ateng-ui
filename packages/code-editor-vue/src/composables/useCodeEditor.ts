@@ -27,6 +27,7 @@ import * as monaco from 'monaco-editor';
 import type { UseCodeEditorOptions } from '../types';
 import { setupMonacoWorkers } from '../workers';
 import { formatSql } from '../sql/formatter';
+import { registerCompletionProvider } from '../completion/registry';
 
 export interface UseCodeEditorReturn {
   /** Monaco 编辑器原生实例 (shallowRef) */
@@ -279,13 +280,14 @@ export function useCodeEditor(
       editor.value.executeEdits('incremental-update', [editOp], prevSelections ?? undefined);
 
       // 4. 精准恢复或弹性修剪光标位置
-      if (preserveCursor && prevSelections && prevSelections.length > 0) {
-        const lineCount = model.value.getLineCount();
+      const activeTextModel = model.value;
+      if (preserveCursor && prevSelections && prevSelections.length > 0 && activeTextModel) {
+        const lineCount = activeTextModel.getLineCount();
         const adjustedSelections = prevSelections.map(sel => {
           const startLine = Math.min(sel.startLineNumber, lineCount);
-          const startCol = Math.min(sel.startColumn, model.value!.getLineMaxColumn(startLine));
+          const startCol = Math.min(sel.startColumn, activeTextModel.getLineMaxColumn(startLine));
           const endLine = Math.min(sel.endLineNumber, lineCount);
-          const endCol = Math.min(sel.endColumn, model.value!.getLineMaxColumn(endLine));
+          const endCol = Math.min(sel.endColumn, activeTextModel.getLineMaxColumn(endLine));
           return new monaco.Selection(startLine, startCol, endLine, endCol);
         });
         editor.value.setSelections(adjustedSelections);
@@ -478,6 +480,21 @@ export function useCodeEditor(
       contentChangeListener.dispose();
       contentChangeListener = null;
     }
+    // 确定性清理全局 JSON Schema 诊断配置，杜绝跨页全局污染
+    if (options.jsonSchema) {
+      interface MonacoJsonModule {
+        jsonDefaults?: {
+          setDiagnosticsOptions: (opts: { validate?: boolean; schemas?: unknown[] }) => void;
+        };
+      }
+      const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
+      if (jsonLang?.jsonDefaults) {
+        jsonLang.jsonDefaults.setDiagnosticsOptions({
+          validate: true,
+          schemas: [],
+        });
+      }
+    }
     viewStates.clear();
     selectionStates.clear();
     modelPool.forEach(m => {
@@ -555,17 +572,10 @@ export function useCodeEditor(
     checkLargeFile(initialValue);
 
     // 6. 注册受管 CompletionProvider
-    if (options.completionProvider) {
+    const providerFn = options.completionProvider;
+    if (providerFn) {
       const lang = initialLanguage;
-      const disposable = monaco.languages.registerCompletionItemProvider(lang, {
-        provideCompletionItems: async (m, p) => {
-          const res = await options.completionProvider!(m, p);
-          if (Array.isArray(res)) {
-            return { suggestions: res };
-          }
-          return res as monaco.languages.CompletionList;
-        },
-      });
+      const disposable = registerCompletionProvider(lang, providerFn);
       completionDisposables.push(disposable);
     }
 

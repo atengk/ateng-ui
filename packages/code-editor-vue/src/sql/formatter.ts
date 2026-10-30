@@ -2,10 +2,11 @@
  * 原生轻量 SQL 格式化美化算法与 SPI。
  *
  * 恪守 ADR-0035 与零臃肿依赖律：
- * 1. 纯原生 TypeScript 纳秒级正则词法归一化，零第三方依赖；
- * 2. 规范化 SQL 核心关键字为标准大写；
- * 3. 规范化主干子句（SELECT, FROM, WHERE, GROUP BY, ORDER BY 等）换行与缩进；
- * 4. 提供可替换的 SqlFormatProvider SPI 供企业级扩展。
+ * 1. 纯原生 TypeScript 纳秒级分词归一化，零第三方重型解析器依赖；
+ * 2. 具备字符串字面量与注释转义隔离保护，彻底杜绝单双引号内部 SQL 关键字被误大写或误换行；
+ * 3. 规范化 SQL 核心关键字为标准大写；
+ * 4. 规范化主干子句（SELECT, FROM, WHERE, GROUP BY, ORDER BY 等）换行与缩进；
+ * 5. 提供可替换的 SqlFormatProvider SPI 供企业级扩展。
  *
  * @author Ateng
  * @since 2026-10-29
@@ -77,6 +78,17 @@ const INLINE_KEYWORDS = [
 ];
 
 /**
+ * 匹配字符串字面量与单行/多行注释的隔离正则。
+ * 1. 单行注释: --...
+ * 2. 多行注释: /*...* /
+ * 3. 单引号字符串 (支持 '' 或 \' 转义)
+ * 4. 双引号标识符/字符串
+ * 5. 反引号标识符
+ */
+const LITERAL_OR_COMMENT_REGEX =
+  /(--[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|\\`|[^`])*`)/g;
+
+/**
  * 原生轻量 SQL 格式化美化函数。
  *
  * @param sql 原始待排版 SQL 字符串
@@ -85,10 +97,17 @@ const INLINE_KEYWORDS = [
 export function formatSql(sql: string): string {
   if (!sql || typeof sql !== 'string') return '';
 
-  // 1. 规范化空白字符，压缩连续空格为单空格
-  let text = sql.trim().replace(/\s+/g, ' ');
+  // 1. 词法转义隔离：提取全部字符串字面量与注释至令牌表，替换为安全占位符
+  const tokens: string[] = [];
+  const tokenizedSql = sql.replace(LITERAL_OR_COMMENT_REGEX, match => {
+    tokens.push(match);
+    return `__ATENG_SQL_TOKEN_${tokens.length - 1}__`;
+  });
 
-  // 2. 将所有关键字转为标准大写
+  // 2. 规范化纯代码区域的空白字符，压缩连续空白为单空格
+  let text = tokenizedSql.trim().replace(/\s+/g, ' ');
+
+  // 3. 将所有关键字转为标准大写（仅作用于代码区，字符串内部已被占位符保护）
   const allKeywords = [...CLAUSE_KEYWORDS, ...INLINE_KEYWORDS].sort((a, b) => b.length - a.length);
 
   for (const kw of allKeywords) {
@@ -96,13 +115,13 @@ export function formatSql(sql: string): string {
     text = text.replace(regex, kw);
   }
 
-  // 3. 在主干子句关键字前插入换行符
+  // 4. 在主干子句关键字前插入换行符
   for (const clause of CLAUSE_KEYWORDS) {
     const clauseRegex = new RegExp(`\\s*\\b(${clause})\\b\\s*`, 'g');
     text = text.replace(clauseRegex, '\n$1 ');
   }
 
-  // 4. 处理换行与行缩进
+  // 5. 处理换行与行缩进
   const rawLines = text.split('\n');
   const formattedLines: string[] = [];
 
@@ -120,5 +139,15 @@ export function formatSql(sql: string): string {
     }
   }
 
-  return formattedLines.join('\n');
+  let formatted = formattedLines.join('\n');
+
+  // 6. 还原占位符为原始字符串字面量与注释（100% 原始不变）
+  if (tokens.length > 0) {
+    formatted = formatted.replace(/__ATENG_SQL_TOKEN_(\d+)__/g, (_, idx) => {
+      const tokenIndex = Number(idx);
+      return tokens[tokenIndex] ?? '';
+    });
+  }
+
+  return formatted;
 }

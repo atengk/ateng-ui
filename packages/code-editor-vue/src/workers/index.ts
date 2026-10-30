@@ -4,7 +4,8 @@
  * 依据 ADR-0035：
  * 1. 优先使用环境内已注册的 MonacoEnvironment；
  * 2. 支持自定义 getWorker / getWorkerUrl 与 workerBaseUrl 内网静态资源寻址；
- * 3. 单线程静默回退防线：若加载 Worker 失败或受严格 CSP 拦截，自动提供静默哑 Worker 保证主线程平稳运行，绝对不白屏崩溃。
+ * 3. 单线程静默回退防线：若加载 Worker 失败或受严格 CSP 拦截，自动提供静默哑 Worker 保证主线程平稳运行，绝对不白屏崩溃；
+ * 4. 瞬态 Blob URL 确定性释放，杜绝内存泄漏。
  *
  * @author Ateng
  * @since 2026-10-29
@@ -25,23 +26,30 @@ declare global {
 }
 
 /**
+ * 创建纯内存中的哑 Worker 桩对象。
+ */
+function createDummyMockWorker(): Worker {
+  return {
+    postMessage() {},
+    terminate() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent() {
+      return false;
+    },
+    onerror: null,
+    onmessage: null,
+    onmessageerror: null,
+  } as unknown as Worker;
+}
+
+/**
  * 创建单线程降级哑 Worker（Fallback Worker）。
  * 当宿主环境 Worker 报错或 CSP 限制时，避免 Monaco 抛出致命异常。
  */
 function createFallbackWorker(): Worker {
   if (typeof Blob === 'undefined' || typeof Worker === 'undefined' || typeof URL === 'undefined') {
-    return {
-      postMessage() {},
-      terminate() {},
-      addEventListener() {},
-      removeEventListener() {},
-      dispatchEvent() {
-        return false;
-      },
-      onerror: null,
-      onmessage: null,
-      onmessageerror: null,
-    } as unknown as Worker;
+    return createDummyMockWorker();
   }
 
   try {
@@ -53,20 +61,13 @@ function createFallbackWorker(): Worker {
       ],
       { type: 'application/javascript' },
     );
-    return new Worker(URL.createObjectURL(dummyBlob));
+    const blobUrl = URL.createObjectURL(dummyBlob);
+    const worker = new Worker(blobUrl);
+    // 确定性注销瞬态 Blob URL，防内存泄漏
+    URL.revokeObjectURL(blobUrl);
+    return worker;
   } catch {
-    return {
-      postMessage() {},
-      terminate() {},
-      addEventListener() {},
-      removeEventListener() {},
-      dispatchEvent() {
-        return false;
-      },
-      onerror: null,
-      onmessage: null,
-      onmessageerror: null,
-    } as unknown as Worker;
+    return createDummyMockWorker();
   }
 }
 
@@ -131,5 +132,46 @@ export function setupMonacoWorkers(options: MonacoWorkerOptions = {}): void {
   // 6. 默认提供具备错误防御与单线程降级保底的 getWorker
   window.MonacoEnvironment = {
     getWorker: () => createFallbackWorker(),
+  };
+}
+
+/**
+ * Vite ESM 原生 Worker 注入助手构造器字典定义。
+ */
+export interface ViteMonacoWorkerConstructors {
+  editorWorker?: new () => Worker;
+  jsonWorker?: new () => Worker;
+  cssWorker?: new () => Worker;
+  htmlWorker?: new () => Worker;
+  tsWorker?: new () => Worker;
+}
+
+/**
+ * 为 Vite 应用环境快速注册 ESM Web Worker 提供者。
+ *
+ * @param workers 引入的 Worker 构造器映射
+ */
+export function setupViteMonacoWorkers(workers: ViteMonacoWorkerConstructors = {}): void {
+  if (typeof window === 'undefined') return;
+
+  window.MonacoEnvironment = {
+    getWorker(_workerId: string, label: string): Worker {
+      if (label === 'json' && workers.jsonWorker) {
+        return new workers.jsonWorker();
+      }
+      if ((label === 'css' || label === 'scss' || label === 'less') && workers.cssWorker) {
+        return new workers.cssWorker();
+      }
+      if ((label === 'html' || label === 'handlebars' || label === 'razor') && workers.htmlWorker) {
+        return new workers.htmlWorker();
+      }
+      if ((label === 'typescript' || label === 'javascript') && workers.tsWorker) {
+        return new workers.tsWorker();
+      }
+      if (workers.editorWorker) {
+        return new workers.editorWorker();
+      }
+      return createFallbackWorker();
+    },
   };
 }

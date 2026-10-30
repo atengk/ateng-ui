@@ -24,7 +24,13 @@ export type { UseCodeEditorReturn } from './composables/useCodeEditor';
 export { useCodeDiff, useCodeDiffEditor } from './composables/useCodeDiff';
 export type { UseCodeDiffReturn } from './composables/useCodeDiff';
 
-export { setupMonacoWorkers } from './workers';
+export { useEditorTheme } from './composables/useEditorTheme';
+export type { UseEditorThemeReturn } from './composables/useEditorTheme';
+
+export { CompletionRegistry, registerCompletionProvider } from './completion/registry';
+
+export { setupMonacoWorkers, setupViteMonacoWorkers } from './workers';
+export type { ViteMonacoWorkerConstructors } from './workers';
 
 export { formatSql } from './sql/formatter';
 export type { SqlFormatProvider } from './sql/formatter';

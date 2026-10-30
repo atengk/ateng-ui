@@ -12,10 +12,11 @@
  * @since 2026-10-29
  */
 
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, type CSSProperties } from 'vue';
+import { ref, computed, watch, onUnmounted, nextTick, type CSSProperties } from 'vue';
 import * as monaco from 'monaco-editor';
 import type { CodeEditorProps, CodeEditorEmits, CodeEditorExpose } from '../types';
 import { useCodeEditor } from '../composables/useCodeEditor';
+import { useEditorTheme } from '../composables/useEditorTheme';
 
 const props = withDefaults(defineProps<CodeEditorProps>(), {
   modelValue: '',
@@ -58,8 +59,10 @@ const rootRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
 const isFullscreen = ref<boolean>(false);
 const copySuccess = ref<boolean>(false);
-const isDark = ref<boolean>(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 主题热跟随监听
+const { isDark, syncTheme } = useEditorTheme(() => props.theme);
 
 // 光标位置
 const cursorPosition = ref({ line: 1, column: 1 });
@@ -83,29 +86,6 @@ const lineCount = computed(() => {
   if (!props.modelValue) return 1;
   return props.modelValue.split('\n').length;
 });
-
-// 主题热跟随监听
-const checkDarkMode = (): boolean => {
-  if (typeof document === 'undefined') return false;
-  if (props.theme === 'vs-dark' || props.theme === 'hc-black') return true;
-  if (props.theme === 'vs') return false;
-  // auto 模式下探测 html 类名与媒体查询
-  return (
-    document.documentElement.classList.contains('dark') ||
-    (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
-  );
-};
-
-let themeObserver: MutationObserver | null = null;
-let mediaQuery: MediaQueryList | null = null;
-let mediaQueryListener: (() => void) | null = null;
-
-const syncTheme = (): void => {
-  const dark = checkDarkMode();
-  isDark.value = dark;
-  const resolvedTheme = props.theme === 'auto' ? (dark ? 'vs-dark' : 'vs') : props.theme;
-  monaco.editor.setTheme(resolvedTheme);
-};
 
 // 初始化无头编辑器状态机
 const {
@@ -132,7 +112,7 @@ const {
 } = useCodeEditor(canvasRef, {
   value: props.modelValue,
   language: props.language,
-  theme: props.theme === 'auto' ? (checkDarkMode() ? 'vs-dark' : 'vs') : props.theme,
+  theme: props.theme,
   readOnly: props.readOnly,
   fontSize: props.fontSize,
   tabSize: props.tabSize,
@@ -255,14 +235,6 @@ watch(
   },
 );
 
-// 监听主题属性
-watch(
-  () => props.theme,
-  () => {
-    syncTheme();
-  },
-);
-
 // 格式化处理
 const handleFormat = async (): Promise<void> => {
   if (props.readOnly) return;
@@ -294,43 +266,10 @@ const toggleFullscreen = (): void => {
   });
 };
 
-onMounted(() => {
-  syncTheme();
-  if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
-    themeObserver = new MutationObserver(() => {
-      if (props.theme === 'auto') {
-        syncTheme();
-      }
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-  }
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQueryListener = () => {
-      if (props.theme === 'auto') {
-        syncTheme();
-      }
-    };
-    mediaQuery.addEventListener('change', mediaQueryListener);
-  }
-});
-
 onUnmounted(() => {
   if (decorationsCollection) {
     decorationsCollection.clear();
     decorationsCollection = null;
-  }
-  if (themeObserver) {
-    themeObserver.disconnect();
-    themeObserver = null;
-  }
-  if (mediaQuery && mediaQueryListener) {
-    mediaQuery.removeEventListener('change', mediaQueryListener);
-    mediaQuery = null;
-    mediaQueryListener = null;
   }
   if (copyTimer) {
     clearTimeout(copyTimer);
@@ -396,24 +335,23 @@ defineExpose<CodeEditorExpose>({
         </div>
         <div class="at-code-editor__toolbar-right">
           <slot name="toolbar-right">
-            <slot name="extra">
-              <button
-                type="button"
-                class="at-code-editor__btn"
-                title="复制全部代码"
-                @click="handleCopy"
-              >
-                {{ copySuccess ? '已复制' : '复制' }}
-              </button>
-              <button
-                type="button"
-                class="at-code-editor__btn"
-                :title="isFullscreen ? '退出全屏' : '全屏展示'"
-                @click="toggleFullscreen"
-              >
-                {{ isFullscreen ? '还原' : '全屏' }}
-              </button>
-            </slot>
+            <slot name="extra" />
+            <button
+              type="button"
+              class="at-code-editor__btn"
+              title="复制全部代码"
+              @click="handleCopy"
+            >
+              {{ copySuccess ? '已复制' : '复制' }}
+            </button>
+            <button
+              type="button"
+              class="at-code-editor__btn"
+              :title="isFullscreen ? '退出全屏' : '全屏展示'"
+              @click="toggleFullscreen"
+            >
+              {{ isFullscreen ? '还原' : '全屏' }}
+            </button>
           </slot>
         </div>
       </slot>
