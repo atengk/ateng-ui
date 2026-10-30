@@ -9,6 +9,7 @@
 
 import type { Editor } from '@tiptap/vue-3';
 import type { EditorBaseProps } from './components';
+import type { DocxExportOptions } from '../utils/docx-export';
 
 /**
  * 纸张方向：纵向 (portrait) 或 横向 (landscape)。
@@ -197,4 +198,13 @@ export interface AtengDocxEditorMethods {
   clear: () => void;
   /** 清空正文内容（对齐 useEditor 契约） */
   clearContent: () => void;
+  /**
+   * 将当前文档生成为合规 OpenXML .docx 二进制数据并自动调起浏览器下载。
+   *
+   * @param options 导出文件名或高级配置选项
+   * @returns 生成的二进制 Blob 对象
+   */
+  exportDocx: (options?: DocxExportOptions | string) => Promise<Blob>;
 }
+
+export type { DocxExportOptions };

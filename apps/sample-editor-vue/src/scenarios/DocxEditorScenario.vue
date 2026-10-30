@@ -55,7 +55,7 @@ const defaultDocxHtml = `<h1 style="text-align: center;">关于加快推进数�
       <td>客户端 docx 纯前端转译</td>
       <td>核心团队</td>
       <td>OpenXML 工业级导出</td>
-      <td>规划中 (工单 #199)</td>
+      <td>已交付 (工单 #199)</td>
     </tr>
     <tr>
       <td>AtengDocxEditor 场景预设</td>
@@ -77,11 +77,28 @@ const showRuler = ref<boolean>(true);
 const headerText = ref<string>('关于加快推进数字化基础设施转型的指导意见');
 const footerText = ref<string>('绝密公文 · 内部流通 · 严禁翻印');
 const currentPageCount = ref<number>(1);
+const isExporting = ref<boolean>(false);
 
-const handleSimulatedExport = (): void => {
-  ElMessage.success(
-    '🚀 已调起 docx 二进制 AST 转译器（规划中：即将由工单 #199 交付纯前端 OpenXML 导出）',
-  );
+const handleExportDocx = async (): Promise<void> => {
+  if (!docxEditorRef.value) return;
+  try {
+    isExporting.value = true;
+    const blob = await docxEditorRef.value.exportDocx({
+      fileName: '企业数字化基础设施指导意见.docx',
+      orientation: orientation.value,
+      pageMargin: pageMargin.value,
+      header: headerText.value,
+      footer: footerText.value,
+      showPageNumber: true,
+    });
+    ElMessage.success(
+      `🎉 成功在客户端生成并下载标准 Word 文档（${(blob.size / 1024).toFixed(1)} KB）！`,
+    );
+  } catch (error) {
+    ElMessage.error(`导出 Word 失败: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    isExporting.value = false;
+  }
 };
 
 const handlePrintPreview = (): void => {
@@ -156,7 +173,7 @@ const handlePageCountChange = (count: number): void => {
           <el-tag type="info" size="small">
             📄 当前预估页数：{{ docxEditorRef?.totalPages ?? currentPageCount }} 页
           </el-tag>
-          <el-button type="primary" size="small" @click="handleSimulatedExport">
+          <el-button type="primary" size="small" :loading="isExporting" @click="handleExportDocx">
             💾 导出为 Word (.docx)
           </el-button>
           <el-button size="small" @click="handlePrintPreview"> 🖨️ 浏览器物理打印预览 </el-button>

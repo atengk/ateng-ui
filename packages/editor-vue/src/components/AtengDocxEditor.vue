@@ -18,6 +18,11 @@ import { EditorContent } from '@tiptap/vue-3';
 import type { DocxEditorProps, DocxEditorEmits, PageOrientation } from '../types/docx';
 import { useEditor } from '../composables/useEditor';
 import { useEditorDom } from '../composables/useEditorDom';
+import {
+  prosemirrorJsonToDocxBlob,
+  saveDocxFile,
+  type DocxExportOptions,
+} from '../utils/docx-export';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengPageCanvas from './AtengPageCanvas.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
@@ -119,6 +124,24 @@ const handleFocus = (): void => {
   editor.value?.commands.focus();
 };
 
+// 导出为 Word 二进制 Blob 并触发自动下载
+const handleExportDocx = async (options?: DocxExportOptions | string): Promise<Blob> => {
+  const jsonTree = getJSON();
+  const opts = typeof options === 'string' ? { fileName: options } : options;
+  const mergedOpts: DocxExportOptions = {
+    fileName: opts?.fileName ?? 'document.docx',
+    orientation: props.orientation,
+    pageMargin: props.pageMargin,
+    header: props.header,
+    footer: props.footer,
+    showPageNumber: props.showPageNumber,
+    ...opts,
+  };
+  const blob = await prosemirrorJsonToDocxBlob(jsonTree, mergedOpts);
+  saveDocxFile(blob, mergedOpts.fileName);
+  return blob;
+};
+
 // 暴露对外方法与状态
 defineExpose({
   editor,
@@ -128,6 +151,7 @@ defineExpose({
   focus: handleFocus,
   clear: () => clearContent(),
   clearContent,
+  exportDocx: handleExportDocx,
   toggleFullscreen,
 });
 </script>
@@ -146,15 +170,28 @@ defineExpose({
     ]"
     data-test="docx-editor"
   >
-    <!-- 顶部操作工具栏 -->
-    <AtengEditorToolbar
-      v-if="showToolbar && !readOnly"
-      :editor="editor"
-      :disabled="disabled"
-      :is-fullscreen="isFullscreen"
-      data-test="docx-toolbar"
-      @toggle-fullscreen="toggleFullscreen"
-    />
+    <!-- 顶部操作工具栏与导出动作 -->
+    <div v-if="showToolbar && !readOnly" class="at-docx-editor__toolbar-header">
+      <AtengEditorToolbar
+        :editor="editor"
+        :disabled="disabled"
+        :is-fullscreen="isFullscreen"
+        data-test="docx-toolbar"
+        @toggle-fullscreen="toggleFullscreen"
+      />
+      <div class="at-docx-editor__actions">
+        <button
+          type="button"
+          class="at-docx-editor__export-btn"
+          data-test="export-docx-btn"
+          title="将当前文档导出为标准 Word (.docx) 文件"
+          @click="() => handleExportDocx()"
+        >
+          <span class="at-docx-editor__export-icon">💾</span>
+          导出 Word
+        </button>
+      </div>
+    </div>
 
     <!-- A4 物理仿真容器 PageCanvas -->
     <AtengPageCanvas
@@ -223,6 +260,45 @@ defineExpose({
   height: 100vh !important;
 }
 
+.at-docx-editor__toolbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--at-editor-toolbar-bg, #ffffff);
+  border-bottom: 1px solid var(--at-editor-border, #e2e8f0);
+}
+
+.at-docx-editor__actions {
+  padding-right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.at-docx-editor__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.at-docx-editor__export-btn:hover {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.at-docx-editor__export-icon {
+  font-size: 13px;
+}
+
 /* TipTap 正文样式与微调 */
 .at-docx-editor__editor-content {
   width: 100%;
@@ -289,7 +365,8 @@ defineExpose({
   }
 
   .at-docx-editor :deep(.at-editor__toolbar),
-  .at-docx-editor :deep(.at-editor-statusbar) {
+  .at-docx-editor :deep(.at-editor-statusbar),
+  .at-docx-editor__toolbar-header {
     display: none !important;
   }
 }

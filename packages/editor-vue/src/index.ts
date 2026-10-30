@@ -105,6 +105,8 @@ export {
   getEditorParagraphs,
   generateFullHtml,
   computeTextDiff,
+  prosemirrorJsonToDocxBlob,
+  saveDocxFile,
 } from './utils';
 
 export type {
@@ -153,4 +155,5 @@ export type {
   DocxEditorProps,
   DocxEditorEmits,
   AtengDocxEditorMethods,
+  DocxExportOptions,
 } from './types';
