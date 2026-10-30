@@ -31,10 +31,16 @@
 
 ## 维度一：最小起步体验 (Happy Path)
 
-### 安装依赖
+### 安装依赖与全局样式
 
 ```bash
 pnpm add @atengk/code-editor-vue monaco-editor
+```
+
+在应用入口文件（如 `main.ts`）中引入组件库样式：
+
+```ts
+import '@atengk/code-editor-vue/style.css';
 ```
 
 ### 1. 单体代码编辑器开箱即用
@@ -43,6 +49,7 @@ pnpm add @atengk/code-editor-vue monaco-editor
 <script setup lang="ts">
 import { ref } from 'vue';
 import { AtengCodeEditor } from '@atengk/code-editor-vue';
+import '@atengk/code-editor-vue/style.css';
 
 const code = ref('const greeting = "Hello ateng-ui";\nconsole.log(greeting);');
 </script>

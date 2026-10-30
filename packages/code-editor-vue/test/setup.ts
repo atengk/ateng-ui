@@ -9,7 +9,7 @@
 
 import { beforeEach, afterEach, vi } from 'vitest';
 
-const originalGetContext = HTMLCanvasElement.prototype.getContext;
+const _originalGetContext = HTMLCanvasElement.prototype.getContext;
 
 export function mockCanvas2D(): void {
   const mockContext = {

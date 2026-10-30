@@ -8,6 +8,8 @@
  * @since 2026-10-29
  */
 
+import './styles/index.css';
+
 export { default as AtengCodeEditor } from './components/AtengCodeEditor.vue';
 export type AtengCodeEditorInstance = InstanceType<
   typeof import('./components/AtengCodeEditor.vue').default

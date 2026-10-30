@@ -380,5 +380,19 @@ defineExpose<CodeEditorExpose>({
 </template>
 
 <style scoped>
-@import '../styles/index.css';
+.at-code-editor {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.at-code-editor__canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
 </style>
