@@ -8,6 +8,7 @@
 
 import { ref } from 'vue';
 import BasicEditorScenario from './scenarios/BasicEditorScenario.vue';
+import TableErgonomicsScenario from './scenarios/TableErgonomicsScenario.vue';
 
 const activeTab = ref<string>('basic');
 const isDark = ref<boolean>(false);
@@ -44,8 +45,8 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景一：基础现代富文本编辑 (Basic)" name="basic">
           <BasicEditorScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景二：表格操控与列宽拖拽 (Table)" name="table" disabled>
-          <div class="placeholder-tip">（工单 #187 阶段建设中）</div>
+        <el-tab-pane label="场景二：表格操控与列宽拖拽 (Table)" name="table">
+          <TableErgonomicsScenario />
         </el-tab-pane>
         <el-tab-pane label="场景三：媒体上传与骨架占位 (Upload)" name="upload" disabled>
           <div class="placeholder-tip">（工单 #188 阶段建设中）</div>

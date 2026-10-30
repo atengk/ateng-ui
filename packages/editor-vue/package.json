@@ -36,6 +36,7 @@
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
     "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-bubble-menu": "^2.27.3",
     "@tiptap/extension-character-count": "^2.27.3",
     "@tiptap/extension-code-block-lowlight": "^2.27.3",
     "@tiptap/extension-highlight": "^2.27.3",
@@ -54,6 +55,7 @@
     "@tiptap/starter-kit": "^2.27.3",
     "@tiptap/vue-3": "^2.27.3",
     "lowlight": "^3.3.0",
+    "tippy.js": "^6.3.7",
     "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {

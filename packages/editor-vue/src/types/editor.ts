@@ -8,9 +8,10 @@
  */
 
 import type { ComputedRef, ShallowRef } from 'vue';
-import type { AnyExtension } from '@tiptap/core';
+import type { AnyExtension, Editor as CoreEditor } from '@tiptap/core';
 import type { Editor } from '@tiptap/vue-3';
-import type { Transaction } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
+import type { EditorState, Transaction } from '@tiptap/pm/state';
 
 /**
  * 富文本编辑器双向同步输出格式。
@@ -132,6 +133,11 @@ export interface AtengEditorProps {
   stickyToolbar?: boolean;
 
   /**
+   * 是否展示表格操作动态上下文气泡浮层，默认 true。
+   */
+  showTableMenu?: boolean;
+
+  /**
    * 容器固定高度（支持数字 px 或 CSS 字符串如 '500px'）。
    */
   height?: string | number;
@@ -157,6 +163,39 @@ export interface AtengEditorEmits {
   (e: 'change', value: string): void;
   (e: 'focus'): void;
   (e: 'blur'): void;
+}
+
+/**
+ * <AtengTableBubbleMenu /> 表格动态气泡菜单组件入参 Props 接口。
+ */
+export interface AtengTableBubbleMenuProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 自定义 Tippy.js 配置选项。
+   */
+  tippyOptions?: Record<string, unknown>;
+
+  /**
+   * 自定义浮层显示判定函数。
+   */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    oldState?: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
 }
 
 /**

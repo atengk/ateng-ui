@@ -258,6 +258,23 @@ const props = withDefaults(defineProps<Props>(), {
         />
       </svg>
     </button>
+    <button
+      type="button"
+      class="at-editor__btn"
+      title="插入表格 (3x3)"
+      aria-label="插入表格"
+      :class="{ 'is-active': props.editor.isActive('table') }"
+      :disabled="props.disabled"
+      @click="
+        props.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+      "
+    >
+      <svg viewBox="0 0 24 24">
+        <path
+          d="M4 3h16c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm0 4h4v3H4V7zm6 0h4v3h-4V7zm6 0h4v3h-4V7zM4 12h4v3H4v-3zm6 0h4v3h-4v-3zm6 0h4v3h-4v-3zM4 17h4v2H4v-2zm6 0h4v2h-4v-2zm6 0h4v2h-4v-2z"
+        />
+      </svg>
+    </button>
 
     <div class="at-editor__divider" />
 

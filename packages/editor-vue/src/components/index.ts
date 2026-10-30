@@ -7,8 +7,12 @@
 
 export { default as AtengEditor } from './AtengEditor.vue';
 export { default as AtengEditorToolbar } from './AtengEditorToolbar.vue';
+export { default as AtengTableBubbleMenu } from './AtengTableBubbleMenu.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengEditorToolbarInstance = InstanceType<
   typeof import('./AtengEditorToolbar.vue').default
+>;
+export type AtengTableBubbleMenuInstance = InstanceType<
+  typeof import('./AtengTableBubbleMenu.vue').default
 >;

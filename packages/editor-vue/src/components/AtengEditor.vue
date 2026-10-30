@@ -14,6 +14,7 @@ import { EditorContent } from '@tiptap/vue-3';
 import { useEditor } from '../composables/useEditor';
 import { isContentEqual, applyContentPreservingSelection } from '../utils/sync';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
+import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
@@ -33,6 +34,7 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   extensions: () => [],
   showToolbar: true,
   stickyToolbar: false,
+  showTableMenu: true,
   height: undefined,
   minHeight: undefined,
   maxHeight: undefined,
@@ -224,5 +226,12 @@ defineExpose<AtengEditorExpose>({
     <div class="at-editor__body">
       <EditorContent class="at-editor__content" :editor="editor ?? undefined" />
     </div>
+
+    <!-- 表格动态上下文气泡菜单 (readOnly 下不展示) -->
+    <template v-if="props.showTableMenu && !props.readOnly">
+      <slot name="table-menu" :editor="editor">
+        <AtengTableBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
   </div>
 </template>

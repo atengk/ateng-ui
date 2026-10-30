@@ -16,6 +16,9 @@ export type { AtengEditorInstance } from './components';
 export { default as AtengEditorToolbar } from './components/AtengEditorToolbar.vue';
 export type { AtengEditorToolbarInstance } from './components';
 
+export { default as AtengTableBubbleMenu } from './components/AtengTableBubbleMenu.vue';
+export type { AtengTableBubbleMenuInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
@@ -30,4 +33,5 @@ export type {
   AtengEditorProps,
   AtengEditorEmits,
   AtengEditorExpose,
+  AtengTableBubbleMenuProps,
 } from './types';

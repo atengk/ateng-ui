@@ -410,6 +410,9 @@ importers:
       '@tiptap/core':
         specifier: ^2.27.3
         version: 2.27.3(@tiptap/pm@2.27.3)
+      '@tiptap/extension-bubble-menu':
+        specifier: ^2.27.3
+        version: 2.27.3(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))(@tiptap/pm@2.27.3)
       '@tiptap/extension-character-count':
         specifier: ^2.27.3
         version: 2.27.3(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))(@tiptap/pm@2.27.3)
@@ -464,6 +467,9 @@ importers:
       lowlight:
         specifier: ^3.3.0
         version: 3.3.0
+      tippy.js:
+        specifier: ^6.3.7
+        version: 6.3.7
       tiptap-markdown:
         specifier: ^0.8.10
         version: 0.8.10(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))

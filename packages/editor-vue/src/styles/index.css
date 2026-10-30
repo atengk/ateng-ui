@@ -363,3 +363,74 @@ html.dark {
   border-radius: 4px;
   margin: 0.5em 0;
 }
+
+/* 表格动态气泡浮层菜单 */
+.at-editor-table-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background-color: var(--at-editor-bg-color);
+  color: var(--at-editor-text-color);
+  border: 1px solid var(--at-editor-border-color);
+  border-radius: var(--at-editor-border-radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  user-select: none;
+  z-index: 100;
+}
+
+html.dark .at-editor-table-menu {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.at-editor-table-menu__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--at-editor-text-color);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  line-height: 1;
+}
+
+.at-editor-table-menu__btn:hover:not(:disabled) {
+  background-color: var(--at-editor-btn-hover-bg);
+}
+
+.at-editor-table-menu__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.at-editor-table-menu__btn.is-danger:hover:not(:disabled) {
+  background-color: var(--el-color-danger-light-9, rgba(245, 108, 108, 0.12));
+  color: var(--el-color-danger, #f56c6c);
+}
+
+.at-editor-table-menu__btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+/* Tippy 气泡包裹层底色重设 */
+.tippy-box[data-theme~='at-editor-menu'],
+.tippy-box:has(.at-editor-table-menu) {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.tippy-box[data-theme~='at-editor-menu'] > .tippy-content,
+.tippy-box:has(.at-editor-table-menu) > .tippy-content {
+  padding: 0 !important;
+}
