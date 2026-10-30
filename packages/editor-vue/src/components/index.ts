@@ -17,6 +17,10 @@ export { default as AtengBubbleMenu } from './AtengBubbleMenu.vue';
 export { default as AtengSlashCommand } from './AtengSlashCommand.vue';
 export { default as AtengDragHandle } from './AtengDragHandle.vue';
 export { default as AtengStatusBar } from './AtengStatusBar.vue';
+export { default as AtengAiBubbleMenu } from './AtengAiBubbleMenu.vue';
+export { default as AtengAiPromptBar } from './AtengAiPromptBar.vue';
+export { default as AtengAiDiffCard } from './AtengAiDiffCard.vue';
+export { default as AtengAgentEditor } from './AtengAgentEditor.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengSimpleEditorInstance = InstanceType<
@@ -46,3 +50,13 @@ export type AtengSlashCommandInstance = InstanceType<
 >;
 export type AtengDragHandleInstance = InstanceType<typeof import('./AtengDragHandle.vue').default>;
 export type AtengStatusBarInstance = InstanceType<typeof import('./AtengStatusBar.vue').default>;
+export type AtengAiBubbleMenuInstance = InstanceType<
+  typeof import('./AtengAiBubbleMenu.vue').default
+>;
+export type AtengAiPromptBarInstance = InstanceType<
+  typeof import('./AtengAiPromptBar.vue').default
+>;
+export type AtengAiDiffCardInstance = InstanceType<typeof import('./AtengAiDiffCard.vue').default>;
+export type AtengAgentEditorInstance = InstanceType<
+  typeof import('./AtengAgentEditor.vue').default
+>;

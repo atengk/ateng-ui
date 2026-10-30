@@ -12,3 +12,4 @@ export * from './link';
 export * from './stats';
 export * from './export';
 export * from './ai-mock';
+export * from './diff';

@@ -18,6 +18,7 @@ import type {
   UploadSuccessPayload,
   SlashCommandItem,
 } from './editor';
+import type { AiStreamHandler, AiPromptAction } from './ai';
 import type { FullHtmlOptions } from '../utils/export';
 
 /**
@@ -652,6 +653,69 @@ export interface NotionEditorProps extends EditorBaseProps {
    * 编辑容器最大高度。
    */
   maxHeight?: string;
+}
+
+/**
+ * Agent AI 智能辅助创作预设配置。
+ */
+export interface AgentEditorProps extends EditorBaseProps {
+  /**
+   * AI 流式通信 SPI 处理函数。缺省时使用框架内置打字机延迟仿真器 defaultMockAiStreamHandler。
+   */
+  aiStreamHandler?: AiStreamHandler;
+
+  /**
+   * 是否启用划选选区 AI 气泡菜单。
+   * @default true
+   */
+  aiBubbleMenu?: boolean;
+
+  /**
+   * 是否启用空白行沉浸式 AI 输入条。
+   * @default true
+   */
+  aiPromptBar?: boolean;
+
+  /**
+   * 生成完毕后是否展示行内 Diff 审阅对比卡片。
+   * @default true
+   */
+  showDiff?: boolean;
+
+  /**
+   * 自定义快捷 AI 意图动作集合。
+   */
+  aiActions?: AiPromptAction[];
+
+  /**
+   * 是否展示原生轻量工具栏。
+   * @default true
+   */
+  showToolbar?: boolean;
+
+  /**
+   * 是否展示底部状态栏。
+   * @default true
+   */
+  showStatusBar?: boolean;
+}
+
+/**
+ * <AtengAiBubbleMenu /> 选区 AI 快捷气泡组件入参 Props 接口。
+ */
+export interface AtengAiBubbleMenuProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  actions?: AiPromptAction[];
+}
+
+/**
+ * <AtengAiPromptBar /> 空白行沉浸式 AI 输入条组件入参 Props 接口。
+ */
+export interface AtengAiPromptBarProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  isStreaming?: boolean;
 }
 
 export type { FullHtmlOptions };

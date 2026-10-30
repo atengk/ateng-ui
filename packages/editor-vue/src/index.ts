@@ -46,6 +46,18 @@ export type { AtengDragHandleInstance } from './components';
 export { default as AtengStatusBar } from './components/AtengStatusBar.vue';
 export type { AtengStatusBarInstance } from './components';
 
+export { default as AtengAiBubbleMenu } from './components/AtengAiBubbleMenu.vue';
+export type { AtengAiBubbleMenuInstance } from './components';
+
+export { default as AtengAiPromptBar } from './components/AtengAiPromptBar.vue';
+export type { AtengAiPromptBarInstance } from './components';
+
+export { default as AtengAiDiffCard } from './components/AtengAiDiffCard.vue';
+export type { AtengAiDiffCardInstance } from './components';
+
+export { default as AtengAgentEditor } from './components/AtengAgentEditor.vue';
+export type { AtengAgentEditorInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
@@ -83,6 +95,7 @@ export {
   getEditorWords,
   getEditorParagraphs,
   generateFullHtml,
+  computeTextDiff,
 } from './utils';
 
 export type {
@@ -94,6 +107,13 @@ export type {
   SimpleToolbarItem,
   SimpleEditorProps,
   NotionEditorProps,
+  AgentEditorProps,
+  AtengAiBubbleMenuProps,
+  AtengAiPromptBarProps,
+  AtengAiDiffCardProps,
+  AtengAiDiffCardEmits,
+  AiPromptAction,
+  DiffChangeChunk,
   AtengSimpleToolbarProps,
   AtengEditorEmits,
   AtengEditorExpose,

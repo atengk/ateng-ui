@@ -123,6 +123,98 @@ export interface AiStreamingState {
 }
 
 /**
+ * 快捷 AI 动作项配置声明。
+ */
+export interface AiPromptAction {
+  /**
+   * 动作唯一标识。
+   */
+  key: string;
+
+  /**
+   * 菜单展示名称（如“润色语句”）。
+   */
+  label: string;
+
+  /**
+   * 对应意图 action 类型。
+   */
+  action: string;
+
+  /**
+   * 图标符号或 Emoji（如“✨”）。
+   */
+  icon?: string;
+
+  /**
+   * 默认自动注入的指令 prompt 模板。
+   */
+  defaultPrompt: string;
+}
+
+/**
+ * 文本增删比对单分块结构。
+ */
+export interface DiffChangeChunk {
+  /**
+   * 变更类型：新增、删除或无变化。
+   */
+  type: 'added' | 'removed' | 'unchanged';
+
+  /**
+   * 文本片段值。
+   */
+  value: string;
+}
+
+/**
+ * <AtengAiDiffCard /> 组件对外 Props 入参接口。
+ */
+export interface AtengAiDiffCardProps {
+  /**
+   * 原始被替换的文本内容。
+   */
+  originalText?: string;
+
+  /**
+   * AI 生成的最新或流式文本内容。
+   */
+  newText?: string;
+
+  /**
+   * 当前是否处于流式生成未决态中。
+   * @default false
+   */
+  isStreaming?: boolean;
+
+  /**
+   * 是否展示对比卡片。
+   * @default true
+   */
+  visible?: boolean;
+}
+
+/**
+ * <AtengAiDiffCard /> 组件事件发射器。
+ */
+export interface AtengAiDiffCardEmits {
+  /**
+   * 采纳并全部替换原选区内容。
+   */
+  (e: 'acceptReplace', text: string): void;
+
+  /**
+   * 采纳并将新内容插入到原选区下方。
+   */
+  (e: 'acceptAppend', text: string): void;
+
+  /**
+   * 放弃本次生成建议并重置。
+   */
+  (e: 'discard'): void;
+}
+
+/**
  * 打字机流式扩展配置选项。
  */
 export interface AiStreamingOptions {
