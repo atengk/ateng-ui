@@ -5,8 +5,9 @@
  * 1. 纯原生 TypeScript 纳秒级分词归一化，零第三方重型解析器依赖；
  * 2. 具备字符串字面量与注释转义隔离保护，彻底杜绝单双引号内部 SQL 关键字被误大写或误换行；
  * 3. 规范化 SQL 核心关键字为标准大写；
- * 4. 规范化主干子句（SELECT, FROM, WHERE, GROUP BY, ORDER BY 等）换行与缩进；
- * 5. 提供可替换的 SqlFormatProvider SPI 供企业级扩展。
+ * 4. 规范化多词子句（LEFT JOIN, GROUP BY, ORDER BY, UNION ALL 等）整词匹配，杜绝复合关键词被误拆换行；
+ * 5. 规范化逗号空格与主干子句换行；
+ * 6. 提供可替换的 SqlFormatProvider SPI 供企业级扩展。
  *
  * @author Ateng
  * @since 2026-10-29
@@ -23,18 +24,20 @@ export type SqlFormatProvider = (sql: string) => string | Promise<string>;
 const CLAUSE_KEYWORDS = [
   'SELECT',
   'FROM',
-  'WHERE',
-  'GROUP BY',
-  'ORDER BY',
-  'HAVING',
-  'LIMIT',
-  'OFFSET',
   'LEFT JOIN',
   'RIGHT JOIN',
   'INNER JOIN',
   'FULL JOIN',
   'CROSS JOIN',
   'JOIN',
+  'WHERE',
+  'GROUP BY',
+  'ORDER BY',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'UNION ALL',
+  'UNION',
   'INSERT INTO',
   'VALUES',
   'UPDATE',
@@ -43,8 +46,6 @@ const CLAUSE_KEYWORDS = [
   'CREATE TABLE',
   'ALTER TABLE',
   'DROP TABLE',
-  'UNION ALL',
-  'UNION',
 ];
 
 /**
@@ -79,11 +80,6 @@ const INLINE_KEYWORDS = [
 
 /**
  * 匹配字符串字面量与单行/多行注释的隔离正则。
- * 1. 单行注释: --...
- * 2. 多行注释: /*...* /
- * 3. 单引号字符串 (支持 '' 或 \' 转义)
- * 4. 双引号标识符/字符串
- * 5. 反引号标识符
  */
 const LITERAL_OR_COMMENT_REGEX =
   /(--[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|\\`|[^`])*`)/g;
@@ -104,44 +100,43 @@ export function formatSql(sql: string): string {
     return `__ATENG_SQL_TOKEN_${tokens.length - 1}__`;
   });
 
-  // 2. 规范化纯代码区域的空白字符，压缩连续空白为单空格
+  // 2. 规范化纯代码区域的空白字符与逗号空格
   let text = tokenizedSql.trim().replace(/\s+/g, ' ');
+  text = text.replace(/\s*,\s*/g, ', ');
 
-  // 3. 将所有关键字转为标准大写（仅作用于代码区，字符串内部已被占位符保护）
+  // 3. 将所有关键字转为标准大写（按长度降序优先匹配长关键词）
   const allKeywords = [...CLAUSE_KEYWORDS, ...INLINE_KEYWORDS].sort((a, b) => b.length - a.length);
 
   for (const kw of allKeywords) {
-    const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+    const regex = new RegExp(`\\b${kw.replace(/\s+/g, '\\s+')}\\b`, 'gi');
     text = text.replace(regex, kw);
   }
 
-  // 4. 在主干子句关键字前插入换行符
-  for (const clause of CLAUSE_KEYWORDS) {
-    const clauseRegex = new RegExp(`\\s*\\b(${clause})\\b\\s*`, 'g');
-    text = text.replace(clauseRegex, '\n$1 ');
-  }
+  // 4. 在主干子句关键字前插入换行符（按长度降序单遍扫描，彻底杜绝复合子句如 LEFT JOIN 被误拆）
+  const sortedClauses = [...CLAUSE_KEYWORDS].sort((a, b) => b.length - a.length);
+  const clausePattern = sortedClauses.map(kw => kw.replace(/\s+/g, '\\s+')).join('|');
+  const clauseRegex = new RegExp(`\\s*\\b(${clausePattern})\\b\\s*`, 'gi');
+  text = text.replace(clauseRegex, (_, clause) => {
+    const upperClause = clause.trim().replace(/\s+/g, ' ').toUpperCase();
+    return `\n${upperClause} `;
+  });
 
-  // 5. 处理换行与行缩进
+  // 5. 规范化分号前空格
+  text = text.replace(/\s+;/g, ';');
+
+  // 6. 整理各行并过滤空行
   const rawLines = text.split('\n');
   const formattedLines: string[] = [];
 
   for (let line of rawLines) {
     line = line.trim();
     if (!line) continue;
-
-    const startsWithClause = CLAUSE_KEYWORDS.some(kw => line.startsWith(kw));
-
-    if (startsWithClause) {
-      formattedLines.push(line);
-    } else {
-      // 字段或条件缩进 2 个空格
-      formattedLines.push(`  ${line}`);
-    }
+    formattedLines.push(line);
   }
 
   let formatted = formattedLines.join('\n');
 
-  // 6. 还原占位符为原始字符串字面量与注释（100% 原始不变）
+  // 7. 还原占位符为原始字符串字面量与注释（100% 原始不变）
   if (tokens.length > 0) {
     formatted = formatted.replace(/__ATENG_SQL_TOKEN_(\d+)__/g, (_, idx) => {
       const tokenIndex = Number(idx);

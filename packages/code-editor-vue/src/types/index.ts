@@ -207,6 +207,8 @@ export interface CodeEditorExpose {
     modelOrUri: monaco.editor.ITextModel | string,
     state?: monaco.editor.ICodeEditorViewState | null,
   ) => void;
+  /** 动态更新声明式 JSON Schema 校验规范 */
+  setJsonSchema: (schema?: object) => void;
 }
 
 /**
@@ -309,6 +311,8 @@ export interface UseCodeEditorReturn {
     modelOrUri: monaco.editor.ITextModel | string,
     state?: monaco.editor.ICodeEditorViewState | null,
   ) => void;
+  /** 动态更新声明式 JSON Schema 校验规范 */
+  setJsonSchema: (schema?: object) => void;
   /** 销毁当前实例与监听，并彻底注销池内所有 Model */
   dispose: () => void;
 }

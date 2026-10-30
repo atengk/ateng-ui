@@ -109,6 +109,7 @@ const {
   getModels,
   saveViewState,
   restoreViewState,
+  setJsonSchema,
 } = useCodeEditor(canvasRef, {
   value: props.modelValue,
   language: props.language,
@@ -235,6 +236,15 @@ watch(
   },
 );
 
+// 监听 JSON Schema 变更
+watch(
+  () => props.jsonSchema,
+  schema => {
+    setJsonSchema(schema);
+  },
+  { deep: true },
+);
+
 // 格式化处理
 const handleFormat = async (): Promise<void> => {
   if (props.readOnly) return;
@@ -299,6 +309,7 @@ defineExpose<CodeEditorExpose>({
   getModels,
   saveViewState,
   restoreViewState,
+  setJsonSchema,
 });
 </script>
 

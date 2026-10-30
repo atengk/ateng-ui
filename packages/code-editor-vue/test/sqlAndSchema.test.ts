@@ -175,4 +175,68 @@ describe('SQL 智能补全美化、JSON Schema 校验与只读审计高亮 (Tick
     expect(disposeSpy2).toHaveBeenCalledTimes(1);
     expect(CompletionRegistry.getActiveCount()).toBe(0);
   });
+
+  it('防线 1.2：formatSql 保持 LEFT JOIN 等复合子句完整不被拆行，并规范逗号空格', () => {
+    const rawSql =
+      "select u.id,u.username,u.email,count(o.id) as order_count,sum(o.total_amount) as total_spent from sys_user u left join biz_order o on u.id = o.user_id where u.status = 1 and u.created_at >= '2026-01-01' group by u.id, u.username having total_spent > 500 order by total_spent desc limit 20;";
+    const formatted = formatSql(rawSql);
+
+    // 绝对不能出现单独一行的 LEFT 或单独一行的 JOIN
+    const lines = formatted.split('\n');
+    expect(lines.some(l => l === 'LEFT')).toBe(false);
+    expect(lines.some(l => l.startsWith('LEFT JOIN'))).toBe(true);
+    expect(lines.some(l => l.startsWith('GROUP BY'))).toBe(true);
+    expect(lines.some(l => l.startsWith('ORDER BY'))).toBe(true);
+    // 逗号后必须规范带空格
+    expect(formatted).toContain('u.id, u.username, u.email');
+  });
+
+  it('防线 2.1：从 typescript 动态切换至 sql 语言后，调用 format() 能够即时格式化 SQL', async () => {
+    wrapper = mount(AtengCodeEditor, {
+      props: {
+        modelValue: 'select u.id,u.name from sys_user u left join biz_order o on u.id = o.user_id;',
+        language: 'typescript',
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    const vm = wrapper.vm as unknown as CodeEditorExpose;
+
+    // 动态切到 sql 语言
+    await wrapper.setProps({ language: 'sql' });
+    await nextTick();
+
+    await vm.format();
+    const formatted = vm.getValue();
+    expect(formatted).toContain('SELECT');
+    expect(formatted).toContain('FROM sys_user u');
+    expect(formatted).toContain('LEFT JOIN');
+  });
+
+  it('防线 6：JSON 编辑器创建带 .json 扩展名的合法 URI 并支持动态 setJsonSchema', async () => {
+    const testSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    };
+
+    wrapper = mount(AtengCodeEditor, {
+      props: {
+        modelValue: '{"name": 123}',
+        language: 'json',
+        jsonSchema: testSchema,
+      },
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    const vm = wrapper.vm as unknown as CodeEditorExpose;
+    const model = vm.getModel();
+    expect(model).not.toBeNull();
+    // 必须带有 .json 扩展名以激活 Monaco JSON 语言诊断
+    expect(model?.uri.toString()).toMatch(/\.json$/);
+
+    // 验证 setJsonSchema 能正常调用而不崩溃
+    expect(() => vm.setJsonSchema({ type: 'object' })).not.toThrow();
+  });
 });

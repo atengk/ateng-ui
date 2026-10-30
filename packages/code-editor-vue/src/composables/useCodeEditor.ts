@@ -89,7 +89,10 @@ export function useCodeEditor(
   const format = async (): Promise<void> => {
     if (!editor.value) return;
 
-    const currentLang = options.language ?? 'typescript';
+    // 优先读取当前活动 Model 的实际语言，保障动态语言切换后格式化即时生效
+    const currentLang = model.value
+      ? model.value.getLanguageId()
+      : (options.language ?? 'typescript');
     if (currentLang === 'sql') {
       const currentCode = getValue();
       let formatted = '';
@@ -310,6 +313,24 @@ export function useCodeEditor(
     return poolManager.getModels();
   };
 
+  // 动态更新声明式 JSON Schema 诊断配置
+  const setJsonSchema = (schema?: object): void => {
+    const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
+    if (!jsonLang?.jsonDefaults) return;
+    if (!schema) {
+      jsonLang.jsonDefaults.setDiagnosticsOptions({ validate: true, schemas: [] });
+      return;
+    }
+    const fileMatch: string[] = ['*'];
+    if (model.value) {
+      fileMatch.push(model.value.uri.toString());
+    }
+    jsonLang.jsonDefaults.setDiagnosticsOptions({
+      validate: true,
+      schemas: [{ uri: 'http://ateng-ui/schema.json', fileMatch, schema }],
+    });
+  };
+
   // 彻底销毁释放
   const dispose = (): void => {
     completionDisposables.forEach(d => d.dispose());
@@ -329,8 +350,7 @@ export function useCodeEditor(
     }
     // 确定性清理全局 JSON Schema 诊断配置，杜绝跨页全局污染
     if (options.jsonSchema) {
-      const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
-      jsonLang?.jsonDefaults?.setDiagnosticsOptions({ validate: true, schemas: [] });
+      setJsonSchema(undefined);
     }
     poolManager.disposeAll();
     if (editor.value) {
@@ -362,8 +382,16 @@ export function useCodeEditor(
     // 探测初始视口状态
     checkViewportSuspension();
 
-    // 1. 创建独立 TextModel 并使用 markRaw 封装
-    const createdModel = markRaw(monaco.editor.createModel(initialValue, initialLanguage));
+    // 1. 创建独立 TextModel 并使用 markRaw 封装（JSON 语言强制配备标准 .json 后缀 URI）
+    let initialUri: monaco.Uri | undefined;
+    if (initialLanguage === 'json' || options.jsonSchema) {
+      initialUri = monaco.Uri.parse(`inmemory://model/document-${Date.now()}.json`);
+    }
+    const createdModel = markRaw(
+      initialUri
+        ? monaco.editor.createModel(initialValue, initialLanguage, initialUri)
+        : monaco.editor.createModel(initialValue, initialLanguage),
+    );
     model.value = createdModel;
     poolManager.registerModel(createdModel);
 
@@ -408,19 +436,8 @@ export function useCodeEditor(
     }
 
     // 7. 注册声明式 JSON Schema 诊断
-    if (options.jsonSchema && (initialLanguage === 'json' || !options.language)) {
-      const modelUri = createdModel.uri.toString();
-      const jsonLang = (monaco.languages as unknown as { json?: MonacoJsonModule }).json;
-      jsonLang?.jsonDefaults?.setDiagnosticsOptions({
-        validate: true,
-        schemas: [
-          {
-            uri: 'http://ateng-ui/schema.json',
-            fileMatch: [modelUri],
-            schema: options.jsonSchema,
-          },
-        ],
-      });
+    if (options.jsonSchema) {
+      setJsonSchema(options.jsonSchema);
     }
 
     // 8. 注册 ResizeObserver 视口自愈监听
@@ -482,6 +499,7 @@ export function useCodeEditor(
     getModels,
     saveViewState,
     restoreViewState,
+    setJsonSchema,
     dispose,
   };
 }
