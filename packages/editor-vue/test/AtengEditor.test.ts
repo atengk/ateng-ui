@@ -131,4 +131,106 @@ describe('AtengEditor 表现容器', () => {
     // 实例 destroy 后已标记销毁
     expect(editor.isDestroyed).toBe(true);
   });
+
+  it('支持 HTML/Markdown/JSON 多轨数据实时联动发射', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>初始测试<strong>粗体</strong></p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+
+    // 模拟内部编辑插入内容
+    instance.editor.commands.insertContent('附加文本');
+    await nextTick();
+
+    // 断言多轨 update 事件均已触发
+    const updateModelValueEvents = wrapper.emitted('update:modelValue');
+    const updateMarkdownEvents = wrapper.emitted('update:markdown');
+    const updateJsonEvents = wrapper.emitted('update:json');
+    const changeEvents = wrapper.emitted('change');
+
+    expect(updateModelValueEvents).toBeDefined();
+    expect(updateMarkdownEvents).toBeDefined();
+    expect(updateJsonEvents).toBeDefined();
+    expect(changeEvents).toBeDefined();
+
+    const lastHtml = updateModelValueEvents![updateModelValueEvents!.length - 1][0] as string;
+    expect(lastHtml).toContain('附加文本');
+
+    const lastMd = updateMarkdownEvents![updateMarkdownEvents!.length - 1][0] as string;
+    expect(typeof lastMd).toBe('string');
+  });
+
+  it('外部内容等价性检查与光标选区保护（防止跳回首行）', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>一段较长的测试内容用于验证光标保持不乱跳</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+    const editor = instance.editor;
+
+    // 1. 设置光标到字符中间位置（例如第 8 个字符）
+    editor.commands.setTextSelection(8);
+    expect(editor.state.selection.from).toBe(8);
+
+    // 2. 外部传入等价的 modelValue（模拟父组件 re-render）
+    await wrapper.setProps({
+      modelValue: '<p>一段较长的测试内容用于验证光标保持不乱跳</p>',
+    });
+    await nextTick();
+
+    // 验证：光标依然保持在第 8 个字符，绝对未跳回第 0 位！
+    expect(editor.state.selection.from).toBe(8);
+
+    // 3. 外部传入真实有效的新内容
+    await wrapper.setProps({
+      modelValue: '<p>更新后的全新段落内容</p>',
+    });
+    await nextTick();
+
+    // 验证：光标位置被合法钳制并保持有效
+    expect(editor.state.selection.from).toBeGreaterThanOrEqual(1);
+    expect(instance.getText()).toContain('更新后的全新段落内容');
+  });
+
+  it('外部内容等价回弹时不破坏撤销/重做（Undo/Redo）历史栈', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>第一句</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+    const editor = instance.editor;
+
+    // 用户在末尾聚焦并键入第二句话
+    editor.commands.focus('end');
+    editor.commands.insertContent(' 第二句');
+    await nextTick();
+
+    expect(instance.getText()).toContain('第二句');
+    expect(editor.can().undo()).toBe(true);
+
+    // 外部传入等价 modelValue 回传（父组件 v-model 闭环）
+    await wrapper.setProps({
+      modelValue: editor.getHTML(),
+    });
+    await nextTick();
+
+    // 断言撤销栈依然有效可执行
+    expect(editor.can().undo()).toBe(true);
+    editor.commands.undo();
+    await nextTick();
+
+    // 验证 Undo 成功执行，撤销了第二句
+    expect(instance.getText()).not.toContain('第二句');
+    expect(instance.getText()).toContain('第一句');
+  });
 });

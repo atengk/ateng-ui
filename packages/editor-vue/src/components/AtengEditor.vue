@@ -3,6 +3,7 @@
  * @atengk/editor-vue 企业级现代富文本与内容创作高阶表现容器。
  *
  * 遵循四层洋葱拓扑之 L2 专用扩展层规范，纯 Vue 3 驱动，零外部 UI 框架依赖，支持全中文微工具栏与全插槽反转。
+ * 内置多轨数据双向绑定（HTML/Markdown/JSON）、增量事务光标防丢与 Undo/Redo 历史栈保全。
  *
  * @author Ateng
  * @since 2026-10-30
@@ -11,6 +12,7 @@
 import { computed, watch, ref } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import { useEditor } from '../composables/useEditor';
+import { isContentEqual, applyContentPreservingSelection } from '../utils/sync';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
@@ -19,8 +21,8 @@ defineOptions({
 });
 
 const props = withDefaults(defineProps<AtengEditorProps>(), {
-  modelValue: '',
-  markdown: '',
+  modelValue: undefined,
+  markdown: undefined,
   json: undefined,
   outputFormat: 'html',
   placeholder: '请输入正文内容...',
@@ -39,6 +41,25 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
 const emit = defineEmits<AtengEditorEmits>();
 
 const rootRef = ref<HTMLElement | null>(null);
+
+// 缓存最近一次由内部编辑触发并向外发射的值，用于阻断外部反弹引起的自循环与光标跳动
+const lastEmittedValue = ref<string>('');
+const lastEmittedMarkdown = ref<string>('');
+const lastEmittedJson = ref<string>('');
+
+// 计算初始内容入参
+const initialContent = computed(() => {
+  if (props.modelValue !== undefined && props.modelValue !== '') {
+    return props.modelValue;
+  }
+  if (props.markdown !== undefined && props.markdown !== '') {
+    return props.markdown;
+  }
+  if (props.json !== undefined && Object.keys(props.json).length > 0) {
+    return props.json;
+  }
+  return '';
+});
 
 // 计算实际可编辑状态
 const isEditable = computed(() => {
@@ -76,21 +97,38 @@ const {
   focus,
   blur,
 } = useEditor({
-  content: props.modelValue,
+  content: initialContent.value,
   placeholder: props.placeholder,
   editable: isEditable.value,
   autofocus: props.autofocus,
   extensions: props.extensions,
   onUpdate: () => {
     const html = getHTML();
-    emit('update:modelValue', html);
-    emit('change', html);
-
-    // 同步 Markdown 与 JSON 事件
     const md = getMarkdown();
-    emit('update:markdown', md);
     const jsonTree = getJSON();
+
+    // 更新发射缓存
+    lastEmittedValue.value = html;
+    lastEmittedMarkdown.value = md;
+    try {
+      lastEmittedJson.value = JSON.stringify(jsonTree);
+    } catch {
+      lastEmittedJson.value = '';
+    }
+
+    // 根据 outputFormat 派发 modelValue
+    if (props.outputFormat === 'markdown') {
+      emit('update:modelValue', md);
+    } else if (props.outputFormat === 'json') {
+      emit('update:modelValue', JSON.stringify(jsonTree));
+    } else {
+      emit('update:modelValue', html);
+    }
+
+    // 多轨独立事件同步
+    emit('update:markdown', md);
     emit('update:json', jsonTree);
+    emit('change', html);
   },
   onFocus: () => {
     emit('focus');
@@ -104,12 +142,42 @@ const {
 watch(
   () => props.modelValue,
   newValue => {
-    if (!editor.value) return;
-    const currentHTML = getHTML();
-    if (newValue !== undefined && newValue !== currentHTML) {
-      setContent(newValue, false);
-    }
+    if (!editor.value || newValue === undefined) return;
+    if (isContentEqual(newValue, lastEmittedValue.value)) return;
+
+    lastEmittedValue.value = newValue;
+    applyContentPreservingSelection(editor.value, newValue, props.outputFormat, true);
   },
+);
+
+// 监听外部 markdown 变更
+watch(
+  () => props.markdown,
+  newMarkdown => {
+    if (!editor.value || newMarkdown === undefined) return;
+    if (isContentEqual(newMarkdown, lastEmittedMarkdown.value)) return;
+
+    lastEmittedMarkdown.value = newMarkdown;
+    applyContentPreservingSelection(editor.value, newMarkdown, 'markdown', true);
+  },
+);
+
+// 监听外部 json 变更
+watch(
+  () => props.json,
+  newJson => {
+    if (!editor.value || newJson === undefined) return;
+    try {
+      const serialized = JSON.stringify(newJson);
+      if (serialized === lastEmittedJson.value) return;
+      lastEmittedJson.value = serialized;
+    } catch {
+      // 容错处理
+    }
+
+    applyContentPreservingSelection(editor.value, newJson, 'json', true);
+  },
+  { deep: true },
 );
 
 // 响应式同步 editable / disabled / readOnly 状态
@@ -125,6 +193,7 @@ defineExpose<AtengEditorExpose>({
   focus,
   blur,
   clearContent,
+  setContent,
   getHTML,
   getJSON,
   getMarkdown,

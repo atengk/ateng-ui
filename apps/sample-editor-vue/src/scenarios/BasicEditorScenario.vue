@@ -14,6 +14,7 @@
  */
 
 import { ref } from 'vue';
+import { ElMessage } from 'element-plus';
 import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
 
 const editorRef = ref<AtengEditorInstance | null>(null);
@@ -75,6 +76,16 @@ const handleFocus = (): void => {
 const handleClear = (): void => {
   editorRef.value?.clearContent();
 };
+
+const isAppending = ref(false);
+const handleAsyncAppend = (): void => {
+  isAppending.value = true;
+  setTimeout(() => {
+    htmlContent.value = `${htmlContent.value}<p>⚡ [外部异步追加] 于 ${new Date().toLocaleTimeString()} 插入的内容（实测光标不跳回首行）</p>`;
+    isAppending.value = false;
+    ElMessage.success('外部异步数据追加成功，当前选区与光标已保全！');
+  }, 600);
+};
 </script>
 
 <template>
@@ -102,6 +113,14 @@ const handleClear = (): void => {
         <div class="control-group">
           <span class="control-label">实例操作：</span>
           <el-button size="small" type="primary" plain @click="handleFocus">聚焦末尾</el-button>
+          <el-button
+            size="small"
+            type="success"
+            plain
+            :loading="isAppending"
+            @click="handleAsyncAppend"
+            >外部异步追加</el-button
+          >
           <el-button size="small" type="danger" plain @click="handleClear">清空内容</el-button>
         </div>
       </div>

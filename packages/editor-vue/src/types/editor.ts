@@ -184,6 +184,11 @@ export interface AtengEditorExpose {
   clearContent: (emitUpdate?: boolean) => void;
 
   /**
+   * 重设或替换编辑器内容。
+   */
+  setContent: (content: string | Record<string, unknown>, emitUpdate?: boolean) => void;
+
+  /**
    * 获取当前净化后的 HTML 内容。
    */
   getHTML: () => string;

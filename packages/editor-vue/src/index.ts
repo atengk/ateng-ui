@@ -22,6 +22,8 @@ export type { UseEditorReturn } from './composables/useEditor';
 export { createDefaultExtensions } from './extensions/default-extensions';
 export type { CreateDefaultExtensionsOptions } from './extensions/default-extensions';
 
+export { isContentEqual, applyContentPreservingSelection } from './utils';
+
 export type {
   EditorOutputFormat,
   UseEditorOptions,
