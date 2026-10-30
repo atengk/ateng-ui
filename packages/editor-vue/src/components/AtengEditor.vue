@@ -24,6 +24,7 @@ import AtengImageBubbleMenu from './AtengImageBubbleMenu.vue';
 import AtengLinkBubbleMenu from './AtengLinkBubbleMenu.vue';
 import AtengBubbleMenu from './AtengBubbleMenu.vue';
 import AtengSlashCommand from './AtengSlashCommand.vue';
+import AtengDragHandle from './AtengDragHandle.vue';
 import AtengStatusBar from './AtengStatusBar.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
@@ -49,6 +50,7 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   showImageMenu: true,
   showBubbleMenu: true,
   showSlashCommand: true,
+  showDragHandle: false,
   maxLength: undefined,
   showStatusBar: true,
   showWordCount: true,
@@ -351,6 +353,13 @@ defineExpose<AtengEditorExpose>({
     <template v-if="props.showSlashCommand && !props.readOnly">
       <slot name="slash-command" :editor="editor" :items="defaultSlashCommandItems">
         <AtengSlashCommand v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
+
+    <!-- 块级六点悬浮拖拽手柄 (readOnly 下不展示) -->
+    <template v-if="props.showDragHandle && !props.readOnly">
+      <slot name="drag-handle" :editor="editor">
+        <AtengDragHandle v-if="editor" :editor="editor" :disabled="props.disabled" />
       </slot>
     </template>
   </div>

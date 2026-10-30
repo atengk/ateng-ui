@@ -37,6 +37,9 @@ export type { AtengBubbleMenuInstance } from './components';
 export { default as AtengSlashCommand } from './components/AtengSlashCommand.vue';
 export type { AtengSlashCommandInstance } from './components';
 
+export { default as AtengDragHandle } from './components/AtengDragHandle.vue';
+export type { AtengDragHandleInstance } from './components';
+
 export { default as AtengStatusBar } from './components/AtengStatusBar.vue';
 export type { AtengStatusBarInstance } from './components';
 
@@ -80,6 +83,8 @@ export type {
   AtengLinkBubbleMenuProps,
   AtengBubbleMenuProps,
   AtengSlashCommandProps,
+  DragHandleBlockActions,
+  AtengDragHandleProps,
   AtengStatusBarProps,
   SlashCommandItem,
   UploadHandlerResult,

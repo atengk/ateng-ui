@@ -110,6 +110,11 @@ export interface AtengEditorProps {
   showSlashCommand?: boolean;
 
   /**
+   * 是否启用左侧块级六点悬浮拖拽手柄，默认 false。
+   */
+  showDragHandle?: boolean;
+
+  /**
    * 纯文本字符数硬限制上限。达到上限时通过 ProseMirror 事务拦截物理键盘输入与外部粘贴。
    */
   maxLength?: number;
@@ -494,6 +499,59 @@ export interface AtengSimpleToolbarProps {
    * 当前是否处于全屏模式。
    */
   isFullscreen?: boolean;
+}
+
+/**
+ * 块级上下文菜单操作项动作集合。
+ */
+export interface DragHandleBlockActions {
+  /**
+   * 复制当前块并在下方插入。
+   */
+  duplicate: () => void;
+  /**
+   * 删除当前块。
+   */
+  delete: () => void;
+  /**
+   * 清空当前块内容。
+   */
+  clear: () => void;
+  /**
+   * 将当前块转换为指定类型。
+   */
+  transformTo: (
+    type:
+      | 'paragraph'
+      | 'h1'
+      | 'h2'
+      | 'h3'
+      | 'bulletList'
+      | 'orderedList'
+      | 'taskList'
+      | 'blockquote'
+      | 'codeBlock',
+  ) => void;
+}
+
+/**
+ * <AtengDragHandle /> 悬浮拖拽手柄入参 Props 接口。
+ */
+export interface AtengDragHandleProps {
+  /**
+   * TipTap 原生 Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用手柄与菜单。
+   */
+  disabled?: boolean;
+
+  /**
+   * 手柄相对于块左侧的水平偏移量（像素），默认 -28。
+   */
+  offsetX?: number;
 }
 
 export type { FullHtmlOptions };
