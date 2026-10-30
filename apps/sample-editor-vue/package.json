@@ -1,0 +1,25 @@
+{
+  "name": "sample-editor-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/editor-vue 企业级现代富文本与内容创作自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/editor-vue": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "element-plus": "^2.14.7",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

@@ -32,7 +32,9 @@
   面向现代 Web 应用与企业级审批流、状态机的工业级流程设计与流转可视化扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 LogicFlow，严格中立并与具体 UI 库解耦（架构预留未来 React 镜像包 `@atengk/flow-react`）。提供 `<AtengFlowDesigner />` 可视化流程编排设计器、`<AtengFlowViewer />` 运行态只读流转追踪器与 `useFlow()` 无头状态机；具备三段式预设物料面板、属性配置抽屉插槽解构回写、四向吸附正交折线防呆连线、五态运行轨迹动效与悬停审计浮层；内置 `FlowValidator` 拓扑静态校验引擎、`AutoLayoutEngine` DAG 自动排版算法、`FlowSnapshot` 高清全景防虚导出与 `BpmnAdapter` BPMN 2.0 XML 双向转译器；标配 `ResizeObserver` 几何自愈与确定性四步生命周期销毁清理。
 - **[CodeEditorVue 企业级代码与Diff比对扩展](./packages/code-editor-vue/CONTEXT.md)**（`@atengk/code-editor-vue`，当前已立项入驻）：
   面向现代 Web 应用、SQL 审计与发布配置中心的工业级 Monaco Editor 代码编辑与高保真 Diff 差异比对基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 Monaco Editor，严格中立并与具体 UI 库解耦。提供 `<AtengCodeEditor />` 高保真单体编辑器、`<AtengCodeDiffEditor />` 双栏/内联差异比对容器与 `useCodeEditor()` / `useCodeDiff()` 无头状态机；以 `.at-code-editor-*` 隔离原生微工具栏并 100% 暴露插槽反转；内置三级弹性 WorkerProvider SPI 与离线单线程静默降级防线；确立 `shallowRef` 零深层代理与 `executeEdits` 增量光标防丢失契约；提供暗黑模式 `theme: 'auto'` 响应式热跟随、`ResizeObserver` 弹窗/标签页 `0x0` 几何自愈、受管补全 SPI 与 JSON Schema 语法校验。
-- **其他领域引擎适配与专业能力扩展包**（未来扩展，如 `@atengk/editor` 等）：
+- **[EditorVue 企业级现代富文本与内容创作扩展](./packages/editor-vue/CONTEXT.md)**（`@atengk/editor-vue`，当前已立项入驻）：
+  面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 TipTap 2.x，严格中立并与具体 UI 库解耦。提供 `<AtengEditor />` 现代富文本高阶表现容器与 `useEditor()` 无头状态机；以 `.at-editor-*` 隔离原生全中文微工具栏并 100% 暴露插槽反转；内置排名前 90% 的企业核心排版扩展预设（StarterKit、Table家族与拖拽列宽、TaskList、Image、Link、CodeBlockLowlight 等）；支持 `v-model` (HTML)、`v-model:markdown` 与 `v-model:json` 多轨数据双向绑定与增量事务同步；提供 `UploadHandler` SPI 拦截拖拽/粘贴截图直传并内置骨架占位与 Base64 降级；内置全中文表格浮动上下文菜单（`TableBubbleMenu`）、块级斜杠命令（`SlashCommand`）、过滤标签的纯文本字数统计与硬拦截（`CharacterCounter`）、暗黑模式无损热跟随、`0x0` 几何自愈、脱壳真全屏（`TeleportFullscreen`）与阅读器双态模式。
+- **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
 ### L3 表现与高阶组件套件层 (UI & Suite Layer)
@@ -51,6 +53,7 @@
 - **[Sample EChartsVue 响应式图表自验展厅](./apps/sample-echarts-vue/README.md)**（`sample-echarts-vue`）：数据可视化沙箱，1:1 对标 `@atengk/echarts-vue`，验证通用容器、几何感知自愈、声明式同步、多态遮罩、暗黑模式、6 大高频预设卡片、地图多级下钻与全屏脱壳导出。
 - **[Sample FlowVue 流程与流转自验展厅](./apps/sample-flow-vue/README.md)**（`sample-flow-vue`）：流程设计与运行态沙箱，1:1 对标 `@atengk/flow-vue`，验证设计器拖拽编排、BPMN XML 双向转译、运行态五态高亮与悬停审计、Vue 3 SFC 自定义节点与 DAG 规则链拓扑。
 - **[Sample CodeEditorVue 代码与Diff比对自验展厅](./apps/sample-code-editor-vue/README.md)**（`sample-code-editor-vue`）：代码与比对沙箱，1:1 对标 `@atengk/code-editor-vue`，固定端口 3008，验证代码高亮、SQL 美化、JSON Schema 校验、Diff 双模比对、审计行高亮与弹窗生命周期自愈清理。
+- **[Sample EditorVue 现代富文本与内容创作自验展厅](./apps/sample-editor-vue/README.md)**（`sample-editor-vue`）：富文本沙箱，1:1 对标 `@atengk/editor-vue`，固定端口 3009，验证基础排版、表格上下文操控与列宽拖拽、拖拽粘贴截图直传、划词气泡与斜杠命令、表单联动与字数硬限制、弹窗挂载自愈与阅读器模式。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -79,7 +82,8 @@ flowchart TD
         ECH["@atengk/echarts-vue<br/>(企业级响应式图表可视化扩展)"]
         FLOW["@atengk/flow-vue<br/>(企业级流程与审批流转扩展)"]
         CODE["@atengk/code-editor-vue<br/>(代码编辑与Diff比对扩展)"]
-        EXT["未来的 editor ...<br/>(专用领域引擎高内聚适配)"]
+        EDIT["@atengk/editor-vue<br/>(现代富文本与内容创作扩展)"]
+        EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
     subgraph L1["L1 无头响应式层 (Headless Layer)"]
@@ -99,6 +103,7 @@ flowchart TD
         S_ECH["apps/sample-echarts-vue"]
         S_FLOW["apps/sample-flow-vue"]
         S_CODE["apps/sample-code-editor-vue"]
+        S_EDIT["apps/sample-editor-vue"]
         S_EP["apps/sample-element-plus"]
     end
 
@@ -117,6 +122,7 @@ flowchart TD
     ECH --> S_ECH
     FLOW --> S_FLOW
     CODE --> S_CODE
+    EDIT --> S_EDIT
     EP --> S_EP
 ```
 
@@ -169,3 +175,4 @@ flowchart TD
 - [ADR-0033: FlowVue L2 扩展层架构与双轨运行态治理规范](./docs/adr/0033-flow-vue-l2-architecture-and-dual-track-governance.md)
 - [ADR-0034: ProLayout 与 TabsNav 企业级框架布局架构规范与契约设计](./docs/adr/0034-pro-layout-and-tabs-nav-architecture-and-contracts.md)
 - [ADR-0035: CodeEditorVue L2 扩展层架构与 Monaco 工业级治理规范](./docs/adr/0035-code-editor-vue-l2-architecture-and-monaco-governance.md)
+- [ADR-0036: EditorVue L2 扩展层架构与 TipTap 工业级治理规范](./docs/adr/0036-editor-vue-l2-architecture-and-tiptap-governance.md)

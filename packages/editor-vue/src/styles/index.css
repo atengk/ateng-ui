@@ -1,0 +1,365 @@
+/**
+ * @atengk/editor-vue 全局样式体系与设计变量规范。
+ *
+ * 遵循 .at-editor-* 独立命名空间隔离，支持自动暗黑模式热跟随与 CSS 变量覆盖。
+ *
+ * @author Ateng
+ * @since 2026-10-30
+ */
+
+:root {
+  --at-editor-bg-color: var(--el-bg-color, #ffffff);
+  --at-editor-text-color: var(--el-text-color-primary, #303133);
+  --at-editor-border-color: var(--el-border-color, #dcdfe6);
+  --at-editor-border-color-focus: var(--el-color-primary, #409eff);
+  --at-editor-border-radius: var(--el-border-radius-base, 4px);
+  --at-editor-toolbar-bg: var(--el-fill-color-light, #f5f7fa);
+  --at-editor-toolbar-border: var(--el-border-color-lighter, #e4e7ed);
+  --at-editor-btn-hover-bg: var(--el-fill-color, #e9ecef);
+  --at-editor-btn-active-bg: var(--el-color-primary-light-9, #ecf5ff);
+  --at-editor-btn-active-color: var(--el-color-primary, #409eff);
+  --at-editor-placeholder-color: var(--el-text-color-placeholder, #a8abb2);
+  --at-editor-code-bg: var(--el-fill-color-dark, #282c34);
+  --at-editor-code-text: #abb2bf;
+  --at-editor-inline-code-bg: var(--el-fill-color, #f0f2f5);
+  --at-editor-inline-code-text: var(--el-color-danger, #f56c6c);
+  --at-editor-quote-border: var(--el-color-primary, #409eff);
+  --at-editor-quote-bg: var(--el-fill-color-lighter, #fafafa);
+  --at-editor-table-border: var(--el-border-color, #dcdfe6);
+  --at-editor-table-header-bg: var(--el-fill-color-light, #f5f7fa);
+  --at-editor-table-selected-bg: rgba(64, 158, 255, 0.12);
+  --at-editor-table-resize-handle: var(--el-color-primary, #409eff);
+  --at-editor-statusbar-bg: var(--el-fill-color-lighter, #fafafa);
+  --at-editor-statusbar-text: var(--el-text-color-secondary, #909399);
+  --at-editor-statusbar-border: var(--el-border-color-lighter, #e4e7ed);
+}
+
+html.dark {
+  --at-editor-bg-color: var(--el-bg-color, #141414);
+  --at-editor-text-color: var(--el-text-color-primary, #e5eaf3);
+  --at-editor-border-color: var(--el-border-color, #414243);
+  --at-editor-border-color-focus: var(--el-color-primary, #409eff);
+  --at-editor-toolbar-bg: var(--el-fill-color-darker, #1d1e1f);
+  --at-editor-toolbar-border: var(--el-border-color-darker, #2b2b2c);
+  --at-editor-btn-hover-bg: var(--el-fill-color, #262727);
+  --at-editor-btn-active-bg: rgba(64, 158, 255, 0.2);
+  --at-editor-btn-active-color: #79bbff;
+  --at-editor-placeholder-color: var(--el-text-color-placeholder, #6c6e72);
+  --at-editor-code-bg: #1e1e1e;
+  --at-editor-code-text: #d4d4d4;
+  --at-editor-inline-code-bg: #2d2d2d;
+  --at-editor-inline-code-text: #f89898;
+  --at-editor-quote-border: #79bbff;
+  --at-editor-quote-bg: #1a1a1a;
+  --at-editor-table-border: var(--el-border-color, #414243);
+  --at-editor-table-header-bg: #242424;
+  --at-editor-table-selected-bg: rgba(64, 158, 255, 0.2);
+  --at-editor-statusbar-bg: #1d1e1f;
+  --at-editor-statusbar-text: #8d9095;
+  --at-editor-statusbar-border: #2b2b2c;
+}
+
+/* 编辑器根容器 */
+.at-editor {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: var(--at-editor-bg-color);
+  color: var(--at-editor-text-color);
+  border: 1px solid var(--at-editor-border-color);
+  border-radius: var(--at-editor-border-radius);
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+}
+
+.at-editor:focus-within {
+  border-color: var(--at-editor-border-color-focus);
+}
+
+.at-editor.is-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background-color: var(--el-fill-color-light, #f5f7fa);
+}
+
+.at-editor.is-disabled .at-editor__content {
+  pointer-events: none;
+}
+
+.at-editor.is-readonly {
+  border: none;
+  background-color: transparent;
+}
+
+.at-editor.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 3000 !important;
+  border-radius: 0 !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  max-height: none !important;
+}
+
+/* 微工具栏容器 */
+.at-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background-color: var(--at-editor-toolbar-bg);
+  border-bottom: 1px solid var(--at-editor-toolbar-border);
+  user-select: none;
+}
+
+.at-editor.is-sticky-toolbar .at-editor__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* 微工具栏按钮 */
+.at-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--at-editor-text-color);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.at-editor__btn:hover:not(:disabled) {
+  background-color: var(--at-editor-btn-hover-bg);
+}
+
+.at-editor__btn.is-active {
+  background-color: var(--at-editor-btn-active-bg);
+  color: var(--at-editor-btn-active-color);
+}
+
+.at-editor__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.at-editor__btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* 工具栏分割线 */
+.at-editor__divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background-color: var(--at-editor-toolbar-border);
+}
+
+/* 正文编辑区容器 */
+.at-editor__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.at-editor__content {
+  flex: 1 1 auto;
+  padding: 16px 20px;
+  cursor: text;
+}
+
+/* ProseMirror 核心样式注入 */
+.at-editor__content .ProseMirror {
+  outline: none;
+  min-height: 120px;
+}
+
+.at-editor__content .ProseMirror p {
+  margin: 0.5em 0;
+}
+
+.at-editor__content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--at-editor-placeholder-color);
+  pointer-events: none;
+  height: 0;
+}
+
+/* 标题样式 */
+.at-editor__content .ProseMirror h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  margin: 0.8em 0 0.4em;
+  line-height: 1.3;
+}
+
+.at-editor__content .ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.7em 0 0.35em;
+  line-height: 1.35;
+}
+
+.at-editor__content .ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+  line-height: 1.4;
+}
+
+/* 引用块样式 */
+.at-editor__content .ProseMirror blockquote {
+  margin: 0.8em 0;
+  padding: 8px 16px;
+  border-left: 4px solid var(--at-editor-quote-border);
+  background-color: var(--at-editor-quote-bg);
+  border-radius: 0 4px 4px 0;
+  color: var(--el-text-color-regular, #606266);
+}
+
+/* 列表样式 */
+.at-editor__content .ProseMirror ul,
+.at-editor__content .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.at-editor__content .ProseMirror li {
+  margin: 0.25em 0;
+}
+
+/* 任务列表样式 */
+.at-editor__content .ProseMirror ul[data-type='taskList'] {
+  list-style: none;
+  padding: 0;
+}
+
+.at-editor__content .ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.3em 0;
+}
+
+.at-editor__content .ProseMirror ul[data-type='taskList'] li > label {
+  margin-right: 8px;
+  user-select: none;
+}
+
+.at-editor__content .ProseMirror ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+}
+
+/* 行内代码样式 */
+.at-editor__content .ProseMirror code {
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  background-color: var(--at-editor-inline-code-bg);
+  color: var(--at-editor-inline-code-text);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* 代码块高亮样式 */
+.at-editor__content .ProseMirror pre {
+  background-color: var(--at-editor-code-bg);
+  color: var(--at-editor-code-text);
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+.at-editor__content .ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 0.92em;
+}
+
+/* 水平分割线 */
+.at-editor__content .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--at-editor-border-color);
+  margin: 1.2em 0;
+}
+
+/* 高亮样式 */
+.at-editor__content .ProseMirror mark {
+  background-color: #ffe58f;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* 表格样式 */
+.at-editor__content .ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.8em 0;
+  overflow: hidden;
+}
+
+.at-editor__content .ProseMirror td,
+.at-editor__content .ProseMirror th {
+  min-width: 1em;
+  border: 1px solid var(--at-editor-table-border);
+  padding: 8px 10px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.at-editor__content .ProseMirror th {
+  font-weight: 600;
+  text-align: left;
+  background-color: var(--at-editor-table-header-bg);
+}
+
+.at-editor__content .ProseMirror .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--at-editor-table-selected-bg);
+  pointer-events: none;
+}
+
+.at-editor__content .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: var(--at-editor-table-resize-handle);
+  pointer-events: none;
+}
+
+/* 图片样式 */
+.at-editor__content .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
