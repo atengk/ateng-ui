@@ -101,11 +101,42 @@ export interface EditorBaseProps {
 }
 
 /**
+ * 编辑器高阶场景预设模式枚举契约。
+ */
+export type EditorPresetMode = 'default' | 'simple' | 'notion' | 'agent' | 'docx';
+
+/**
  * <AtengEditor /> 表现容器对外 Props 声明接口。
  */
 export interface AtengEditorProps extends EditorBaseProps {
   /**
-   * 是否展示原生轻量微工具栏，默认 true。
+   * 编辑器高阶场景预设模式。
+   * - 'default': 标准通用富文本编辑器（包含顶部完整工具栏、状态栏、浮动菜单与斜杠命令）；
+   * - 'simple': 经典轻量自适应编辑器，标配响应式单行折叠微工具栏与紧凑模式，彻底隔离斜杠与浮层干扰；
+   * - 'notion': 现代沉浸式无界白板，标配左侧六点拖拽手柄、斜杠面板、Callout 重点高亮与 Toggle 折叠列表物料；
+   * - 'agent': 智能体辅助创作编辑器（Phase 2，支持行内 AI 流式审阅与对比状态机）；
+   * - 'docx': A4 物理分页排版与公文公文书编辑器（Phase 3，仿真纸张与 OpenXML 导出）。
+   * @default 'default'
+   */
+  mode?: EditorPresetMode;
+
+  /**
+   * 声明式定制 Simple 工具栏工具集合（仅在 mode='simple' 时生效，缺省展示全套工具）。
+   */
+  tools?: SimpleToolbarItem[];
+
+  /**
+   * 是否启用 Simple 紧凑模式（内外边距更小，仅在 mode='simple' 时生效）。
+   */
+  dense?: boolean;
+
+  /**
+   * 预设画布最大宽度（主要用于 Notion 知识库流式居中排版，如 '860px'）。
+   */
+  maxWidth?: string;
+
+  /**
+   * 是否展示原生轻量微工具栏，默认根据 mode 自适应（default/simple 为 true，notion 为 false）。
    */
   showToolbar?: boolean;
 

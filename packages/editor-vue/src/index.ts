@@ -82,6 +82,7 @@ export type {
   EditorOutputFormat,
   UseEditorOptions,
   EditorBaseProps,
+  EditorPresetMode,
   AtengEditorProps,
   SimpleToolbarItem,
   SimpleEditorProps,

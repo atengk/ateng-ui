@@ -19,6 +19,7 @@ import {
   createTableActions,
 } from '../utils';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
+import AtengSimpleToolbar from './AtengSimpleToolbar.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
 import AtengImageBubbleMenu from './AtengImageBubbleMenu.vue';
 import AtengLinkBubbleMenu from './AtengLinkBubbleMenu.vue';
@@ -43,16 +44,20 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   readOnly: false,
   autofocus: false,
   extensions: () => [],
-  showToolbar: true,
+  mode: 'default',
+  tools: undefined,
+  dense: false,
+  maxWidth: undefined,
+  showToolbar: undefined,
   stickyToolbar: false,
   showTableMenu: true,
   showLinkMenu: true,
   showImageMenu: true,
-  showBubbleMenu: true,
-  showSlashCommand: true,
-  showDragHandle: false,
+  showBubbleMenu: undefined,
+  showSlashCommand: undefined,
+  showDragHandle: undefined,
   maxLength: undefined,
-  showStatusBar: true,
+  showStatusBar: undefined,
   showWordCount: true,
   showParagraphCount: true,
   uploadHandler: undefined,
@@ -104,7 +109,45 @@ const containerStyle = computed(() => {
     styleObj.maxHeight =
       typeof props.maxHeight === 'number' ? `${props.maxHeight}px` : props.maxHeight;
   }
+  if (props.mode === 'notion' && props.maxWidth) {
+    styleObj['--at-notion-max-width'] = props.maxWidth;
+  }
   return styleObj;
+});
+
+// 计算多态生效的工具栏展示状态：未显式传时，notion 模式默认隐藏，其余模式默认展示
+const effectiveShowToolbar = computed(() => {
+  if (props.showToolbar !== undefined) return props.showToolbar;
+  if (props.mode === 'notion') return false;
+  return true;
+});
+
+// 计算多态生效的斜杠命令面板：未显式传时，simple 模式严格隔离隐藏，其余模式默认启用
+const effectiveShowSlashCommand = computed(() => {
+  if (props.showSlashCommand !== undefined) return props.showSlashCommand;
+  if (props.mode === 'simple') return false;
+  return true;
+});
+
+// 计算多态生效的选区排版气泡菜单：未显式传时，simple 模式隔离隐藏，其余模式默认启用
+const effectiveShowBubbleMenu = computed(() => {
+  if (props.showBubbleMenu !== undefined) return props.showBubbleMenu;
+  if (props.mode === 'simple') return false;
+  return true;
+});
+
+// 计算多态生效的悬浮拖拽手柄：未显式传时，notion 模式默认启用，其余模式默认关闭
+const effectiveShowDragHandle = computed(() => {
+  if (props.showDragHandle !== undefined) return props.showDragHandle;
+  if (props.mode === 'notion') return true;
+  return false;
+});
+
+// 计算多态生效的吸底状态栏：未显式传时，notion 模式默认关闭，其余模式默认开启
+const effectiveShowStatusBar = computed(() => {
+  if (props.showStatusBar !== undefined) return props.showStatusBar;
+  if (props.mode === 'notion') return false;
+  return true;
 });
 
 // 初始化无头状态机
@@ -288,13 +331,28 @@ defineExpose<AtengEditorExpose>({
       'is-readonly': props.readOnly,
       'is-sticky-toolbar': props.stickyToolbar,
       'is-fullscreen': isFullscreen,
+      'at-simple-editor': props.mode === 'simple',
+      'is-dense': props.mode === 'simple' && props.dense,
+      'at-notion-editor': props.mode === 'notion',
+      'at-agent-editor': props.mode === 'agent',
+      'at-docx-editor': props.mode === 'docx',
     }"
     :style="isFullscreen ? undefined : containerStyle"
   >
     <!-- 工具栏插槽 (readOnly 下不展示) -->
-    <template v-if="props.showToolbar && !props.readOnly">
+    <template v-if="effectiveShowToolbar && !props.readOnly">
       <slot name="toolbar" :editor="editor">
+        <AtengSimpleToolbar
+          v-if="props.mode === 'simple'"
+          :editor="editor"
+          :tools="props.tools"
+          :dense="props.dense"
+          :disabled="props.disabled"
+          :is-fullscreen="isFullscreen"
+          @toggle-fullscreen="toggleFullscreen"
+        />
         <AtengEditorToolbar
+          v-else
           :editor="editor"
           :disabled="props.disabled"
           :is-fullscreen="isFullscreen"
@@ -309,7 +367,7 @@ defineExpose<AtengEditorExpose>({
     </div>
 
     <!-- 吸底状态栏 (readOnly 下不展示) -->
-    <template v-if="props.showStatusBar && !props.readOnly">
+    <template v-if="effectiveShowStatusBar && !props.readOnly">
       <slot name="statusbar" :editor="editor" :max-length="props.maxLength">
         <AtengStatusBar
           v-if="editor"
@@ -343,23 +401,27 @@ defineExpose<AtengEditorExpose>({
     </template>
 
     <!-- 选区文本高频排版气泡菜单 (readOnly 下不展示) -->
-    <template v-if="props.showBubbleMenu && !props.readOnly">
+    <template v-if="effectiveShowBubbleMenu && !props.readOnly">
       <slot name="bubble-menu" :editor="editor">
         <AtengBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
       </slot>
     </template>
 
     <!-- 块级斜杠命令快速唤起面板 (readOnly 下不展示) -->
-    <template v-if="props.showSlashCommand && !props.readOnly">
+    <template v-if="effectiveShowSlashCommand && !props.readOnly">
       <slot name="slash-command" :editor="editor" :items="defaultSlashCommandItems">
         <AtengSlashCommand v-if="editor" :editor="editor" :disabled="props.disabled" />
       </slot>
     </template>
 
     <!-- 块级六点悬浮拖拽手柄 (readOnly 下不展示) -->
-    <template v-if="props.showDragHandle && !props.readOnly">
+    <template v-if="effectiveShowDragHandle && !props.readOnly">
       <slot name="drag-handle" :editor="editor">
-        <AtengDragHandle v-if="editor" :editor="editor" :disabled="props.disabled" />
+        <AtengDragHandle v-if="editor" :editor="editor" :disabled="props.disabled">
+          <template v-if="$slots['block-menu']" #block-menu="slotProps">
+            <slot name="block-menu" v-bind="slotProps" />
+          </template>
+        </AtengDragHandle>
       </slot>
     </template>
   </div>
@@ -378,5 +440,14 @@ defineExpose<AtengEditorExpose>({
   width: 100%;
   min-height: 0;
   position: relative;
+}
+
+.at-simple-editor.is-dense :deep(.at-editor__content) {
+  padding: 10px 14px;
+}
+
+.at-notion-editor :deep(.at-editor__body) {
+  max-width: var(--at-notion-max-width, 860px);
+  margin: 0 auto;
 }
 </style>
