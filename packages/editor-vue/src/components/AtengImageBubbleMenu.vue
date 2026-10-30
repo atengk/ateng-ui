@@ -130,3 +130,11 @@ const computedTippyOptions = computed(() => ({
     </slot>
   </BubbleMenu>
 </template>
+
+<style scoped>
+.at-editor-image-menu {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+</style>

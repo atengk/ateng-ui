@@ -70,6 +70,10 @@ const toggleDarkMode = (val: boolean): void => {
 </template>
 
 <style>
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   padding: 0;

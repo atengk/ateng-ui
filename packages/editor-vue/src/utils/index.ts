@@ -7,3 +7,7 @@
 
 export * from './sync';
 export * from './slash-command';
+export * from './table';
+export * from './link';
+export * from './stats';
+export * from './export';

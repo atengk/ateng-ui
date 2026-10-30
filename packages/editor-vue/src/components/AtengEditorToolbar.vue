@@ -10,6 +10,7 @@
 
 import { ref } from 'vue';
 import type { Editor } from '@tiptap/vue-3';
+import { promptAndSetLink } from '../utils';
 
 interface Props {
   /**
@@ -38,16 +39,47 @@ const emit = defineEmits<{
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
+const alignOptions = [
+  {
+    align: 'left' as const,
+    title: '居左对齐',
+    path: 'M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z',
+  },
+  {
+    align: 'center' as const,
+    title: '居中对齐',
+    path: 'M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z',
+  },
+  {
+    align: 'right' as const,
+    title: '居右对齐',
+    path: 'M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z',
+  },
+];
+
+const listOptions = [
+  {
+    type: 'bulletList' as const,
+    title: '无序列表',
+    action: () => props.editor?.chain().focus().toggleBulletList().run(),
+    path: 'M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z',
+  },
+  {
+    type: 'orderedList' as const,
+    title: '有序列表',
+    action: () => props.editor?.chain().focus().toggleOrderedList().run(),
+    path: 'M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z',
+  },
+  {
+    type: 'taskList' as const,
+    title: '任务待办列表',
+    action: () => props.editor?.chain().focus().toggleTaskList().run(),
+    path: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 4z',
+  },
+];
+
 const handleLinkClick = () => {
-  if (!props.editor) return;
-  if (props.editor.isActive('link')) {
-    props.editor.chain().focus().unsetLink().run();
-    return;
-  }
-  const href = window.prompt('请输入超链接地址 (URL):', 'https://');
-  if (href && href.trim() !== '') {
-    props.editor.chain().focus().setLink({ href: href.trim() }).run();
-  }
+  promptAndSetLink(props.editor);
 };
 
 const handleImageClick = () => {
@@ -174,37 +206,17 @@ const handleImageFileChange = (event: Event) => {
 
     <!-- 标题层级 -->
     <button
+      v-for="level in [1, 2, 3] as const"
+      :key="level"
       type="button"
       class="at-editor__btn"
-      title="一级标题"
-      aria-label="一级标题"
-      :class="{ 'is-active': props.editor.isActive('heading', { level: 1 }) }"
+      :title="`${['一', '二', '三'][level - 1]}级标题`"
+      :aria-label="`${['一', '二', '三'][level - 1]}级标题`"
+      :class="{ 'is-active': props.editor.isActive('heading', { level }) }"
       :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleHeading({ level: 1 }).run()"
+      @click="props.editor.chain().focus().toggleHeading({ level }).run()"
     >
-      <span style="font-weight: 700">H1</span>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="二级标题"
-      aria-label="二级标题"
-      :class="{ 'is-active': props.editor.isActive('heading', { level: 2 }) }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleHeading({ level: 2 }).run()"
-    >
-      <span style="font-weight: 700">H2</span>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="三级标题"
-      aria-label="三级标题"
-      :class="{ 'is-active': props.editor.isActive('heading', { level: 3 }) }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleHeading({ level: 3 }).run()"
-    >
-      <span style="font-weight: 700">H3</span>
+      <span style="font-weight: 700">H{{ level }}</span>
     </button>
     <button
       type="button"
@@ -222,48 +234,18 @@ const handleImageFileChange = (event: Event) => {
 
     <!-- 列表体系 -->
     <button
+      v-for="opt in listOptions"
+      :key="opt.type"
       type="button"
       class="at-editor__btn"
-      title="无序列表"
-      aria-label="无序列表"
-      :class="{ 'is-active': props.editor.isActive('bulletList') }"
+      :title="opt.title"
+      :aria-label="opt.title"
+      :class="{ 'is-active': props.editor.isActive(opt.type) }"
       :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleBulletList().run()"
+      @click="opt.action"
     >
       <svg viewBox="0 0 24 24">
-        <path
-          d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"
-        />
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="有序列表"
-      aria-label="有序列表"
-      :class="{ 'is-active': props.editor.isActive('orderedList') }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleOrderedList().run()"
-    >
-      <svg viewBox="0 0 24 24">
-        <path
-          d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"
-        />
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="任务待办列表"
-      aria-label="任务待办列表"
-      :class="{ 'is-active': props.editor.isActive('taskList') }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().toggleTaskList().run()"
-    >
-      <svg viewBox="0 0 24 24">
-        <path
-          d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 4z"
-        />
+        <path :d="opt.path" />
       </svg>
     </button>
 
@@ -358,42 +340,18 @@ const handleImageFileChange = (event: Event) => {
 
     <!-- 对齐方式 -->
     <button
+      v-for="opt in alignOptions"
+      :key="opt.align"
       type="button"
       class="at-editor__btn"
-      title="居左对齐"
-      aria-label="居左对齐"
-      :class="{ 'is-active': props.editor.isActive({ textAlign: 'left' }) }"
+      :title="opt.title"
+      :aria-label="opt.title"
+      :class="{ 'is-active': props.editor.isActive({ textAlign: opt.align }) }"
       :disabled="props.disabled"
-      @click="props.editor.chain().focus().setTextAlign('left').run()"
+      @click="props.editor.chain().focus().setTextAlign(opt.align).run()"
     >
       <svg viewBox="0 0 24 24">
-        <path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="居中对齐"
-      aria-label="居中对齐"
-      :class="{ 'is-active': props.editor.isActive({ textAlign: 'center' }) }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().setTextAlign('center').run()"
-    >
-      <svg viewBox="0 0 24 24">
-        <path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="at-editor__btn"
-      title="居右对齐"
-      aria-label="居右对齐"
-      :class="{ 'is-active': props.editor.isActive({ textAlign: 'right' }) }"
-      :disabled="props.disabled"
-      @click="props.editor.chain().focus().setTextAlign('right').run()"
-    >
-      <svg viewBox="0 0 24 24">
-        <path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z" />
+        <path :d="opt.path" />
       </svg>
     </button>
 
@@ -436,3 +394,12 @@ const handleImageFileChange = (event: Event) => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.at-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  user-select: none;
+}
+</style>

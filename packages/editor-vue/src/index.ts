@@ -37,13 +37,28 @@ export type { AtengStatusBarInstance } from './components';
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
+export { useEditorDom } from './composables/useEditorDom';
+export type { UseEditorDomOptions, UseEditorDomReturn } from './composables/useEditorDom';
+
 export { createDefaultExtensions } from './extensions/default-extensions';
 export type { CreateDefaultExtensionsOptions } from './extensions/default-extensions';
 
 export { FileUploadExtension } from './extensions/upload';
 export type { FileUploadOptions } from './extensions/upload';
 
-export { isContentEqual, applyContentPreservingSelection, defaultSlashCommandItems } from './utils';
+export {
+  isContentEqual,
+  applyContentPreservingSelection,
+  defaultSlashCommandItems,
+  clearTableContent,
+  createTableActions,
+  promptAndSetLink,
+  unsetLinkSafe,
+  getEditorCharacters,
+  getEditorWords,
+  getEditorParagraphs,
+  generateFullHtml,
+} from './utils';
 
 export type {
   EditorOutputFormat,
@@ -61,4 +76,5 @@ export type {
   UploadHandlerResult,
   UploadHandler,
   UploadSuccessPayload,
+  FullHtmlOptions,
 } from './types';

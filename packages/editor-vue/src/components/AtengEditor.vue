@@ -9,13 +9,14 @@
  * @since 2026-10-30
  */
 
-import { computed, watch, ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, watch, ref, onMounted } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
-import { useEditor } from '../composables/useEditor';
+import { useEditor, useEditorDom } from '../composables';
 import {
   isContentEqual,
   applyContentPreservingSelection,
   defaultSlashCommandItems,
+  createTableActions,
 } from '../utils';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
@@ -109,6 +110,7 @@ const {
   editor,
   isEmpty,
   getHTML,
+  getFullHTML,
   getJSON,
   getMarkdown,
   getText,
@@ -122,17 +124,30 @@ const {
   getParagraphs,
 } = useEditor({
   content: initialContent.value,
-  placeholder: props.placeholder,
-  editable: isEditable.value,
+  placeholder: () => props.placeholder,
+  editable: () => isEditable.value,
   autofocus: props.autofocus,
   extensions: props.extensions,
   uploadHandler: props.uploadHandler,
-  maxLength: props.maxLength,
+  maxLength: () => props.maxLength,
   onUploadSuccess: payload => {
     emit('uploadSuccess', payload);
   },
   onUploadError: (error, file) => {
     emit('uploadError', error, file);
+  },
+  onCreate: () => {
+    // 初始化完成后，主动同步一次初始多轨内容（Markdown 与 JSON），避免外部数据看板初始为空
+    const md = getMarkdown();
+    const jsonTree = getJSON();
+    lastEmittedMarkdown.value = md;
+    try {
+      lastEmittedJson.value = JSON.stringify(jsonTree);
+    } catch {
+      lastEmittedJson.value = '';
+    }
+    emit('update:markdown', md);
+    emit('update:json', jsonTree);
   },
   onUpdate: () => {
     const html = getHTML();
@@ -212,119 +227,32 @@ watch(
   { deep: true },
 );
 
-// 响应式同步 editable / disabled / readOnly 状态
-watch(isEditable, newEditable => {
-  if (editor.value) {
-    editor.value.setEditable(newEditable);
-  }
-});
-
-// 脱壳全屏状态机
-const isFullscreen = ref<boolean>(false);
-let originalParent: Node | null = null;
-let originalNextSibling: Node | null = null;
-
-const toggleFullscreen = (): void => {
-  isFullscreen.value = !isFullscreen.value;
-  emit('update:fullscreen', isFullscreen.value);
-};
-
-// 监听全屏状态，脱壳提升至 document.body 顶层突破局部弹窗裁剪
-watch(isFullscreen, fullscreen => {
-  if (typeof document === 'undefined' || !rootRef.value) return;
-  if (fullscreen) {
-    originalParent = rootRef.value.parentNode;
-    originalNextSibling = rootRef.value.nextSibling;
-    document.body.appendChild(rootRef.value);
-  } else if (originalParent && rootRef.value) {
-    if (originalNextSibling && originalParent.contains(originalNextSibling)) {
-      originalParent.insertBefore(rootRef.value, originalNextSibling);
-    } else {
-      originalParent.appendChild(rootRef.value);
-    }
-  }
-});
-
-const handleEscKeyDown = (e: KeyboardEvent): void => {
-  if (e.key === 'Escape' && isFullscreen.value) {
-    e.preventDefault();
-    isFullscreen.value = false;
-    emit('update:fullscreen', false);
-  }
-};
-
-// ResizeObserver 弹窗隐藏唤起 0x0 几何自愈
-let resizeObserver: ResizeObserver | null = null;
-let previousWidth = 0;
-let previousHeight = 0;
-
-const initResizeObserver = (): void => {
-  if (typeof ResizeObserver === 'undefined' || !rootRef.value) return;
-  resizeObserver = new ResizeObserver(entries => {
-    for (const entry of entries) {
-      const { width, height } = entry.contentRect;
-      // 当容器从 0x0 展开时触发重新派发事务与几何自愈
-      if ((previousWidth === 0 || previousHeight === 0) && width > 0 && height > 0) {
-        if (editor.value && editor.value.view) {
-          editor.value.view.dispatch(editor.value.state.tr);
-        }
-      }
-      previousWidth = width;
-      previousHeight = height;
-    }
-  });
-  resizeObserver.observe(rootRef.value);
-};
-
-// MutationObserver 监听 html.dark 无损热跟随
-let mutationObserver: MutationObserver | null = null;
-
-const initMutationObserver = (): void => {
-  if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
-  const checkTheme = (): void => {
-    const isDark = document.documentElement.classList.contains('dark');
-    emit('themeChange', isDark);
-  };
-  checkTheme();
-
-  mutationObserver = new MutationObserver(mutations => {
-    for (const mutation of mutations) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-        checkTheme();
-      }
-    }
-  });
-
-  mutationObserver.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class'],
-  });
-};
-
+// 挂载就绪后保底派发初始多轨内容
 onMounted(() => {
-  initResizeObserver();
-  initMutationObserver();
-  if (typeof window !== 'undefined') {
-    window.addEventListener('keydown', handleEscKeyDown);
+  if (editor.value) {
+    const md = getMarkdown();
+    const jsonTree = getJSON();
+    lastEmittedMarkdown.value = md;
+    try {
+      lastEmittedJson.value = JSON.stringify(jsonTree);
+    } catch {
+      lastEmittedJson.value = '';
+    }
+    emit('update:markdown', md);
+    emit('update:json', jsonTree);
   }
 });
 
-onBeforeUnmount(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
-  if (mutationObserver) {
-    mutationObserver.disconnect();
-    mutationObserver = null;
-  }
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('keydown', handleEscKeyDown);
-  }
-  if (isFullscreen.value && rootRef.value?.parentNode === document.body) {
-    document.body.removeChild(rootRef.value);
-  }
+// 纳管全屏、视口 0x0 自愈与暗黑模式热跟随
+const { isFullscreen, toggleFullscreen } = useEditorDom({
+  rootRef,
+  editor,
+  onThemeChange: isDark => emit('themeChange', isDark),
+  onFullscreenChange: fullscreen => emit('update:fullscreen', fullscreen),
 });
+
+// 组装表格高阶人体工学门面方法
+const tableActions = createTableActions(() => editor.value);
 
 // 显式暴露受管实例与核心方法
 defineExpose<AtengEditorExpose>({
@@ -335,6 +263,7 @@ defineExpose<AtengEditorExpose>({
   setContent,
   uploadImage,
   getHTML,
+  getFullHTML,
   getJSON,
   getMarkdown,
   getText,
@@ -344,6 +273,7 @@ defineExpose<AtengEditorExpose>({
   getCharacters,
   getWords,
   getParagraphs,
+  ...tableActions,
 });
 </script>
 
@@ -425,3 +355,19 @@ defineExpose<AtengEditorExpose>({
     </template>
   </div>
 </template>
+
+<style scoped>
+.at-editor {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.at-editor__body {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  position: relative;
+}
+</style>

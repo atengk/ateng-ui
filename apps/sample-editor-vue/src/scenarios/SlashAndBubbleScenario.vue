@@ -72,9 +72,18 @@ const resetContent = (): void => {
           <el-button size="small" @click="resetContent"> 🔄 重置演示内容 </el-button>
         </div>
         <div class="controls-right">
-          <el-switch v-model="showBubble" active-text="启用选区气泡" inline-prompt />
-          <el-switch v-model="showSlash" active-text="启用斜杠命令" inline-prompt />
-          <el-switch v-model="isCustomSlotMode" active-text="插槽反转演示 (#slot)" inline-prompt />
+          <div class="switch-item">
+            <span class="switch-label">选区气泡：</span>
+            <el-switch v-model="showBubble" />
+          </div>
+          <div class="switch-item">
+            <span class="switch-label">斜杠命令：</span>
+            <el-switch v-model="showSlash" />
+          </div>
+          <div class="switch-item">
+            <span class="switch-label">插槽反转 (#slot)：</span>
+            <el-switch v-model="isCustomSlotMode" />
+          </div>
         </div>
       </div>
 
@@ -200,8 +209,19 @@ const resetContent = (): void => {
 .controls-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.switch-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.switch-label {
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
 }
 
 .editor-wrapper {

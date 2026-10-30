@@ -223,8 +223,12 @@ describe('媒体资产上传拦截 SPI 与微浮层 (Asset Upload & Bubble Menus
     await nextTick();
     expect(linkMenuWrapper.find('.at-editor-link-menu').exists()).toBe(true);
 
-    // 验证取消超链接
-    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    // 验证在光标折叠在链接文字内部（未高亮选中文本）时，点击移除超链接成功剥除 <a> 标签
+    editor.commands.setTextSelection(2);
+    expect(editor.state.selection.from).toBe(editor.state.selection.to);
+    const unlinkBtn = linkMenuWrapper.find('button[aria-label="移除超链接"]');
+    expect(unlinkBtn.exists()).toBe(true);
+    await unlinkBtn.trigger('click');
     await nextTick();
 
     const html = instance.getHTML();

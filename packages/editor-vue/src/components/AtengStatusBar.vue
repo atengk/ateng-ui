@@ -12,6 +12,7 @@
 
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { AtengStatusBarProps } from '../types';
+import { getEditorCharacters, getEditorWords, getEditorParagraphs } from '../utils';
 
 defineOptions({
   name: 'AtengStatusBar',
@@ -29,36 +30,12 @@ const words = ref<number>(0);
 const paragraphs = ref<number>(0);
 
 /**
- * 重新计算当前文档的统计指标。
+ * 重新计算当前文档的统计指标（委派至安全受管 stats 工具）。
  */
 const updateStats = (): void => {
-  if (!props.editor) {
-    characters.value = 0;
-    words.value = 0;
-    paragraphs.value = 0;
-    return;
-  }
-
-  // 1. 提取字符数与词数 (优先从 CharacterCount storage 获取，过滤 HTML 标签)
-  const storage = props.editor.storage as Record<string, unknown>;
-  const charStorage = storage.characterCount as
-    { characters?: () => number; words?: () => number } | undefined;
-
-  characters.value =
-    typeof charStorage?.characters === 'function'
-      ? charStorage.characters()
-      : props.editor.getText().length;
-
-  words.value = typeof charStorage?.words === 'function' ? charStorage.words() : 0;
-
-  // 2. 统计段落与标题块级数量
-  let pCount = 0;
-  props.editor.state.doc.descendants(node => {
-    if (node.type.name === 'paragraph' || node.type.name === 'heading') {
-      pCount++;
-    }
-  });
-  paragraphs.value = pCount;
+  characters.value = getEditorCharacters(props.editor);
+  words.value = getEditorWords(props.editor);
+  paragraphs.value = getEditorParagraphs(props.editor);
 };
 
 /**
@@ -141,3 +118,12 @@ onBeforeUnmount(() => {
     </div>
   </slot>
 </template>
+
+<style scoped>
+.at-editor-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  user-select: none;
+}
+</style>

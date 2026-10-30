@@ -14,6 +14,7 @@ import { computed } from 'vue';
 import type { Editor as CoreEditor } from '@tiptap/core';
 import { BubbleMenu } from '@tiptap/vue-3';
 import type { AtengTableBubbleMenuProps } from '../types';
+import { clearTableContent } from '../utils';
 
 defineOptions({
   name: 'AtengTableBubbleMenu',
@@ -46,6 +47,15 @@ const computedTippyOptions = computed(() => ({
   theme: 'at-editor-menu',
   ...props.tippyOptions,
 }));
+
+/**
+ * 清空表格所有单元格内容。
+ */
+const handleClearTable = (): void => {
+  if (props.editor) {
+    clearTableContent(props.editor);
+  }
+};
 </script>
 
 <template>
@@ -188,6 +198,21 @@ const computedTippyOptions = computed(() => ({
         </button>
         <button
           type="button"
+          class="at-editor-table-menu__btn at-editor__btn is-warning"
+          title="清空表格"
+          aria-label="清空表格"
+          :disabled="props.disabled || !props.editor.can().deleteTable()"
+          @mousedown.prevent
+          @click="handleClearTable"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M19.36 10.04l-8.22-8.22a2 2 0 0 0-2.83 0L2.12 8.01a2 2 0 0 0 0 2.83l8.22 8.22a2 2 0 0 0 2.83 0l6.19-6.19c.78-.79.78-2.05 0-2.83zm-7.73 7.05l-6.81-6.81 5.38-5.38 6.81 6.81-5.38 5.38zM22 22H2v-2h20v2z"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
           class="at-editor-table-menu__btn at-editor__btn is-danger"
           title="删除表格"
           aria-label="删除表格"
@@ -205,3 +230,11 @@ const computedTippyOptions = computed(() => ({
     </slot>
   </BubbleMenu>
 </template>
+
+<style scoped>
+.at-editor-table-menu {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+</style>

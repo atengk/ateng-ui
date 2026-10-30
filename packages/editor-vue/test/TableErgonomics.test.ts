@@ -190,6 +190,79 @@ describe('表格人体工学与上下文气泡浮层 (Table Ergonomics)', () => 
 
     await nextTick();
     expect(bubbleMenuWrapper.find('.at-editor-table-menu').exists()).toBe(true);
+    // 验证包含清空表格按钮
+    const clearBtn = bubbleMenuWrapper.find('button[aria-label="清空表格"]');
+    expect(clearBtn.exists()).toBe(true);
+    expect(clearBtn.attributes('title')).toBe('清空表格');
     bubbleMenuWrapper.unmount();
+  });
+
+  it('支持通过 clearTable 门面清空表格所有单元格内容并保持排版结构', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>正文</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+    const editor = extractEditor(instance);
+
+    // 插入包含文本的表格
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: 2, cols: 2, withHeaderRow: false })
+      .insertContent('单元格A内容')
+      .run();
+    await nextTick();
+
+    expect(instance.getText()).toContain('单元格A内容');
+
+    // 调用高阶门面 clearTable()
+    const success = instance.clearTable();
+    await nextTick();
+
+    expect(success).toBe(true);
+    // 验证单元格文本被清空，但 2x2 表格结构完好无损
+    expect(instance.getText()).not.toContain('单元格A内容');
+    expect(wrapper.find('table').exists()).toBe(true);
+    expect(wrapper.findAll('tr').length).toBe(2);
+    expect(wrapper.findAll('td').length).toBe(4);
+  });
+
+  it('支持直接调用 AtengEditor 暴露的表格高阶人体工学门面方法', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>前置内容</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+
+    // 验证门面方法存在
+    expect(typeof instance.insertTable).toBe('function');
+    expect(typeof instance.addRowBefore).toBe('function');
+    expect(typeof instance.addRowAfter).toBe('function');
+    expect(typeof instance.addColumnBefore).toBe('function');
+    expect(typeof instance.addColumnAfter).toBe('function');
+    expect(typeof instance.deleteRow).toBe('function');
+    expect(typeof instance.deleteColumn).toBe('function');
+    expect(typeof instance.deleteTable).toBe('function');
+    expect(typeof instance.mergeCells).toBe('function');
+    expect(typeof instance.splitCell).toBe('function');
+    expect(typeof instance.toggleHeaderRow).toBe('function');
+
+    // 通过门面插入表格
+    instance.insertTable({ rows: 2, cols: 2, withHeaderRow: true });
+    await nextTick();
+    expect(wrapper.find('table').exists()).toBe(true);
+    expect(wrapper.findAll('tr').length).toBe(2);
+
+    // 通过门面追加行
+    instance.addRowAfter();
+    await nextTick();
+    expect(wrapper.findAll('tr').length).toBe(3);
   });
 });

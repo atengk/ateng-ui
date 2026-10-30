@@ -14,6 +14,7 @@ import { computed } from 'vue';
 import type { Editor as CoreEditor } from '@tiptap/core';
 import { BubbleMenu } from '@tiptap/vue-3';
 import type { AtengBubbleMenuProps } from '../types';
+import { promptAndSetLink } from '../utils';
 
 defineOptions({
   name: 'AtengBubbleMenu',
@@ -60,16 +61,7 @@ const computedTippyOptions = computed(() => ({
  * 超链接快捷设置与切换逻辑。
  */
 const handleLinkClick = (): void => {
-  if (!props.editor) return;
-  if (props.editor.isActive('link')) {
-    props.editor.chain().focus().unsetLink().run();
-    return;
-  }
-  const currentHref = (props.editor.getAttributes('link')?.href as string) || '';
-  const newHref = window.prompt('请输入超链接地址 (URL):', currentHref || 'https://');
-  if (newHref !== null && newHref.trim() !== '') {
-    props.editor.chain().focus().setLink({ href: newHref.trim() }).run();
-  }
+  promptAndSetLink(props.editor);
 };
 </script>
 
@@ -214,3 +206,11 @@ const handleLinkClick = (): void => {
     </slot>
   </BubbleMenu>
 </template>
+
+<style scoped>
+.at-editor-bubble-menu {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+</style>

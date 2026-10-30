@@ -1,7 +1,7 @@
 /**
  * @atengk/editor-vue 多轨数据同步与选区光标保护工具。
  *
- * 遵循异步抗竞态与光标防丢契约，通过内容等价性检查与事务选区钳制恢复，
+ * 遵循异步抗竞态与光标防丢契约，通过内容等价性检查与事务增量打补丁，
  * 杜绝外部变更导致的光标跳回首行与撤销历史冲垮。
  *
  * @author Ateng
@@ -9,6 +9,9 @@
  */
 
 import type { Editor } from '@tiptap/vue-3';
+import { createDocument } from '@tiptap/core';
+import { TextSelection, Selection } from '@tiptap/pm/state';
+import type { Node as ProsemirrorNode } from '@tiptap/pm/model';
 import type { EditorOutputFormat } from '../types';
 
 /**
@@ -57,35 +60,65 @@ export function isContentEqual(a: unknown, b: unknown): boolean {
 /**
  * 安全应用外部数据更新至 TipTap 编辑器，保全当前光标选区与撤销历史。
  *
+ * 通过 ProseMirror 事务（Transaction）进行原子替换打补丁，
+ * 彻底消除 setContent 粗暴重设导致的 Undo/Redo 历史栈冲垮与光标漂移。
+ *
  * @param editor TipTap 原生 Editor 实例
  * @param content 新内容（支持 HTML、Markdown 或 JSON）
- * @param format 数据格式类型
+ * @param format 数据格式类型，支持 'html' | 'markdown' | 'json'
  * @param preserveSelection 是否保留当前选区位置，默认 true
  */
 export function applyContentPreservingSelection(
   editor: Editor,
   content: string | Record<string, unknown>,
-  _format: EditorOutputFormat = 'html',
+  format: EditorOutputFormat = 'html',
   preserveSelection = true,
 ): void {
   if (!editor || editor.isDestroyed) return;
 
-  // 1. 暂存当前光标与选区坐标
-  const { from, to } = editor.state.selection;
+  const { state, view } = editor;
+  const { from, to } = state.selection;
+  const { tr, doc } = state;
 
-  // 2. 执行内容重设（emitUpdate 为 false，避免逆向二次触发外部事件自循环）
-  editor.commands.setContent(content, false);
+  // 1. 根据数据格式解析新文档树节点
+  let newDoc: ProsemirrorNode | null = null;
+  try {
+    if (format === 'json' && typeof content === 'object') {
+      newDoc = editor.schema.nodeFromJSON(content);
+    } else {
+      newDoc = createDocument(content, editor.schema, editor.options.parseOptions, {
+        errorOnInvalidContent: false,
+      });
+    }
+  } catch {
+    // 解析失败兜底降级，避免崩溃
+    return;
+  }
 
-  // 3. 边界钳制并恢复光标选区（若要求保留且编辑器仍存活）
-  if (preserveSelection && !editor.isDestroyed) {
-    const maxPos = editor.state.doc.content.size;
+  if (!newDoc) return;
+
+  // 2. 使用 ProseMirror 事务增量替换文档内容，保全撤销/重做历史栈
+  tr.replaceWith(0, doc.content.size, newDoc.content);
+  tr.setMeta('preventUpdate', true);
+
+  // 3. 边界钳制并精确恢复当前选区坐标
+  if (preserveSelection) {
+    const maxPos = tr.doc.content.size;
     const safeFrom = Math.min(Math.max(0, from), maxPos);
     const safeTo = Math.min(Math.max(0, to), maxPos);
 
     try {
-      editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+      tr.setSelection(TextSelection.create(tr.doc, safeFrom, safeTo));
     } catch {
-      // 容错降级：若坐标点无法解析为合法 TextSelection，保持默认光标
+      try {
+        const nearSel = Selection.near(tr.doc.resolve(safeFrom));
+        tr.setSelection(nearSel);
+      } catch {
+        // 忽略非致命选区异常
+      }
     }
   }
+
+  // 4. 原子派发事务
+  view.dispatch(tr);
 }

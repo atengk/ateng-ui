@@ -52,11 +52,10 @@ const handleDialogFullscreen = (): void => {
           <el-button type="primary" size="small" @click="openDialog">
             🪟 打开对话框中的富文本编辑器 (Dialog 0x0 几何自愈)
           </el-button>
-          <el-switch
-            v-model="isReadOnlyMode"
-            active-text="文章阅读器模式 (readOnly)"
-            inline-prompt
-          />
+          <div class="switch-item">
+            <span class="switch-label">文章阅读器模式 (readOnly)：</span>
+            <el-switch v-model="isReadOnlyMode" />
+          </div>
         </div>
         <div class="controls-right">
           <el-tag :type="isReadOnlyMode ? 'success' : 'info'" size="small">
@@ -138,6 +137,17 @@ const handleDialogFullscreen = (): void => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.switch-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.switch-label {
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
 }
 
 .reader-container {

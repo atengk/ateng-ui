@@ -233,4 +233,83 @@ describe('AtengEditor 表现容器', () => {
     expect(instance.getText()).not.toContain('第二句');
     expect(instance.getText()).toContain('第一句');
   });
+
+  it('外部非等价有效内容更新时通过 ProseMirror 增量事务打补丁保全撤销历史与光标', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>初始段落内容</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+    const editor = instance.editor;
+
+    // 聚焦并在末尾追加输入
+    editor.commands.focus('end');
+    editor.commands.insertContent('，追加一段操作');
+    await nextTick();
+
+    expect(editor.can().undo()).toBe(true);
+
+    // 外部传入真实有效的新 modelValue（非等价更新）
+    await wrapper.setProps({
+      modelValue: '<p>初始段落内容，追加一段操作，外部由服务端同步推入最新内容</p>',
+    });
+    await nextTick();
+
+    // 验证内容已更新
+    expect(instance.getText()).toContain('外部由服务端同步推入最新内容');
+    // 验证底层 ProseMirror 增量事务未冲垮撤销历史
+    expect(editor.can().undo()).toBe(true);
+
+    // 执行 Undo
+    editor.commands.undo();
+    await nextTick();
+    expect(instance.getText()).not.toContain('外部由服务端同步推入最新内容');
+  });
+
+  it('初始化挂载时主动发射初始 update:markdown 与 update:json 事件', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<p>初始文档内容</p>',
+      },
+    });
+
+    await nextTick();
+
+    // 断言初始化即发射了 markdown 与 json 事件，杜绝数据看板初始为空
+    const emittedMarkdown = wrapper.emitted('update:markdown');
+    expect(emittedMarkdown).toBeTruthy();
+    expect(emittedMarkdown?.[0]?.[0]).toContain('初始文档内容');
+
+    const emittedJson = wrapper.emitted('update:json');
+    expect(emittedJson).toBeTruthy();
+    expect(typeof emittedJson?.[0]?.[0]).toBe('object');
+  });
+
+  it('支持 getFullHTML 导出完整独立 HTML 网页并内联排版样式', async () => {
+    wrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '<h1>测试标题</h1><p>正文内容</p>',
+      },
+    });
+
+    await nextTick();
+    const instance = wrapper.vm as unknown as AtengEditorInstance;
+
+    const fullDoc = instance.getFullHTML({
+      title: '自验测试文档',
+      theme: 'dark',
+    });
+
+    expect(fullDoc).toContain('<!DOCTYPE html>');
+    expect(fullDoc).toContain('<title>自验测试文档</title>');
+    expect(fullDoc).toContain('data-theme="dark"');
+    expect(fullDoc).toContain('<style>');
+    expect(fullDoc).toContain('.at-document-container');
+    expect(fullDoc).toContain('<h1>测试标题</h1>');
+    expect(fullDoc).toContain('<p>正文内容</p>');
+    expect(fullDoc).toContain('</html>');
+  });
 });

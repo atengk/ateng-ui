@@ -405,3 +405,11 @@ onBeforeUnmount(() => {
     </slot>
   </BubbleMenu>
 </template>
+
+<style scoped>
+.at-editor-slash-menu {
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+</style>

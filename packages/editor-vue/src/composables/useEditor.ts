@@ -12,11 +12,20 @@ import {
   markRaw,
   onScopeDispose,
   shallowRef,
+  toValue,
+  watch,
   type ShallowRef,
   type ComputedRef,
 } from 'vue';
 import { Editor } from '@tiptap/vue-3';
 import { createDefaultExtensions } from '../extensions/default-extensions';
+import {
+  getEditorCharacters,
+  getEditorWords,
+  getEditorParagraphs,
+  generateFullHtml,
+  type FullHtmlOptions,
+} from '../utils';
 import type { UseEditorOptions } from '../types';
 
 export interface UseEditorReturn {
@@ -39,6 +48,11 @@ export interface UseEditorReturn {
    * 获取当前 HTML 格式内容。
    */
   getHTML: () => string;
+
+  /**
+   * 获取完整自洽的离线 HTML 网页文档（包含 <!DOCTYPE html>、<head> 及内联排版样式）。
+   */
+  getFullHTML: (options?: FullHtmlOptions) => string;
 
   /**
    * 获取当前 ProseMirror JSON 格式内容。
@@ -106,20 +120,26 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
   const editor = shallowRef<Editor | null>(null);
   const isReady = shallowRef(false);
 
+  const initialContent = toValue(options.content) ?? '';
+  const initialPlaceholder = toValue(options.placeholder);
+  const initialEditable = toValue(options.editable) ?? true;
+  const initialAutofocus = toValue(options.autofocus) ?? false;
+  const initialMaxLength = toValue(options.maxLength);
+
   const extensions = createDefaultExtensions({
-    placeholder: options.placeholder,
+    placeholder: initialPlaceholder,
     extraExtensions: options.extensions,
     uploadHandler: options.uploadHandler,
     onUploadSuccess: options.onUploadSuccess,
     onUploadError: options.onUploadError,
-    maxLength: options.maxLength,
+    maxLength: initialMaxLength,
   });
 
   const instance = new Editor({
-    content: options.content ?? '',
+    content: initialContent,
     extensions,
-    editable: options.editable ?? true,
-    autofocus: options.autofocus ?? false,
+    editable: initialEditable,
+    autofocus: initialAutofocus,
     onCreate: () => {
       isReady.value = true;
     },
@@ -139,8 +159,27 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     },
   });
 
+  // 响应式监听 editable 变化并自动同步底层 Editor 实例
+  if (options.editable !== undefined) {
+    watch(
+      () => toValue(options.editable),
+      newEditable => {
+        if (editor.value && newEditable !== undefined) {
+          editor.value.setEditable(newEditable);
+        }
+      },
+    );
+  }
+
   // 严格包装为 markRaw 并存入 shallowRef，彻底杜绝 Vue Proxy 递归代理
   editor.value = markRaw(instance);
+
+  // 微任务异步调度创建就绪回调，确保外部解构赋值彻底脱离 TDZ 暂存死区
+  queueMicrotask(() => {
+    if (editor.value) {
+      options.onCreate?.({ editor: editor.value });
+    }
+  });
 
   const isEmpty = computed(() => {
     return editor.value ? editor.value.isEmpty : true;
@@ -148,6 +187,10 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
 
   const getHTML = (): string => {
     return editor.value ? editor.value.getHTML() : '';
+  };
+
+  const getFullHTML = (opts?: FullHtmlOptions): string => {
+    return generateFullHtml(getHTML(), opts);
   };
 
   const getJSON = (): Record<string, unknown> => {
@@ -170,34 +213,15 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
   };
 
   const getCharacters = (): number => {
-    if (!editor.value) return 0;
-    const storage = editor.value.storage as Record<string, unknown>;
-    const charStorage = storage.characterCount as { characters?: () => number } | undefined;
-    if (charStorage && typeof charStorage.characters === 'function') {
-      return charStorage.characters();
-    }
-    return editor.value.getText().length;
+    return getEditorCharacters(editor.value);
   };
 
   const getWords = (): number => {
-    if (!editor.value) return 0;
-    const storage = editor.value.storage as Record<string, unknown>;
-    const charStorage = storage.characterCount as { words?: () => number } | undefined;
-    if (charStorage && typeof charStorage.words === 'function') {
-      return charStorage.words();
-    }
-    return 0;
+    return getEditorWords(editor.value);
   };
 
   const getParagraphs = (): number => {
-    if (!editor.value) return 0;
-    let count = 0;
-    editor.value.state.doc.descendants(node => {
-      if (node.type.name === 'paragraph' || node.type.name === 'heading') {
-        count++;
-      }
-    });
-    return count;
+    return getEditorParagraphs(editor.value);
   };
 
   const setContent = (content: string | Record<string, unknown>, emitUpdate = false): void => {
@@ -238,6 +262,7 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     isReady,
     isEmpty,
     getHTML,
+    getFullHTML,
     getJSON,
     getMarkdown,
     getText,

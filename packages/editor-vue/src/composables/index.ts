@@ -6,3 +6,4 @@
  */
 
 export * from './useEditor';
+export * from './useEditorDom';

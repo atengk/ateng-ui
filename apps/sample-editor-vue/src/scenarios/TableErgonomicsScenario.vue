@@ -56,53 +56,53 @@ const slotTableHtml = ref<string>(initialTableContent);
 
 const editorRef = ref<AtengEditorInstance | null>(null);
 
-// 快捷操作指令
+// 快捷操作指令（直接委派至 AtengEditor 高阶门面，消除深层消息链）
 const insertTable = () => {
-  editorRef.value?.editor?.value
-    ?.chain()
-    .focus()
-    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-    .run();
+  editorRef.value?.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
 };
 
 const addRowBefore = () => {
-  editorRef.value?.editor?.value?.chain().focus().addRowBefore().run();
+  editorRef.value?.addRowBefore();
 };
 
 const addRowAfter = () => {
-  editorRef.value?.editor?.value?.chain().focus().addRowAfter().run();
+  editorRef.value?.addRowAfter();
 };
 
 const addColBefore = () => {
-  editorRef.value?.editor?.value?.chain().focus().addColumnBefore().run();
+  editorRef.value?.addColumnBefore();
 };
 
 const addColAfter = () => {
-  editorRef.value?.editor?.value?.chain().focus().addColumnAfter().run();
+  editorRef.value?.addColumnAfter();
 };
 
 const toggleHeader = () => {
-  editorRef.value?.editor?.value?.chain().focus().toggleHeaderRow().run();
+  editorRef.value?.toggleHeaderRow();
 };
 
 const mergeCells = () => {
-  editorRef.value?.editor?.value?.chain().focus().mergeCells().run();
+  editorRef.value?.mergeCells();
 };
 
 const splitCell = () => {
-  editorRef.value?.editor?.value?.chain().focus().splitCell().run();
+  editorRef.value?.splitCell();
 };
 
 const deleteRow = () => {
-  editorRef.value?.editor?.value?.chain().focus().deleteRow().run();
+  editorRef.value?.deleteRow();
 };
 
 const deleteCol = () => {
-  editorRef.value?.editor?.value?.chain().focus().deleteColumn().run();
+  editorRef.value?.deleteColumn();
 };
 
 const deleteTable = () => {
-  editorRef.value?.editor?.value?.chain().focus().deleteTable().run();
+  editorRef.value?.deleteTable();
+};
+
+const clearTable = () => {
+  editorRef.value?.clearTable();
 };
 
 const resetContent = () => {
@@ -141,6 +141,7 @@ const resetContent = () => {
               <el-button @click="splitCell">✂️ 拆分单元格</el-button>
               <el-button type="danger" plain @click="deleteRow">🗑️ 删当前行</el-button>
               <el-button type="danger" plain @click="deleteCol">🗑️ 删当前列</el-button>
+              <el-button type="warning" plain @click="clearTable">🧹 清空表格</el-button>
               <el-button type="danger" plain @click="deleteTable">❌ 删整表</el-button>
             </el-button-group>
             <el-button size="small" @click="resetContent">🔄 重置演示数据</el-button>

@@ -86,6 +86,30 @@ const handleAsyncAppend = (): void => {
     ElMessage.success('外部异步数据追加成功，当前选区与光标已保全！');
   }, 600);
 };
+
+// 复制完整离线 HTML 文档至剪贴板
+const copyFullHtml = async (): Promise<void> => {
+  const full = editorRef.value?.getFullHTML({ title: 'ateng-ui 富文本完整文档演示' }) ?? '';
+  try {
+    await navigator.clipboard.writeText(full);
+    ElMessage.success('已复制完整独立 HTML 文档（含全套排版样式）至剪贴板！');
+  } catch {
+    ElMessage.error('剪贴板写入受阻，请手动全选复制');
+  }
+};
+
+// 下载完整离线 HTML 文件
+const downloadFullHtml = (): void => {
+  const full = editorRef.value?.getFullHTML({ title: 'ateng-ui 富文本完整文档演示' }) ?? '';
+  const blob = new Blob([full], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ateng-editor-export-${Date.now()}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  ElMessage.success('已下载独立 HTML 文档，可在本地离线双击查看！');
+};
 </script>
 
 <template>
@@ -144,8 +168,25 @@ const handleAsyncAppend = (): void => {
       <!-- 实时多轨数据核对看板 -->
       <div class="inspector-card">
         <el-tabs type="card" class="inspector-tabs">
-          <el-tab-pane label="实时 HTML 产物">
+          <el-tab-pane label="实时 HTML 片段 (Body)">
             <pre class="code-preview"><code>{{ htmlContent }}</code></pre>
+          </el-tab-pane>
+          <el-tab-pane label="完整独立 HTML 文档 (Full Document)">
+            <div class="full-html-bar">
+              <el-button size="small" type="primary" @click="copyFullHtml"
+                >📋 复制完整 HTML 文档</el-button
+              >
+              <el-button size="small" type="success" @click="downloadFullHtml"
+                >💾 下载 .html 独立文件</el-button
+              >
+              <span class="doc-tip"
+                >💡 包含 &lt;!DOCTYPE html&gt;、&lt;head&gt;
+                与离线内联排版样式，双击即可在浏览器独立漂亮渲染</span
+              >
+            </div>
+            <pre
+              class="code-preview"
+            ><code>{{ editorRef?.getFullHTML({ title: 'ateng-ui 富文本完整文档演示' }) || '(待挂载就绪)' }}</code></pre>
           </el-tab-pane>
           <el-tab-pane label="实时 Markdown 互转">
             <pre class="code-preview"><code>{{ markdownContent || '(空或待同步)' }}</code></pre>
@@ -218,6 +259,19 @@ const handleAsyncAppend = (): void => {
   border-radius: 6px;
   background-color: var(--el-bg-color, #ffffff);
   padding: 12px;
+}
+
+.full-html-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.doc-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
 }
 
 .code-preview {

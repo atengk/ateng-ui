@@ -53,6 +53,18 @@ describe('工业级防线与硬限制 (Hardening, Status Bar & Modes)', () => {
     expect(instance.getCharacters()).toBe(17);
     // 块级段落与标题数：h1(1) + p(2) = 3
     expect(instance.getParagraphs()).toBe(3);
+
+    // 验证空内容边界（TipTap 默认 <p></p> 占位）段落数精准归零
+    const emptyWrapper = mount(AtengEditor, {
+      props: {
+        modelValue: '',
+      },
+    });
+    await nextTick();
+    const emptyInstance = emptyWrapper.vm as unknown as AtengEditorInstance;
+    expect(emptyInstance.getCharacters()).toBe(0);
+    expect(emptyInstance.getParagraphs()).toBe(0);
+    emptyWrapper.unmount();
   });
 
   it('支持 maxLength 配置并在达到字符上限时硬拦截超出长度的内容输入', async () => {

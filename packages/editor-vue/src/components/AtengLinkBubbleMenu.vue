@@ -14,6 +14,7 @@ import { computed } from 'vue';
 import type { Editor as CoreEditor } from '@tiptap/core';
 import { BubbleMenu } from '@tiptap/vue-3';
 import type { AtengLinkBubbleMenuProps } from '../types';
+import { unsetLinkSafe } from '../utils';
 
 defineOptions({
   name: 'AtengLinkBubbleMenu',
@@ -86,10 +87,10 @@ const handleEditLink = () => {
 };
 
 /**
- * 取消当前超链接。
+ * 取消当前超链接（安全前置扩选整段链接文本范围）。
  */
 const handleUnlink = () => {
-  props.editor?.chain().focus().unsetLink().run();
+  unsetLinkSafe(props.editor);
 };
 </script>
 
@@ -163,3 +164,11 @@ const handleUnlink = () => {
     </slot>
   </BubbleMenu>
 </template>
+
+<style scoped>
+.at-editor-link-menu {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+</style>
