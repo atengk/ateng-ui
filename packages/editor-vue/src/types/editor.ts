@@ -19,6 +19,25 @@ import type { EditorState, Transaction } from '@tiptap/pm/state';
 export type EditorOutputFormat = 'html' | 'markdown' | 'json';
 
 /**
+ * 媒体资产上传拦截器返回结果类型。
+ */
+export type UploadHandlerResult = string | { url: string; alt?: string };
+
+/**
+ * 媒体资产上传拦截器 SPI 契约。
+ */
+export type UploadHandler = (file: File) => Promise<UploadHandlerResult>;
+
+/**
+ * 图片资产上传成功载荷。
+ */
+export interface UploadSuccessPayload {
+  url: string;
+  alt?: string;
+  file: File;
+}
+
+/**
  * useEditor 无头状态机入参选项配置。
  */
 export interface UseEditorOptions {
@@ -46,6 +65,21 @@ export interface UseEditorOptions {
    * 额外追加的第三方或自定义 TipTap 扩展集合。
    */
   extensions?: AnyExtension[];
+
+  /**
+   * 媒体资产上传拦截器 SPI 处理函数。
+   */
+  uploadHandler?: UploadHandler;
+
+  /**
+   * 媒体资产上传成功回调。
+   */
+  onUploadSuccess?: (payload: UploadSuccessPayload) => void;
+
+  /**
+   * 媒体资产上传失败异常回调。
+   */
+  onUploadError?: (error: Error, file: File) => void;
 
   /**
    * 内容更新钩子回调。
@@ -138,6 +172,22 @@ export interface AtengEditorProps {
   showTableMenu?: boolean;
 
   /**
+   * 是否展示超链接操作动态上下文气泡浮层，默认 true。
+   */
+  showLinkMenu?: boolean;
+
+  /**
+   * 是否展示图片对齐与删除动态上下文气泡浮层，默认 true。
+   */
+  showImageMenu?: boolean;
+
+  /**
+   * 媒体资产上传拦截器 SPI 处理函数。
+   * 若未提供，默认自动降级为安全 Base64 Data URL 内联。
+   */
+  uploadHandler?: UploadHandler;
+
+  /**
    * 容器固定高度（支持数字 px 或 CSS 字符串如 '500px'）。
    */
   height?: string | number;
@@ -163,12 +213,80 @@ export interface AtengEditorEmits {
   (e: 'change', value: string): void;
   (e: 'focus'): void;
   (e: 'blur'): void;
+  (e: 'uploadSuccess', payload: UploadSuccessPayload): void;
+  (e: 'uploadError', error: Error, file: File): void;
 }
 
 /**
  * <AtengTableBubbleMenu /> 表格动态气泡菜单组件入参 Props 接口。
  */
 export interface AtengTableBubbleMenuProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 自定义 Tippy.js 配置选项。
+   */
+  tippyOptions?: Record<string, unknown>;
+
+  /**
+   * 自定义浮层显示判定函数。
+   */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    oldState?: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+
+/**
+ * <AtengImageBubbleMenu /> 图片动态气泡菜单组件入参 Props 接口。
+ */
+export interface AtengImageBubbleMenuProps {
+  /**
+   * TipTap Editor 实例。
+   */
+  editor: Editor | null;
+
+  /**
+   * 是否禁用操作。
+   */
+  disabled?: boolean;
+
+  /**
+   * 自定义 Tippy.js 配置选项。
+   */
+  tippyOptions?: Record<string, unknown>;
+
+  /**
+   * 自定义浮层显示判定函数。
+   */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    oldState?: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+
+/**
+ * <AtengLinkBubbleMenu /> 超链接动态气泡菜单组件入参 Props 接口。
+ */
+export interface AtengLinkBubbleMenuProps {
   /**
    * TipTap Editor 实例。
    */
@@ -226,6 +344,11 @@ export interface AtengEditorExpose {
    * 重设或替换编辑器内容。
    */
   setContent: (content: string | Record<string, unknown>, emitUpdate?: boolean) => void;
+
+  /**
+   * 手动触发图片文件上传并插入当前光标位置。
+   */
+  uploadImage: (file: File) => void;
 
   /**
    * 获取当前净化后的 HTML 内容。

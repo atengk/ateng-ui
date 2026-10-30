@@ -8,6 +8,7 @@
  * @since 2026-10-30
  */
 
+import { ref } from 'vue';
 import type { Editor } from '@tiptap/vue-3';
 
 interface Props {
@@ -25,6 +26,34 @@ const props = withDefaults(defineProps<Props>(), {
   editor: null,
   disabled: false,
 });
+
+const fileInputRef = ref<HTMLInputElement | null>(null);
+
+const handleLinkClick = () => {
+  if (!props.editor) return;
+  if (props.editor.isActive('link')) {
+    props.editor.chain().focus().unsetLink().run();
+    return;
+  }
+  const href = window.prompt('请输入超链接地址 (URL):', 'https://');
+  if (href && href.trim() !== '') {
+    props.editor.chain().focus().setLink({ href: href.trim() }).run();
+  }
+};
+
+const handleImageClick = () => {
+  fileInputRef.value?.click();
+};
+
+const handleImageFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const files = target.files;
+  if (!files || files.length === 0 || !props.editor) return;
+  Array.from(files).forEach(file => {
+    props.editor?.commands.uploadImage(file);
+  });
+  target.value = '';
+};
 </script>
 
 <template>
@@ -275,6 +304,46 @@ const props = withDefaults(defineProps<Props>(), {
         />
       </svg>
     </button>
+
+    <!-- 链接与图片 -->
+    <button
+      type="button"
+      class="at-editor__btn"
+      title="插入超链接"
+      aria-label="插入超链接"
+      :class="{ 'is-active': props.editor.isActive('link') }"
+      :disabled="props.disabled"
+      @click="handleLinkClick"
+    >
+      <svg viewBox="0 0 24 24">
+        <path
+          d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
+        />
+      </svg>
+    </button>
+    <button
+      type="button"
+      class="at-editor__btn"
+      title="插入图片 (支持点击/拖拽/粘贴)"
+      aria-label="插入图片"
+      :class="{ 'is-active': props.editor.isActive('image') }"
+      :disabled="props.disabled"
+      @click="handleImageClick"
+    >
+      <svg viewBox="0 0 24 24">
+        <path
+          d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"
+        />
+      </svg>
+    </button>
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept="image/*"
+      multiple
+      style="display: none"
+      @change="handleImageFileChange"
+    />
 
     <div class="at-editor__divider" />
 

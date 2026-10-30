@@ -8,6 +8,8 @@
 export { default as AtengEditor } from './AtengEditor.vue';
 export { default as AtengEditorToolbar } from './AtengEditorToolbar.vue';
 export { default as AtengTableBubbleMenu } from './AtengTableBubbleMenu.vue';
+export { default as AtengImageBubbleMenu } from './AtengImageBubbleMenu.vue';
+export { default as AtengLinkBubbleMenu } from './AtengLinkBubbleMenu.vue';
 
 export type AtengEditorInstance = InstanceType<typeof import('./AtengEditor.vue').default>;
 export type AtengEditorToolbarInstance = InstanceType<
@@ -15,4 +17,10 @@ export type AtengEditorToolbarInstance = InstanceType<
 >;
 export type AtengTableBubbleMenuInstance = InstanceType<
   typeof import('./AtengTableBubbleMenu.vue').default
+>;
+export type AtengImageBubbleMenuInstance = InstanceType<
+  typeof import('./AtengImageBubbleMenu.vue').default
+>;
+export type AtengLinkBubbleMenuInstance = InstanceType<
+  typeof import('./AtengLinkBubbleMenu.vue').default
 >;

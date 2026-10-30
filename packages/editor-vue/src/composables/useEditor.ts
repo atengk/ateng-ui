@@ -74,6 +74,11 @@ export interface UseEditorReturn {
    * 手动失焦编辑器。
    */
   blur: () => void;
+
+  /**
+   * 手动触发图片文件上传并插入当前光标位置。
+   */
+  uploadImage: (file: File) => void;
 }
 
 /**
@@ -89,6 +94,9 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
   const extensions = createDefaultExtensions({
     placeholder: options.placeholder,
     extraExtensions: options.extensions,
+    uploadHandler: options.uploadHandler,
+    onUploadSuccess: options.onUploadSuccess,
+    onUploadError: options.onUploadError,
   });
 
   const instance = new Editor({
@@ -165,6 +173,11 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     editor.value.commands.blur();
   };
 
+  const uploadImage = (file: File): void => {
+    if (!editor.value) return;
+    editor.value.commands.uploadImage(file);
+  };
+
   // 确定性生命周期清理：作用域注销时立即调用 destroy() 释放原生事件与引用
   onScopeDispose(() => {
     if (editor.value) {
@@ -185,5 +198,6 @@ export function useEditor(options: UseEditorOptions = {}): UseEditorReturn {
     clearContent,
     focus,
     blur,
+    uploadImage,
   };
 }

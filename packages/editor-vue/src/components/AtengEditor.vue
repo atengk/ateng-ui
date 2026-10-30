@@ -15,6 +15,8 @@ import { useEditor } from '../composables/useEditor';
 import { isContentEqual, applyContentPreservingSelection } from '../utils/sync';
 import AtengEditorToolbar from './AtengEditorToolbar.vue';
 import AtengTableBubbleMenu from './AtengTableBubbleMenu.vue';
+import AtengImageBubbleMenu from './AtengImageBubbleMenu.vue';
+import AtengLinkBubbleMenu from './AtengLinkBubbleMenu.vue';
 import type { AtengEditorProps, AtengEditorEmits, AtengEditorExpose } from '../types';
 
 defineOptions({
@@ -35,6 +37,9 @@ const props = withDefaults(defineProps<AtengEditorProps>(), {
   showToolbar: true,
   stickyToolbar: false,
   showTableMenu: true,
+  showLinkMenu: true,
+  showImageMenu: true,
+  uploadHandler: undefined,
   height: undefined,
   minHeight: undefined,
   maxHeight: undefined,
@@ -98,12 +103,20 @@ const {
   clearContent,
   focus,
   blur,
+  uploadImage,
 } = useEditor({
   content: initialContent.value,
   placeholder: props.placeholder,
   editable: isEditable.value,
   autofocus: props.autofocus,
   extensions: props.extensions,
+  uploadHandler: props.uploadHandler,
+  onUploadSuccess: payload => {
+    emit('uploadSuccess', payload);
+  },
+  onUploadError: (error, file) => {
+    emit('uploadError', error, file);
+  },
   onUpdate: () => {
     const html = getHTML();
     const md = getMarkdown();
@@ -196,6 +209,7 @@ defineExpose<AtengEditorExpose>({
   blur,
   clearContent,
   setContent,
+  uploadImage,
   getHTML,
   getJSON,
   getMarkdown,
@@ -231,6 +245,20 @@ defineExpose<AtengEditorExpose>({
     <template v-if="props.showTableMenu && !props.readOnly">
       <slot name="table-menu" :editor="editor">
         <AtengTableBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
+
+    <!-- 超链接动态上下文气泡菜单 (readOnly 下不展示) -->
+    <template v-if="props.showLinkMenu && !props.readOnly">
+      <slot name="link-menu" :editor="editor">
+        <AtengLinkBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
+      </slot>
+    </template>
+
+    <!-- 图片动态上下文气泡菜单 (readOnly 下不展示) -->
+    <template v-if="props.showImageMenu && !props.readOnly">
+      <slot name="image-menu" :editor="editor">
+        <AtengImageBubbleMenu v-if="editor" :editor="editor" :disabled="props.disabled" />
       </slot>
     </template>
   </div>

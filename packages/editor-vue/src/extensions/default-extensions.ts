@@ -25,6 +25,8 @@ import TableCell from '@tiptap/extension-table-cell';
 import CharacterCount from '@tiptap/extension-character-count';
 import { Markdown } from 'tiptap-markdown';
 import { createLowlight, common } from 'lowlight';
+import { FileUploadExtension } from './upload';
+import type { UploadHandler, UploadSuccessPayload } from '../types';
 
 const lowlight = createLowlight(common);
 
@@ -37,6 +39,18 @@ export interface CreateDefaultExtensionsOptions {
    * 自定义追加的扩展。
    */
   extraExtensions?: AnyExtension[];
+  /**
+   * 媒体资产上传拦截器 SPI。
+   */
+  uploadHandler?: UploadHandler;
+  /**
+   * 媒体资产上传成功回调。
+   */
+  onUploadSuccess?: (payload: UploadSuccessPayload) => void;
+  /**
+   * 媒体资产上传失败回调。
+   */
+  onUploadError?: (error: Error, file: File) => void;
 }
 
 /**
@@ -78,6 +92,11 @@ export function createDefaultExtensions(
     Image.configure({
       inline: true,
       allowBase64: true,
+    }),
+    FileUploadExtension.configure({
+      uploadHandler: options.uploadHandler,
+      onUploadSuccess: options.onUploadSuccess,
+      onUploadError: options.onUploadError,
     }),
     Table.configure({
       resizable: true,

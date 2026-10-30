@@ -19,11 +19,20 @@ export type { AtengEditorToolbarInstance } from './components';
 export { default as AtengTableBubbleMenu } from './components/AtengTableBubbleMenu.vue';
 export type { AtengTableBubbleMenuInstance } from './components';
 
+export { default as AtengImageBubbleMenu } from './components/AtengImageBubbleMenu.vue';
+export type { AtengImageBubbleMenuInstance } from './components';
+
+export { default as AtengLinkBubbleMenu } from './components/AtengLinkBubbleMenu.vue';
+export type { AtengLinkBubbleMenuInstance } from './components';
+
 export { useEditor } from './composables/useEditor';
 export type { UseEditorReturn } from './composables/useEditor';
 
 export { createDefaultExtensions } from './extensions/default-extensions';
 export type { CreateDefaultExtensionsOptions } from './extensions/default-extensions';
+
+export { FileUploadExtension } from './extensions/upload';
+export type { FileUploadOptions } from './extensions/upload';
 
 export { isContentEqual, applyContentPreservingSelection } from './utils';
 
@@ -34,4 +43,9 @@ export type {
   AtengEditorEmits,
   AtengEditorExpose,
   AtengTableBubbleMenuProps,
+  AtengImageBubbleMenuProps,
+  AtengLinkBubbleMenuProps,
+  UploadHandlerResult,
+  UploadHandler,
+  UploadSuccessPayload,
 } from './types';
