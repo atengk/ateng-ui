@@ -7,6 +7,8 @@
 
 import type { ContextStoreInstance } from './context';
 import type { EventLevel, MonitorEvent, ErrorPayload } from './event';
+import type { CircuitBreaker } from '../resilience/circuitBreaker';
+import type { ErrorDeduplicator } from '../resilience/deduplicator';
 
 /**
  * 监控内核统一公共门面接口。
@@ -17,6 +19,12 @@ export interface MonitorKernelInstance {
 
   /** 上下文管理器引用 */
   readonly contextStore: ContextStoreInstance;
+
+  /** 会话级错误熔断断路器引用 */
+  readonly circuitBreaker: CircuitBreaker;
+
+  /** 错误指纹聚合去重器引用 */
+  readonly deduplicator: ErrorDeduplicator;
 
   /**
    * 注册并即刻安装独立插件。

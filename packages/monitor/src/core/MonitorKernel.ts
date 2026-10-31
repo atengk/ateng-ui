@@ -11,6 +11,10 @@ import type { MonitorKernelInstance, MonitorPlugin } from '../types/plugin';
 import type { MonitorOptions } from '../types/options';
 import { createContextStore } from './ContextStore';
 import { generateId } from '../utils/id';
+import { CircuitBreaker } from '../resilience/circuitBreaker';
+import { ErrorDeduplicator } from '../resilience/deduplicator';
+import { generateErrorFingerprint } from '../resilience/fingerprint';
+import { sanitizeUrl } from '../sanitizer/pii';
 
 /**
  * 监控微内核核心实现类。
@@ -19,6 +23,8 @@ export class MonitorKernel implements MonitorKernelInstance {
   private _isInitialized = false;
   private readonly _options: MonitorOptions;
   private readonly _contextStore: ContextStoreInstance;
+  private readonly _circuitBreaker: CircuitBreaker;
+  private readonly _deduplicator: ErrorDeduplicator;
   private readonly _plugins = new Map<string, MonitorPlugin>();
   private readonly _events: MonitorEvent[] = [];
 
@@ -34,6 +40,12 @@ export class MonitorKernel implements MonitorKernelInstance {
       ...options,
     };
     this._contextStore = createContextStore(this._options);
+    this._circuitBreaker = new CircuitBreaker({
+      maxErrors: this._options.maxErrorsPerSession,
+    });
+    this._deduplicator = new ErrorDeduplicator({
+      windowMs: 5000,
+    });
   }
 
   get isInitialized(): boolean {
@@ -42,6 +54,14 @@ export class MonitorKernel implements MonitorKernelInstance {
 
   get contextStore(): ContextStoreInstance {
     return this._contextStore;
+  }
+
+  get circuitBreaker(): CircuitBreaker {
+    return this._circuitBreaker;
+  }
+
+  get deduplicator(): ErrorDeduplicator {
+    return this._deduplicator;
   }
 
   /**
@@ -136,6 +156,32 @@ export class MonitorKernel implements MonitorKernelInstance {
       return;
     }
 
+    let trippedJustNow = false;
+
+    // 针对 error 类型的异常事件执行熔断与去重防线
+    if (partialEvent.type === 'error') {
+      // 1. 会话级熔断断路器检查
+      const breakerResult = this._circuitBreaker.recordError();
+      if (!breakerResult.allowed) {
+        // 已处于熔断休眠状态，直接丢弃，阻断风暴
+        return;
+      }
+      trippedJustNow = breakerResult.trippedJustNow;
+
+      // 2. 错误指纹与 5 秒窗口去重聚合
+      const errPayload = (partialEvent.payload || {}) as ErrorPayload;
+      if (!errPayload.fingerprint) {
+        errPayload.fingerprint = generateErrorFingerprint(errPayload);
+      }
+      const dedupeResult = this._deduplicator.process(errPayload.fingerprint);
+      errPayload.repeatCount = dedupeResult.repeatCount;
+
+      if (dedupeResult.isDuplicate) {
+        // 高频重复异常，直接阻断重复发射，保护主线程与网络带宽
+        return;
+      }
+    }
+
     // 采样率过滤
     if (typeof this._options.sampleRate === 'number' && this._options.sampleRate < 1) {
       if (Math.random() > this._options.sampleRate) {
@@ -143,11 +189,17 @@ export class MonitorKernel implements MonitorKernelInstance {
       }
     }
 
+    // 提取上下文快照并进行 URL 敏感参数脱敏
+    const snapshot = this._contextStore.getSnapshot();
+    if (snapshot.url) {
+      snapshot.url = sanitizeUrl(snapshot.url);
+    }
+
     // 1. 组装具备唯一 ID 与上下文快照的完整事件包
     let event: MonitorEvent<T> = {
       id: generateId(),
       timestamp: Date.now(),
-      context: this._contextStore.getSnapshot(),
+      context: snapshot,
       ...partialEvent,
     };
 
@@ -174,6 +226,20 @@ export class MonitorKernel implements MonitorKernelInstance {
       } catch (err) {
         console.error('[@atengk/monitor] custom reporter failed:', err);
       }
+    }
+
+    // 4. 若本次错误触发了会话熔断断路器，派发一次性告警生命周期事件
+    if (trippedJustNow) {
+      this.emit({
+        type: 'lifecycle',
+        level: 'fatal',
+        payload: {
+          name: 'CIRCUIT_BREAKER_TRIGGERED',
+          message: `Circuit breaker tripped: reached maximum session error limit of ${this._options.maxErrorsPerSession}. Monitoring has entered dormant mode.`,
+          maxErrors: this._options.maxErrorsPerSession,
+          totalErrors: this._circuitBreaker.errorCount,
+        },
+      });
     }
   }
 
@@ -266,6 +332,8 @@ export class MonitorKernel implements MonitorKernelInstance {
     this._plugins.clear();
     this._events.length = 0;
     this._contextStore.reset();
+    this._circuitBreaker.reset();
+    this._deduplicator.clear();
     this._isInitialized = false;
   }
 }
