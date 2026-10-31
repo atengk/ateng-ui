@@ -8,6 +8,7 @@
 import type { BreadcrumbItem, EventLevel } from '../types/event';
 import type { MonitorKernelInstance, MonitorPlugin } from '../types/plugin';
 import { sanitizeDomText, sanitizeUrl } from '../sanitizer/pii';
+import { safeStringify } from '../utils/format';
 import { getElementSelector } from './error';
 
 /**
@@ -62,21 +63,11 @@ export interface BreadcrumbPluginInstance extends MonitorPlugin {
  * @returns 截断后的安全字符串
  */
 function safeSerializeConsoleArg(arg: unknown): string {
-  if (typeof arg === 'string') {
-    return arg.length > 200 ? `${arg.slice(0, 200)}...` : arg;
-  }
-  if (typeof arg === 'number' || typeof arg === 'boolean' || arg === null || arg === undefined) {
-    return String(arg);
-  }
   if (arg instanceof Error) {
     return `${arg.name}: ${arg.message}`;
   }
-  try {
-    const json = JSON.stringify(arg);
-    return json.length > 200 ? `${json.slice(0, 200)}...` : json;
-  } catch {
-    return String(arg);
-  }
+  const text = safeStringify(arg);
+  return text.length > 200 ? `${text.slice(0, 200)}...` : text;
 }
 
 /**
@@ -103,6 +94,9 @@ export function createBreadcrumbPlugin(
   let originalReplaceState: typeof history.replaceState | null = null;
   let popstateHandler: (() => void) | null = null;
   let hashchangeHandler: (() => void) | null = null;
+
+  const activeRafIds = new Set<number>();
+  const activeTimeoutIds = new Set<ReturnType<typeof setTimeout>>();
 
   let originalConsoleLog: typeof console.log | null = null;
   let originalConsoleInfo: typeof console.info | null = null;
@@ -243,7 +237,8 @@ export function createBreadcrumbPlugin(
 
           // 统计从路由触发到下一帧渲染稳定的耗时
           if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(() => {
+            const rafId = requestAnimationFrame(() => {
+              activeRafIds.delete(rafId);
               const duration = Math.round(
                 (typeof performance !== 'undefined' && typeof performance.now === 'function'
                   ? performance.now()
@@ -251,10 +246,13 @@ export function createBreadcrumbPlugin(
               );
               completeRoute(duration);
             });
+            activeRafIds.add(rafId);
           } else {
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
+              activeTimeoutIds.delete(timerId);
               completeRoute(0);
             }, 0);
+            activeTimeoutIds.add(timerId);
           }
         };
 
@@ -387,7 +385,18 @@ export function createBreadcrumbPlugin(
         }
       }
 
-      // 4. 清空缓冲区
+      // 4. 取消所有未决的 RAF 渲染与定时器
+      for (const rafId of activeRafIds) {
+        cancelAnimationFrame(rafId);
+      }
+      activeRafIds.clear();
+
+      for (const timerId of activeTimeoutIds) {
+        clearTimeout(timerId);
+      }
+      activeTimeoutIds.clear();
+
+      // 5. 清空缓冲区
       clear();
     },
   };

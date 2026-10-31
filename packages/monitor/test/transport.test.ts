@@ -285,5 +285,32 @@ describe('Transport & Anti-Loop Protocol', () => {
       queue.push(createDummyEvent('ignored'));
       expect(queue.size).toBe(0);
     });
+
+    it('updateLast 应当能够查找队列最近匹配事件并就地修改，未命中返回 false', () => {
+      const queue = new TransportQueue({
+        batchSize: 10,
+        flushInterval: 5000,
+        reporter: reporterSpy,
+      });
+
+      queue.push(createDummyEvent('item-1'));
+      queue.push(createDummyEvent('item-2'));
+
+      const hit = queue.updateLast(
+        evt => evt.id === 'item-2',
+        evt => {
+          (evt.payload as { modified?: boolean }).modified = true;
+        },
+      );
+      expect(hit).toBe(true);
+
+      const miss = queue.updateLast(
+        evt => evt.id === 'not-exist',
+        () => {},
+      );
+      expect(miss).toBe(false);
+
+      void queue.destroy();
+    });
   });
 });

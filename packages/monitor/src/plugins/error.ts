@@ -7,6 +7,7 @@
 
 import type { ErrorPayload } from '../types/event';
 import type { MonitorKernelInstance, MonitorPlugin } from '../types/plugin';
+import { safeStringify } from '../utils/format';
 
 /**
  * 异常收集插件配置选项。
@@ -99,14 +100,8 @@ export function captureVueError(
     message = err.message || message;
     name = err.name || name;
     stack = err.stack;
-  } else if (typeof err === 'string') {
-    message = err;
-  } else if (err && typeof err === 'object') {
-    try {
-      message = JSON.stringify(err);
-    } catch {
-      message = String(err);
-    }
+  } else {
+    message = safeStringify(err, message);
   }
 
   const componentName = getVueComponentName(instance);
@@ -155,7 +150,8 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
   };
 
   let originalConsoleError: ((...args: unknown[]) => void) | null = null;
-  let errorHandler: ((event: ErrorEvent) => void) | null = null;
+  let originalOnError: typeof window.onerror | null = null;
+  let resourceErrorHandler: ((event: ErrorEvent) => void) | null = null;
   let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
 
   return {
@@ -166,9 +162,72 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
         return;
       }
 
-      // 1. 监听 JS 运行时异常与静态资源加载失败（使用 capture = true 捕获阶段）
+      const handledErrors = new WeakSet<object>();
+
+      // 1. 独立监听未捕获 JS 运行时异常 (window.onerror)
+      if (opts.enableJsError) {
+        originalOnError = window.onerror;
+        window.onerror = function (
+          message: string | Event,
+          source?: string,
+          lineno?: number,
+          colno?: number,
+          error?: Error,
+        ): boolean | void {
+          if (error && handledErrors.has(error)) {
+            if (typeof originalOnError === 'function') {
+              return Reflect.apply(originalOnError, window, [
+                message,
+                source,
+                lineno,
+                colno,
+                error,
+              ]);
+            }
+            return false;
+          }
+          if (error) {
+            handledErrors.add(error);
+          }
+
+          let msg = 'Script error';
+          let errName = 'Error';
+          let stack: string | undefined;
+
+          if (error instanceof Error) {
+            msg = error.message || msg;
+            errName = error.name || errName;
+            stack = error.stack;
+          } else if (typeof message === 'string') {
+            msg = message;
+          }
+
+          const payload: ErrorPayload = {
+            category: 'js',
+            name: errName,
+            message: msg,
+            filename: typeof source === 'string' ? source : undefined,
+            lineno,
+            colno,
+            stack,
+          };
+
+          kernel.emit<ErrorPayload>({
+            type: 'error',
+            level: 'error',
+            payload,
+          });
+
+          if (typeof originalOnError === 'function') {
+            return Reflect.apply(originalOnError, window, [message, source, lineno, colno, error]);
+          }
+          return false;
+        };
+      }
+
+      // 2. 在事件捕获阶段监听（包含静态资源加载失败与全局 error 事件兜底）
       if (opts.enableJsError || opts.enableResourceError) {
-        errorHandler = (event: ErrorEvent) => {
+        resourceErrorHandler = (event: ErrorEvent) => {
           const target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
 
           // 资源加载崩溃判定：事件目标并非 window/document，且具有 src 或 href 属性
@@ -201,10 +260,17 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
             return;
           }
 
-          // 常规 JS 运行时异常
+          // 常规 JS 运行时异常（支持通过 window.dispatchEvent 派发或特定浏览器环境捕获）
           if (!opts.enableJsError) return;
 
           const errorObj = event.error as Error | undefined;
+          if (errorObj && handledErrors.has(errorObj)) {
+            return; // 已经由 window.onerror 捕获过，避免重复上报
+          }
+          if (errorObj) {
+            handledErrors.add(errorObj);
+          }
+
           const payload: ErrorPayload = {
             category: 'js',
             name: errorObj?.name || 'Error',
@@ -222,10 +288,10 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
           });
         };
 
-        window.addEventListener('error', errorHandler, true);
+        window.addEventListener('error', resourceErrorHandler, true);
       }
 
-      // 2. 监听异步未决 Promise 拒付
+      // 3. 监听异步未决 Promise 拒付
       if (opts.enablePromiseError) {
         rejectionHandler = (event: PromiseRejectionEvent) => {
           const reason = event.reason as unknown;
@@ -237,14 +303,8 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
             message = reason.message || message;
             name = reason.name || name;
             stack = reason.stack;
-          } else if (typeof reason === 'string') {
-            message = reason;
-          } else if (reason && typeof reason === 'object') {
-            try {
-              message = JSON.stringify(reason);
-            } catch {
-              message = String(reason);
-            }
+          } else {
+            message = safeStringify(reason, message);
           }
 
           const payload: ErrorPayload = {
@@ -264,7 +324,7 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
         window.addEventListener('unhandledrejection', rejectionHandler);
       }
 
-      // 3. 代理 console.error
+      // 4. 代理 console.error
       if (opts.enableConsoleError && typeof console !== 'undefined' && console.error) {
         originalConsoleError = console.error;
         console.error = (...args: unknown[]) => {
@@ -279,14 +339,7 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
                 if (arg instanceof Error) {
                   return `${arg.name}: ${arg.message}`;
                 }
-                if (typeof arg === 'object' && arg !== null) {
-                  try {
-                    return JSON.stringify(arg);
-                  } catch {
-                    return String(arg);
-                  }
-                }
-                return String(arg);
+                return safeStringify(arg);
               })
               .join(' ');
 
@@ -317,9 +370,14 @@ export function createErrorPlugin(options?: ErrorPluginOptions): MonitorPlugin {
 
     teardown(): void {
       if (typeof window !== 'undefined') {
-        if (errorHandler) {
-          window.removeEventListener('error', errorHandler, true);
-          errorHandler = null;
+        if (originalOnError !== null) {
+          window.onerror = originalOnError;
+          originalOnError = null;
+        }
+
+        if (resourceErrorHandler) {
+          window.removeEventListener('error', resourceErrorHandler, true);
+          resourceErrorHandler = null;
         }
 
         if (rejectionHandler) {

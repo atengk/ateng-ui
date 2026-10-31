@@ -118,8 +118,9 @@ export function matchesAnySelector(
     return false;
   }
 
+  const docEl = typeof document !== 'undefined' ? document.documentElement : null;
   let curr: Element | null = element;
-  while (curr && curr !== document.documentElement) {
+  while (curr && curr !== docEl) {
     for (const sel of selectors) {
       try {
         if (curr.matches(sel)) {
@@ -130,6 +131,41 @@ export function matchesAnySelector(
       }
     }
     curr = curr.parentElement;
+  }
+
+  return false;
+}
+
+/**
+ * 判定元素是否为根容器，或为空的纯布局容器（无子节点且无文本，且其祖先链命中根容器）。
+ * 针对 SPA 路由视图空包装 div 实施防假阴性识别。
+ *
+ * @param element 目标元素
+ * @param rootSelectors 根选择器清单
+ * @returns 是否应当识别为根/空容器
+ */
+export function isRootOrEmptyContainer(
+  element: Element | null | undefined,
+  rootSelectors: readonly string[],
+): boolean {
+  if (!element || typeof element.matches !== 'function') {
+    return false;
+  }
+
+  // 1. 元素自身直接匹配根容器
+  if (isDirectRootElement(element, rootSelectors)) {
+    return true;
+  }
+
+  // 2. 元素为无类名无标识的匿名空纯布局包装节点（无子节点、无文本），且其父级命中根容器
+  const isAnonymousEmptyWrapper =
+    !element.id &&
+    (!element.className || (typeof element.className === 'string' && !element.className.trim())) &&
+    element.childElementCount === 0 &&
+    (!element.textContent || !element.textContent.trim());
+
+  if (isAnonymousEmptyWrapper && isDirectRootElement(element.parentElement, rootSelectors)) {
+    return true;
   }
 
   return false;
@@ -149,17 +185,18 @@ export function sampleViewport(
 ): {
   isSuspected: boolean;
   points: SamplePointDiagnostic[];
+  hitSelectors: string[];
   viewport: { width: number; height: number };
 } {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return { isSuspected: false, points: [], viewport: { width: 0, height: 0 } };
+    return { isSuspected: false, points: [], hitSelectors: [], viewport: { width: 0, height: 0 } };
   }
 
   const width = window.innerWidth || document.documentElement?.clientWidth || 0;
   const height = window.innerHeight || document.documentElement?.clientHeight || 0;
 
   if (width <= 0 || height <= 0) {
-    return { isSuspected: false, points: [], viewport: { width, height } };
+    return { isSuspected: false, points: [], hitSelectors: [], viewport: { width, height } };
   }
 
   const points: SamplePointDiagnostic[] = [];
@@ -192,9 +229,9 @@ export function sampleViewport(
           }
         }
 
-        // 2. 检查顶层元素是否自身直接为根容器
+        // 2. 检查顶层元素是否自身直接为根容器或空的纯布局容器
         if (targetEl) {
-          isRoot = isDirectRootElement(targetEl, rootSelectors);
+          isRoot = isRootOrEmptyContainer(targetEl, rootSelectors);
         } else {
           isRoot = true;
         }
@@ -214,15 +251,19 @@ export function sampleViewport(
     }
   }
 
+  const hitSelectors = Array.from(
+    new Set(points.map(p => p.target).filter(t => Boolean(t) && t !== 'empty')),
+  );
+
   // 若采样点命中白名单（骨架屏、过渡动画），视为正常过渡态，决不判定为白屏
   if (hasWhitelist) {
-    return { isSuspected: false, points, viewport: { width, height } };
+    return { isSuspected: false, points, hitSelectors, viewport: { width, height } };
   }
 
   const rootRatio = points.length > 0 ? rootHitCount / points.length : 0;
   const isSuspected = rootRatio >= threshold;
 
-  return { isSuspected, points, viewport: { width, height } };
+  return { isSuspected, points, hitSelectors, viewport: { width, height } };
 }
 
 /**
@@ -244,7 +285,9 @@ export function createWhiteScreenPlugin(
   let activeKernel: MonitorKernelInstance | null = null;
   let timerT1: ReturnType<typeof setTimeout> | null = null;
   let timerT2: ReturnType<typeof setTimeout> | null = null;
+  let abortPrevRecheck: (() => void) | null = null;
   let onLoadHandler: (() => void) | null = null;
+  let checkSequence = 0;
 
   /**
    * 执行完整的两阶段复验检测逻辑。
@@ -253,6 +296,13 @@ export function createWhiteScreenPlugin(
     if (!activeKernel || !activeKernel.isInitialized) {
       return false;
     }
+
+    // 每次触发新检测，前置安全取消前序等待中的第二阶段复验，防并发与内存挂起
+    if (abortPrevRecheck) {
+      abortPrevRecheck();
+      abortPrevRecheck = null;
+    }
+    const currentCheckId = ++checkSequence;
 
     const startTime = Date.now();
 
@@ -263,13 +313,32 @@ export function createWhiteScreenPlugin(
     }
 
     // 2. 初检怀疑白屏，进入第二阶段延迟防抖复验
-    await new Promise<void>(resolve => {
+    const wasCancelled = await new Promise<boolean>(resolve => {
+      if (timerT2) {
+        clearTimeout(timerT2);
+      }
+
       timerT2 = setTimeout(() => {
-        resolve();
+        timerT2 = null;
+        abortPrevRecheck = null;
+        resolve(false);
       }, recheckDelay);
+
+      abortPrevRecheck = () => {
+        if (timerT2) {
+          clearTimeout(timerT2);
+          timerT2 = null;
+        }
+        resolve(true);
+      };
     });
 
-    if (!activeKernel || !activeKernel.isInitialized) {
+    if (
+      wasCancelled ||
+      currentCheckId !== checkSequence ||
+      !activeKernel ||
+      !activeKernel.isInitialized
+    ) {
       return false;
     }
 
@@ -282,8 +351,10 @@ export function createWhiteScreenPlugin(
     // 4. 两阶段均判定为白屏，正式向内核派发致命白屏事件
     const duration = Date.now() - startTime;
     const payload: WhiteScreenPayload = {
+      name: 'WHITE_SCREEN_ERROR',
       isWhiteScreen: true,
       samplePoints: secondCheck.points,
+      hitSelectors: secondCheck.hitSelectors,
       viewport: secondCheck.viewport,
       duration,
     };
@@ -325,6 +396,11 @@ export function createWhiteScreenPlugin(
 
     teardown(): void {
       activeKernel = null;
+
+      if (abortPrevRecheck) {
+        abortPrevRecheck();
+        abortPrevRecheck = null;
+      }
 
       if (timerT1) {
         clearTimeout(timerT1);

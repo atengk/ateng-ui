@@ -135,8 +135,10 @@ describe('WhiteScreenPlugin', () => {
 
       expect(event.type).toBe('white_screen');
       expect(event.level).toBe('fatal');
+      expect(event.payload.name).toBe('WHITE_SCREEN_ERROR');
       expect(event.payload.isWhiteScreen).toBe(true);
       expect(event.payload.samplePoints.length).toBe(9);
+      expect(event.payload.hitSelectors).toBeDefined();
       expect(event.payload.viewport.width).toBe(1200);
 
       await kernel.destroy();
@@ -215,6 +217,39 @@ describe('WhiteScreenPlugin', () => {
 
       // 验证销毁后绝不触发告警
       expect(reporterSpy).not.toHaveBeenCalled();
+    });
+
+    it('连续并发调用 check 时应当取消前序未决轮次并防抖', async () => {
+      const reporterSpy = vi.fn().mockResolvedValue(undefined);
+      const plugin = createWhiteScreenPlugin({
+        recheckDelay: 1000,
+        autoCheckOnLoad: false,
+      });
+
+      const kernel = new MonitorKernel({
+        batchSize: 1,
+        reporter: reporterSpy,
+        plugins: [plugin],
+      });
+      kernel.init();
+
+      document.elementsFromPoint = vi.fn().mockImplementation(() => [container, document.body]);
+
+      // 连续调用两次 check
+      const check1 = plugin.check();
+      const check2 = plugin.check();
+
+      await vi.advanceTimersByTimeAsync(1200);
+
+      const res1 = await check1;
+      const res2 = await check2;
+
+      // 前序调用被废弃返回 false，仅最新轮次判定有效
+      expect(res1).toBe(false);
+      expect(res2).toBe(true);
+      expect(reporterSpy).toHaveBeenCalledTimes(1);
+
+      await kernel.destroy();
     });
   });
 });

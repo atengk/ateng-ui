@@ -18,3 +18,4 @@ export * from './transport/transport';
 export * from './transport/queue';
 export * from './utils/id';
 export * from './utils/device';
+export * from './utils/format';

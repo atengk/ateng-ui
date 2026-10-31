@@ -79,6 +79,13 @@ export class TransportQueue {
   }
 
   /**
+   * 当前配置的监控上报网关 URL。
+   */
+  get reportUrl(): string | undefined {
+    return this._reportUrl;
+  }
+
+  /**
    * 向队列追加事件。
    * 当积压数量达到 batchSize 时立即冲刷；否则启动防抖定时器。
    *
@@ -106,19 +113,50 @@ export class TransportQueue {
   }
 
   /**
-   * 正常异步冲刷当前内存队列。
+   * 查找队列中满足条件的最近一个未发送事件并就地更新。
+   *
+   * @param predicate 查找条件断言
+   * @param updater 更新函数
+   * @returns 是否成功命中并更新
    */
-  async flush(): Promise<void> {
+  updateLast(
+    predicate: (event: MonitorEvent) => boolean,
+    updater: (event: MonitorEvent) => void,
+  ): boolean {
+    for (let i = this._queue.length - 1; i >= 0; i--) {
+      const item = this._queue[i];
+      if (item && predicate(item)) {
+        updater(item);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 抽取当前队列中的所有积压事件批次，并确定性重置防抖定时器。
+   */
+  private _drainBatch(): MonitorEvent[] {
     if (this._timer) {
       clearTimeout(this._timer);
       this._timer = null;
     }
 
     if (this._queue.length === 0) {
-      return;
+      return [];
     }
 
-    const batch = this._queue.splice(0);
+    return this._queue.splice(0);
+  }
+
+  /**
+   * 正常异步冲刷当前内存队列。
+   */
+  async flush(): Promise<void> {
+    const batch = this._drainBatch();
+    if (batch.length === 0) {
+      return;
+    }
 
     try {
       await this._reporter(batch);
@@ -132,16 +170,10 @@ export class TransportQueue {
    * 优先借助 navigator.sendBeacon 实现非阻塞零丢失发送。
    */
   emergencyFlush(): void {
-    if (this._timer) {
-      clearTimeout(this._timer);
-      this._timer = null;
-    }
-
-    if (this._queue.length === 0) {
+    const batch = this._drainBatch();
+    if (batch.length === 0) {
       return;
     }
-
-    const batch = this._queue.splice(0);
 
     // 1. 若存在 reportUrl，优先采用 sendBeacon 穿透页面卸载
     if (this._reportUrl) {

@@ -147,5 +147,15 @@ describe('PII Sanitizer', () => {
       expect(isElementMasked(customEl, ['.my-secret-box'])).toBe(true);
       expect(sanitizeDomText(customEl, ['.my-secret-box']).text).toBe('******');
     });
+
+    it('在无 document 或 Node/SSR 宿主环境下应当安全防御且不抛异常', () => {
+      const mockElement = {
+        matches: () => false,
+        parentElement: null,
+      } as unknown as Element;
+
+      expect(isElementMasked(mockElement)).toBe(false);
+      expect(sanitizeDomText(mockElement).isMasked).toBe(false);
+    });
   });
 });

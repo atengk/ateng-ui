@@ -6,20 +6,40 @@
  * @since 2026-10-31
  */
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { ElButton, ElMessage, ElCard, ElTag, ElRow, ElCol, ElStatistic } from 'element-plus';
-import { setupSampleMonitor } from '../monitor';
 import { calculateRating, type PerformancePayload } from '@atengk/monitor';
-
-const monitor = setupSampleMonitor();
+import { sampleState } from '../state';
 
 const metrics = ref({
   fcp: 240,
   lcp: 850,
   cls: 0.02,
+  inp: 110,
   ttfb: 85,
   longTaskCount: 0,
 });
+
+// 监听实时遥测事件流，双向响应式更新大盘卡片
+watch(
+  () => sampleState.events,
+  events => {
+    for (const evt of events) {
+      if (evt.type === 'performance' && evt.payload) {
+        const p = evt.payload as PerformancePayload;
+        if (p.name === 'FCP') metrics.value.fcp = p.value;
+        if (p.name === 'LCP') metrics.value.lcp = p.value;
+        if (p.name === 'CLS') metrics.value.cls = p.value;
+        if (p.name === 'INP') metrics.value.inp = p.value;
+        if (p.name === 'TTFB') metrics.value.ttfb = p.value;
+        if (p.name === 'longtask' || p.name === 'jank' || p.name === 'JANK_WARNING') {
+          metrics.value.longTaskCount++;
+        }
+      }
+    }
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   if (typeof performance !== 'undefined') {
@@ -31,31 +51,19 @@ onMounted(() => {
   }
 });
 
-// 模拟主线程阻塞卡顿 (>120ms)
+// 执行真实主线程 CPU 密集长任务 (>200ms)，触发宿主 PerformanceObserver 自然感知
 const triggerLongTask = () => {
-  ElMessage.warning('开始执行主线程 CPU 密集计算，将阻塞 120ms...');
-  const start = performance.now();
-  while (performance.now() - start < 120) {
-    // 强制占满主线程
-  }
-  metrics.value.longTaskCount++;
-
-  monitor.emit<PerformancePayload>({
-    type: 'performance',
-    level: 'warn',
-    payload: {
-      name: 'longtask',
-      value: 120,
-      rating: 'poor',
-      entry: {
-        duration: 120,
-        startTime: start,
-        attribution: 'CPU intensive task in sample console',
-      },
-    },
-  });
-
-  ElMessage.error('长任务执行完毕！已触发 >50ms 卡顿告警');
+  ElMessage.warning('开始执行主线程 CPU 密集计算，将阻塞主线程 220ms...');
+  setTimeout(() => {
+    const start = performance.now();
+    while (performance.now() - start < 220) {
+      // 真实 CPU 密集计算占满主线程
+    }
+    metrics.value.longTaskCount++;
+    ElMessage.error(
+      '长任务阻塞完毕！浏览器的 PerformanceObserver 插件将自然捕获并派发 JANK_WARNING 告警',
+    );
+  }, 20);
 };
 </script>
 
@@ -105,6 +113,17 @@ const triggerLongTask = () => {
             :type="calculateRating('CLS', metrics.cls) === 'good' ? 'success' : 'warning'"
           >
             {{ calculateRating('CLS', metrics.cls) }}
+          </el-tag>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover" class="metric-card">
+          <el-statistic title="INP (下次绘制延迟)" :value="metrics.inp" suffix="ms" />
+          <el-tag
+            size="small"
+            :type="calculateRating('INP', metrics.inp) === 'good' ? 'success' : 'warning'"
+          >
+            {{ calculateRating('INP', metrics.inp) }}
           </el-tag>
         </el-card>
       </el-col>

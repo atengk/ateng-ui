@@ -28,6 +28,7 @@ class MockPerformanceObserver {
     'largest-contentful-paint',
     'layout-shift',
     'first-input',
+    'event',
     'longtask',
     'navigation',
   ];
@@ -283,7 +284,7 @@ describe('PerformancePlugin', () => {
       expect(reporterSpy).toHaveBeenCalledTimes(2);
       event = reporterSpy.mock.calls[1][0][0];
       expect(event.level).toBe('warn');
-      expect(event.payload.name).toBe('jank');
+      expect(event.payload.name).toBe('JANK_WARNING');
       expect(event.payload.value).toBe(350);
       expect(event.payload.rating).toBe('poor');
       expect(event.payload.entry?.attribution).toBeDefined();
@@ -390,6 +391,47 @@ describe('PerformancePlugin', () => {
       expect(event.payload.name).toBe('CLS');
       expect(event.payload.value).toBe(0.08);
       expect(event.payload.rating).toBe('good');
+
+      await kernel.destroy();
+    });
+
+    it('采集并派发 Core Web Vitals INP (Interaction to Next Paint) 指标', async () => {
+      const reporterSpy = vi.fn().mockResolvedValue(undefined);
+      const plugin = createPerformancePlugin({
+        navigation: false,
+        longtask: false,
+      });
+
+      const kernel = new MonitorKernel({
+        batchSize: 1,
+        reporter: reporterSpy,
+        plugins: [plugin],
+      });
+      kernel.init();
+
+      const eventObserver = MockPerformanceObserver.instances.find(
+        obs => obs.observedOptions?.type === 'event',
+      );
+      expect(eventObserver).toBeDefined();
+
+      eventObserver?.trigger([
+        { entryType: 'event', duration: 120, interactionId: 1 },
+        { entryType: 'event', duration: 260, interactionId: 2 },
+      ]);
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      const inpCall = reporterSpy.mock.calls.find(
+        call => (call[0][0] as MonitorEvent<PerformancePayload>).payload.name === 'INP',
+      );
+      expect(inpCall).toBeDefined();
+      const inpEvent = inpCall[0][0] as MonitorEvent<PerformancePayload>;
+      expect(inpEvent.payload.value).toBe(260);
+      expect(inpEvent.payload.rating).toBe('needs-improvement');
 
       await kernel.destroy();
     });

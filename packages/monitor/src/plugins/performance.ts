@@ -135,6 +135,7 @@ export function calculateRating(
     case 'LONGTASK':
       return value < 200 ? 'needs-improvement' : 'poor';
     case 'JANK':
+    case 'JANK_WARNING':
       return 'poor';
     default:
       return 'good';
@@ -199,12 +200,15 @@ export function createPerformancePlugin(options?: PerformancePluginOptions): Mon
 
   let activeKernel: MonitorKernelInstance | null = null;
   const observers: PerformanceObserver[] = [];
+  const activeTimers = new Set<ReturnType<typeof setTimeout>>();
   let onVisibilityChange: (() => void) | null = null;
   let onLoadHandler: (() => void) | null = null;
 
-  // 累积布局偏移量
+  // 累积布局偏移量与最长交互延迟
   let clsValue = 0;
   let clsReported = false;
+  let maxInteractionDuration = 0;
+  let inpReported = false;
 
   /**
    * 判定当前事件是否被采样命中。
@@ -377,12 +381,36 @@ export function createPerformancePlugin(options?: PerformancePluginOptions): Mon
       }
     });
 
-    // 5. 监听页面隐藏事件以冲刷最终累积的 CLS
+    // 5. INP (Interaction to Next Paint) 交互到下次绘制延迟
+    createSafeObserver(
+      'event',
+      entries => {
+        for (const entry of entries) {
+          const eventEntry = entry as { duration?: number; interactionId?: number };
+          if (eventEntry.duration && eventEntry.duration > maxInteractionDuration) {
+            maxInteractionDuration = Math.round(eventEntry.duration);
+          }
+        }
+      },
+      true,
+    );
+
+    // 6. 监听页面隐藏事件以冲刷最终累积的 CLS 与 INP
     if (typeof document !== 'undefined') {
       onVisibilityChange = () => {
-        if (document.visibilityState === 'hidden' && !clsReported) {
-          clsReported = true;
-          emitPerformance('CLS', Number(clsValue.toFixed(4)), 'info');
+        if (document.visibilityState === 'hidden') {
+          if (!clsReported) {
+            clsReported = true;
+            emitPerformance('CLS', Number(clsValue.toFixed(4)), 'info');
+          }
+          if (!inpReported && maxInteractionDuration > 0) {
+            inpReported = true;
+            emitPerformance(
+              'INP',
+              maxInteractionDuration,
+              maxInteractionDuration >= 500 ? 'warn' : 'info',
+            );
+          }
         }
       };
       document.addEventListener('visibilitychange', onVisibilityChange);
@@ -421,7 +449,7 @@ export function createPerformancePlugin(options?: PerformancePluginOptions): Mon
 
           // 若超过卡顿阈值 (如 200ms)，派发严重告警事件；否则按普通 longtask 记录
           if (duration >= jankThreshold) {
-            emitPerformance('jank', duration, 'warn', entryDetail);
+            emitPerformance('JANK_WARNING', duration, 'warn', entryDetail);
           } else {
             emitPerformance('longtask', duration, 'info', entryDetail);
           }
@@ -455,14 +483,18 @@ export function createPerformancePlugin(options?: PerformancePluginOptions): Mon
       if (enableNavigation) {
         if (document.readyState === 'complete') {
           // 若页面已加载完成，稍后延迟采集以确保 timing 数据完整
-          setTimeout(() => {
+          const timerId = setTimeout(() => {
+            activeTimers.delete(timerId);
             captureNavigationTiming();
           }, 0);
+          activeTimers.add(timerId);
         } else {
           onLoadHandler = () => {
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
+              activeTimers.delete(timerId);
               captureNavigationTiming();
             }, 0);
+            activeTimers.add(timerId);
           };
           window.addEventListener('load', onLoadHandler);
         }
@@ -482,7 +514,13 @@ export function createPerformancePlugin(options?: PerformancePluginOptions): Mon
       }
       observers.length = 0;
 
-      // 2. 清理事件监听
+      // 2. 清理所有挂起的定时器
+      for (const timerId of activeTimers) {
+        clearTimeout(timerId);
+      }
+      activeTimers.clear();
+
+      // 3. 清理事件监听
       if (onVisibilityChange && typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onVisibilityChange);
         onVisibilityChange = null;

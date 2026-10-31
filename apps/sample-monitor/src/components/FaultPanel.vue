@@ -6,13 +6,14 @@
  * @since 2026-10-31
  */
 
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { ElButton, ElMessage, ElCard, ElTag } from 'element-plus';
 import { setupSampleMonitor } from '../monitor';
 import { captureVueError } from '@atengk/monitor';
 
 const monitor = setupSampleMonitor();
 const errorCount = ref(0);
+const injectedElements: Element[] = [];
 
 // 1. 同步运行时异常
 const triggerSyncError = () => {
@@ -32,11 +33,25 @@ const triggerPromiseError = () => {
 const triggerResourceError = () => {
   const img = document.createElement('img');
   img.src = 'http://localhost:3010/assets/non-existent-banner-404.png';
-  img.id = 'crash-resource-img';
+  img.id = `crash-resource-img-${Date.now()}`;
   img.style.display = 'none';
+  img.onerror = () => {
+    // 资源加载失败被采集后，延迟清理 DOM 节点，杜绝内存泄漏
+    setTimeout(() => {
+      img.remove();
+    }, 500);
+  };
   document.body.appendChild(img);
+  injectedElements.push(img);
   ElMessage.warning('已插入 404 异常静态资源');
 };
+
+onUnmounted(() => {
+  for (const el of injectedElements) {
+    el.remove();
+  }
+  injectedElements.length = 0;
+});
 
 // 4. Vue 框架异常模拟
 const triggerVueError = () => {

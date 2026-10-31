@@ -35,22 +35,19 @@ const filteredEvents = computed(() => {
   return sampleState.events.filter(e => e.type === selectedCategory.value);
 });
 
+// 强类型事件标签状态映射表
+const TAG_TYPE_MAP: Record<string, '' | 'success' | 'warning' | 'info' | 'danger'> = {
+  error: 'danger',
+  white_screen: 'danger',
+  performance: 'warning',
+  network: 'success',
+  lifecycle: 'danger',
+  custom: 'info',
+};
+
 // 获取事件标签颜色
 const getTagType = (type: string): '' | 'success' | 'warning' | 'info' | 'danger' => {
-  switch (type) {
-    case 'error':
-      return 'danger';
-    case 'white_screen':
-      return 'danger';
-    case 'performance':
-      return 'warning';
-    case 'network':
-      return 'success';
-    case 'lifecycle':
-      return 'danger';
-    default:
-      return 'info';
-  }
+  return TAG_TYPE_MAP[type] || 'info';
 };
 
 // 模拟 Axios 协同拦截器注入并提取后端 MDC TraceId
@@ -60,12 +57,26 @@ const simulateAxiosTrace = () => {
 
   const interceptor = createCoreAxiosMonitorInterceptor(monitor);
 
-  // 模拟从 Axios 响应中提取 TraceId
+  // 1. 模拟 Axios 实例并通过 install 走通官方挂载与注销契约
+  const mockAxiosInstance = {
+    interceptors: {
+      response: {
+        use: () => 1,
+        eject: () => {},
+      },
+    },
+  };
+  const uninstall = interceptor.install(mockAxiosInstance);
+
+  // 2. 模拟真实服务端响应：自动从 Result<T>.traceId 与 x-trace-id 请求头提取注入
   interceptor.responseInterceptor({
     status: 200,
     headers: { 'x-trace-id': newTrace },
     data: { code: 200, data: { status: 'healthy' }, msg: 'success', traceId: newTrace },
   });
+
+  // 3. 执行注销解绑，验证对称语义
+  uninstall();
 
   // 手动派发一条携带 traceId 的网络事件
   monitor.emit<NetworkPayload>({

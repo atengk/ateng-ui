@@ -195,9 +195,7 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
         return;
       }
 
-      const effectiveReportUrl =
-        options?.reportUrl ||
-        (kernel as unknown as { _options?: { reportUrl?: string } })._options?.reportUrl;
+      const effectiveReportUrl = options?.reportUrl || kernel.queue.reportUrl;
 
       const recordBreadcrumb = (
         method: string,
@@ -269,12 +267,16 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
             }
           }
 
+          if (!originalFetch) {
+            return Promise.reject(new Error('[@atengk/monitor] Native fetch is uninitialized'));
+          }
+
           // 防死循环协议与黑名单过滤
           if (
             isMonitorReportRequest(url, headersMap, effectiveReportUrl) ||
             isIgnoredUrl(url, ignoreUrls)
           ) {
-            return originalFetch!(input, init);
+            return originalFetch(input, init);
           }
 
           const startTime =
@@ -283,7 +285,7 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
               : Date.now();
 
           try {
-            const response = await originalFetch!(input, init);
+            const response = await originalFetch(input, init);
             const duration = Math.round(
               (typeof performance !== 'undefined' && typeof performance.now === 'function'
                 ? performance.now()
@@ -393,7 +395,7 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
           startTime: number;
         }
 
-        const metaKey = Symbol('__ateng_monitor_xhr_meta__');
+        const xhrMetaMap = new WeakMap<XMLHttpRequest, XhrMeta>();
 
         XMLHttpRequest.prototype.open = function (
           method: string,
@@ -406,14 +408,14 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
             headers: {},
             startTime: 0,
           };
-          (this as unknown as Record<symbol, XhrMeta>)[metaKey] = meta;
+          xhrMetaMap.set(this, meta);
           if (originalOpen) {
             Reflect.apply(originalOpen, this, [method, url, ...rest]);
           }
         };
 
         XMLHttpRequest.prototype.setRequestHeader = function (header: string, value: string): void {
-          const meta = (this as unknown as Record<symbol, XhrMeta>)[metaKey];
+          const meta = xhrMetaMap.get(this);
           if (meta && header) {
             meta.headers[header.toLowerCase()] = String(value);
           }
@@ -423,7 +425,7 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
         };
 
         XMLHttpRequest.prototype.send = function (...args: unknown[]): void {
-          const meta = (this as unknown as Record<symbol, XhrMeta>)[metaKey];
+          const meta = xhrMetaMap.get(this);
 
           if (
             meta &&
@@ -500,10 +502,22 @@ export function createNetworkPlugin(options?: NetworkPluginOptions): MonitorPlug
             }
           };
 
-          this.addEventListener('loadend', onFinished);
-          this.addEventListener('error', onFinished);
-          this.addEventListener('abort', onFinished);
-          this.addEventListener('timeout', onFinished);
+          const removeListeners = (): void => {
+            this.removeEventListener('loadend', handleFinished);
+            this.removeEventListener('error', handleFinished);
+            this.removeEventListener('abort', handleFinished);
+            this.removeEventListener('timeout', handleFinished);
+          };
+
+          const handleFinished = (): void => {
+            removeListeners();
+            onFinished();
+          };
+
+          this.addEventListener('loadend', handleFinished);
+          this.addEventListener('error', handleFinished);
+          this.addEventListener('abort', handleFinished);
+          this.addEventListener('timeout', handleFinished);
 
           if (originalSend) {
             Reflect.apply(originalSend, this, args);

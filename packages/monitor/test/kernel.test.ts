@@ -288,6 +288,74 @@ describe('MonitorKernel', () => {
     expect(reporterSpy).toHaveBeenCalledTimes(3); // 仍为 3 次，第 3 次被拒
   });
 
+  it('由完全相同的高频重复错误触发熔断时，CIRCUIT_BREAKER_TRIGGERED 告警事件绝不被吞没', () => {
+    const reporterSpy = vi.fn();
+    const kernel = new MonitorKernel({
+      maxErrorsPerSession: 2,
+      batchSize: 1,
+      reporter: reporterSpy,
+    });
+    kernel.init();
+
+    // 连续触发 2 次完全相同的错误
+    kernel.emit({
+      type: 'error',
+      level: 'error',
+      payload: { name: 'LoopError', message: 'Infinite recursion occurred' },
+    });
+    // 第 1 次错误正常派发
+    expect(reporterSpy).toHaveBeenCalledTimes(1);
+
+    // 第 2 次相同错误（触发熔断阈值 2，虽然去重器判定为 duplicate，但熔断告警必达！）
+    kernel.emit({
+      type: 'error',
+      level: 'error',
+      payload: { name: 'LoopError', message: 'Infinite recursion occurred' },
+    });
+
+    // 此时应当派发 CIRCUIT_BREAKER_TRIGGERED 告警并紧急冲刷
+    expect(reporterSpy).toHaveBeenCalledTimes(2);
+    const alertEvent = reporterSpy.mock.calls[1][0][0];
+    expect(alertEvent.type).toBe('lifecycle');
+    expect(alertEvent.level).toBe('fatal');
+    expect(alertEvent.payload.name).toBe('CIRCUIT_BREAKER_TRIGGERED');
+    expect(kernel.circuitBreaker.isTripped).toBe(true);
+  });
+
+  it('在批量队列缓冲期内，重复发生的异常其 repeatCount 能够被就地累加更新', async () => {
+    const reporterSpy = vi.fn();
+    const kernel = new MonitorKernel({
+      batchSize: 10,
+      flushInterval: 5000,
+      reporter: reporterSpy,
+    });
+    kernel.init();
+
+    // 在 5000ms 定时器触发前，连续触发 3 次相同的错误
+    for (let i = 0; i < 3; i++) {
+      kernel.emit({
+        type: 'error',
+        level: 'error',
+        payload: {
+          name: 'TypeError',
+          message: 'Repeated state sync failure',
+          fingerprint: 'sync-err-fixed',
+        },
+      });
+    }
+
+    // 尚未达到 batchSize 10，队列中积压了 1 条事件（后两次被合并）
+    expect(kernel.queue.size).toBe(1);
+
+    // 手动冲刷以模拟定时器或批量到期
+    await kernel.queue.flush();
+
+    expect(reporterSpy).toHaveBeenCalledTimes(1);
+    const batch = reporterSpy.mock.calls[0][0];
+    expect(batch.length).toBe(1);
+    expect(batch[0].payload.repeatCount).toBe(3); // 聚合计数正确体现为 3！
+  });
+
   it('全局单例门面 initMonitor、getActiveMonitor 与 destroyActiveMonitor 应当协同正常', async () => {
     expect(getActiveMonitor()).toBeUndefined();
 

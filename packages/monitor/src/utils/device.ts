@@ -7,6 +7,15 @@
 
 import type { DeviceContext } from '../types/context';
 
+interface NetworkInformationLike {
+  effectiveType?: string;
+  type?: string;
+}
+
+interface NavigatorWithConnection extends Navigator {
+  readonly connection?: NetworkInformationLike;
+}
+
 /**
  * 提取当前宿主浏览器与视口设备元数据快照。
  * 在 SSR 或无窗口环境中具备完整的安全保底防御。
@@ -20,8 +29,7 @@ export function getDeviceContext(): DeviceContext {
 
   let connectionType: string | undefined;
   if (nav && 'connection' in nav) {
-    const conn = (nav as unknown as { connection?: { effectiveType?: string; type?: string } })
-      .connection;
+    const conn = (nav as NavigatorWithConnection).connection;
     connectionType = conn?.effectiveType || conn?.type;
   }
 

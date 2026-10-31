@@ -144,9 +144,10 @@ export function isElementMasked(
   }
 
   const allSelectors = [...DEFAULT_MASK_SELECTORS, ...customMaskSelectors];
+  const docEl = typeof document !== 'undefined' ? document.documentElement : null;
 
   let current: Element | null = element;
-  while (current && current !== document.documentElement) {
+  while (current && current !== docEl) {
     for (const selector of allSelectors) {
       try {
         if (current.matches(selector)) {

@@ -39,6 +39,7 @@
 | **传输通道**     | 批处理防丢缓冲队列     | `TransportQueue`                                        | `new TransportQueue(options: TransportQueueOptions)`                       | 内存队列满批次 (10) 或防抖延迟 (3s) 自动冲刷，页面卸载前紧急冲刷                | [transport.test.ts](./test/transport.test.ts)     |
 | **工具套件**     | 全局唯一 UUID 生成器   | `generateId`                                            | `() => string`                                                             | 基于 `crypto.randomUUID` 或高性能位移原语生成的 UUID v4 算法                    | [kernel.test.ts](./test/kernel.test.ts)           |
 | **工具套件**     | 宿主设备环境探测       | `getDeviceContext`, `getCurrentUrl`, `getDocumentTitle` | `() => DeviceContext`, `() => string`                                      | 平台中立探测浏览器屏幕分辨率、视口尺寸、UA 及当前安全 URL                       | [context.test.ts](./test/context.test.ts)         |
+| **工具套件**     | 安全序列化格式化工具   | `safeStringify`                                         | `(value: unknown, fallback?: string) => string`                            | 防止循环引用或复杂实体导致 JSON.stringify 崩溃的安全格式化原语                  | [sanitizer.test.ts](./test/sanitizer.test.ts)     |
 
 ---
 
@@ -52,7 +53,7 @@ pnpm add @atengk/monitor
 
 ### 2. 初始化监控微内核与 Vue 3 挂载
 
-代码逆向提取自 [apps/sample-monitor/src/main.ts](file:///d:/My/dev/ateng-ui/apps/sample-monitor/src/main.ts)：
+代码逆向提取自 [apps/sample-monitor/src/main.ts](../../apps/sample-monitor/src/main.ts)：
 
 ```ts
 import { createApp } from 'vue';
@@ -176,7 +177,7 @@ monitor.registerPlugin(createAuditLogPlugin());
 
 ### 3. 与 `@atengk/core` Axios 实例协同提取后端 MDC TraceId
 
-代码逆向提取自 [apps/sample-monitor/src/components/ApmTerminal.vue](file:///d:/My/dev/ateng-ui/apps/sample-monitor/src/components/ApmTerminal.vue)：
+代码逆向提取自 [apps/sample-monitor/src/components/ApmTerminal.vue](../../apps/sample-monitor/src/components/ApmTerminal.vue)：
 
 ```ts
 import axios from 'axios';

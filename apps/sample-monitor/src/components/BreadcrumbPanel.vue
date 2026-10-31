@@ -51,6 +51,29 @@ const onLogConsole = () => {
   ElMessage.info('已记录一条控制台轨迹日志');
   setTimeout(refreshBreadcrumbs, 50);
 };
+
+const isReplaying = ref(false);
+const activeReplayIndex = ref<number | null>(null);
+
+// 自动化轨迹逐步回放 (Click Replay)
+const replayTimeline = async () => {
+  if (isReplaying.value || breadcrumbs.value.length === 0) {
+    ElMessage.warning(breadcrumbs.value.length === 0 ? '暂无轨迹，请先触发交互' : '正在回放中...');
+    return;
+  }
+  isReplaying.value = true;
+  ElMessage.info('🎬 开始按时间轴高亮回放用户行为现场...');
+
+  const total = Math.min(breadcrumbs.value.length, 8);
+  for (let i = total - 1; i >= 0; i--) {
+    activeReplayIndex.value = i;
+    await new Promise(resolve => setTimeout(resolve, 600));
+  }
+
+  activeReplayIndex.value = null;
+  isReplaying.value = false;
+  ElMessage.success('用户行为轨迹回放演示完毕！');
+};
 </script>
 
 <template>
@@ -97,6 +120,9 @@ const onLogConsole = () => {
         流转至安全设置 (Hash 路由)
       </el-button>
       <el-button type="info" plain @click="onLogConsole"> 记录 Console 轨迹日志 </el-button>
+      <el-button type="danger" :loading="isReplaying" @click="replayTimeline">
+        🎬 现场轨迹高亮回放 (Click Replay)
+      </el-button>
       <el-button @click="refreshBreadcrumbs">刷新面包屑时间轴</el-button>
     </div>
 
@@ -108,6 +134,7 @@ const onLogConsole = () => {
           :key="index"
           :timestamp="new Date(item.timestamp).toLocaleTimeString()"
           :type="item.level === 'error' ? 'danger' : item.type === 'route' ? 'success' : 'primary'"
+          :class="{ 'replay-active-node': activeReplayIndex === index }"
         >
           <span class="breadcrumb-msg">
             <el-tag size="small" class="type-tag">{{ item.type }}</el-tag>
@@ -179,5 +206,12 @@ const onLogConsole = () => {
 .empty-tip {
   color: var(--el-text-color-placeholder);
   font-size: 13px;
+}
+.replay-active-node {
+  background: var(--el-color-primary-light-9);
+  border-radius: 4px;
+  padding: 4px 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 6px var(--el-color-primary-light-5);
 }
 </style>

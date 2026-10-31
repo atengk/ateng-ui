@@ -12,8 +12,16 @@ import { setupSampleMonitor } from '../monitor';
 import { sampleViewport, type WhiteScreenPayload } from '@atengk/monitor';
 
 const monitor = setupSampleMonitor();
-const containerStatus = ref<'normal' | 'blank' | 'skeleton'>('normal');
+const containerStatus = ref<'normal' | 'blank' | 'skeleton' | 'loading'>('normal');
 const lastResult = ref<string>('尚未采样');
+
+// 统一受管采样逻辑
+const executeSample = () => {
+  return sampleViewport(
+    ['html', 'body', '#white-screen-sandbox', '#app'],
+    ['.skeleton-box', '.at-skeleton', '.el-loading-mask', '.loading-mask'],
+  );
+};
 
 // 1. 模拟白屏 (清空视窗)
 const simulateWhiteScreen = () => {
@@ -21,15 +29,17 @@ const simulateWhiteScreen = () => {
   ElMessage.warning('容器已清空，模拟白屏崩溃中...');
 
   setTimeout(() => {
-    const res = sampleViewport(['html', 'body', '#white-screen-sandbox'], ['.skeleton-box']);
+    const res = executeSample();
     lastResult.value = res.isSuspected ? '检测到白屏异常！' : '视窗正常';
     if (res.isSuspected) {
       monitor.emit<WhiteScreenPayload>({
         type: 'white_screen',
-        level: 'error',
+        level: 'fatal',
         payload: {
+          name: 'WHITE_SCREEN_ERROR',
           isWhiteScreen: true,
           samplePoints: res.points,
+          hitSelectors: res.hitSelectors,
           viewport: res.viewport,
           duration: 15,
         },
@@ -44,12 +54,23 @@ const simulateSkeleton = () => {
   ElMessage.info('展示骨架屏中 (命中骨架屏白名单)...');
 
   setTimeout(() => {
-    const res = sampleViewport(['html', 'body', '#white-screen-sandbox'], ['.skeleton-box']);
+    const res = executeSample();
     lastResult.value = res.isSuspected ? '检测到白屏异常！' : '骨架屏白名单生效，未触发白屏';
   }, 100);
 };
 
-// 3. 自愈恢复
+// 3. 模拟 Loading 遮罩白名单免报
+const simulateLoading = () => {
+  containerStatus.value = 'loading';
+  ElMessage.info('展示 Loading 遮罩中 (命中 Loading 遮罩白名单)...');
+
+  setTimeout(() => {
+    const res = executeSample();
+    lastResult.value = res.isSuspected ? '检测到白屏异常！' : 'Loading 遮罩白名单生效，未触发白屏';
+  }, 100);
+};
+
+// 4. 自愈恢复
 const restoreNormal = () => {
   containerStatus.value = 'normal';
   lastResult.value = '正常展示中';
@@ -73,6 +94,9 @@ const restoreNormal = () => {
       <el-button type="info" plain @click="simulateSkeleton">
         切换骨架屏 (验证白名单免报机制)
       </el-button>
+      <el-button type="primary" plain @click="simulateLoading">
+        切换 Loading 遮罩 (验证遮罩白名单)
+      </el-button>
       <el-button type="success" plain @click="restoreNormal"> 自愈恢复正常内容 </el-button>
       <el-tag :type="lastResult.includes('白屏异常') ? 'danger' : 'success'" class="result-tag">
         采样判定: {{ lastResult }}
@@ -88,6 +112,12 @@ const restoreNormal = () => {
       <div v-else-if="containerStatus === 'skeleton'" class="skeleton-box">
         <div class="skeleton-line" />
         <div class="skeleton-line short" />
+      </div>
+
+      <div v-else-if="containerStatus === 'loading'" class="el-loading-mask loading-box">
+        <div class="loading-content">
+          <span>🌀 正在请求核心业务数据... (Loading 遮罩白名单保护中)</span>
+        </div>
       </div>
 
       <div v-else class="blank-box">

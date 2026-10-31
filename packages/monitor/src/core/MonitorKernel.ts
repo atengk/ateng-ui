@@ -198,6 +198,23 @@ export class MonitorKernel implements MonitorKernelInstance {
       errPayload.repeatCount = dedupeResult.repeatCount;
 
       if (dedupeResult.isDuplicate) {
+        // 尝试就地更新队列中尚未冲刷的同指纹事件的 repeatCount，确保服务端能收到真实的累计重复次数
+        this._queue.updateLast(
+          evt =>
+            evt.type === 'error' &&
+            (evt.payload as ErrorPayload)?.fingerprint === errPayload.fingerprint,
+          evt => {
+            const payload = evt.payload as ErrorPayload;
+            payload.repeatCount = dedupeResult.repeatCount;
+            evt.timestamp = Date.now();
+          },
+        );
+
+        // 若本次重复错误恰好触发了断路器熔断，绝不被吞没，必须立即派发熔断告警并冲刷
+        if (trippedJustNow) {
+          this._dispatchCircuitBreakerEvent();
+        }
+
         // 高频重复异常，直接阻断重复发射，保护主线程与网络带宽
         return;
       }
@@ -241,19 +258,28 @@ export class MonitorKernel implements MonitorKernelInstance {
     // 3. 将事件送入传输缓冲队列，按批次或防抖自动调度发送
     this._queue.push(event as MonitorEvent);
 
-    // 4. 若本次错误触发了会话熔断断路器，派发一次性告警生命周期事件
+    // 4. 若本次错误触发了会话熔断断路器，派发一次性告警生命周期事件并紧急冲刷
     if (trippedJustNow) {
-      this.emit({
-        type: 'lifecycle',
-        level: 'fatal',
-        payload: {
-          name: 'CIRCUIT_BREAKER_TRIGGERED',
-          message: `Circuit breaker tripped: reached maximum session error limit of ${this._options.maxErrorsPerSession}. Monitoring has entered dormant mode.`,
-          maxErrors: this._options.maxErrorsPerSession,
-          totalErrors: this._circuitBreaker.errorCount,
-        },
-      });
+      this._dispatchCircuitBreakerEvent();
     }
+  }
+
+  /**
+   * 触发会话熔断生命周期事件，并同步紧急冲刷传输队列以防丢。
+   */
+  private _dispatchCircuitBreakerEvent(): void {
+    this.emit({
+      type: 'lifecycle',
+      level: 'fatal',
+      payload: {
+        name: 'CIRCUIT_BREAKER_TRIGGERED',
+        message: `Circuit breaker tripped: reached maximum session error limit of ${this._options.maxErrorsPerSession}. Monitoring has entered dormant mode.`,
+        maxErrors: this._options.maxErrorsPerSession,
+        totalErrors: this._circuitBreaker.errorCount,
+      },
+    });
+    // 熔断后立即紧急冲刷积压的遥测事件与熔断生命周期告警
+    this._queue.emergencyFlush();
   }
 
   /**

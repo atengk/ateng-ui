@@ -82,6 +82,8 @@ export interface PerformancePayload {
  * 白屏感知诊断事件载荷实体。
  */
 export interface WhiteScreenPayload {
+  /** 诊断事件名称，固定为 'WHITE_SCREEN_ERROR' */
+  name?: string;
   /** 是否判定为白屏 */
   isWhiteScreen: boolean;
   /** 视口点阵采样点命中诊断列表 */
@@ -92,6 +94,8 @@ export interface WhiteScreenPayload {
     isRoot: boolean;
     isWhitelisted: boolean;
   }>;
+  /** 命中选择器清单（去重后的命中元素选择器或标签集合） */
+  hitSelectors?: string[];
   /** 采样时的视口物理边界 */
   viewport: {
     width: number;

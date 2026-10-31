@@ -194,4 +194,36 @@ describe('ErrorPlugin', () => {
       expect(getElementSelector(p)).toBe('p');
     });
   });
+
+  describe('window.onerror 独立全局捕获', () => {
+    it('原生 window.onerror 触发时应当捕获并向外部 oldOnError 传递', async () => {
+      const externalOnError = vi.fn();
+      window.onerror = externalOnError;
+
+      const reporterSpy = vi.fn().mockResolvedValue(undefined);
+      const plugin = createErrorPlugin({ enableJsError: true });
+      const kernel = new MonitorKernel({
+        batchSize: 1,
+        reporter: reporterSpy,
+        plugins: [plugin],
+      });
+      kernel.init();
+
+      const err = new Error('Direct window.onerror invocation');
+      if (typeof window.onerror === 'function') {
+        window.onerror('Direct window.onerror invocation', 'test.js', 10, 20, err);
+      }
+
+      expect(reporterSpy).toHaveBeenCalledTimes(1);
+      const event: MonitorEvent<ErrorPayload> = reporterSpy.mock.calls[0][0][0];
+      expect(event.payload.category).toBe('js');
+      expect(event.payload.message).toBe('Direct window.onerror invocation');
+      expect(event.payload.filename).toBe('test.js');
+      expect(externalOnError).toHaveBeenCalledTimes(1);
+
+      await kernel.destroy();
+      expect(window.onerror).toBe(externalOnError);
+      window.onerror = null;
+    });
+  });
 });
