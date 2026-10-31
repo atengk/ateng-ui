@@ -11,6 +11,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: 'monitor',
+      root: './packages/monitor',
+      environment: 'happy-dom',
+      include: ['test/**/*.{test,spec}.ts'],
+    },
+  },
+  {
+    test: {
       name: 'vue',
       root: './packages/vue',
       environment: 'happy-dom',

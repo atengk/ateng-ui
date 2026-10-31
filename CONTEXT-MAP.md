@@ -12,6 +12,8 @@
 
 - **[Core 核心契约与网络底座](./packages/core/CONTEXT.md)**（`@atengk/core`）：
   纯 TypeScript 无框架核心基础设施，保持平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供统一强类型契约（`Result<T>`、`PageResult<T>`、`PageQuery`）、工业级 Axios 客户端管道、Web 原生流式客户端（`StreamClient`）、全双工长连接客户端（`WebSocketClient`）、幂等安全重试与飞行中请求合并、通用 Token 与多租户凭据门面（`AuthManager` / `TenantManager`）、带时效缓存（`CacheStorage`）、大文件分片切片与受控并发上传协调器（`UploadCoordinator`）、全链路 `traceId` 透传与提取、雪花 Long ID 与高精度金额保真转换器、单体/微服务多网关路由机制（Multi-Service Gateway Routing）、数据展示脱敏与业务安全断言工具。
+- **[Monitor 全链路可观测性与异常监控底座](./packages/monitor/CONTEXT.md)**（`@atengk/monitor`，当前阶段三立项入驻）：
+  纯 TypeScript 无框架前端 APM 可观测性与异常监控基础设施，保持绝对平台中立与跨框架中立，**零 UI、零 Vue、零 React 依赖**。提供微内核架构（`MonitorKernel`）与可扩展采集插件流水线：覆盖运行时异常捕获（`ErrorPlugin`，涵盖 JS 异常、Promise 拒付、静态资源 404 与 console.error 代理）、Core Web Vitals 与主线程长任务卡顿检测（`PerformancePlugin`）、3×3 视口点阵采样与骨架屏白名单双阶段复验（`WhiteScreenPlugin`）、用户交互轨迹与单页应用虚拟路由感知（`BreadcrumbPlugin`）、原生网络嗅探与 `@atengk/core` Axios 拦截器 TraceId 串联（`NetworkPlugin`）；内置三级敏感凭据脱敏防护、基于错误指纹（`ErrorFingerprint`）的防抖去重聚合、会话级熔断断路器（`CircuitBreaker`），以及基于 `sendBeacon` / `fetch keepalive` 的三阶高可用防丢传输队列与页面卸载紧急冲刷。
 
 ### L1 无头响应式层 (Headless Layer)
 
@@ -54,6 +56,7 @@
 - **[Sample FlowVue 流程与流转自验展厅](./apps/sample-flow-vue/README.md)**（`sample-flow-vue`）：流程设计与运行态沙箱，1:1 对标 `@atengk/flow-vue`，验证设计器拖拽编排、BPMN XML 双向转译、运行态五态高亮与悬停审计、Vue 3 SFC 自定义节点与 DAG 规则链拓扑。
 - **[Sample CodeEditorVue 代码与Diff比对自验展厅](./apps/sample-code-editor-vue/README.md)**（`sample-code-editor-vue`）：代码与比对沙箱，1:1 对标 `@atengk/code-editor-vue`，固定端口 3008，验证代码高亮、SQL 美化、JSON Schema 校验、Diff 双模比对、审计行高亮与弹窗生命周期自愈清理。
 - **[Sample EditorVue 现代富文本与内容创作自验展厅](./apps/sample-editor-vue/README.md)**（`sample-editor-vue`）：富文本沙箱，1:1 对标 `@atengk/editor-vue`，固定端口 3009，验证基础排版、表格上下文操控与列宽拖拽、拖拽粘贴截图直传、划词气泡与斜杠命令、表单联动与字数硬限制、弹窗挂载自愈与阅读器模式。
+- **[Sample Monitor 原生监控与APM自验展厅](./apps/sample-monitor/README.md)**（`sample-monitor`）：监控沙箱，1:1 对标 `@atengk/monitor`，固定端口 3010，验证故障模拟（JS/Promise/资源 404）、白屏自愈、Web Vitals 实时打点、脱敏面包屑时间轴与本地 APM 接收器。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -93,6 +96,7 @@ flowchart TD
 
     subgraph L0["L0 纯原生核心底座 (Core Layer)"]
         CORE["@atengk/core<br/>(无框架纯 TS 契约与网络层 / 跨框架中立)"]
+        MONITOR["@atengk/monitor<br/>(无框架纯 TS 全链路监控 / 跨框架中立)"]
     end
 
     subgraph Samples["1:1 镜像验证工程 (Apps)"]
@@ -104,6 +108,7 @@ flowchart TD
         S_FLOW["apps/sample-flow-vue"]
         S_CODE["apps/sample-code-editor-vue"]
         S_EDIT["apps/sample-editor-vue"]
+        S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
 
@@ -116,6 +121,7 @@ flowchart TD
     L1 -->|严格单向依赖| L0
 
     CORE --> S_CORE
+    MONITOR --> S_MONITOR
     VUE --> S_VUE
     FV --> S_FV
     VP --> S_VP
@@ -176,3 +182,5 @@ flowchart TD
 - [ADR-0034: ProLayout 与 TabsNav 企业级框架布局架构规范与契约设计](./docs/adr/0034-pro-layout-and-tabs-nav-architecture-and-contracts.md)
 - [ADR-0035: CodeEditorVue L2 扩展层架构与 Monaco 工业级治理规范](./docs/adr/0035-code-editor-vue-l2-architecture-and-monaco-governance.md)
 - [ADR-0036: EditorVue L2 扩展层架构与 TipTap 工业级治理规范](./docs/adr/0036-editor-vue-l2-architecture-and-tiptap-governance.md)
+- [ADR-0037: EditorVue 四大场景预设体系、块级拖拽、AI 流式协议与 DOCX 分页排版架构](./docs/adr/0037-editor-vue-four-tier-presets-and-multi-scenario-architecture.md)
+- [ADR-0038: Monitor L0 纯原生全链路可观测性底座架构与治理规范](./docs/adr/0038-monitor-l0-observability-architecture-and-governance.md)
