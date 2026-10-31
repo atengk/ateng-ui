@@ -9,6 +9,7 @@
 export * from './types';
 export * from './core/ContextStore';
 export * from './core/MonitorKernel';
+export * from './plugins';
 export * from './sanitizer/pii';
 export * from './resilience/fingerprint';
 export * from './resilience/deduplicator';
