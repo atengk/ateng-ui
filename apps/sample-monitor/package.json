@@ -1,0 +1,27 @@
+{
+  "name": "sample-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/monitor 全链路可观测性与异常监控 1:1 场景自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/monitor": "workspace:*",
+    "element-plus": "^2.14.7",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.8"
+  }
+}
