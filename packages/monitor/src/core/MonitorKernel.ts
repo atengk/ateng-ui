@@ -6,7 +6,7 @@
  */
 
 import type { ContextStoreInstance } from '../types/context';
-import type { ErrorPayload, EventLevel, MonitorEvent } from '../types/event';
+import type { ErrorPayload, EventLevel, MonitorEvent, BreadcrumbItem } from '../types/event';
 import type { MonitorKernelInstance, MonitorPlugin } from '../types/plugin';
 import type { MonitorOptions } from '../types/options';
 import { createContextStore } from './ContextStore';
@@ -181,6 +181,16 @@ export class MonitorKernel implements MonitorKernelInstance {
 
       // 2. 错误指纹与 5 秒窗口去重聚合
       const errPayload = (partialEvent.payload || {}) as ErrorPayload;
+
+      // 自动富化用户行为面包屑时间轴现场快照
+      if (!errPayload.breadcrumbs) {
+        const breadcrumbPlugin = this.getPlugin('breadcrumb') as
+          { getBreadcrumbs?: () => BreadcrumbItem[] } | undefined;
+        if (breadcrumbPlugin && typeof breadcrumbPlugin.getBreadcrumbs === 'function') {
+          errPayload.breadcrumbs = breadcrumbPlugin.getBreadcrumbs();
+        }
+      }
+
       if (!errPayload.fingerprint) {
         errPayload.fingerprint = generateErrorFingerprint(errPayload);
       }
