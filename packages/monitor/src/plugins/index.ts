@@ -9,3 +9,4 @@ export * from './error';
 export * from './whiteScreen';
 export * from './performance';
 export * from './breadcrumb';
+export * from './network';
