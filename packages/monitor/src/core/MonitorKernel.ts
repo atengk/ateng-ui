@@ -15,6 +15,7 @@ import { CircuitBreaker } from '../resilience/circuitBreaker';
 import { ErrorDeduplicator } from '../resilience/deduplicator';
 import { generateErrorFingerprint } from '../resilience/fingerprint';
 import { sanitizeUrl } from '../sanitizer/pii';
+import { TransportQueue } from '../transport/queue';
 
 /**
  * 监控微内核核心实现类。
@@ -25,8 +26,8 @@ export class MonitorKernel implements MonitorKernelInstance {
   private readonly _contextStore: ContextStoreInstance;
   private readonly _circuitBreaker: CircuitBreaker;
   private readonly _deduplicator: ErrorDeduplicator;
+  private readonly _queue: TransportQueue;
   private readonly _plugins = new Map<string, MonitorPlugin>();
-  private readonly _events: MonitorEvent[] = [];
 
   constructor(options?: MonitorOptions) {
     this._options = {
@@ -46,6 +47,12 @@ export class MonitorKernel implements MonitorKernelInstance {
     this._deduplicator = new ErrorDeduplicator({
       windowMs: 5000,
     });
+    this._queue = new TransportQueue({
+      batchSize: this._options.batchSize,
+      flushInterval: this._options.flushInterval,
+      reportUrl: this._options.reportUrl,
+      reporter: this._options.reporter,
+    });
   }
 
   get isInitialized(): boolean {
@@ -62,6 +69,10 @@ export class MonitorKernel implements MonitorKernelInstance {
 
   get deduplicator(): ErrorDeduplicator {
     return this._deduplicator;
+  }
+
+  get queue(): TransportQueue {
+    return this._queue;
   }
 
   /**
@@ -217,16 +228,8 @@ export class MonitorKernel implements MonitorKernelInstance {
       }
     }
 
-    // 3. 记录事件并交付上报通道
-    this._events.push(event as MonitorEvent);
-
-    if (typeof this._options.reporter === 'function') {
-      try {
-        void this._options.reporter([event as MonitorEvent]);
-      } catch (err) {
-        console.error('[@atengk/monitor] custom reporter failed:', err);
-      }
-    }
+    // 3. 将事件送入传输缓冲队列，按批次或防抖自动调度发送
+    this._queue.push(event as MonitorEvent);
 
     // 4. 若本次错误触发了会话熔断断路器，派发一次性告警生命周期事件
     if (trippedJustNow) {
@@ -309,15 +312,7 @@ export class MonitorKernel implements MonitorKernelInstance {
    * 触发立即冲刷上报。
    */
   async flush(): Promise<void> {
-    if (this._events.length === 0) {
-      return;
-    }
-
-    if (typeof this._options.reporter === 'function') {
-      const batch = [...this._events];
-      this._events.length = 0;
-      await this._options.reporter(batch);
-    }
+    await this._queue.flush();
   }
 
   /**
@@ -330,7 +325,7 @@ export class MonitorKernel implements MonitorKernelInstance {
       this.unregisterPlugin(plugin.name);
     }
     this._plugins.clear();
-    this._events.length = 0;
+    await this._queue.destroy();
     this._contextStore.reset();
     this._circuitBreaker.reset();
     this._deduplicator.clear();

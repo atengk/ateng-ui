@@ -13,5 +13,7 @@ export * from './sanitizer/pii';
 export * from './resilience/fingerprint';
 export * from './resilience/deduplicator';
 export * from './resilience/circuitBreaker';
+export * from './transport/transport';
+export * from './transport/queue';
 export * from './utils/id';
 export * from './utils/device';

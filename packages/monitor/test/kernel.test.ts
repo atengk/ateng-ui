@@ -104,6 +104,7 @@ describe('MonitorKernel', () => {
     const reporterSpy = vi.fn();
     const kernel = new MonitorKernel({
       appVersion: '1.2.3',
+      batchSize: 1,
       reporter: reporterSpy,
     });
     kernel.init();
@@ -134,6 +135,7 @@ describe('MonitorKernel', () => {
   it('beforeSend 钩子应当能够修改事件数据，或返回 false 予以丢弃', () => {
     const reporterSpy = vi.fn();
     const kernel = new MonitorKernel({
+      batchSize: 1,
       reporter: reporterSpy,
       beforeSend: event => {
         if (event.level === 'warn') {
@@ -168,7 +170,10 @@ describe('MonitorKernel', () => {
 
   it('captureException 应当规范化提取 Error 对象与自定义属性', () => {
     const reporterSpy = vi.fn();
-    const kernel = new MonitorKernel({ reporter: reporterSpy });
+    const kernel = new MonitorKernel({
+      batchSize: 1,
+      reporter: reporterSpy,
+    });
     kernel.init();
 
     // 1. 标准 Error 对象
@@ -190,7 +195,10 @@ describe('MonitorKernel', () => {
 
   it('captureMessage 应当正确构造 custom 类型的消息事件', () => {
     const reporterSpy = vi.fn();
-    const kernel = new MonitorKernel({ reporter: reporterSpy });
+    const kernel = new MonitorKernel({
+      batchSize: 1,
+      reporter: reporterSpy,
+    });
     kernel.init();
 
     kernel.captureMessage('User clicked checkout button', 'info', {
@@ -207,7 +215,10 @@ describe('MonitorKernel', () => {
 
   it('应当在异常高频重复时自动进行指纹去重，阻止重复事件派发', () => {
     const reporterSpy = vi.fn();
-    const kernel = new MonitorKernel({ reporter: reporterSpy });
+    const kernel = new MonitorKernel({
+      batchSize: 1,
+      reporter: reporterSpy,
+    });
     kernel.init();
 
     // 连续触发两次相同的错误
@@ -242,6 +253,7 @@ describe('MonitorKernel', () => {
     const reporterSpy = vi.fn();
     const kernel = new MonitorKernel({
       maxErrorsPerSession: 2,
+      batchSize: 1,
       reporter: reporterSpy,
     });
     kernel.init();
