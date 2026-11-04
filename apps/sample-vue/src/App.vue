@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * sample-vue 响应式通用 Composables 场景自验沙箱展厅。
+ * sample-vue 响应式通用 Composables 8 大领域全景交互沙箱展厅。
  *
  * @author Ateng
  * @since 2026-10-19
@@ -12,57 +12,58 @@ import ConfigDemo from './components/ConfigDemo.vue';
 import UtilsDemo from './components/UtilsDemo.vue';
 import RequestDemo from './components/RequestDemo.vue';
 import PaginationDemo from './components/PaginationDemo.vue';
+import SelectionDemo from './components/SelectionDemo.vue';
 import LatestDemo from './components/LatestDemo.vue';
-import AuthTenantDemo from './components/AuthTenantDemo.vue';
 import IdempotentDemo from './components/IdempotentDemo.vue';
+import AuthTenantDemo from './components/AuthTenantDemo.vue';
 import ExcelDemo from './components/ExcelDemo.vue';
 import UploadDemo from './components/UploadDemo.vue';
 import StreamDemo from './components/StreamDemo.vue';
 import WebSocketDemo from './components/WebSocketDemo.vue';
+import AntiFlickerDemo from './components/AntiFlickerDemo.vue';
+import TabsNavDemo from './components/TabsNavDemo.vue';
+
+const navList = [
+  { id: 'domain-context', title: '1. 上下文与微工具' },
+  { id: 'domain-request', title: '2. 请求状态机' },
+  { id: 'domain-pagination', title: '3. 分页与多选' },
+  { id: 'domain-anti-race', title: '4. 竞态与防刷' },
+  { id: 'domain-auth-tenant', title: '5. 鉴权与租户' },
+  { id: 'domain-binary', title: '6. 二进制与导出' },
+  { id: 'domain-realtime', title: '7. 实时流与长连' },
+  { id: 'domain-visual-nav', title: '8. 防抖与标签导航' },
+];
+
+const scrollTo = (id: string) => {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 </script>
 
 <template>
   <main class="sample-container">
     <header class="header">
-      <h1>@atengk/vue 自验沙箱展厅</h1>
-      <div class="version-badges">
-        <span class="badge">@atengk/core: v{{ CORE_PKG_VERSION }}</span>
-        <span class="badge badge-vue">@atengk/vue: v{{ VUE_PKG_VERSION }}</span>
+      <div class="header-top">
+        <h1>@atengk/vue 自验沙箱展厅</h1>
+        <div class="version-badges">
+          <span class="badge">@atengk/core: v{{ CORE_PKG_VERSION }}</span>
+          <span class="badge badge-vue">@atengk/vue: v{{ VUE_PKG_VERSION }}</span>
+        </div>
       </div>
+      <nav class="domain-nav">
+        <button v-for="nav in navList" :key="nav.id" class="nav-item" @click="scrollTo(nav.id)">
+          {{ nav.title }}
+        </button>
+      </nav>
     </header>
 
-    <!-- 1. 全局配置注入自验组件 -->
-    <ConfigDemo />
-
-    <!-- 2. 纯原生受管微工具自验组件 -->
-    <UtilsDemo />
-
-    <!-- 3. 异步请求状态机自验组件 -->
-    <RequestDemo />
-
-    <!-- 4. 契约分页状态机自验组件 -->
-    <PaginationDemo />
-
-    <!-- 5. 异步时序竞态双重防御自验组件 -->
-    <LatestDemo />
-
-    <!-- 6. 响应式鉴权与多租户切片自验组件 -->
-    <AuthTenantDemo />
-
-    <!-- 7. 前端提交防刷与幂等互斥锁自验组件 -->
-    <IdempotentDemo />
-
-    <!-- 8. Fesod 流式 Excel 导出与批注回写自验组件 -->
-    <ExcelDemo />
-
-    <!-- 9. 大文件分片切片与受控并发上传自验组件 -->
-    <UploadDemo />
-
-    <!-- 10. SSE 大模型打字机流式响应自验组件 -->
-    <StreamDemo />
-
-    <!-- 11. WebSocket 全双工长连接心跳状态机自验组件 -->
-    <WebSocketDemo />
+    <div id="domain-context"><ConfigDemo /><UtilsDemo /></div>
+    <div id="domain-request"><RequestDemo /></div>
+    <div id="domain-pagination"><PaginationDemo /><SelectionDemo /></div>
+    <div id="domain-anti-race"><LatestDemo /><IdempotentDemo /></div>
+    <div id="domain-auth-tenant"><AuthTenantDemo /></div>
+    <div id="domain-binary"><ExcelDemo /><UploadDemo /></div>
+    <div id="domain-realtime"><StreamDemo /><WebSocketDemo /></div>
+    <div id="domain-visual-nav"><AntiFlickerDemo /><TabsNavDemo /></div>
   </main>
 </template>
 

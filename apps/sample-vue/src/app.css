@@ -1,26 +1,35 @@
 .sample-container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 32px 16px;
+  padding: 16px 16px 48px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #2c3e50;
 }
 
 .header {
   border-bottom: 2px solid #eaecef;
-  padding-bottom: 16px;
+  padding-bottom: 8px;
   margin-bottom: 24px;
 }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 h1 {
-  font-size: 28px;
-  margin: 0 0 12px 0;
+  font-size: 26px;
+  margin: 0;
   color: #1f2d3d;
 }
 
 .version-badges {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .badge {
@@ -36,4 +45,36 @@ h1 {
   background-color: #e6f7ff;
   color: #096dd9;
   border: 1px solid #91d5ff;
+}
+
+.domain-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.nav-item {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.nav-item:hover {
+  background: #3b82f6;
+  color: white;
+  border-color: #2563eb;
 }
