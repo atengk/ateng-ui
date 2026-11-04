@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file */
 /**
  * 全局上下文与插件安装机制单元测试。
  *
