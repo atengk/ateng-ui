@@ -1,188 +1,344 @@
-# @atengk/vue
+# @atengk/vue 响应式通用 Composables
 
-面向现代 Web 应用与企业级系统的 Vue 3 响应式通用 Composables/Hooks 基础设施。
-
----
-
-## 维度零：特性与公共 API 全景速查矩阵
-
-| 特性分类       | 特性名称         | 核心门面 / 方法 / Hook                      | 关键参数 / 返回类型                           | 核心行为说明                                                                                                                                                                            | 锚定验证源头 (*Test / Sample)                                                                                                                    |
-| :------------- | :--------------- | :------------------------------------------ | :-------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **基础导出**   | 基线版本标识     | `VERSION`                                   | `string`                                      | 导出当前模块编译版本基线                                                                                                                                                                | [index.test.ts](./test/index.test.ts)                                                                                                            |
-| **全局上下文** | 插件安装器       | `createAtengVue(options?)`                  | `AtengVueOptions -> Plugin`                   | 全局注入默认配置上下文（默认分页大小、HTTP 实例等）                                                                                                                                     | [context.test.ts](./test/context.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                         |
-| **全局上下文** | 局部配置提供     | `provideAtengConfig(options)`               | `AtengVueOptions -> void`                     | 在组件子树层级局部覆盖上下文配置                                                                                                                                                        | [context.test.ts](./test/context.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                         |
-| **全局上下文** | 配置解析 Hook    | `useAtengConfig()`                          | `() -> AtengVueContext`                       | 获取当前生效的配置上下文，自动回退全局单例                                                                                                                                              | [context.test.ts](./test/context.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                         |
-| **生命周期**   | 安全作用域销毁   | `tryOnScopeDispose(fn)`                     | `(() -> void) -> boolean`                     | 在活跃 effectScope 内安全挂载注销钩子                                                                                                                                                   | [utils.test.ts](./test/utils.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                             |
-| **受管工具**   | 防抖包装函数     | `useDebounceFn(fn, wait)`                   | `(fn, number) -> DebouncedFn`                 | 纯原生防抖函数，带 cancel/flush 并在销毁时注销                                                                                                                                          | [utils.test.ts](./test/utils.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                             |
-| **受管工具**   | 节流包装函数     | `useThrottleFn(fn, interval)`               | `(fn, number) -> ThrottledFn`                 | 纯原生节流函数，带 cancel并在销毁时确定性清理                                                                                                                                           | [utils.test.ts](./test/utils.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                             |
-| **受管工具**   | 全局事件监听     | `useEventListener(target, event, listener)` | `(Target, Event, Listener) -> void`           | 宿主安全事件绑定，组件销毁时自动解绑                                                                                                                                                    | [utils.test.ts](./test/utils.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                             |
-| **异步请求**   | 请求状态机       | `useRequest(service, options?)`             | `(Service, Options) -> UseRequestResult`      | 提供 loading/data/error 只读状态机、防抖/节流/轮询、响应式依赖自动刷新 (refreshDeps) 与抗竞态防御                                                                                       | [useRequest.test.ts](./test/useRequest.test.ts) / [App.vue](../../apps/sample-vue/src/App.vue)                                                   |
-| **契约分页**   | 分页调度状态机   | `usePagination(service, options?)`          | `(Service, Options) -> UsePaginationResult`   | 零样板双向绑定 PageQuery/PageResult，五维原子动作（翻页/切条数/搜索/排序/重置）、依赖刷新与空安全保底                                                                                   | [usePagination.test.ts](./test/usePagination.test.ts) / [PaginationDemo.vue](../../apps/sample-vue/src/components/PaginationDemo.vue)            |
-| **跨页多选**   | 多选状态机       | `useSelection(options?)`                    | `(Options) -> UseSelectionResult<T>`          | 响应式跨页多选状态机，支持 `selectedKeys`/`selectedRows`/`selectedCount`，具备 `select`/`deselect`/`toggle`/`selectAll`/`clear`/`syncWithData` 等原子动作，雪花 ID 字符串类型安全防截断 | [useSelection.test.ts](./test/useSelection.test.ts) / [TableCrudView.vue](../../apps/sample-element-plus/src/views/table/TableCrudView.vue)      |
-| **时序竞态**   | 异步竞态双重防御 | `useLatest(asyncFn, options?)`              | `(AsyncFn, Options) -> UseLatestResult`       | 物理中断在途连接与逻辑序列号丢弃过期回调，根绝时序倒挂脏写                                                                                                                              | [useLatest.test.ts](./test/useLatest.test.ts) / [LatestDemo.vue](../../apps/sample-vue/src/components/LatestDemo.vue)                            |
-| **鉴权状态**   | 响应式鉴权门面   | `useAuth(options?)`                         | `(Options) -> UseAuthResult`                  | 登录态双轨 Token 存取、401 自动清理与细粒度权限角色通配匹配                                                                                                                             | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue)      |
-| **多租户隔离** | 响应式租户切片   | `useTenant(options?)`                       | `(Options) -> UseTenantResult`                | 动态租户切片读取与切换，全应用响应式联动与请求头注入                                                                                                                                    | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue)      |
-| **防刷防重**   | 提交幂等互斥锁   | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`    | 按钮连打拦截、执行中互斥加锁与超时自动防死锁解除                                                                                                                                        | [useIdempotent.test.ts](./test/useIdempotent.test.ts) / [IdempotentDemo.vue](../../apps/sample-vue/src/components/IdempotentDemo.vue)            |
-| **Excel 驱动** | 流式导出批注回写 | `useExcel(options?)`                        | `(Options) -> UseExcelResult`                 | 结合 Fesod 协议，流式导出、RFC 5987 解析、Blob-JSON 双态拦截与内存回收                                                                                                                  | [useExcel.test.ts](./test/useExcel.test.ts) / [ExcelDemo.vue](../../apps/sample-vue/src/components/ExcelDemo.vue)                                |
-| **文件上传**   | 大文件分片并发   | `useUpload(options)`                        | `(Options) -> UseUploadResult`                | 纯原生切片计算、受控并发调度 (默认 3)、状态机、暂停/恢复断点续传与作用域注销                                                                                                            | [useUpload.test.ts](./test/useUpload.test.ts) / [UploadDemo.vue](../../apps/sample-vue/src/components/UploadDemo.vue)                            |
-| **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`           | 增量累积打字机文本、SseParser 规范解析、自动断连与作用域确定性注销                                                                                                                      | [useStream.test.ts](./test/useStream.test.ts) / [StreamDemo.vue](../../apps/sample-vue/src/components/StreamDemo.vue)                            |
-| **全双工长连** | WebSocket 状态机 | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`        | 双向心跳保活、指数退避断线重连、离线缓冲队列与作用域确定性清理                                                                                                                          | [useWebSocket.test.ts](./test/useWebSocket.test.ts) / [WebSocketDemo.vue](../../apps/sample-vue/src/components/WebSocketDemo.vue)                |
-| **加载防抖**   | 防闪烁时序状态机 | `useAntiFlicker(source, options?)`          | `(Source, Options) -> Readonly<Ref<boolean>>` | 150ms 静默延迟保护（极速请求 0ms 视觉打扰）+ 300ms 最小展示期（平滑淡出，杜绝 1 帧闪烁震颤）与作用域确定性清理                                                                          | [useAntiFlicker.test.ts](./test/useAntiFlicker.test.ts) / [LoadingView.vue](../../apps/sample-element-plus/src/views/containers/LoadingView.vue) |
-| **框架布局**   | 标签导航状态机   | `useTabsNav(options?)`                      | `(Options) -> UseTabsNavReturn`               | 多标签页纯算法无头响应式状态机，负责标签增删查改、FIFO 超限淘汰、Affix 保护、KeepAlive 缓存名单计算 (`cachedViews`)、局部刷新调度 (`refreshTab`) 与持久化                               | [useTabsNav.test.ts](./test/useTabsNav.test.ts) / [TabsNavView.vue](../../apps/sample-element-plus/src/views/layout/TabsNavView.vue)             |
+> 面向现代 Web 应用与企业级系统的 Vue 3.5 工业级无头通用 Composables/Hooks 基础设施，处于系统四层拓扑的 **L1 无头响应式层**。遵循“纯响应式状态机驱动、严格单向数据流、零具体 UI 依赖、确定性生命周期清理”设计，全面继承 L0 底座的强类型契约与网络韧性。
 
 ---
 
-## 维度一：最小起步体验 (Happy Path)
+## 0. 特性与公共 API 全景速查矩阵
 
-### 安装依赖
-
-```bash
-pnpm add @atengk/core @atengk/vue vue
-```
-
-### 开箱即用分页 (usePagination)
-
-```vue
-<script setup lang="ts">
-import { usePagination } from '@atengk/vue';
-import type { PageQuery, PageResult } from '@atengk/core';
-
-interface UserItem {
-  id: number;
-  name: string;
-}
-
-// 模拟分页服务函数
-const queryUsers = async (params: PageQuery): Promise<PageResult<UserItem>> => {
-  const res = await fetch(`/api/users?pageNum=${params.pageNum}&pageSize=${params.pageSize}`);
-  return res.json();
-};
-
-// 初始化状态机
-const { pageNum, pageSize, total, list, loading, changePage, changePageSize, search, reset } =
-  usePagination(queryUsers, {
-    defaultPageSize: 10,
-  });
-</script>
-
-<template>
-  <div v-loading="loading">
-    <ul>
-      <!-- 空安全保底：list 100% 保证为数组，彻底杜绝 NPE -->
-      <li v-for="user in list" :key="user.id">{{ user.name }}</li>
-    </ul>
-
-    <div>
-      <button :disabled="pageNum <= 1" @click="changePage(pageNum - 1)">上一页</button>
-      <span>第 {{ pageNum }} 页 / 共 {{ total }} 条</span>
-      <button @click="changePage(pageNum + 1)">下一页</button>
-    </div>
-  </div>
-</template>
-```
-
-### 开箱即用多标签页状态机与 KeepAlive 缓存 (useTabsNav)
-
-```vue
-<script setup lang="ts">
-import { useTabsNav } from '@atengk/vue';
-
-const { tabs, activeKey, cachedViews, openTab, closeTab, refreshTab, closeOthers } = useTabsNav({
-  defaultActiveKey: '/dashboard',
-  defaultTabs: [
-    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
-    { key: '/system/user', title: '用户列表', componentName: 'UserList' },
-  ],
-  maxTabs: 20, // 超过 20 个标签按 FIFO 自动淘汰最早未固定的非激活项
-});
-</script>
-
-<template>
-  <div class="app-layout">
-    <!-- 标签栏渲染 -->
-    <div class="tabs-nav-bar">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        :class="{ active: tab.key === activeKey }"
-        @click="activeKey = tab.key"
-      >
-        {{ tab.title }}
-        <span v-if="!tab.affix" @click.stop="closeTab(tab.key)">×</span>
-      </button>
-    </div>
-
-    <!-- KeepAlive 真实缓存视口与局部刷新调度 (遵循 Vue Router 4 规范插槽范式) -->
-    <router-view v-slot="{ Component }">
-      <KeepAlive :include="cachedViews">
-        <component :is="Component" :key="activeKey" />
-      </KeepAlive>
-    </router-view>
-  </div>
-</template>
-```
+| 特性分类       | 特性名称         | 核心门面 / 方法 / Hook                      | 关键参数 / 返回类型                           | 核心行为说明                                                                                                     | 锚定验证源头 (*Test / Sample)                                                                                                               |
+| :------------- | :--------------- | :------------------------------------------ | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+| **基础导出**   | 基线版本标识     | `VERSION`                                   | `string`                                      | 导出当前模块编译版本基线                                                                                         | [index.test.ts](./test/index.test.ts)                                                                                                       |
+| **全局上下文** | 插件安装器       | `createAtengVue(options?)`                  | `AtengVueOptions -> Plugin`                   | 向 Vue 应用实例全局注入默认配置上下文（默认分页大小、HTTP 实例等）                                               | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **全局上下文** | 局部配置覆盖     | `provideAtengConfig(options)`               | `AtengVueOptions -> void`                     | 在组件子树层级局部覆盖上下文配置（Provider 依赖注入）                                                            | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **全局上下文** | 配置解析 Hook    | `useAtengConfig()`                          | `() -> AtengVueContext`                       | 响应式获取当前生效的配置上下文，自动回退安全默认值与全局单例                                                     | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **生命周期**   | 安全作用域销毁   | `tryOnScopeDispose(fn)`                     | `(() -> void) -> boolean`                     | 在活跃 effectScope 内安全挂载注销清理钩子，非作用域环境安全降级                                                  | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 原生防抖包装     | `useDebounceFn(fn, wait)`                   | `(fn, number) -> DebouncedFn`                 | 具备 cancel 与 flush 能力的原生防抖函数，在作用域注销时确定性清理                                                | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 原生节流包装     | `useThrottleFn(fn, interval)`               | `(fn, number) -> ThrottledFn`                 | 具备 cancel 能力的原生节流函数，在作用域注销时确定性回收定时器                                                   | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 全局事件监听     | `useEventListener(target, event, listener)` | `(Target, Event, Listener) -> void`           | 宿主安全事件监听绑定，组件或作用域销毁时 100% 自动解绑                                                           | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **异步请求**   | 请求状态机       | `useRequest(service, options?)`             | `(Service, Options) -> UseRequestResult`      | 提供 loading/data/error 只读状态机、防抖/节流/轮询、响应式依赖自动刷新 (`refreshDeps`) 与本地乐观更新 (`mutate`) | [useRequest.test.ts](./test/useRequest.test.ts) / [RequestDemo.vue](../../apps/sample-vue/src/components/RequestDemo.vue)                   |
+| **契约分页**   | 分页调度状态机   | `usePagination(service, options?)`          | `(Service, Options) -> UsePaginationResult`   | 双向绑定 PageQuery/PageResult，五维原子动作（翻页/改条数/搜索/排序/重置）、依赖刷新与空数组保底防御              | [usePagination.test.ts](./test/usePagination.test.ts) / [PaginationDemo.vue](../../apps/sample-vue/src/components/PaginationDemo.vue)       |
+| **跨页多选**   | 多选状态机       | `useSelection(options?)`                    | `(Options) -> UseSelectionResult<T>`          | 响应式跨页多选状态机，支持 `selectedKeys`/`selectedRows`/`selectedCount`，雪花 Long ID 大数字符串安全归一化      | [useSelection.test.ts](./test/useSelection.test.ts) / [SelectionDemo.vue](../../apps/sample-vue/src/components/SelectionDemo.vue)           |
+| **时序竞态**   | 异步竞态双重防御 | `useLatest(asyncFn, options?)`              | `(AsyncFn, Options) -> UseLatestResult`       | “物理中断 (`AbortController`) + 逻辑过期丢弃”双重协同防御，彻底根绝高频操作时序倒挂脏写                          | [useLatest.test.ts](./test/useLatest.test.ts) / [LatestDemo.vue](../../apps/sample-vue/src/components/LatestDemo.vue)                       |
+| **防刷防重**   | 提交幂等互斥锁   | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`    | 按钮快速连打拦截、执行中互斥加锁与超时自动防死锁解除                                                             | [useIdempotent.test.ts](./test/useIdempotent.test.ts) / [IdempotentDemo.vue](../../apps/sample-vue/src/components/IdempotentDemo.vue)       |
+| **鉴权状态**   | 响应式鉴权门面   | `useAuth(options?)`                         | `(Options) -> UseAuthResult`                  | 登录态双轨 Token 存取、401 自动清理广播与细粒度权限/角色通配匹配                                                 | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
+| **多租户隔离** | 响应式租户切片   | `useTenant(options?)`                       | `(Options) -> UseTenantResult`                | 动态多租户切片读取与切换，全应用响应式联动与请求头注入                                                           | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
+| **Excel 驱动** | 流式导出批注回写 | `useExcel(options?)`                        | `(Options) -> UseExcelResult`                 | 结合 Fesod 协议，流式导出、RFC 5987 文件名解析、Blob-JSON 双态拦截与内存确定性回收                               | [useExcel.test.ts](./test/useExcel.test.ts) / [ExcelDemo.vue](../../apps/sample-vue/src/components/ExcelDemo.vue)                           |
+| **文件上传**   | 大文件分片并发   | `useUpload(options)`                        | `(Options) -> UseUploadResult`                | 纯原生切片计算、受控并发调度 (默认 3)、单调递增加权进度、断点续传与作用域注销自动取消                            | [useUpload.test.ts](./test/useUpload.test.ts) / [UploadDemo.vue](../../apps/sample-vue/src/components/UploadDemo.vue)                       |
+| **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`           | 增量累积打字机流式文本、W3C SSE 增量解析、自动断连与作用域确定性注销                                             | [useStream.test.ts](./test/useStream.test.ts) / [StreamDemo.vue](../../apps/sample-vue/src/components/StreamDemo.vue)                       |
+| **全双工长连** | WebSocket 状态机 | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`        | 四态状态机、双向心跳保活、假死超时判定、指数退避重连与受控离线发送缓冲队列                                       | [useWebSocket.test.ts](./test/useWebSocket.test.ts) / [WebSocketDemo.vue](../../apps/sample-vue/src/components/WebSocketDemo.vue)           |
+| **加载防抖**   | 防闪烁时序状态机 | `useAntiFlicker(source, options?)`          | `(Source, Options) -> Readonly<Ref<boolean>>` | 150ms 静默延迟保护（极速 0ms 视觉打扰）+ 300ms 最小展示期（平滑淡出，彻底根绝 1 帧闪现“鬼影”）                   | [useAntiFlicker.test.ts](./test/useAntiFlicker.test.ts) / [AntiFlickerDemo.vue](../../apps/sample-vue/src/components/AntiFlickerDemo.vue)   |
+| **框架导航**   | 多标签导航状态机 | `useTabsNav(options?)`                      | `(Options) -> UseTabsNavReturn`               | 多标签页纯算法无头响应式状态机，负责标签增删查改、FIFO 超限淘汰、Affix 保护、KeepAlive 缓存名单计算与刷新调度    | [useTabsNav.test.ts](./test/useTabsNav.test.ts) / [TabsNavDemo.vue](../../apps/sample-vue/src/components/TabsNavDemo.vue)                   |
 
 ---
 
-## 维度二：生产扩展接管 (Customization & Extensibility)
+## 1. 模块定位与 pnpm 坐标
 
-### 1. 搜索条件与五维原子动作 (含 changeSort 与 refreshDeps)
+- **npm 坐标**：`@atengk/vue`
+- **拓扑层级**：L1 无头响应式层 (Headless Layer)
+- **跨框架与解耦契约**：纯无头设计，**绝对严禁依赖任何具体 UI 库**（如 Element Plus、Ant Design Vue），不包含任何私有样式或 DOM 弹窗侵入，专注于 Vue 3.5 响应式状态机与生命周期治理。
+- **安装依赖**：
+  ```bash
+  pnpm add @atengk/core @atengk/vue vue
+  ```
+- **依赖基线与 peerDependencies 契约**：
+  - `vue`: `>=3.5.0`（利用原生响应式 Props 解构与 `toValue` 特性）
+  - `@atengk/core`: `workspace:*`（底层强类型契约、网络引擎与工具底座）
+  - `Node.js`: `>=20.18.0` / 现代主流浏览器
+
+---
+
+## 2. 核心架构与设计不变量
+
+```mermaid
+flowchart TD
+    subgraph L3["L3 表现与高阶组件层 (@atengk/element-plus / UI Views)"]
+        UI_TABLE["AtengTable / AtengQueryForm"]
+        UI_LAYOUT["ProLayout / TabsNav"]
+    end
+
+    subgraph L1["@atengk/vue 无头响应式基础设施 (L1)"]
+        direction TB
+        CONTEXT["全局上下文与微工具<br/>createAtengVue / useAtengConfig / useDebounceFn"]
+        REQUEST["响应式异步请求状态机<br/>useRequest / mutate / refreshDeps"]
+        PAGINATION["契约分页与跨页多选<br/>usePagination / useSelection"]
+        RACE["时序竞态防御与防刷锁<br/>useLatest / useIdempotent"]
+        AUTH["凭据鉴权与多租户切片<br/>useAuth / useTenant"]
+        FILE["二进制流式与分片上传<br/>useExcel / useUpload"]
+        STREAM["实时长连与 SSE 打字机<br/>useStream / useWebSocket"]
+        SMOOTH["视觉防抖与标签导航<br/>useAntiFlicker / useTabsNav"]
+    end
+
+    subgraph L0["L0 纯原生核心底座 (@atengk/core)"]
+        CORE_HTTP["HttpClient / Result&lt;T&gt; / SnowflakeId"]
+        CORE_STREAM["StreamClient / WebSocketClient"]
+        CORE_FILE["UploadCoordinator / BlobDualState"]
+    end
+
+    UI_TABLE --> PAGINATION
+    UI_TABLE --> RACE
+    UI_LAYOUT --> SMOOTH
+
+    PAGINATION --> REQUEST
+    REQUEST --> CORE_HTTP
+    RACE --> CORE_HTTP
+    AUTH --> CORE_HTTP
+    FILE --> CORE_FILE
+    STREAM --> CORE_STREAM
+```
+
+### 核心设计不变量 (Core Invariants)
+
+1. **严格单向数据流与只读状态防线 (Readonly State & Unidirectional Flow)**：
+   核心状态（`loading`、`data`、`error`、`pageNum`、`pageSize`、`total`、`list`、`selectedKeys` 等）统一通过 `readonly()` 导出为只读 Ref，外部严禁就地突变；修改只能通过门面动作（`run`、`changePage`、`select`、`toggle`）或显式乐观更新 `mutate((prev) => next)` 触发。
+2. **空安全保底与防御性返回 (Null Safety & Defensive Fallback)**：
+   分页 `usePagination` 与查询门面在网络异常或查询结果为空时，结果集列表统一保底返回空数组 `[]`，绝对严禁返回 `undefined` 或 `null`，彻底杜绝模板层 `v-for="item in data.list"` 发生空指针导致白屏崩溃。
+3. **响应性解构防丢失规范 (MaybeRefOrGetter & toValue Invariant)**：
+   所有导出的 Composables 入参必须声明为 `MaybeRefOrGetter<T>` 类型，内部统一使用 Vue 原生 `toValue(param)` 进行解包；组件层传入响应式变量时统一通过 Getter 箭头函数传入（如 `usePagination(..., () => pageSize)`），彻底消除响应性丢失陷阱。
+4. **确定性生命周期与资源清理不变量 (Deterministic Scope Cleanup Invariant)**：
+   凡在 Composables / Hooks 中注册的物理监听与瞬态资源（防抖节流定时器、DOM 事件绑定、WebSocket 长连接、SSE 流式通道、防闪烁状态定时器、未决请求取消信号 `AbortSignal`），统一在 `onScopeDispose` 钩子中 100% 确定性注销与解绑，严禁内存泄漏与离线回调悬挂。
+5. **无头表现彻底解耦防线 (Headless & UI-Agnostic Invariant)**：
+   属于纯无头中间件层，绝对严禁直接引用或物理调用 `ElMessage`、`ElNotification` 等具体 UI 弹窗组件；业务异常与失败反馈统一封装为响应式状态（如 `error`）或回调向外派发，具体交互提示完全交由上层表现层（`@atengk/element-plus` 或业务视图）接管。
+
+---
+
+## 3. 全局上下文与受管微工具套件 (Global Context & Utility Suite)
+
+### 3.1 全局插件安装器与配置注入 (createAtengVue & useAtengConfig)
+
+向 Vue 应用实例全局注入默认配置上下文（默认分页大小、自定义全局 HTTP 实例等），下游任意组件均可通过 `useAtengConfig()` 安全解析并具备健壮的默认回退。
+
+#### 专属 TypeScript 契约片段
 
 ```ts
-interface CustomQuery extends PageQuery {
-  keyword?: string;
-  departmentId?: number;
+export interface AtengVueOptions {
+  /** 全局默认分页每页容量 @default 20 */
+  defaultPageSize?: number;
+  /** 全局自定义 HTTP 客户端实例（缺省时自动使用 @atengk/core 全局单例） */
+  httpClient?: HttpClient;
+  /** 是否在挂载时自动连接全局流式客户端 @default false */
+  autoConnectStream?: boolean;
+  /** 是否在挂载时自动连接全局 WebSocket 客户端 @default false */
+  autoConnectWebSocket?: boolean;
 }
 
-const activeDept = ref(101);
-
-const pagination = usePagination<UserItem, CustomQuery>(queryUsers, {
-  defaultParams: {
-    departmentId: 101,
-  },
-  defaultSortField: 'createTime',
-  defaultSortAsc: false,
-  // 响应式依赖自动刷新：当 activeDept 改变时，自动将 pageNum 归 1 重新请求
-  refreshDeps: activeDept,
-});
-
-// 1. 触发搜索：合并新条件并自动重置当前页码归 1
-pagination.search({ keyword: '张三' });
-
-// 2. 修改每页显示条数：自动重置当前页码归 1 并重新请求
-pagination.changePageSize(20);
-
-// 3. 翻页：跳转至目标页码
-pagination.changePage(3);
-
-// 4. 列排序：设置字段与升降序，自动将 pageNum 归 1 并重新发起请求
-pagination.changeSort('name', true); // 按姓名升序
-pagination.changeSort(undefined); // 清除排序
-
-// 5. 重置：恢复为初始 defaultParams 与初始排序并归 1 页
-pagination.reset();
+export function createAtengVue(options?: AtengVueOptions): Plugin;
+export function useAtengConfig(): AtengVueContext;
 ```
 
-### 2. 全局分页大小统一接管
+#### 实战业务代码示例
 
 ```ts
+// 1. main.ts 入口全局注册插件
 import { createApp } from 'vue';
 import { createAtengVue } from '@atengk/vue';
 import App from './App.vue';
 
 const app = createApp(App);
-
-// 全局注册默认分页大小（缺省时为 20 条/页）
-app.use(
-  createAtengVue({
-    defaultPageSize: 20,
-  }),
-);
-
+app.use(createAtengVue({ defaultPageSize: 20 }));
 app.mount('#app');
 ```
 
-### 3. 异步请求状态机与本地乐观更新 (useRequest)
+```vue
+<!-- 2. 任意组件解析配置 (ConfigDemo.vue) -->
+<script setup lang="ts">
+import { useAtengConfig } from '@atengk/vue';
+
+// 读取当前生效的配置上下文
+const config = useAtengConfig();
+</script>
+
+<template>
+  <div class="config-card">
+    <span>全局默认分页大小: {{ config.defaultPageSize }} 条/页</span>
+    <span>HTTP 客户端状态: {{ config.httpClient ? '已注入' : '未就绪' }}</span>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **双轨解耦回退**：组件未显式执行 `app.use(createAtengVue(...))` 时，`useAtengConfig()` 会自动平滑回退至内部安全默认值（`defaultPageSize: 20`，HTTP 回退至 `@atengk/core` 的 `http` 单例），绝不抛出 NPE。
+
+---
+
+### 3.2 局部上下文覆盖注入 (provideAtengConfig)
+
+支持在局部路由视图或弹窗子树中覆盖配置，实现与全局配置的继承与局部特化。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export function provideAtengConfig(options: AtengVueOptions): void;
+```
+
+#### 实战业务代码示例
+
+```vue
+<script setup lang="ts">
+import { provideAtengConfig } from '@atengk/vue';
+
+// 局部覆盖当前管理后台模块的默认分页大小为 50 条/页
+provideAtengConfig({
+  defaultPageSize: 50,
+});
+</script>
+
+<template>
+  <div class="sub-tree-container">
+    <router-view />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **Vue 依赖注入机制**：基于 `provide/inject` 原生树状继承机制，仅对当前组件及其后代组件生效，兄弟节点与上层树不受污染。
+
+---
+
+### 3.3 原生受管防抖与节流包装 (useDebounceFn & useThrottleFn)
+
+纯原生闭环实现的受管防抖与节流微工具，具备 `cancel` 与 `flush` 操作门面，并在组件作用域注销时自动回收定时器。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface DebouncedFn<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  /** 立即取消未决的防抖定时器 */
+  cancel: () => void;
+  /** 立即执行未决的防抖回调 */
+  flush: () => void;
+}
+
+export function useDebounceFn<T extends (...args: any[]) => any>(
+  fn: T,
+  wait?: number,
+): DebouncedFn<T>;
+export function useThrottleFn<T extends (...args: any[]) => any>(
+  fn: T,
+  interval?: number,
+): ThrottledFn<T>;
+```
+
+#### 实战业务代码示例 (UtilsDemo.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useDebounceFn, useThrottleFn } from '@atengk/vue';
+
+const searchInput = ref('');
+const resolvedKeyword = ref('');
+
+// 1. 防抖处理联想搜索输入 (300ms)
+const handleSearch = useDebounceFn((val: string) => {
+  resolvedKeyword.value = val;
+}, 300);
+
+// 2. 节流处理高频物理点击 (1000ms 仅计一次)
+const clickCount = ref(0);
+const handleThrottledClick = useThrottleFn(() => {
+  clickCount.value += 1;
+}, 1000);
+</script>
+
+<template>
+  <div>
+    <input v-model="searchInput" @input="handleSearch(searchInput)" placeholder="输入搜索..." />
+    <p>防抖决议结果: {{ resolvedKeyword }}</p>
+
+    <button @click="handleThrottledClick">高频点击测试 (1秒内仅计1次)</button>
+    <p>有效点击: {{ clickCount }}</p>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **零外部依赖与确定性清理**：坚决不引入 `lodash` 或 `vueuse`，内部通过 `onScopeDispose` 自动调用 `cancel()` 清空活跃定时器，杜绝组件销毁后离线回调悬挂。
+
+---
+
+### 3.4 宿主安全事件监听与作用域确定性清理 (useEventListener & tryOnScopeDispose)
+
+宿主环境安全的事件监听器绑定，兼容 Node/SSR 静态构建环境，在组件或 effectScope 销毁时 100% 自动解绑。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export function tryOnScopeDispose(fn: () => void): boolean;
+export function useEventListener<K extends keyof WindowEventMap>(
+  target: MaybeRefOrGetter<Window | Document | HTMLElement | null | undefined>,
+  event: K,
+  listener: (this: Window, ev: WindowEventMap[K]) => any,
+  options?: boolean | AddEventListenerOptions,
+): () => void;
+```
+
+#### 实战业务代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useEventListener } from '@atengk/vue';
+
+const windowClickCount = ref(0);
+
+// 监听全局 Window 点击，组件卸载时自动确定性解绑
+useEventListener(window, 'click', () => {
+  windowClickCount.value += 1;
+});
+</script>
+
+<template>
+  <p>全局 Window 点击累计: {{ windowClickCount }} 次</p>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **SSR 宿主环境防卫**：自动探测 `target` 是否存在；在 SSR 或 Node 命令行环境下静默跳过物理挂载，防止报错崩溃。
+
+---
+
+## 4. 响应式异步请求状态机套件 (Async Request State Machine)
+
+### 4.1 只读请求状态机与自动/手动调度 (useRequest)
+
+封装异步请求的完整生命周期状态机，将 `loading`、`data`、`error` 封装为受控只读状态，提供 `refresh`、`run` 以及抗竞态调度。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseRequestOptions<TData, TParams extends unknown[]> {
+  /** 是否在初始化时自动发起请求 @default true */
+  manual?: boolean;
+  /** 默认初始入参 */
+  defaultParams?: TParams;
+  /** 响应式依赖自动刷新源 */
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
+  /** 轮询间隔（毫秒） */
+  pollingInterval?: number;
+  /** 请求成功回调 */
+  onSuccess?: (data: TData, params: TParams) => void;
+  /** 请求异常回调 */
+  onError?: (error: BusinessException, params: TParams) => void;
+}
+
+export interface UseRequestResult<TData, TParams extends unknown[]> {
+  loading: Readonly<Ref<boolean>>;
+  data: Readonly<Ref<TData | undefined>>;
+  error: Readonly<Ref<BusinessException | null>>;
+  run: (...params: TParams) => Promise<TData>;
+  refresh: () => Promise<TData>;
+  mutate: (mutator: TData | ((prev: TData | undefined) => TData | undefined)) => void;
+  cancel: () => void;
+}
+```
+
+#### 实战业务代码示例 (RequestDemo.vue)
 
 ```vue
 <script setup lang="ts">
@@ -195,14 +351,10 @@ interface UserProfile {
   role: string;
 }
 
-// 模拟异步请求服务函数
+// 模拟异步数据请求服务
 const fetchUser = async (id: number): Promise<UserProfile> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return {
-    id,
-    name: id === 1 ? '张三 (超级管理员)' : '李四 (运营人员)',
-    role: id === 1 ? 'ADMIN' : 'OPERATOR',
-  };
+  const res = await fetch(`/api/users/${id}`);
+  return res.json();
 };
 
 const currentUserId = ref(1);
@@ -210,199 +362,534 @@ const userRequest = useRequest(fetchUser, {
   defaultParams: [1],
 });
 
+// 手动切换入参请求
 const onSwitchUser = (id: number) => {
   currentUserId.value = id;
   userRequest.run(id);
 };
-
-// 本地乐观更新：无需等待网络请求直接在视图呈现修改
-const onOptimisticMutate = () => {
-  userRequest.mutate(prev =>
-    prev
-      ? { ...prev, name: `${prev.name} [本地乐观修改 ${new Date().toLocaleTimeString()}]` }
-      : undefined,
-  );
-};
 </script>
 
 <template>
-  <div>
-    <button :disabled="userRequest.loading.value" @click="userRequest.refresh()">
-      {{ userRequest.loading.value ? '加载处理中...' : '刷新当前用户 (refresh)' }}
-    </button>
-    <button
-      :disabled="userRequest.loading.value"
-      @click="onSwitchUser(currentUserId === 1 ? 2 : 1)"
-    >
-      切换用户 (ID: {{ currentUserId === 1 ? 2 : 1 }})
-    </button>
-    <button :disabled="!userRequest.data.value" @click="onOptimisticMutate">
-      乐观修改 (mutate)
-    </button>
+  <div class="user-profile-panel">
+    <div class="btn-group">
+      <button :disabled="userRequest.loading.value" @click="userRequest.refresh()">
+        {{ userRequest.loading.value ? '刷新中...' : '刷新当前用户' }}
+      </button>
+      <button
+        :disabled="userRequest.loading.value"
+        @click="onSwitchUser(currentUserId === 1 ? 2 : 1)"
+      >
+        切换用户 (ID: {{ currentUserId === 1 ? 2 : 1 }})
+      </button>
+    </div>
 
-    <div v-if="userRequest.loading.value">状态: 加载中...</div>
+    <div v-if="userRequest.loading.value">加载中...</div>
     <pre>{{ JSON.stringify(userRequest.data.value, null, 2) || '(暂无数据)' }}</pre>
   </div>
 </template>
 ```
 
-### 4. 高频异步操作与抗时序倒挂 (useLatest)
+#### 核心机制与生产边界说明
+
+- **严格只读状态防线**：`loading`、`data`、`error` 均经过 `readonly()` 包装，调用方无法直接就地执行 `loading.value = false`，保证状态转移路径 100% 确定可追溯。
+
+---
+
+### 4.2 本地乐观更新与响应式依赖自动刷新 (mutate & refreshDeps)
+
+在无需重新发起 HTTP 请求的场景下，通过 `mutate` 实现毫秒级本地乐观更新；配置 `refreshDeps` 监听外部响应式变量并在变化时自动重发请求。
+
+#### 实战业务代码示例
+
+```ts
+// 1. 本地乐观更新：直接变更视图状态
+const onOptimisticMutate = () => {
+  userRequest.mutate(prev => (prev ? { ...prev, name: `${prev.name} [本地乐观修改]` } : undefined));
+};
+
+// 2. 响应式依赖自动刷新
+const activeDeptId = ref(101);
+const deptRequest = useRequest(() => fetchUsersByDept(activeDeptId.value), {
+  refreshDeps: activeDeptId, // 当部门 ID 变化时，自动重新请求
+});
+```
+
+#### 核心机制与生产边界说明
+
+- **不可变单向流**：`mutate` 接受当前数据的副本并返回新实体，内部通过不可变对象替换触发 Vue 响应式更新，杜绝深层属性直接突变导致的脏状态残留。
+
+---
+
+## 5. 契约分页与跨页多选状态机套件 (Contract Pagination & Selection Suite)
+
+### 5.1 双向契约分页状态机与五维原子动作 (usePagination)
+
+基于 `useRequest` 深度特化组合，零样板双向绑定 `PageQuery` 入参与 `PageResult<T>` 响应，结果集硬性保底空数组 `[]`，内置五维原子动作调度。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UsePaginationOptions<TItem, TQuery extends PageQuery = PageQuery> {
+  defaultPageSize?: number;
+  defaultCurrent?: number;
+  defaultParams?: Partial<TQuery>;
+  defaultSortField?: string;
+  defaultSortAsc?: boolean;
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
+}
+
+export interface UsePaginationResult<TItem, TQuery extends PageQuery = PageQuery> {
+  pageNum: Readonly<Ref<number>>;
+  pageSize: Readonly<Ref<number>>;
+  total: Readonly<Ref<number>>;
+  list: Readonly<Ref<TItem[]>>; // 空安全硬性保底空数组 []
+  loading: Readonly<Ref<boolean>>;
+  error: Readonly<Ref<BusinessException | null>>;
+  changePage: (page: number) => Promise<PageResult<TItem>>;
+  changePageSize: (size: number) => Promise<PageResult<TItem>>;
+  search: (extraParams?: Partial<TQuery>) => Promise<PageResult<TItem>>;
+  changeSort: (field?: string, asc?: boolean) => Promise<PageResult<TItem>>;
+  reset: () => Promise<PageResult<TItem>>;
+}
+```
+
+#### 实战业务代码示例 (PaginationDemo.vue)
+
+```vue
+<script setup lang="ts">
+import { usePagination } from '@atengk/vue';
+import type { PageQuery, PageResult } from '@atengk/core';
+
+interface ProductItem {
+  id: string; // 64位雪花 Long ID
+  name: string;
+  price: number;
+}
+
+// 模拟分页服务
+const queryProducts = async (params: PageQuery): Promise<PageResult<ProductItem>> => {
+  const res = await fetch(`/api/products?pageNum=${params.pageNum}&pageSize=${params.pageSize}`);
+  return res.json();
+};
+
+const { pageNum, pageSize, total, list, loading, changePage, changePageSize, search, reset } =
+  usePagination(queryProducts, {
+    defaultPageSize: 10,
+    defaultSortField: 'createTime',
+    defaultSortAsc: false,
+  });
+</script>
+
+<template>
+  <div class="table-container">
+    <div class="search-bar">
+      <button @click="search({ sortField: 'price', sortAsc: true })">按价格升序搜索</button>
+      <button @click="reset">重置初始条件</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>商品名称</th>
+          <th>单价</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 空安全保底：list 100% 为数组，绝不触发 NPE -->
+        <tr v-for="item in list" :key="item.id">
+          <td>{{ item.id }}</td>
+          <td>{{ item.name }}</td>
+          <td>¥{{ item.price }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pagination-footer">
+      <button :disabled="pageNum <= 1" @click="changePage(pageNum - 1)">上一页</button>
+      <span>第 {{ pageNum }} 页 / 共 {{ total }} 条</span>
+      <button @click="changePage(pageNum + 1)">下一页</button>
+      <button @click="changePageSize(20)">改为 20 条/页</button>
+    </div>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **五维原子动作重置规则**：`search()`、`changePageSize()`、`changeSort()` 以及 `reset()` 均会自动将当前页码归 1 发起请求；`changePage()` 则精确定位目标页码。
+- **空安全绝对保底**：底层拦截未决返回，若服务端返回 `null` 或无 `list` 节点，内部一律防御保底为 `[]`，杜绝前端白屏。
+
+---
+
+### 5.2 跨页多选记忆与雪花 ID 键值映射 (useSelection)
+
+负责表格或卡片列表跨页勾选集合记忆、全选/反选、排他选中与 64 位雪花 Long ID 键值字符串安全归一化。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseSelectionOptions<T> {
+  /** 指定行主键属性名或主键提取函数（默认 'id'） */
+  rowKey?: keyof T | ((row: T) => string | number | bigint);
+  /** 初始已选数据项 */
+  initialSelected?: T[];
+}
+
+export interface UseSelectionResult<T> {
+  selectedKeys: ComputedRef<string[]>;
+  selectedRows: ComputedRef<T[]>;
+  selectedCount: ComputedRef<number>;
+  isSelected: (row: T) => boolean;
+  isKeySelected: (key: string | number | bigint) => boolean;
+  select: (rows: T | T[]) => void;
+  deselect: (rows: T | T[]) => void;
+  toggle: (row: T) => void;
+  clear: () => void;
+  selectAll: (rows: T[]) => void;
+  syncWithData: (currentData: T[]) => void;
+}
+```
+
+#### 实战业务代码示例 (SelectionDemo.vue)
+
+```vue
+<script setup lang="ts">
+import { useSelection } from '@atengk/vue';
+
+interface ProductSkuItem {
+  id: string; // 雪花 Long ID (保证为 string，防精度截断)
+  skuCode: string;
+  name: string;
+}
+
+const { selectedKeys, selectedRows, selectedCount, isSelected, toggle, selectAll, clear } =
+  useSelection<ProductSkuItem>({
+    rowKey: 'id',
+  });
+</script>
+
+<template>
+  <div>
+    <button :disabled="selectedCount === 0" @click="clear">
+      清空已选项 (已选 {{ selectedCount }} 项)
+    </button>
+    <div class="selected-tags">
+      <span v-for="k in selectedKeys" :key="k" class="tag">{{ k }}</span>
+    </div>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **雪花 Long ID 大数防截断**：内部存储的 Key 统一通过 `String(key)` 进行字符串归一化映射，无论上层传入原生大数还是字符串，均不会发生 $2^{53}-1$ 精度失真。
+- **不可变更新性能**：内部采用 `shallowRef<Map<string, T>>` 托管，单次变更生成新 Map 替换，在大数据量跨页勾选中依然具备极致响应性能。
+
+---
+
+## 6. 异步时序抗竞态与防刷幂等锁套件 (Anti-Race & Idempotent Lock Suite)
+
+### 6.1 异步时序竞态“物理中断 + 逻辑过期”双重防御 (useLatest)
+
+解决搜索框快速输入联想、快速切换 Tab 档案卡片等高频异步场景下的时序倒挂问题，确保仅最新一次请求生效并安全丢弃未决前序请求。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseLatestOptions<TResult> {
+  onSuccess?: (data: TResult) => void;
+  onError?: (error: unknown) => void;
+}
+
+export interface UseLatestResult<TArgs extends unknown[], TResult> {
+  loading: Readonly<Ref<boolean>>;
+  data: Readonly<Ref<TResult | undefined>>;
+  error: Readonly<Ref<unknown>>;
+  run: (...args: TArgs) => Promise<TResult | undefined>;
+  cancel: () => void;
+}
+```
+
+#### 实战业务代码示例 (LatestDemo.vue)
 
 ```vue
 <script setup lang="ts">
 import { useLatest } from '@atengk/vue';
-import { http } from '@atengk/core';
 
-// 首参注入当前请求专属的 AbortSignal，可直接交付底层 HTTP 客户端物理中断
-const { run, data, loading } = useLatest(async (signal, keyword: string) => {
-  return await http.get('/api/search', {
-    params: { keyword },
-    signal,
-  });
-});
+// 模拟异步搜索客户档案
+const searchCustomer = async (signal: AbortSignal, keyword: string): Promise<string> => {
+  const res = await fetch(`/api/customers/search?kw=${keyword}`, { signal });
+  return res.text();
+};
 
-const handleInput = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  run(value);
+// 包装抗竞态状态机
+const latestSearch = useLatest(searchCustomer);
+
+// 高频输入触发搜索
+const onInput = (keyword: string) => {
+  latestSearch.run(keyword);
 };
 </script>
 
 <template>
-  <div>
-    <input placeholder="输入关键字搜索..." @input="handleInput" />
-    <span v-if="loading">搜索中...</span>
-    <div>最新结果: {{ data }}</div>
-  </div>
+  <input
+    @input="e => onInput((e.target as HTMLInputElement).value)"
+    placeholder="快速输入搜索客户..."
+  />
+  <div v-if="latestSearch.loading.value">搜索匹配中...</div>
+  <div>最新生效结果: {{ latestSearch.data.value }}</div>
 </template>
 ```
 
-### 5. 响应式鉴权与多租户切片 (useAuth & useTenant)
+#### 核心机制与生产边界说明
 
-```vue
-<script setup lang="ts">
-import { useAuth, useTenant } from '@atengk/vue';
+- **双重协同防线**：
+  1. **物理中断**：若异步函数第一个入参接收 `AbortSignal`，`useLatest` 会自动创建 `AbortController` 并在新请求发起时物理切断前序在途 HTTP 连接，节省带宽；
+  2. **逻辑过期**：通过内部自增序列号递增标记，即便前序请求底层不支持取消或物理返回，也会在回调时刻判定过期并确定性丢弃，彻底根除数据时序倒挂。
 
-// 鉴权门面：支持细粒度权限通配符与角色判断
-const { isAuthenticated, hasPermission, hasRole, login, logout } = useAuth();
+---
 
-// 租户切片：支持租户 ID 响应式读取与动态切换
-const { tenantId, setTenantId, clearTenantId } = useTenant();
+### 6.2 写操作防刷防重与超时互斥防死锁 (useIdempotent)
 
-// 执行登录
-const handleLogin = () => {
-  login({
-    token: 'jwt-token-xyz',
-    permissions: ['sys:user:*', 'order:view'],
-    roles: ['manager'],
-  });
-};
-</script>
+针对保存、提交、删除、审批等写操作请求，提供按钮连打拦截、执行中互斥加锁与超时自动防死锁解除。
 
-<template>
-  <div>
-    <p>登录状态: {{ isAuthenticated ? '已登录' : '未登录' }}</p>
-    <p>当前租户: {{ tenantId || '默认租户' }}</p>
+#### 专属 TypeScript 契约片段
 
-    <!-- 权限受控元素 -->
-    <button v-if="hasPermission('sys:user:add')">新增用户</button>
-    <button v-if="hasRole('admin')">超管操作</button>
-  </div>
-</template>
+```ts
+export interface UseIdempotentOptions {
+  /** 互斥锁超时时间（毫秒），超时后自动释放防止死锁 @default 10000 */
+  timeout?: number;
+  /** 重复触发被拦截时的告警回调 */
+  onDuplicate?: () => void;
+}
+
+export interface UseIdempotentResult<TArgs extends unknown[], TResult> {
+  executing: Readonly<Ref<boolean>>;
+  run: (...args: TArgs) => Promise<TResult | undefined>;
+  unlock: () => void;
+}
 ```
 
-### 6. 提交防刷与幂等互斥锁 (useIdempotent)
+#### 实战业务代码示例 (IdempotentDemo.vue)
 
 ```vue
 <script setup lang="ts">
 import { useIdempotent } from '@atengk/vue';
-import { http } from '@atengk/core';
 
-// 包装写操作（保存/提交/扣款），支持超时防死锁
-const { executing, run } = useIdempotent(
-  async (orderId: string) => {
-    return await http.post(`/api/orders/${orderId}/pay`);
+const submitOrder = async (orderId: string) => {
+  await fetch(`/api/orders/${orderId}/pay`, { method: 'POST' });
+};
+
+const { executing, run: handlePay } = useIdempotent(submitOrder, {
+  timeout: 5000,
+  onDuplicate: () => {
+    alert('正在处理中，请勿重复点击！');
   },
-  {
-    timeout: 5000,
-    onBlocked: () => {
-      alert('正在处理中，请勿重复点击！');
-    },
-  },
-);
+});
 </script>
 
 <template>
-  <button :disabled="executing" @click="run('ORDER_001')">
-    {{ executing ? '正在安全扣款...' : '确认支付' }}
+  <button :disabled="executing" @click="handlePay('ORD-20261104-001')">
+    {{ executing ? '支付处理中 (已加锁)...' : '确认支付订单' }}
   </button>
 </template>
 ```
 
-### 7. 流式 Excel 导出与批注回写 (useExcel)
+#### 核心机制与生产边界说明
+
+- **超时自动防死锁**：若网络请求因异常永久挂起未返回，超时定时器到达预设时间后会自动释放互斥锁，确保界面按钮不会被永久冻结。
+- **作用域安全**：组件销毁时内部超时定时器通过 `onScopeDispose` 确定性清空，无内存泄露风险。
+
+---
+
+## 7. 响应式鉴权凭据与多租户切片套件 (Auth & Multi-Tenant Slice Suite)
+
+### 7.1 响应式鉴权凭据与细粒度权限校验 (useAuth)
+
+响应式对接 L0 鉴权管理器，提供当前登录凭据提取、退出登录广播与细粒度权限/角色通配校验。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseAuthOptions {
+  authManager?: AuthManager;
+}
+
+export interface UseAuthResult {
+  token: Readonly<Ref<string | null>>;
+  isAuthenticated: ComputedRef<boolean>;
+  setToken: (token: string) => void;
+  clearToken: () => void;
+  hasPermission: (permission: string, userPermissions: string[]) => boolean;
+  hasRole: (role: string, userRoles: string[]) => boolean;
+}
+```
+
+#### 实战业务代码示例 (AuthTenantDemo.vue)
 
 ```vue
 <script setup lang="ts">
-import { useExcel } from '@atengk/vue';
-import { http } from '@atengk/core';
+import { useAuth } from '@atengk/vue';
 
-// 实例化导出状态机
-const { exporting, exportExcel, downloadFeedback, abort } = useExcel({
-  defaultFilename: '默认销售报表_2026.xlsx',
-  onSuccess: (_blob, filename) => {
-    console.log('导出完成:', filename);
-  },
-  onError: err => {
-    // 双态识别：若后端返回 JSON 业务错误，捕获强类型 BusinessException 且不下载伪损坏文件
-    console.error('导出异常:', err);
-  },
-});
+const { token, isAuthenticated, setToken, clearToken, hasPermission } = useAuth();
 
-// 1. 触发流式导出（支持直接传入 URL、配置对象或服务函数）
-const handleExport = () => {
-  exportExcel('/api/reports/sales/export', '2026年Q1销售明细.xlsx');
-};
+// 用户拥有的权限列表
+const permissions = ['sys:user:list', 'sys:user:create', 'sys:user:export'];
 
-// 2. 导入校验失败时，下载服务端回写的标红批注反馈文件（Fesod 协议）
-const handleDownloadFeedback = (feedbackBlob: Blob) => {
-  downloadFeedback(feedbackBlob, '用户导入_批注回写_2026.xlsx');
-};
+const onLogin = () => setToken('mock-jwt-token-production-123456');
+const onLogout = () => clearToken();
 </script>
 
 <template>
   <div>
-    <button :disabled="exporting" @click="handleExport">
-      {{ exporting ? '正在导出中...' : '流式导出 Excel' }}
-    </button>
-    <button :disabled="!exporting" @click="abort">中断导出</button>
+    <button v-if="!isAuthenticated" @click="onLogin">模拟登录注入 Token</button>
+    <button v-else @click="onLogout">退出登录</button>
+
+    <div v-if="hasPermission('sys:user:export', permissions)">
+      <button>具备导出权限 (sys:user:export)</button>
+    </div>
   </div>
 </template>
 ```
 
-### 8. 大文件切片受控并发上传与断点续传 (useUpload)
+#### 核心机制与生产边界说明
+
+- **双轨请求头同步**：通过 `setToken` 设置凭据后，后续由 `@atengk/core` 发起的 HTTP 请求将自动注入 `token` 与 `Authorization: Bearer` 双轨请求头。
+
+---
+
+### 7.2 动态多租户上下文隔离与状态切片 (useTenant)
+
+响应式管理当前微服务多租户标识，并在切换租户时实现全视图响应式刷新与请求头注入。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseTenantOptions {
+  tenantManager?: TenantManager;
+}
+
+export interface UseTenantResult {
+  tenantId: Readonly<Ref<string | null>>;
+  hasTenant: ComputedRef<boolean>;
+  setTenantId: (tenantId: string) => void;
+  clearTenantId: () => void;
+}
+```
+
+#### 实战业务代码示例
 
 ```vue
 <script setup lang="ts">
-import { useUpload, type UploadChunkItem } from '@atengk/vue';
-import { http } from '@atengk/core';
+import { useTenant } from '@atengk/vue';
 
-// 实例化上传状态机与并发队列调度器
-const { status, uploading, progress, chunks, upload, pause, resume, cancel, reset } = useUpload({
-  chunkSize: 5 * 1024 * 1024, // 5MB 分片
-  concurrency: 3, // 最大 3 并发连接
-  maxRetries: 2, // 单切片局部重试 2 次
-  uploadChunk: async (chunk: UploadChunkItem, signal?: AbortSignal) => {
-    const formData = new FormData();
-    formData.append('chunk', chunk.chunk);
-    formData.append('index', String(chunk.index));
-    formData.append('totalChunks', String(chunk.totalChunks));
-    return await http.post('/api/files/upload-chunk', formData, { signal });
-  },
-  onProgress: (percent, loaded, total) => {
-    console.log(`上传进度: ${percent}% (${loaded}/${total})`);
-  },
+const { tenantId, setTenantId } = useTenant();
+</script>
+
+<template>
+  <select :value="tenantId" @change="e => setTenantId((e.target as HTMLSelectElement).value)">
+    <option value="tenant_dev">研发租户 (tenant_dev)</option>
+    <option value="tenant_prod">生产主租户 (tenant_prod)</option>
+  </select>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **请求头自动挂载**：更新 `tenantId` 后，核心网络客户端会自动将 `X-Tenant-Id` 请求头透传至每个下游网关请求。
+
+---
+
+## 8. 二进制安全传输与流式导出套件 (Binary Transport & Excel Suite)
+
+### 8.1 基于 Fesod 协议的流式 Excel 导出与 Blob-JSON 双态拦截 (useExcel)
+
+结合 Apache Fesod 协议，调度后端大报表流式 Excel 下载，规范解析 RFC 5987 文件名，并实施 Blob-JSON 双态异常识别。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseExcelOptions {
+  httpClient?: HttpClient;
+  onSuccess?: (filename: string) => void;
+  onError?: (error: BusinessException) => void;
+}
+
+export interface UseExcelResult {
+  exporting: Readonly<Ref<boolean>>;
+  exportExcel: (url: string, params?: unknown, filename?: string) => Promise<boolean>;
+}
+```
+
+#### 实战业务代码示例 (ExcelDemo.vue)
+
+```vue
+<script setup lang="ts">
+import { useExcel } from '@atengk/vue';
+
+const { exporting, exportExcel } = useExcel({
+  onSuccess: filename => alert(`导出成功: ${filename}`),
+  onError: err => alert(`导出失败: ${err.message}`),
 });
 
-const onFileSelected = (e: Event) => {
+const onExport = () => {
+  exportExcel('/api/finance/monthly-ledger/export', { month: '2026-10' });
+};
+</script>
+
+<template>
+  <button :disabled="exporting" @click="onExport">
+    {{ exporting ? '流式导出生成中...' : '导出月度财务报表 (Excel)' }}
+  </button>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **Blob-JSON 双态识别**：后端报表导出如果因为权限不足或参数错误返回 500 JSON，拦截器自动识别并反序列化为 `BusinessException` 抛出，杜绝下载假文件。
+- **内存确定性回收**：浏览器端下载完成后自动执行 `URL.revokeObjectURL` 释放 Blob 内存。
+
+---
+
+### 8.2 大文件纯原生切片与受控并发上传协调器 (useUpload)
+
+基于原生 Blob.slice 字节切分大文件，调度受控并发上传，提供加权进度、单片重试与生命周期级联取消。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseUploadOptions {
+  uploadUrl: string;
+  chunkSize?: number; // 分片大小（字节）默认 5MB
+  concurrency?: number; // 最大并发连接数 默认 3
+  onSuccess?: (response: unknown) => void;
+  onError?: (error: unknown) => void;
+}
+
+export interface UseUploadResult {
+  uploading: Readonly<Ref<boolean>>;
+  progress: Readonly<Ref<number>>; // 0~100 单调递增
+  upload: (file: File) => Promise<void>;
+  pause: () => void;
+  resume: () => Promise<void>;
+  cancel: () => void;
+}
+```
+
+#### 实战业务代码示例 (UploadDemo.vue)
+
+```vue
+<script setup lang="ts">
+import { useUpload } from '@atengk/vue';
+
+const { uploading, progress, upload, pause, cancel } = useUpload({
+  uploadUrl: '/api/files/chunk-upload',
+  chunkSize: 5 * 1024 * 1024, // 5MB 分片
+  concurrency: 3, // 受控 3 并发
+});
+
+const onFileChange = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (file) {
     upload(file);
@@ -412,213 +899,368 @@ const onFileSelected = (e: Event) => {
 
 <template>
   <div>
-    <input type="file" :disabled="uploading" @change="onFileSelected" />
-    <div v-if="chunks.length > 0">
-      <p>状态: {{ status }} | 进度: {{ progress }}%</p>
-      <button :disabled="!uploading" @click="pause">暂停</button>
-      <button :disabled="status !== 'paused'" @click="resume">断点恢复</button>
-      <button :disabled="status === 'idle'" @click="cancel">取消</button>
+    <input type="file" @change="onFileChange" :disabled="uploading" />
+    <button :disabled="!uploading" @click="pause">暂停</button>
+    <button :disabled="!uploading" @click="cancel">取消</button>
+    <div class="progress-bar">
+      <div class="progress-inner" :style="{ width: `${progress}%` }">{{ progress }}%</div>
     </div>
   </div>
 </template>
 ```
 
-### 9. SSE 大模型打字机流式响应 (useStream)
+#### 核心机制与生产边界说明
+
+- **级联中断不变量**：调用 `cancel()` 或组件销毁时，所有在途的分片 HTTP 连接均会被传入的 `AbortSignal` 立即物理切断，绝不空耗客户端网络与带宽。
+
+---
+
+## 9. 实时长连通信与服务端流式套件 (Real-Time Stream & WebSocket Suite)
+
+### 9.1 SSE 服务端发送事件与打字机流式响应 (useStream)
+
+封装 Web 原生 ReadableStream 与 W3C SSE 协议，增量累积流式文本，原生支持 AI 大模型智能助手流式问答打字机效果。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseStreamOptions {
+  method?: 'GET' | 'POST';
+  body?: unknown;
+  headers?: Record<string, string>;
+  onMessage?: (event: SseEvent) => void;
+  onError?: (error: unknown) => void;
+  onFinish?: () => void;
+}
+
+export interface UseStreamResult {
+  streaming: Readonly<Ref<boolean>>;
+  text: Readonly<Ref<string>>;
+  start: () => Promise<void>;
+  stop: () => void;
+}
+```
+
+#### 实战业务代码示例 (StreamDemo.vue)
 
 ```vue
 <script setup lang="ts">
 import { useStream } from '@atengk/vue';
 
-// 实例化流式打字机状态机
-const { text, isStreaming, event, start, abort, reset } = useStream('/api/v1/chat/completions', {
+const { streaming, text, start, stop } = useStream('/api/ai/diagnose/stream', {
   method: 'POST',
-  body: { prompt: '请简述 ateng-ui 的设计理念' },
-  onMessage: (chunk, sseEvent) => {
-    console.log('增量分块:', chunk, sseEvent?.id);
-  },
-  onDone: fullText => {
-    console.log('流式传输结束，全文:', fullText);
-  },
+  body: { prompt: '分析当前微服务集群实时性能瓶颈' },
 });
 </script>
 
 <template>
   <div>
-    <button :disabled="isStreaming" @click="start()">
-      {{ isStreaming ? '正在生成中...' : '开始生成' }}
-    </button>
-    <button :disabled="!isStreaming" @click="abort">中断</button>
-    <button @click="reset">清空</button>
+    <button :disabled="streaming" @click="start">开始 AI 诊断问答</button>
+    <button :disabled="!streaming" @click="stop">中断生成</button>
 
-    <div class="terminal-content">
-      <span>{{ text }}</span>
-      <span v-if="isStreaming" class="cursor"></span>
+    <div class="typewriter-output">
+      <p>{{ text }}</p>
+      <span v-if="streaming" class="cursor">|</span>
     </div>
   </div>
 </template>
 ```
 
-### 10. WebSocket 全双工长连接心跳状态机 (useWebSocket)
+#### 核心机制与生产边界说明
+
+- **抗网络撕裂分包**：底层集成 L0 `SseParser` 状态机，能跨越网络分块正确处理多字节 UTF-8 字符（如中文 emoji），绝不发生乱码与格式撕裂。
+
+---
+
+### 9.2 全双工 WebSocket 长连接与双向心跳重连状态机 (useWebSocket)
+
+基于纯原生 WebSocket API，提供四态状态机（Connecting, Open, Closing, Closed）、定时 Ping/Pong 心跳保活、假死超时判定、指数退避重连与离线缓冲队列。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseWebSocketOptions {
+  autoConnect?: boolean; // @default true
+  heartbeat?: WebSocketHeartbeatOptions; // Ping/Pong 保活
+  reconnect?: WebSocketReconnectOptions; // 指数退避断网重连
+  protocols?: string | string[];
+}
+
+export interface UseWebSocketResult {
+  status: Readonly<Ref<WebSocketStatus>>;
+  latestMessage: Readonly<Ref<string | null>>;
+  connect: () => void;
+  disconnect: () => void;
+  send: (data: string | ArrayBufferLike | Blob | ArrayBufferView) => boolean;
+}
+```
+
+#### 实战业务代码示例 (WebSocketDemo.vue)
 
 ```vue
 <script setup lang="ts">
 import { useWebSocket } from '@atengk/vue';
 
-// 实例化 WebSocket 全双工状态机
-const { status, isOpen, data, reconnectAttempt, send, open, close } = useWebSocket(
-  'wss://echo.websocket.events',
+const { status, latestMessage, connect, disconnect, send } = useWebSocket(
+  'wss://api.example.com/ws',
   {
+    autoConnect: true,
     heartbeat: {
       interval: 15000,
+      timeout: 5000,
       pingMessage: 'ping',
       pongMessage: 'pong',
     },
-    autoReconnect: {
-      maxRetries: 5,
-      delay: 1000,
-      maxDelay: 10000,
-    },
-    bufferWhileConnecting: true,
-    onMessage: msg => {
-      console.log('收到服务端推送:', msg);
+    reconnect: {
+      maxRetries: 10,
+      baseDelay: 1000,
+      maxDelay: 30000,
     },
   },
 );
-
-const onSendMessage = () => {
-  send(JSON.stringify({ type: 'chat', content: 'Hello WebSocket!' }));
-};
 </script>
 
 <template>
   <div>
-    <p>状态: {{ status }} | 重连次数: {{ reconnectAttempt }}</p>
-    <button :disabled="isOpen" @click="open()">连接</button>
-    <button :disabled="!isOpen" @click="close()">断开</button>
-    <button :disabled="!isOpen" @click="onSendMessage">发送消息</button>
-    <div>最新消息: {{ data }}</div>
+    <span>连接状态: {{ status }}</span>
+    <button @click="connect">连接</button>
+    <button @click="disconnect">断开</button>
+    <button @click="send('手动发送运维告警查询')">发送数据</button>
+    <p>最新接收推送: {{ latestMessage }}</p>
   </div>
 </template>
 ```
 
-### 11. 跨页多选与雪花 ID 安全状态机 (useSelection)
+#### 核心机制与生产边界说明
+
+- **假死超时主动断线**：若服务端因网络分区未按时回复 Pong，心跳状态机判定为死连接，主动关闭底层物理连接并触发指数退避重连。
+- **离线缓冲队列**：在网络重连恢复期间发送的消息会自动进入 FIFO 离线队列，就绪后自动顺序 Flush。
+
+---
+
+## 10. 高阶视觉平滑与导航调度状态机 (Visual Smoothing & Navigation Suite)
+
+### 10.1 150ms 静默延迟与 300ms 最小展示期防闪烁状态机 (useAntiFlicker)
+
+高阶加载感知防抖时序状态机，为各类异步请求提供 150ms 静默延迟（极速响应 0ms 视觉打扰）与 300ms 最小展示期（优雅平滑淡出，彻底消除 1 帧闪现震颤）。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface AntiFlickerOptions {
+  /** 静默延迟保护窗口（毫秒） @default 150 */
+  delay?: number;
+  /** 突破延迟阈值后的最小展示时长（毫秒） @default 300 */
+  minDuration?: number;
+}
+
+export function useAntiFlicker(
+  source: MaybeRefOrGetter<boolean>,
+  options?: AntiFlickerOptions,
+): Readonly<Ref<boolean>>;
+```
+
+#### 实战业务代码示例 (AntiFlickerDemo.vue)
 
 ```vue
 <script setup lang="ts">
-import { useSelection } from '@atengk/vue';
+import { ref } from 'vue';
+import { useAntiFlicker } from '@atengk/vue';
 
-interface OrderItem {
-  id: string; // 64 位雪花 Long ID
-  orderNo: string;
-  amount: number;
-}
+// 原始业务 loading 状态
+const rawLoading = ref(false);
 
-// 实例化跨页多选状态机（天然防 64 位雪花大数截断）
-const { selectedKeys, selectedRows, selectedCount, isSelected, toggle, selectAll, clear } =
-  useSelection<OrderItem>({
-    rowKey: 'id',
-  });
-
-// 模拟数据源
-const list: OrderItem[] = [
-  { id: '189389283928192831', orderNo: 'ORD-001', amount: 100 },
-  { id: '189389283928192832', orderNo: 'ORD-002', amount: 200 },
-];
+// 包装防闪烁时序保护状态
+const smoothLoading = useAntiFlicker(rawLoading, {
+  delay: 150,
+  minDuration: 300,
+});
 </script>
 
 <template>
-  <div>
-    <p>已勾选: {{ selectedCount }} 项 (IDs: {{ selectedKeys.join(', ') }})</p>
-    <button @click="selectAll(list)">全选本页</button>
-    <button :disabled="selectedCount === 0" @click="clear">清空勾选</button>
-
-    <ul>
-      <li v-for="item in list" :key="item.id">
-        <input type="checkbox" :checked="isSelected(item)" @change="toggle(item)" />
-        {{ item.orderNo }} - ￥{{ item.amount }}
-      </li>
-    </ul>
+  <div class="panel">
+    <!-- 极速接口（50ms）：smoothLoading 全程保持 false，用户零视觉打扰 -->
+    <!-- 慢速接口（500ms）：突破 150ms 后激活展示，且保证平滑展示至少 300ms -->
+    <div v-if="smoothLoading" class="loading-spinner">加载中...</div>
   </div>
 </template>
 ```
 
-### 12. 多标签页状态机进阶：KeepAlive 调度与本地持久化 (useTabsNav)
+#### 核心机制与生产边界说明
+
+- **时序对撞处理**：若源状态在延迟窗口内迅速归零（例如 50ms 极速返回），定时器立即注销，指示器从未展示；若耗时超过 150ms 激活后又在 180ms 归零，定时器将自动补齐剩余 270ms 展示期后才优雅淡出，消除视觉跳跃。
+- **作用域确定性清理**：在 `onScopeDispose` 中自动清空内部所有活跃定时器。
+
+---
+
+### 10.2 多标签页调度、FIFO 容量淘汰与 KeepAlive 缓存名单 (useTabsNav)
+
+企业级多标签页纯算法无头响应式状态机，负责标签增删查改、固定防关 (Affix)、FIFO 超限自动淘汰、KeepAlive 缓存视图清单计算 (`cachedViews`) 与局部刷新调度。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface TabItem {
+  key: string;
+  title: string;
+  closable?: boolean;
+  affix?: boolean; // 固钉保护（不可关闭，锁定在最前）
+  componentName?: string; // 对应 Vue SFC 组件 name，供 KeepAlive 缓存使用
+  meta?: Record<string, unknown>;
+}
+
+export interface UseTabsNavOptions {
+  defaultTabs?: TabItem[];
+  defaultActiveKey?: string;
+  maxTabs?: number; // 最大打开标签数量，超限按 FIFO 淘汰最早未固定的非激活项
+  persistKey?: string; // 本地会话持久化键名
+  storageType?: 'session' | 'local';
+  onRefresh?: (key: string) => Promise<void> | void;
+  onClose?: (key: string, tab: TabItem) => void;
+}
+
+export interface UseTabsNavReturn {
+  tabs: Ref<TabItem[]>;
+  activeKey: Ref<string>;
+  cachedViews: ComputedRef<string[]>; // 传递给 <KeepAlive :include="cachedViews">
+  openTab: (tab: TabItem) => void;
+  closeTab: (key: string) => void;
+  closeOthers: (key?: string) => void;
+  closeLeft: (key?: string) => void;
+  closeRight: (key?: string) => void;
+  closeAll: () => void;
+  refreshTab: (key?: string) => Promise<void>;
+  pinTab: (key: string, pinned?: boolean) => void;
+}
+```
+
+#### 实战业务代码示例 (TabsNavDemo.vue)
 
 ```vue
 <script setup lang="ts">
 import { useTabsNav } from '@atengk/vue';
 
-const {
-  tabs,
-  activeKey,
-  cachedViews,
-  openTab,
-  closeTab,
-  closeOthers,
-  refreshTab,
-  pinTab,
-  moveTab,
-} = useTabsNav({
-  defaultActiveKey: '/dashboard',
+const { tabs, activeKey, cachedViews, openTab, closeTab, closeOthers, refreshTab } = useTabsNav({
+  defaultActiveKey: '/workbench',
   defaultTabs: [
-    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
-    { key: '/system/user', title: '用户列表', componentName: 'UserList' },
-    { key: '/system/role', title: '角色权限', componentName: 'RoleList' },
+    { key: '/workbench', title: '工作台首页', affix: true, componentName: 'WorkbenchView' },
+    { key: '/product/sku', title: '商品中心', componentName: 'ProductSkuView' },
   ],
-  maxTabs: 10, // 超限时 FIFO 淘汰最早非固定标签
-  persistKey: 'MY_APP_TABS', // 本地持久化缓存 Key
-  storageType: 'session', // 可选 'local' | 'session'
-  onRefresh: async key => {
-    // 局部刷新钩子通知
-    console.log(`页面 ${key} 正在局部刷新重载`);
-  },
+  maxTabs: 10,
 });
-
-// 手动触发指定页面局部物理重新挂载（从 cachedViews 瞬态剔除下一帧加回）
-const onRefreshCurrent = () => {
-  refreshTab(activeKey.value);
-};
-
-// 拖拽调序（普通标签不能移至固定标签之前，内置防呆）
-const onDragReorder = (fromIdx: number, toIdx: number) => {
-  moveTab(fromIdx, toIdx);
-};
 </script>
+
+<template>
+  <div class="layout-tabs">
+    <!-- 标签栏渲染 -->
+    <div class="tabs-bar">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="{ active: tab.key === activeKey }"
+        @click="activeKey = tab.key"
+      >
+        <span v-if="tab.affix">📌</span>
+        {{ tab.title }}
+        <span v-if="!tab.affix" @click.stop="closeTab(tab.key)">×</span>
+      </button>
+    </div>
+
+    <!-- KeepAlive 路由视口联动 -->
+    <router-view v-slot="{ Component }">
+      <KeepAlive :include="cachedViews">
+        <component :is="Component" :key="activeKey" />
+      </KeepAlive>
+    </router-view>
+  </div>
+</template>
 ```
 
----
+#### 核心机制与生产边界说明
 
-## 维度三：核心生产边界与非功能语义 (Production Boundary)
-
-- **空安全保底不变量 (Null Safety Invariant)**：
-  无论是未决状态、网络超时、业务异常还是服务端返回 `null`/`undefined`，`list` 100% 保底返回空数组 `[]`，`total` 保底返回 `0`，彻底阻断模板层白屏崩溃；
-- **多标签页 FIFO 容量淘汰与 Affix 锁定防关不变量 (TabsNav Invariant)**：
-  `useTabsNav` 内置标签容量安全上限（`maxTabs`）。当标签数量超标时，状态机按照先进先出（FIFO）算法自动淘汰最早打开的非固定标签，绝对不会淘汰带 `affix: true` 的常驻标签；固定标签不可关闭（`closeTab`、`closeOthers`、`closeAll` 均严格跳过）；拖拽调序时内置防呆逻辑，普通标签禁止被拖放至固定标签前方；
-- **KeepAlive 局部刷新零闪烁调度不变量 (RefreshTab Zero-Flicker Invariant)**：
-  `refreshTab(key)` 局部刷新时，状态机通过 `nextTick` 从 `cachedViews` 名单中瞬态剔除该组件的 `componentName`，驱动 Vue KeepAlive 彻底卸载其缓存实例，在异步钩子执行完毕后下一帧再安全将名称纳管回 `cachedViews`，实现真正开箱即用的局部物理重新挂载，彻底根绝必须刷新整页或刷新失效的痛点；
-- **跨页多选雪花 Long ID 字符串归一化不变量 (Snowflake Selection Invariant)**：
-  `useSelection` 针对后端返回的 64 位分布式大数主键（Snowflake ID），在内部一律使用 `String(key)` 进行强制类型归一化与哈希映射。内部以 `Map<string, T>` 存储跨页缓存，杜绝底层 JS Number 转换为浮点导致末位丢失和勾选错乱。同时提供 `syncWithData` 在翻页时同步更新已缓存对象的最新属性；
-- **异步竞态双重协同防御机制 (Dual Defense Invariant)**：
-  在 `useLatest` 与 `useRequest({ cancelPrevious: true })` 中，实施“物理切断 + 逻辑过期”双重防线：后发新请求触发时，一方面调用 `AbortController.abort()` 物理切断底层 HTTP 物理连接节省网络带宽；另一方面递增生成单调自增序列号，即使先发慢请求底层不支持中断而在稍后 resolve/reject，其结果与异常也将在逻辑层被 100% 丢弃，彻底根绝数据时序倒挂；
-- **Blob-JSON 双态异常识别与 Excel 安全回写不变量 (Blob Error & Fesod Protocol)**：
-  `useExcel` 针对 `responseType: 'blob'` 实施双态嗅探：若响应头或载荷为 `application/json`，必须异步提取文本解析为 `Result<never>` 并转译为 `BusinessException` 抛出，彻底杜绝下载损坏伪文件；优先采用 RFC 5987 / RFC 6266 `filename*=` 提取 UTF-8 编码文件名，并在下载后由 `URL.revokeObjectURL` 确定性回收内存；
-- **大文件切片受控并发与断点续传不变量 (Chunk Upload & Concurrency Invariant)**：
-  `useUpload` 响应式桥接 `UploadCoordinator`，坚持纯原生 `Blob.prototype.slice` 算法切分文件并保证零孔洞；并发度严格受限不溢出（默认 3）；切片级局部异常采用指数退避重试而不推倒整体；在途主动 `pause()` 时物理切断未决切片请求并将状态置为 `paused`，`resume()` 仅扫描未完成切片恢复上传，实现真正的零重复传输断点续传；
-- **SSE 打字机增量响应与防分包撕裂不变量 (SSE Stream & Typewriter Invariant)**：
-  `useStream` 基于 Web 标准 `ReadableStream` 与纯原生 `SseParser`，支持跨网络分包撕裂缓冲区无损拼接，原生自动过滤大模型 `[DONE]` 终止符；支持 `autoConnect` 自动握手与 `abort()` 物理切断，在活跃作用域销毁时由 `tryOnScopeDispose` 确定性注销读取器释放句柄；
-- **WebSocket 双向心跳保活与指数退避重连不变量 (WebSocket Heartbeat & Reconnect Invariant)**：
-  `useWebSocket` 基于 `@atengk/core` 的 `WebSocketClient` 架构，提供开箱即用的应用层双向心跳（`heartbeat` 定时发送 ping 并等待服务端 pong，超时自动判定假死断线重连）；内置离散抖动指数退避自动重连机制（`autoReconnect`）；开启 `bufferWhileConnecting` 时，连接就绪前发送的消息自动进入高阶离线缓冲队列并在握手成功后原子刷新清空；在组件或活跃作用域卸载时，通过 `tryOnScopeDispose` 确定性断开物理连接并注销所有事件监听与定时器句柄，彻底杜绝僵尸长连接与内存泄漏；
-- **响应式鉴权与多租户切片不变量 (Auth & Tenant Reactivity Invariant)**：
-  `useAuth` 与 `useTenant` 基于单例维度映射响应式状态，全应用跨组件即时同步；当底层 HTTP 拦截器捕获 401 触发 `authManager.handleUnauthorized()` 时，响应式登录态自动清理为未登录；`tenantManager` 租户切换时全应用无缝响应重绘；
-- **提交防刷与防死锁互斥锁不变量 (Idempotent Mutex & Deadlock Prevention Invariant)**：
-  `useIdempotent` 针对写操作严格维持 `executing` 执行中独占互斥锁，连击请求直接阻断；同时配备可配置的安全 `timeout` 熔断机制，超时后确定性自动释放互斥锁，杜绝前端死锁卡死；
-- **状态单向流与只读保护 (Readonly Reactivity Invariant)**：
-  对外暴露的响应式状态（`pageNum`、`pageSize`、`total`、`list`、`loading`、`error`、`data`、`token`、`tenantId`、`executing`、`exporting`、`status`、`uploading`、`progress`、`chunks`、`text`、`isStreaming`、`isOpen`、`isClosed`、`reconnectAttempt`）统一通过 `readonly()` 包裹导出，严禁在调用方外部就地修改；
-- **确定性生命周期回收**：
-  所有异步状态机在组件或活跃作用域销毁时，均通过 `tryOnScopeDispose` 自动物理切断未决请求（`AbortController` / WebSocket 连接）并销毁定时器。
+- **KeepAlive 局部刷新机制**：调用 `refreshTab(key)` 时，状态机会在微任务队列中瞬态将目标组件名称从 `cachedViews` 清单中移除并触发 DOM 重新渲染（销毁旧实例），待 `nextTick` 后自动回填，实现对单一页面的无刷新热重载。
 
 ---
 
-## 维度四：物理排版与代码全真验证
+## 11. 完整 TypeScript 接口与类型清单 (全量速查附录)
 
-所有示例均经过内部单元测试（[useSelection.test.ts](./test/useSelection.test.ts)、[useRequest.test.ts](./test/useRequest.test.ts)、[usePagination.test.ts](./test/usePagination.test.ts)、[useLatest.test.ts](./test/useLatest.test.ts)、[useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts)、[useIdempotent.test.ts](./test/useIdempotent.test.ts)、[useExcel.test.ts](./test/useExcel.test.ts)、[useUpload.test.ts](./test/useUpload.test.ts)、[useStream.test.ts](./test/useStream.test.ts)、[useWebSocket.test.ts](./test/useWebSocket.test.ts)、[context.test.ts](./test/context.test.ts)、[utils.test.ts](./test/utils.test.ts)、[index.test.ts](./test/index.test.ts)）与 `apps/sample-vue` 1:1 镜像自验工程全真运行验证。
+```ts
+// 1. 全局配置上下文
+export interface AtengVueOptions {
+  defaultPageSize?: number;
+  httpClient?: HttpClient;
+  autoConnectStream?: boolean;
+  autoConnectWebSocket?: boolean;
+}
+
+export interface AtengVueContext {
+  defaultPageSize: number;
+  httpClient: HttpClient | null;
+  autoConnectStream: boolean;
+  autoConnectWebSocket: boolean;
+}
+
+// 2. 异步请求状态机
+export interface UseRequestOptions<TData, TParams extends unknown[]> {
+  manual?: boolean;
+  defaultParams?: TParams;
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
+  pollingInterval?: number;
+  onSuccess?: (data: TData, params: TParams) => void;
+  onError?: (error: BusinessException, params: TParams) => void;
+}
+
+// 3. 契约分页状态机
+export interface UsePaginationOptions<TItem, TQuery extends PageQuery = PageQuery> {
+  defaultPageSize?: number;
+  defaultCurrent?: number;
+  defaultParams?: Partial<TQuery>;
+  defaultSortField?: string;
+  defaultSortAsc?: boolean;
+  refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
+}
+
+// 4. 跨页多选状态机
+export interface UseSelectionOptions<T> {
+  rowKey?: keyof T | ((row: T) => string | number | bigint);
+  initialSelected?: T[];
+}
+
+// 5. 异步竞态双重防御
+export interface UseLatestOptions<TResult> {
+  onSuccess?: (data: TResult) => void;
+  onError?: (error: unknown) => void;
+}
+
+// 6. 防刷防重互斥锁
+export interface UseIdempotentOptions {
+  timeout?: number;
+  onDuplicate?: () => void;
+}
+
+// 7. 防闪烁时序状态机
+export interface AntiFlickerOptions {
+  delay?: number;
+  minDuration?: number;
+}
+
+// 8. 多标签页状态机
+export interface TabItem {
+  key: string;
+  title: string;
+  closable?: boolean;
+  affix?: boolean;
+  componentName?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface UseTabsNavOptions {
+  defaultTabs?: TabItem[];
+  defaultActiveKey?: string;
+  maxTabs?: number;
+  persistKey?: string;
+  storageType?: 'session' | 'local';
+  onRefresh?: (key: string) => Promise<void> | void;
+  onClose?: (key: string, tab: TabItem) => void;
+}
+```
