@@ -86,6 +86,10 @@ _Avoid_: check, validate, verify, ensure
 
 ## 文件传输原语
 
+**BlobDualState**:
+二进制流响应中的双态异常识别机制，自动探测 application/json 业务错误并转译为 BusinessException，彻底杜绝损坏假文件落地。
+_Avoid_: BlobError, FileErrorCheck, FakeFileDetector, BinaryExceptionHandler
+
 **UploadCoordinator**:
 大文件分片受控并发上传协调器，支持切片切分、并发度限制、总进度汇报与单片重试。
 _Avoid_: Uploader, UploadManager, SliceHelper, BigFileWorker
