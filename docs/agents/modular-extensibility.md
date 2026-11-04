@@ -19,7 +19,7 @@ _(注：新模块孵化完成后，后续的存量加固、深度重构与全场
    - `package.json` 显式配置 `"sideEffects": false`（若包含组件样式文件，仅收敛为 `"sideEffects": ["*.css", "*.scss"]`）；顶级入口 `index.ts` 纯声明式导出，实现极致 Tree-Shaking 零副作用残留。
 3. **专属自包含文档 (Sample-First 逆向提取)**：
    - 子模块根目录标配专属 `README.md`，文档中的所有 TypeScript / Vue 代码示例必须 100% 逆向提取自对应 Sample 中已跑通的真实端到端场景；
-   - 严格遵循“五维生产就绪交付模型”，核心显要位置 100% 收录全景速查矩阵（收录所有公开门面、方法、Hooks、组件 Props/Emits/Slots、类型定义与指令）。
+   - 严格遵循 [docs/agents/documentation-specification.md](./documentation-specification.md) 与 [ADR-0039](../adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md)，核心显要位置 100% 收录全景速查矩阵，正文全面推行“类型-代码-原理”三要素就近闭环、能力领域大章收敛与真实业务语义驱动（严禁测试桩假数据）。
 4. **领域拓扑与上下文映射 (Domain & Multi-Context Invariant)**：
    - 子包配备独立的 `packages/<name>/CONTEXT.md`（严格恪守纯领域词汇表定位，定义核心概念术语与 Avoid 负面词汇，严禁堆砌长篇实现代码）；
    - 在根目录 `CONTEXT-MAP.md` 中显式登记所属层级（L0~L3）与合法依赖边界，严格遵循自顶向下单向流动，严禁产生跨层逆向依赖与跨包循环依赖。
@@ -59,7 +59,8 @@ _(注：新模块孵化完成后，后续的存量加固、深度重构与全场
   2. **响应式与存储零污染**：Pinia/Vuex、Storage 适配器或 Token 凭据在 `beforeEach`/`afterEach` 中无条件执行重置与清空；
   3. **100% 离线自洽**：基于 MSW 或 Vitest Mock 拦截网络，绝对严禁向外部真实物理网络发起 HTTP 请求；
 - **自包含与零共享**：各场景工程完全独立自洽，严禁在样例工程之间建立依赖，严禁抽取跨样例共享代码；
-- **非分发属性声明**：样例工程自身标配声明 `"private": true`，杜绝将测试工程封包发布至 npm。
+- **非分发属性声明**：样例工程自身标配声明 `"private": true`，杜绝将测试工程封包发布至 npm；
+- **四段式极简体验卡模板**：样例工程自身的 `README.md` 统一定位为“启动与场景交互体验卡”，严格采用端口与启动、Mock 双模、核心场景路由表与全真回归命令四段式骨架（详见 [docs/agents/documentation-specification.md](./documentation-specification.md)），严禁重复堆砌原理。
 
 ---
 

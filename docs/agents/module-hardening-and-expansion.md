@@ -114,14 +114,15 @@ flowchart TD
 
 ### 【阶段四：五维生产文档与 100% 全景矩阵闭环（5D Documentation）】
 
-对齐已跑通的源码与测试，全面更新子模块 `README.md`，达成五维交付：
+对齐已跑通的源码与测试，严格按照 [docs/agents/documentation-specification.md](./documentation-specification.md) 与 [ADR-0039](../adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md) 全面更新子模块 `README.md` 与 Sample `README.md`，达成五维交付：
 
 1. **维度零：100% 全景速查矩阵**：以标准 Markdown 表格收录该模块**所有对外暴露的公共门面、方法、Hooks、组件 Props/Emits/Slots、类型定义与指令**（100% 全覆盖，彻底杜绝隐形死代码）；
 2. **维度一：最小起步体验**：直击场景痛点与开箱即用的极简实战代码；
 3. **维度二：生产扩展接管**：企业级定制接入、配置注入与拦截扩展范式；
 4. **维度三：核心生产边界与非功能语义**：并发竞态控制、大数安全防截断、重试与取消令牌销毁、内存确定性释放底层机制；
-5. **维度四：全真代码逆向提取**：示例代码与配置 100% 逆向提取自已跑通的 Sample 与单测，表格反引号规范转义防破损；
-6. 同步维护模块内词汇表 `packages/[MODULE_NAME]/CONTEXT.md` 与根目录 `CONTEXT-MAP.md`。
+5. **维度四：全真代码逆向提取与三要素就近闭环**：正文各特性小节严格闭环“类型/Props 契约 + 实操业务代码 + 核心机制防御”三要素，同类能力按大章聚合收敛，严禁测试桩假数据；
+6. **Sample README 四段式极简体验卡**：样例工程 `README.md` 按固定端口、Mock 双模、核心场景路由表与全真回归命令四段式骨架更新，严禁重复堆砌原理；
+7. 同步维护模块内词汇表 `packages/[MODULE_NAME]/CONTEXT.md` 与根目录 `CONTEXT-MAP.md`。
 
 ---
 
@@ -131,7 +132,8 @@ flowchart TD
 
 - [ ] 阶段一《前端企业级全场景矩阵》与诊断报告已在 Artifact 目录生成；
 - [ ] 梳理出的缺失高频场景功能与核心 API 加固完成，十二道防线无红线触碰；
-- [ ] 样例工程按真实业务场景命名，100% 覆盖新增/加固特性的可运行用例；
+- [ ] 样例工程按真实业务场景命名，100% 覆盖新增/加固特性的可运行用例，具备可视化场景看板；
 - [ ] 定向精准加速测试（`typecheck` + `lint` + `test` + `build`）全部 PASS；
+- [ ] 子包与 Sample 严格对齐 [docs/agents/documentation-specification.md](./documentation-specification.md)，落实“三要素就近闭环”、能力大章收敛与 Sample 四段式极简体验卡；
 - [ ] 子模块 `README.md` 包含 100% 覆盖度的全景速查矩阵，示例代码完全真实可运行且 1:1 逆向提取；
 - [ ] 领域词汇表 `CONTEXT.md` 与全局 `CONTEXT-MAP.md` 同步更新完毕。

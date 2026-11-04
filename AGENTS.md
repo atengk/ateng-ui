@@ -121,7 +121,13 @@
     6. 集合查询未保底返回 `[]`，或监听资源未在销毁钩子中确定性清理；
     7. 雪花 ID 大数未经字符串正则化直接穿透造成数字截断；
     8. 底层核心包（`@atengk/core`）渗入 Vue 或 React 专有响应式类型、框架钩子或运行时依赖；
-    9. 新增/修改的公开功能未在 Sample 提供端到端真实用例、未通过自动化构建/单测验证、或文档示例未经 Sample 真实跑通（必须严格遵循“Sample-First 自动化实测闭环铁律”）。
+    9. 文档与 Sample 审查六大红线（触碰任一即阻断准出）：
+       - **【类型/配置脱节红线】**：子包 README 章节中仅展示调用代码，未就近声明关键 Props/Options 强类型接口或 CSS 变量规范；
+       - **【章节散落割裂红线】**：同一技术领域或组件族的功能因分批开发被切分为分散的多章，未按领域大章收敛聚合；
+       - **【测试桩生搬硬套红线】**：文档或 Sample 中充斥着 `test1`、`dummy`、`key1` 等无现实意义的测试桩假数据，未演化为真实高频业务语义模型；
+       - **【缺少场景看板或单文件臃肿红线】**：Sample 工程缺少可视化场景看板、仅靠 `console.log` 敷衍，或将全量功能塞在单个庞大臃肿的 `App.vue` 中未进行场景解耦；
+       - **【Sample 文档膨胀红线】**：Sample 自身的 `README.md` 未遵循四段式极简体验卡模板，存在冗余的原理抄录或全景表格；
+       - **【伪代码凭空脑补红线】**：文档中的 Vue/TS 示例代码或配置未真实在 Sample 中编译通过并验证（严守“Sample-First 自动化实测闭环铁律”）。
   - ⚠️ **黄牌限期整改项 (Yellow Warning)**：
     1. 新建源码顶部遗漏 `@author Ateng` 或 `@since`；
     2. 流程注释步骤编号不连续或存在孤立步骤号；
@@ -179,8 +185,19 @@
   3. **维度二：生产扩展接管 (Customization & Extensibility)**：当默认行为无法满足企业级定制时，开发者如何扩展或接管（如自定义 Axios 实例、注入私有 Storage 适配器、自定义表格列插槽等，杜绝只教开箱不教定制）；
   4. **维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)**：显式声明该模块在极端、高并发或复杂场景下的底层行为机制（如大数精度防截断边界、超时熔断策略、网络重试与取消令牌销毁、内存防泄露等，杜绝非功能黑盒）；
   5. **维度四：物理排版与代码全真验证 (Evergreen & Zero-Glitch)**：示例代码必跑通并锚定单测、Props 逐字对齐 TypeScript 类型定义、Markdown 代码块严格闭合无破损，严禁格式事故与伪代码。
+  - **“类型-代码-原理”就近闭环三要素**：各特性章节必须在当前屏幕内同时提供：①本特性专属 TypeScript 契约/Props 片段（带 JSDoc 注释与生产合理默认值）、②面向实战的业务 Vue/TS 示例（100% 逆向提取自已跑通的 Sample 真实看板）、③核心机制与生产边界防御说明；坚决杜绝“正文只讲调用，Props/类型扔在几百行后文末”的脱节现象；文末 TypeScript 接口清单仅作为全量速查附录，严禁作为唯一暴露点；
+  - **“能力领域大章”收敛架构**：同类功能强制按业务领域或交互组件族聚合为一级大章，下设二级小节；坚决严禁因分批开发而在文档末尾随意追加零散割裂的小章节；
+  - **“真实业务语义场景驱动”铁律**：坚决严禁将单元测试桩假数据（如 `test1`、`dummyData`、`foo/bar`）无脑复制到文档中；所有文档与 Sample 示例必须演化为真实高频前端业务模型（表格分页、大文件切片上传、抗竞态搜索、长连终端等），单测负责验证底层边界，文档负责输出生产级业务代码范式；
+  - 详细编写指南与标准大纲模板详见专职标准 [docs/agents/documentation-specification.md](./docs/agents/documentation-specification.md) 与 [ADR-0039](./docs/adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md)。
 
 - **“Sample-First 研发闭环与 100% 场景实测铁律” (Sample-Before-Docs & 100% Feature Coverage Invariant)**：
+  - **分层弹性场景看板与 Mock 双模机制**：
+    - **L0 纯 TS 原生工程**（`sample-core`, `sample-monitor`）：纯 TypeScript 原生环境，严禁引入 Vue/UI 库，在 `src/scenarios/*` 或独立脚本中编写场景逻辑，页面挂载原生 DOM 协议触发器高亮展示执行结果；
+    - **L1 无头 / L2 扩展工程**（`sample-vue`, `sample-file-viewer-vue`, `sample-echarts-vue` 等）：按领域在 `src/components/*Scenario.vue` 构建独立场景看板组件，单页 Tab 驱动监视状态机；
+    - **L3 UI 表现层工程**（`sample-element-plus`）：基于 `vue-router` 在 `src/views/*` 构建路由级企业展厅；
+    - **离线 Mock 与网关双模**：默认通过 Vite Mock / MSW 提供 100% 离线自洽数据；支持通过 `.env.local` 代理直连真实后端网关服务。
+  - **Sample README 四段式极简体验卡模板**：
+    样例工程自身的 `README.md` 统一定位为**“启动与场景交互体验卡”**，严格遵循 [docs/agents/documentation-specification.md](./docs/agents/documentation-specification.md) 规定的四段式骨架（固定端口与启动命令、环境与 Mock 双模切换、核心场景看板与交互路由表、全真自动化回归命令）；严禁在 Sample README 中重复堆砌子包的全景矩阵与架构原理长文。
   - **功能 100% 场景对齐刚性铁律**：模块实现的每一个对外公开功能（包括所有公开组件、Hooks、工具函数与指令），**必须 100% 在归属的 `apps/sample-*` 镜像工程中提供真实、自洽、端到端可运行的演示用例**，严禁只在子模块局部单测写 Mock 而在 Sample 中缺位！
     - **网络与契约特性**（`@atengk/core`）：必须在 `apps/sample-core` 编写对应的原生 TS 调用与 Mock 联调；
     - **响应式 Hooks 特性**（`@atengk/vue`）：必须在 `apps/sample-vue` 编写极简 Vue 视图驱动验证；
@@ -256,6 +273,9 @@
        - [ ] **Sample 端到端自动化自验**：模块新增/修改特性的可运行用例是否已在归属的 `apps/sample-*` 完整挂载，且通过定向测试与构建（`pnpm --filter <pkg> --filter <sample> test` / `build`）100% 验证通过？
        - [ ] **Sample-First 逆向闭环**：`README.md` 中的所有 Vue/TS 示例代码与输出结果，是否 100% 提取自上述已验证跑通的 Sample 工程？
        - [ ] **全景速查矩阵**：模块新增/修改的所有公共组件、API、类型与指令是否 100% 入表？
+       - [ ] **“类型-代码-原理”就近闭环**：文档各特性章节是否在当前屏幕内闭环专属 TypeScript Props/Options 契约、真实业务代码与核心机制边界防御？
+       - [ ] **能力大章收敛与真实语义**：文档是否按领域大章聚合收敛？示例代码是否 100% 演化为真实高频业务模型并根除 `test1` 等测试桩？
+       - [ ] **Sample 场景看板与四段式体验卡**：Sample 工程是否按领域拆分为多场景看板组件并具备直观可视化交互？Sample `README.md` 是否严格遵循四段式极简体验卡规范？
        - [ ] **代码-文档真理一致性**：文档中展示的代码是否直接截取自已跑通的单测/Sample？组件 Props 与函数签名是否完全对齐？
        - [ ] **十二道成熟度防线自检**：是否通过空安全保底返回 `[]`、确定性生命周期清理、严格单向流、对称门面、边界 Fail-Fast、因果异常转译、零裸 `any`、无头与 UI 解耦等全部 12 项检查？
        - [ ] **单测环境隔离**：是否在 `afterEach` 中执行 DOM 节点销毁（`wrapper.unmount()`）、清空 Storage 状态、100% 离线 Mock 自洽？
@@ -266,6 +286,7 @@
      - **审查红牌阻断 (Red Card Gate)**：调用 `/code-review` 开展双轴审查；若审查发现模块公开功能在 Sample 中缺位、未通过端到端自动化验证、文档示例未经 Sample 真实跑通、文档漏写公开功能，或触碰成熟度红线，一律出具红牌阻断，强制返修直至双绿；
   4. **受控提交**：按第 5 节执行受控提交并推送（代码与文档同工单同提交原子交付）；
   5. **闭环**：守护 CI 监控至全绿，通过文件回写验收清单与提交哈希（`gh issue comment <n> -F <file>`），关闭工单（`gh issue close <n>`）。
+- **前端工业级文档与样例工程标准 (Documentation & Sample Spec)**：编写或维护任何子包 `README.md` 与 Sample 体验工程时，严格遵循 [docs/agents/documentation-specification.md](./docs/agents/documentation-specification.md) 与 [ADR-0039](./docs/adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md)（三要素就近闭环、能力大章收敛、真实业务场景驱动、分层场景看板、离线 Mock 双模与四段式极简体验卡）。
 - **模块孵化与扩展通用标准 (Modular Extensibility SOP)**：孵化全新子包（0 到 1 阶段）时，遵循 [docs/agents/modular-extensibility.md](./docs/agents/modular-extensibility.md)（含六件套门禁、L0~L3 拓扑、分层沙箱及本地加速验证）。
 - **存量模块加固与全场景演进规范 (Module Hardening SOP)**：对存量子包进行加固、重构或全场景能力补齐（1 到 N 阶段）时，遵循 [docs/agents/module-hardening-and-expansion.md](./docs/agents/module-hardening-and-expansion.md)（可通过 `@docs/agents/module-hardening-and-expansion.md <module-name> [focus]` 快速调度）。
 - **工单操作与 CLI 规范 (Issue Tracker & CLI)**：操作 GitHub Issues / PR 或编写终端命令时，遵循 [docs/agents/issue-tracker.md](./docs/agents/issue-tracker.md)（含特殊字符引号包裹、`-F` 文件回写防截断及 Wayfinding 路线图映射）。
