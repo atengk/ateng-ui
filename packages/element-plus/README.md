@@ -1553,78 +1553,1372 @@ const floorNavItems: AtengAnchorItem[] = [
 
 ---
 
-## 维度二：生产扩展接管 (Customization & Extensibility)
+## 6. 模态交互、多态反馈与加载套件 (Modal, Polymorphic Feedback & Loading Suite)
 
-### 1. 字典套件数据源接管与并发去重 (`DictManager`)
+中后台应用中的弹窗、抽屉与反馈组件承载了极高密度的表单编辑与状态展示。本套件深度集成异步防重锁、表单自动校验流转、分帧延迟挂载与无遮罩防闪烁架构，全面护航企业级交互体验。
 
-`DictManager` 采用单例无状态与纯内存缓存架构：
+---
+
+### 6.1 硬件图层加速、表单自动校验与优雅防误关弹窗 (`AtengDialog`)
+
+`AtengDialog` 解决传统 `el-dialog` 在承载复杂大表单时容易卡顿掉帧、异步提交逻辑与关闭时机耦合、用户误触遮罩层丢失未保存数据等核心痛点。
+
+#### 本节专属 TypeScript 契约片段
 
 ```ts
-import { DictManager, type DictItem } from '@atengk/element-plus';
+import type { VNode, MaybeRefOrGetter } from 'vue';
+import type { FormInstance } from 'element-plus';
 
-// 1. 注册全局字典数据源 Provider
-DictManager.setProvider(async (dictCode: string): Promise<DictItem[]> => {
-  const result = await http.get(`/system/dict/data/type/${dictCode}`);
-  return result.data.map(item => ({
-    label: item.dictLabel,
-    value: item.dictValue,
-    tagType: item.listClass,
-  }));
-});
+export interface AtengDialogProps {
+  modelValue: boolean;
+  title?: string;
+  width?: string | number; // 默认 '50%'
+  fullscreen?: boolean; // 受控全屏
+  showFullscreen?: boolean; // 是否显示全屏切换按钮，默认 true
+  draggable?: boolean; // 是否支持原生拖拽，默认 true
+  maxHeight?: string | number; // 默认 'calc(100vh - 160px)'
+  confirmText?: string; // 默认 '确定'
+  cancelText?: string; // 默认 '取消'
+  showConfirm?: boolean; // 默认 true
+  showCancel?: boolean; // 默认 true
+  confirmLoading?: boolean; // 确定按钮 loading 状态（受控模式）
+  beforeConfirm?: () => Promise<boolean | void> | boolean | void; // 异步确认钩子
+  formRef?: MaybeRefOrGetter<FormInstance | undefined | null>; // 自动关联表单实例进行校验
+  confirmOnClose?: boolean; // 关闭前二次防误触确认，默认 false
+  confirmOnCloseText?: string; // 提示文案
+  beforeClose?: (done: () => void) => void; // 自定义关闭拦截
+  closeOnClickModal?: boolean; // 默认 false（防误触丢失数据）
+  closeOnPressEscape?: boolean; // 默认 true（loading 期间强制禁用）
+  destroyOnClose?: boolean; // 默认 false
+  appendToBody?: boolean; // 默认 true
+  lazyRender?: boolean; // 分帧延迟挂载（展开动效完成再挂载复杂子组件）
+  customClass?: string;
+}
 
-// 2. 局部组件覆盖数据源（优先级高于全局 Provider）
-<AtengDictSelect v-model="role" :loader="fetchCustomRoleList" />
+export interface AtengDialogEmits {
+  (e: 'update:modelValue', value: boolean): void;
+  (e: 'update:fullscreen', value: boolean): void;
+  (e: 'confirm'): void;
+  (e: 'cancel'): void;
+  (e: 'success'): void;
+  (e: 'open'): void;
+  (e: 'opened'): void;
+  (e: 'close'): void;
+  (e: 'closed'): void;
+  (e: 'fullscreenChange', fullscreen: boolean): void;
+}
 
-// 3. 字典多选框组（支持全选快捷复选框与逗号分隔字符串双向解构绑定）
-<AtengDictCheckbox
-  v-model="selectedTags"
-  dict-code="sys_notice_level"
-  separator=","
-  show-check-all
-  button
-/>
+export interface AtengDialogFooterScope {
+  confirm: () => Promise<void>;
+  cancel: () => void;
+  loading: boolean;
+}
 
-// 4. 内存缓存穿透刷新
-await DictManager.loadDict('sys_user_status', undefined, true);
-
-// 5. 批量预热与字段解耦映射 (Ticket #115)
-// 页面初始化或登录后批量拉取多字典并常驻内存
-await DictManager.preload(['sys_user_status', 'sys_notice_level']);
-
-// 组件级别自定义字段映射与数字/字符串跨类型弱比对防呆
-<AtengDictSelect
-  v-model="status"
-  dict-code="sys_user_status"
-  :mapping="{ label: 'title', value: 'code' }"
-  type-weak-match
-  emit-item
-  @change-item="item => console.log('选中项:', item)"
-/>
+export interface AtengDialogExpose {
+  toggleFullscreen: () => void;
+  confirm: () => Promise<void>;
+  cancel: () => void;
+}
 ```
 
-### 2. 双字段解构绑定、业务预设周期与禁用策略 (`AtengDateRange`)
-
-针对后端接口通常拆分为 `beginTime` 与 `endTime` 两个离散入参的常见痛点，`AtengDateRange` 深度内置双字段解构绑定协议与预置常用业务周期：
+#### 实战业务 SFC 代码示例
 
 ```vue
-<!-- 双向双字段解构绑定，并在选择单日时自动补全为 00:00:00 与 23:59:59 -->
-<AtengDateRange
-  v-model:start="query.beginTime"
-  v-model:end="query.endTime"
-  :auto-time="true"
-  value-format="YYYY-MM-DD HH:mm:ss"
-/>
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import {
+  ElButton,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElSelect,
+  ElOption,
+  ElMessage,
+  type FormInstance,
+  type FormRules,
+} from 'element-plus';
+import { AtengDialog, type AtengDialogInstance } from '@atengk/element-plus';
 
-<!-- 业务预设周期快捷拉取、未来日期禁用与最大跨度限制 (Ticket #116) -->
-<AtengDateRange
-  v-model:start="query.beginTime"
-  v-model:end="query.endTime"
-  preset="last7Days"
-  disable-future
-  :max-range-days="90"
-  value-format="YYYY-MM-DD HH:mm:ss"
-/>
+interface AdminAccountForm {
+  username: string;
+  realName: string;
+  roleId: string;
+  phone: string;
+  email: string;
+}
+
+const dialogRef = ref<AtengDialogInstance>();
+const visible = ref(false);
+const formRef = ref<FormInstance>();
+
+const formState = reactive<AdminAccountForm>({
+  username: '',
+  realName: '',
+  roleId: '',
+  phone: '',
+  email: '',
+});
+
+const rules: FormRules = {
+  username: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
+  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
+  roleId: [{ required: true, message: '请选择系统权限角色', trigger: 'change' }],
+  phone: [
+    { required: true, message: '请输入手机号码', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' },
+  ],
+};
+
+// 提交业务异步 API：返回 Promise，自动触发 loading 锁与结果判断
+const handleSubmitAdmin = async (): Promise<void> => {
+  // 1. 发起网络请求（耗时操作）
+  await new Promise(resolve => setTimeout(resolve, 1200));
+
+  // 2. 模拟业务反馈与成功提示
+  ElMessage.success(`管理员账号 [${formState.username}] 保存成功！`);
+  // 返回 void 或 true，AtengDialog 捕获后将自动关闭弹窗并派发 @success 事件
+};
+
+const handleOpen = () => {
+  formState.username = 'ops_admin';
+  formState.realName = '运维管理员';
+  formState.roleId = 'super_admin';
+  formState.phone = '13800138000';
+  formState.email = 'admin@example.org';
+  visible.value = true;
+};
+</script>
+
+<template>
+  <div class="dialog-showcase">
+    <ElButton type="primary" @click="handleOpen">
+      编辑系统管理员资料 (集成自动校验与防误关)
+    </ElButton>
+
+    <AtengDialog
+      ref="dialogRef"
+      v-model="visible"
+      title="编辑系统管理员资料"
+      width="640px"
+      :form-ref="formRef"
+      :before-confirm="handleSubmitAdmin"
+      confirm-on-close
+      confirm-on-close-text="当前管理员资料存在未提交变更，确定放弃并退出吗？"
+      draggable
+      show-fullscreen
+      lazy-render
+      @success="() => console.log('保存成功并已关闭')"
+    >
+      <ElForm ref="formRef" :model="formState" :rules="rules" label-width="110px" status-icon>
+        <ElFormItem label="登录账号" prop="username">
+          <ElInput v-model="formState.username" placeholder="请输入系统登录账号" />
+        </ElFormItem>
+        <ElFormItem label="真实姓名" prop="realName">
+          <ElInput v-model="formState.realName" placeholder="请输入用户真实姓名" />
+        </ElFormItem>
+        <ElFormItem label="所属角色" prop="roleId">
+          <ElSelect
+            v-model="formState.roleId"
+            placeholder="请选择分配的系统角色"
+            style="width: 100%"
+          >
+            <ElOption label="超级管理员 (SuperAdmin)" value="super_admin" />
+            <ElOption label="安全审计员 (SecurityAuditor)" value="auditor" />
+            <ElOption label="普通操作员 (Operator)" value="operator" />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="联系手机" prop="phone">
+          <ElInput v-model="formState.phone" placeholder="请输入常用联系手机" />
+        </ElFormItem>
+        <ElFormItem label="电子邮箱" prop="email">
+          <ElInput v-model="formState.email" placeholder="请输入办公电子邮箱" />
+        </ElFormItem>
+      </ElForm>
+    </AtengDialog>
+  </div>
+</template>
 ```
+
+#### 核心机制与生产边界说明
+
+1. **`formRef` 契约自动前置校验流转**：接受 `MaybeRefOrGetter<FormInstance>` 传入。点击确定按钮时，`AtengDialog` 自动静默触发 `formRef.validate()`：
+   - 若表单校验未通过：立即就地阻断，**绝不进入 loading 锁定、绝不触发 `beforeConfirm`、绝不关闭弹窗**，完整保留红字错误现场；
+   - 若表单校验通过：自动为确定按钮注入 loading 态并放行 `beforeConfirm` 异步提交。
+2. **异步提交 Loading 锁与异常现场保护**：`beforeConfirm` 返回 Promise 期间，确定按钮进入 loading 锁定，并**物理禁用右上角叉号、ESC 键、遮罩层穿透与取消按钮**。若服务端抛出异常，loading 锁自动解除并保持弹窗开启，保护用户填写的长表单现场不丢失。
+3. **`confirmOnClose` 防误关二次确认拦截**：开启后，无论用户误触遮罩层、点击右上角关闭图标、按下 ESC 键或点击取消按钮，统一自动拦截并弹出二次确认弹框，杜绝意外丢失脏数据。
+4. **分帧延迟挂载 (`lazyRender`) 与 GPU 图层加速**：开启 `lazyRender` 后，弹窗在展开动画期间先呈现轻量骨架占位，待展开完成（`@opened`）后再行挂载重型复杂子组件，杜绝复杂 DOM 渲染与展开动画争抢主线程导致的掉帧卡顿。
+
+---
+
+### 6.2 响应式尺寸断点与移动端全宽抽屉 (`AtengDrawer`)
+
+`AtengDrawer` 专为系统配置抽屉、流程审批抽屉与右侧辅助面板设计，内置响应式语义尺寸断点与移动端全宽自适应能力。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { VNode, MaybeRefOrGetter } from 'vue';
+import type { FormInstance } from 'element-plus';
+
+export type AtengDrawerSize = 'small' | 'default' | 'large' | string | number;
+
+export interface AtengDrawerProps {
+  modelValue: boolean;
+  title?: string;
+  size?: AtengDrawerSize; // 'small'(360px) | 'default'(500px) | 'large'(720px)
+  direction?: 'rtl' | 'ltr' | 'ttb' | 'btt'; // 默认 'rtl'
+  withHeader?: boolean; // 默认 true
+  confirmText?: string; // 默认 '确定'
+  cancelText?: string; // 默认 '取消'
+  showConfirm?: boolean; // 默认 true
+  showCancel?: boolean; // 默认 true
+  confirmLoading?: boolean; // 确定按钮 loading 状态
+  beforeConfirm?: () => Promise<boolean | void> | boolean | void;
+  formRef?: MaybeRefOrGetter<FormInstance | undefined | null>;
+  confirmOnClose?: boolean; // 默认 false
+  confirmOnCloseText?: string;
+  beforeClose?: (done: () => void) => void;
+  closeOnClickModal?: boolean; // 默认 false
+  closeOnPressEscape?: boolean; // 默认 true
+  destroyOnClose?: boolean; // 默认 false
+  appendToBody?: boolean; // 默认 true
+  lazyRender?: boolean; // 默认 false
+  customClass?: string;
+}
+
+export interface AtengDrawerEmits {
+  (e: 'update:modelValue', value: boolean): void;
+  (e: 'confirm'): void;
+  (e: 'cancel'): void;
+  (e: 'success'): void;
+  (e: 'open'): void;
+  (e: 'opened'): void;
+  (e: 'close'): void;
+  (e: 'closed'): void;
+}
+
+export interface AtengDrawerExpose {
+  confirm: () => Promise<void>;
+  cancel: () => void;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import {
+  ElButton,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElSwitch,
+  ElMessage,
+  type FormInstance,
+} from 'element-plus';
+import { AtengDrawer } from '@atengk/element-plus';
+
+interface GatewayNodeConfig {
+  nodeName: string;
+  upstreamUrl: string;
+  weight: number;
+  enableSsl: boolean;
+  maxConnections: number;
+}
+
+const drawerVisible = ref(false);
+const nodeFormRef = ref<FormInstance>();
+
+const nodeForm = reactive<GatewayNodeConfig>({
+  nodeName: '',
+  upstreamUrl: '',
+  weight: 100,
+  enableSsl: true,
+  maxConnections: 2000,
+});
+
+const nodeRules = {
+  nodeName: [{ required: true, message: '请输入网关节点名称', trigger: 'blur' }],
+  upstreamUrl: [
+    { required: true, message: '请输入目标上游 URL', trigger: 'blur' },
+    { type: 'url', message: '必须符合合法 URL 格式', trigger: 'blur' },
+  ],
+};
+
+const handleSaveNodeConfig = async (): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  ElMessage.success(`集群网关节点 [${nodeForm.nodeName}] 配置已热更新上线！`);
+};
+</script>
+
+<template>
+  <div class="drawer-showcase">
+    <ElButton type="success" @click="drawerVisible = true">
+      配置集群网关节点 (响应式断点与全生命周期防误关)
+    </ElButton>
+
+    <AtengDrawer
+      v-model="drawerVisible"
+      title="集群网关节点配置"
+      size="default"
+      :form-ref="nodeFormRef"
+      :before-confirm="handleSaveNodeConfig"
+      confirm-on-close
+      confirm-on-close-text="配置尚未保存并同步至集群，确定要关闭抽屉吗？"
+      lazy-render
+      destroy-on-close
+    >
+      <ElForm ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-position="top">
+        <ElFormItem label="节点标识名称" prop="nodeName">
+          <ElInput v-model="nodeForm.nodeName" placeholder="例如：k8s-ingress-sg-01" />
+        </ElFormItem>
+        <ElFormItem label="上游转发目标 URL" prop="upstreamUrl">
+          <ElInput v-model="nodeForm.upstreamUrl" placeholder="https://api.internal.service:8443" />
+        </ElFormItem>
+        <ElFormItem label="负载均衡分发权重" prop="weight">
+          <ElInputNumber v-model="nodeForm.weight" :min="1" :max="1000" :step="10" />
+        </ElFormItem>
+        <ElFormItem label="最大活跃长连接数" prop="maxConnections">
+          <ElInputNumber v-model="nodeForm.maxConnections" :min="100" :max="50000" :step="500" />
+        </ElFormItem>
+        <ElFormItem label="强制启用 TLS/SSL 链路双向加密">
+          <ElSwitch v-model="nodeForm.enableSsl" />
+        </ElFormItem>
+      </ElForm>
+    </AtengDrawer>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **三阶响应式语义尺寸与移动端全宽自愈**：支持 `size="small"` (360px)、`size="default"` (500px)、`size="large"` (720px) 标准三级断点。在屏幕宽度 `< 768px` 时，内部媒体查询自动将抽屉强制切换为 `100%` 全宽，避免移动设备横向内容被挤压截断。
+2. **全周期生命周期表单与操作防重互斥**：与 `AtengDialog` 保持完全对称的异步提交与校验逻辑，`beforeConfirm` 期间互斥锁定关闭与重复触发。
+3. **分帧延迟挂载与内存彻底释放**：支持 `:lazy-render="true"` 与 `:destroy-on-close="true"`，关闭时完全销毁抽屉内容释放 DOM 内存，展开时分帧挂载，保障百万级高吞吐列表页频繁点击抽屉的平滑流畅。
+
+---
+
+### 6.3 统一 5 大语义状态缺省态与暗黑插画自适应 (`AtengEmpty`)
+
+`AtengEmpty` 收敛了中后台系统中碎片化的空状态、403 无权限、网络异常与服务器故障占位，内置 5 套纯矢量内联 SVG 插画，完美自适应深浅色主题。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { VNode } from 'vue';
+
+export type AtengEmptyStatus = 'empty' | 'search' | '403' | 'network-error' | '500';
+
+export interface AtengEmptyProps {
+  status?: AtengEmptyStatus; // 默认 'empty'
+  description?: string; // 未传时根据 status 自动呈现标准文案
+  imageSize?: number; // 默认 160
+  image?: string; // 自定义图片外链（优先级高于内置插画）
+}
+
+export interface AtengEmptySlots {
+  default?: () => VNode[]; // 底部操作按钮区域插槽
+  image?: () => VNode[]; // 自定义插画替换插槽
+  description?: () => VNode[]; // 自定义富文本描述文案插槽
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElRadioGroup, ElRadioButton, ElMessage } from 'element-plus';
+import { AtengEmpty, type AtengEmptyStatus } from '@atengk/element-plus';
+
+const currentStatus = ref<AtengEmptyStatus>('search');
+
+const handleRetry = () => {
+  ElMessage.info('已重新触发查询管道，正在连接网络服务...');
+};
+
+const handleClearFilter = () => {
+  ElMessage.success('已清空查询条件并重置列表！');
+};
+</script>
+
+<template>
+  <div class="empty-showcase">
+    <!-- 状态切换器 -->
+    <div class="status-switcher" style="margin-bottom: 24px">
+      <ElRadioGroup v-model="currentStatus">
+        <ElRadioButton value="empty">暂无数据 (empty)</ElRadioButton>
+        <ElRadioButton value="search">搜索无结果 (search)</ElRadioButton>
+        <ElRadioButton value="403">无访问权限 (403)</ElRadioButton>
+        <ElRadioButton value="network-error">网络断开 (network-error)</ElRadioButton>
+        <ElRadioButton value="500">服务开小差 (500)</ElRadioButton>
+      </ElRadioGroup>
+    </div>
+
+    <!-- 统一缺省态组件 -->
+    <div
+      class="empty-card"
+      style="padding: 40px; background: var(--el-bg-color-overlay); border-radius: 8px"
+    >
+      <AtengEmpty :status="currentStatus" :image-size="180">
+        <template #default>
+          <template v-if="currentStatus === 'search'">
+            <ElButton type="primary" @click="handleClearFilter">一键清空搜索条件</ElButton>
+          </template>
+          <template v-else-if="currentStatus === 'network-error' || currentStatus === '500'">
+            <ElButton type="primary" @click="handleRetry">重新尝试连接</ElButton>
+            <ElButton @click="() => console.log('查看诊断日志')">查看网络诊断</ElButton>
+          </template>
+          <template v-else-if="currentStatus === '403'">
+            <ElButton type="primary">申请业务角色权限</ElButton>
+          </template>
+          <template v-else>
+            <ElButton type="primary">立即新建业务记录</ElButton>
+          </template>
+        </template>
+      </AtengEmpty>
+    </div>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **5 大语义状态矩阵聚合**：标准化收敛后台场景为 `empty`（暂无数据）、`search`（未检索到匹配记录）、`403`（暂无查看权限）、`network-error`（网络连接超时或中断）、`500`（服务器故障处理失败），消灭由于各业务模块自行手写文案导致的口径不一。
+2. **纯矢量内联 SVG 与主题令牌动态自适应**：5 套内置插画采用纯 SVG 节点内联实现，颜色直接绑定 Element Plus 原生 CSS 变量（如 `--el-border-color-lighter`、`--el-text-color-primary`、`--el-color-primary-light-8`）。在切换明暗主题时，插画色彩随 CSS 变量瞬间无缝变色，**零外部网络图片请求、零资源 404 隐患**。
+3. **三维立体插槽与外链降级支持**：支持 `#default` 自定义底部操作按钮区、`#image` 自定义主插画区与 `#description` 富文本描述区，同时支持传入 `:image="customUrl"` 接入企业专属吉祥物插画。
+
+---
+
+### 6.4 声明式零遮罩加载与防闪烁状态机集成 (`AtengLoading`)
+
+`AtengLoading` 重新定义了数据加载体验，告别传统全屏遮罩与居中大菊花带来的强打扰压迫感，首创 **Zero-Overlay（顶沿 2px 极光流线）** 与防闪烁时序保护。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+
+export interface AtengLoadingProps {
+  loading?: boolean; // 是否处于加载中，默认 false
+  mode?: 'shimmer' | 'dots' | 'skeleton'; // 动效形态，默认 'shimmer' (Zero-Overlay 首选)
+  delay?: number; // 防闪烁静默延迟（毫秒），默认 150
+  minDuration?: number; // 最小展示持续期（毫秒），默认 300
+  text?: string; // 提示文字（dots 模式下生效）
+}
+
+export interface AtengLoadingExpose {
+  isPending: ComputedRef<boolean>; // 当前防闪烁状态机判定的实际视觉展示态
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElSwitch, ElTable, ElTableColumn } from 'element-plus';
+import { AtengLoading } from '@atengk/element-plus';
+
+const isRefreshing = ref(false);
+const loadingMode = ref<'shimmer' | 'dots' | 'skeleton'>('shimmer');
+
+const tableData = ref([
+  { id: '1001', code: 'TR-2026-001', amount: '￥128,500.00', status: '已结算' },
+  { id: '1002', code: 'TR-2026-002', amount: '￥45,200.00', status: '处理中' },
+  { id: '1003', code: 'TR-2026-003', amount: '￥360,000.00', status: '待审核' },
+]);
+
+const handleTriggerFastRequest = () => {
+  // 模拟耗时仅 80ms 的极速网络请求（低于 150ms 静默窗口）
+  isRefreshing.value = true;
+  setTimeout(() => {
+    isRefreshing.value = false;
+  }, 80);
+};
+
+const handleTriggerNormalRequest = () => {
+  // 模拟耗时 600ms 的正常请求
+  isRefreshing.value = true;
+  setTimeout(() => {
+    isRefreshing.value = false;
+  }, 600);
+};
+</script>
+
+<template>
+  <div class="loading-showcase">
+    <div class="actions" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center">
+      <ElButton type="primary" @click="handleTriggerNormalRequest">
+        发起正常数据加载 (600ms)
+      </ElButton>
+      <ElButton @click="handleTriggerFastRequest">
+        发起极速数据加载 (80ms - 测试防闪烁静默)
+      </ElButton>
+      <span style="margin-left: 16px">当前加载形态：</span>
+      <ElButton
+        size="small"
+        :type="loadingMode === 'shimmer' ? 'primary' : 'default'"
+        @click="loadingMode = 'shimmer'"
+      >
+        Zero-Overlay (极光流线)
+      </ElButton>
+      <ElButton
+        size="small"
+        :type="loadingMode === 'dots' ? 'primary' : 'default'"
+        @click="loadingMode = 'dots'"
+      >
+        Dots (微波浪)
+      </ElButton>
+      <ElButton
+        size="small"
+        :type="loadingMode === 'skeleton' ? 'primary' : 'default'"
+        @click="loadingMode = 'skeleton'"
+      >
+        Skeleton (骨架屏)
+      </ElButton>
+    </div>
+
+    <!-- 零遮罩防闪烁包裹组件 -->
+    <AtengLoading
+      :loading="isRefreshing"
+      :mode="loadingMode"
+      :delay="150"
+      :min-duration="300"
+      text="正在实时拉取财务账单流水..."
+    >
+      <ElTable :data="tableData" border style="width: 100%">
+        <ElTableColumn prop="id" label="记录 ID" width="100" />
+        <ElTableColumn prop="code" label="交易流水单号" min-width="180" />
+        <ElTableColumn prop="amount" label="结算金额" width="160" />
+        <ElTableColumn prop="status" label="当前结算状态" width="120" />
+      </ElTable>
+    </AtengLoading>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **首创顶沿 2px 极光流线 (Zero-Overlay)**：默认 `mode="shimmer"` 模式在顶沿流动 2px 硬件加速极光流线，内容 50% 虚化完全可见，0 物理遮挡，操作人员依然可阅读界面数据，显著降低等待焦虑。
+2. **深度集成 `@atengk/vue` 防闪烁状态机 (`useAntiFlicker`)**：
+   - **150ms 静默窗口 (`delay: 150`)**：网络极速请求在 150ms 内完成时，视觉加载态完全不挂载，彻底消灭由于 1~2 帧微弱闪烁引发的用户眼球震颤；
+   - **300ms 最小展示期 (`minDuration: 300`)**：一旦请求耗时超过 150ms 触发了加载动效，状态机将强制保持至少 300ms 再平滑淡出，彻底杜绝半空瞬闪。
+3. **三种视觉动效形态按需切换**：
+   - `'shimmer'`：Zero-Overlay 首选，顶沿极光流光，适合表格与卡片局部静默刷新；
+   - `'dots'`：居中三点微波浪，适合轻量操作反馈；
+   - `'skeleton'`：结构化骨架占位，适合详情首屏加载。
+
+---
+
+## 7. 业务数据表单、通用字典与时间套件 (Business Form, Dict & Time Suite)
+
+通用数据字典、日期范围解构、结构化脱敏复制、防刷短信验证码与图标选择是企业级业务系统最高频的核心构件。本套件提供了强类型契约、并发去重与绝对安全防线。
+
+---
+
+### 7.1 字典数据源去重预取与全形态字典组件族 (`DictManager` & `AtengDict*`)
+
+在大型中后台中，同一字典（如性别、状态、权限类型）往往被表格、查询表单、详情页与弹窗同时消费。传统开发中由于组件重复渲染容易引发**重复网络请求风暴**，且不同后端接口返回的字典字段各异。
+
+`DictManager` 与 `AtengDict*` 组件族通过**纯内存飞行 Promise 合并去重**与**全形态表现组件**完美终结这一痛点。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ShallowRef, Ref, ComputedRef } from 'vue';
+import type { ComponentSize, ElSelect, ElRadioGroup } from 'element-plus';
+
+export interface DictItem {
+  label: string; // 显示标签
+  value: string | number | boolean; // 真实键值
+  tagType?: 'success' | 'warning' | 'info' | 'primary' | 'danger' | '' | undefined;
+  disabled?: boolean;
+  cssClass?: string;
+  raw?: unknown; // 原始后端实体引用
+}
+
+export type DictProvider = (code: string) => Promise<DictItem[]>;
+export type DictBatchProvider = (codes: string[]) => Promise<Record<string, DictItem[]>>;
+export type DictLoader = () => Promise<DictItem[]>;
+export type DictValueType = 'auto' | 'string' | 'number';
+
+export interface DictFieldNames {
+  label?: string; // 默认 'label'
+  value?: string; // 默认 'value'
+  tagType?: string; // 默认 'tagType'
+  disabled?: string; // 默认 'disabled'
+  cssClass?: string; // 默认 'cssClass'
+}
+
+// 1. 下拉选择器属性契约
+export interface AtengDictSelectProps {
+  dictCode?: string;
+  loader?: DictLoader;
+  options?: DictItem[] | Record<string, unknown>[];
+  fieldNames?: DictFieldNames;
+  valueType?: DictValueType; // 默认 'auto' 弱比对
+  modelValue?: string | number | boolean | Array<string | number | boolean>;
+  multiple?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
+  clearable?: boolean;
+  filterable?: boolean;
+  size?: ComponentSize;
+  collapseTags?: boolean;
+  maxCollapseTags?: number;
+  autoLoad?: boolean; // 默认 true
+}
+
+// 2. 单选框组属性契约
+export interface AtengDictRadioProps {
+  dictCode?: string;
+  loader?: DictLoader;
+  options?: DictItem[] | Record<string, unknown>[];
+  fieldNames?: DictFieldNames;
+  valueType?: DictValueType;
+  modelValue?: string | number | boolean;
+  button?: boolean; // 是否采用胶囊按钮形态
+  border?: boolean;
+  size?: ComponentSize;
+  disabled?: boolean;
+  autoLoad?: boolean;
+}
+
+// 3. 复选框组属性契约
+export interface AtengDictCheckboxProps {
+  dictCode?: string;
+  loader?: DictLoader;
+  options?: DictItem[] | Record<string, unknown>[];
+  fieldNames?: DictFieldNames;
+  valueType?: DictValueType;
+  modelValue?: Array<string | number | boolean> | string;
+  separator?: string; // 字符串多值分隔符（如 ','）
+  button?: boolean;
+  border?: boolean;
+  showCheckAll?: boolean; // 是否显示全选复选框
+  checkAllText?: string; // 默认 '全选'
+  size?: ComponentSize;
+  disabled?: boolean;
+  autoLoad?: boolean;
+}
+
+// 4. 彩色状态标签属性契约
+export interface AtengDictTagProps {
+  dictCode?: string;
+  loader?: DictLoader;
+  options?: DictItem[] | Record<string, unknown>[];
+  fieldNames?: DictFieldNames;
+  valueType?: DictValueType;
+  value?: string | number | boolean | Array<string | number | boolean> | null;
+  size?: ComponentSize;
+  effect?: 'light' | 'dark' | 'plain'; // 默认 'light'
+  round?: boolean;
+  separator?: string; // 默认 ','
+  emptyText?: string; // 未命中保底文本，默认 '-'
+  autoLoad?: boolean;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue';
+import {
+  ElCard,
+  ElForm,
+  ElFormItem,
+  ElTable,
+  ElTableColumn,
+  ElButton,
+  ElMessage,
+} from 'element-plus';
+import {
+  DictManager,
+  AtengDictSelect,
+  AtengDictRadio,
+  AtengDictCheckbox,
+  AtengDictTag,
+  type DictItem,
+} from '@atengk/element-plus';
+
+// 1. 全局注入字典数据源 Provider（通常在 main.ts 中单次配置）
+DictManager.setProvider(async (dictCode: string): Promise<DictItem[]> => {
+  // 模拟网络延迟与后端数据结构返回
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const mockRepo: Record<string, DictItem[]> = {
+    sys_user_gender: [
+      { label: '男', value: '1', tagType: 'primary' },
+      { label: '女', value: '2', tagType: 'danger' },
+      { label: '未知', value: '0', tagType: 'info' },
+    ],
+    sys_user_status: [
+      { label: '正常启用', value: 1, tagType: 'success' },
+      { label: '封禁冻结', value: 0, tagType: 'danger' },
+      { label: '待审核', value: 2, tagType: 'warning' },
+    ],
+    sys_notice_channel: [
+      { label: '短信通知', value: 'sms', tagType: 'primary' },
+      { label: '邮件推送', value: 'email', tagType: 'success' },
+      { label: '站内信', value: 'internal', tagType: 'info' },
+      { label: '飞书 Webhook', value: 'feishu', tagType: 'warning' },
+    ],
+  };
+  return mockRepo[dictCode] ?? [];
+});
+
+// 2. 页面就绪时批量预加载字典，命中纯内存缓存
+onMounted(async () => {
+  await DictManager.preload(['sys_user_gender', 'sys_user_status', 'sys_notice_channel']);
+});
+
+// 3. 表单模型与数据绑定
+const formState = reactive({
+  gender: '1',
+  status: 1, // 数字型，自动弱比对匹配
+  channels: 'sms,feishu', // 逗号分隔字符串，与 Checkbox 双向绑定
+});
+
+// 4. 表格列表数据
+const userList = ref([
+  { id: '101', name: '张工', gender: '1', status: 1 },
+  { id: '102', name: '李主管', gender: '2', status: 2 },
+  { id: '103', name: '系统维护服务', gender: '0', status: 0 },
+]);
+
+const handleForceRefresh = async () => {
+  // 穿透缓存刷新字典
+  await DictManager.loadDict('sys_user_status', undefined, true);
+  ElMessage.success('字典 sys_user_status 纯内存缓存已穿透刷新！');
+};
+</script>
+
+<template>
+  <div class="dict-showcase">
+    <ElCard header="通用字典数据表单联动">
+      <ElForm :model="formState" label-width="120px">
+        <!-- 字典下拉单选 -->
+        <ElFormItem label="用户性别">
+          <AtengDictSelect
+            v-model="formState.gender"
+            dict-code="sys_user_gender"
+            placeholder="请选择用户性别"
+            clearable
+            style="width: 240px"
+          />
+        </ElFormItem>
+
+        <!-- 字典胶囊单选组 -->
+        <ElFormItem label="账号状态">
+          <AtengDictRadio v-model="formState.status" dict-code="sys_user_status" button />
+        </ElFormItem>
+
+        <!-- 字典复选框组 (支持全选与逗号分隔字符串自动双向同步) -->
+        <ElFormItem label="通知分发渠道">
+          <AtengDictCheckbox
+            v-model="formState.channels"
+            dict-code="sys_notice_channel"
+            separator=","
+            show-check-all
+            button
+          />
+        </ElFormItem>
+      </ElForm>
+
+      <div style="margin: 16px 0">
+        <ElButton size="small" @click="handleForceRefresh">穿透刷新状态字典缓存</ElButton>
+      </div>
+
+      <!-- 表格中嵌入 AtengDictTag 彩色渲染 -->
+      <ElTable :data="userList" border style="width: 100%">
+        <ElTableColumn prop="id" label="用户工号" width="120" />
+        <ElTableColumn prop="name" label="姓名" width="160" />
+        <ElTableColumn label="性别" width="120">
+          <template #default="{ row }">
+            <AtengDictTag :value="row.gender" dict-code="sys_user_gender" />
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="账号状态" width="140">
+          <template #default="{ row }">
+            <AtengDictTag :value="row.status" dict-code="sys_user_status" round />
+          </template>
+        </ElTableColumn>
+      </ElTable>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **纯内存飞行 Promise 合并去重 (`DictManager`)**：`DictManager` 单例无状态，内部维护 `Map<string, DictItem[]>` 纯内存缓存与 `inFlight: Map<string, Promise<DictItem[]>>`。当同页面 10 个表格行或组件同一毫秒请求同一字典编码时，自动合并为**单次网络调用**，彻底消灭并发请求风暴。
+2. **严禁持久化脏数据防线**：字典缓存**绝对严禁写入 LocalStorage/SessionStorage**，避免后端字典数据更新后前端被死锁在脏缓存中，刷新页面即安全重新同步。
+3. **`valueType="auto"` 弱比对防呆机制**：后端接口返回的字典值常混杂数字 `1` 与字符串 `'1'`，`AtengDict*` 组件族内置类型自动弱比对解析，避免因为类型严格匹配导致的白标签与无法选中痛点。
+4. **全形态四维展现组件覆盖**：
+   - `AtengDictSelect`：下拉选择，支持单选/多选/折叠 tag/拼音模糊检索；
+   - `AtengDictRadio`：单选框组，支持普通圆钮或胶囊 `button` 风格；
+   - `AtengDictCheckbox`：多选框组，内置 `showCheckAll` 全选联动，支持逗号分隔字符串 (`separator=","`)；
+   - `AtengDictTag`：状态彩色徽章，自动提取 `tagType` 映射 Element Plus 语义色彩，未匹配时空安全保底 `emptyText="-"`。
+
+---
+
+### 7.2 结构化数据详情、脱敏管道与一键复制 (`AtengDescriptions`)
+
+`AtengDescriptions` 面向企业级用户信息、工单详情与资金流水展示，提供**内存真明文保护**、**五大开箱即用脱敏管道**与**声明式一键真实明文复制**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { VNode } from 'vue';
+import type { ComponentSize } from 'element-plus';
+
+export type DescriptionsMaskType = 'phone' | 'idCard' | 'email' | 'name' | 'bankCard';
+export type DescriptionsFormatType = 'currency' | 'date';
+
+export interface DescriptionsItemConfig<T = Record<string, unknown>> {
+  prop: string; // 对应 data 的字段名
+  label?: string; // 标签文本
+  span?: number; // 跨栅格列数，默认 1
+  width?: string | number;
+  minWidth?: string | number;
+  align?: 'left' | 'center' | 'right';
+  labelAlign?: 'left' | 'center' | 'right';
+  mask?: DescriptionsMaskType; // 预置脱敏管道：phone/idCard/email/name/bankCard
+  maskChar?: string; // 掩码字符，默认 '*'
+  type?: DescriptionsFormatType; // 预置格式化：currency/date
+  currencyPrecision?: number; // 货币精度，默认 2
+  currencySymbol?: string; // 货币符号，默认 '￥'
+  dictCode?: string; // 关联字典编码，自动渲染为 AtengDictTag
+  emptyText?: string; // 单项空值保底文案
+  copyable?: boolean; // 是否开启一键复制（复制内存真明文）
+  formatter?: (value: unknown, data: T) => string; // 自定义格式化计算函数
+}
+
+export interface AtengDescriptionsProps<T = Record<string, unknown>> {
+  data?: T; // 待展示的源数据对象
+  items?: DescriptionsItemConfig<T>[]; // Schema 配置驱动
+  title?: string; // 详情标题
+  extra?: string; // 标题右侧操作区文本
+  border?: boolean; // 默认 false
+  column?: number; // 一行呈现列数，默认 3
+  direction?: 'horizontal' | 'vertical'; // 默认 'horizontal'
+  size?: ComponentSize; // 默认 'default'
+  copyable?: boolean; // 是否全局开启一键复制，默认 false
+  emptyText?: string; // 全局空值保底文本，默认 '--'
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElMessage } from 'element-plus';
+import { AtengDescriptions, AtengDictTag, type DescriptionsItemConfig } from '@atengk/element-plus';
+
+// 真实业务模型实体：内存真明文不变量（100% 原始真实明文）
+interface UserAccountProfile {
+  userId: string;
+  username: string;
+  realName: string;
+  phone: string;
+  idCard: string;
+  email: string;
+  bankCard: string;
+  balance: number;
+  status: string;
+  department: string | null; // 空值测试
+}
+
+const profileData = ref<UserAccountProfile>({
+  userId: '1792384918237491230', // 64 位雪花大数
+  username: 'ateng_ops',
+  realName: '诸葛孔明',
+  phone: '13812345678',
+  idCard: '110101199003072345',
+  email: 'kongming.zhu@corp.org',
+  bankCard: '6222021234567890123',
+  balance: 2489500.5,
+  status: '1',
+  department: null, // 空值自动触发保底
+});
+
+// 纯 Schema 声明式项配置
+const profileItems: DescriptionsItemConfig<UserAccountProfile>[] = [
+  { prop: 'userId', label: '用户 Snowflake ID', span: 1, copyable: true },
+  { prop: 'username', label: '系统账号', span: 1 },
+  { prop: 'realName', label: '真实姓名', mask: 'name', span: 1, copyable: true },
+  { prop: 'phone', label: '联系手机', mask: 'phone', span: 1, copyable: true },
+  { prop: 'idCard', label: '身份证号', mask: 'idCard', span: 2, copyable: true },
+  { prop: 'email', label: '工作邮箱', mask: 'email', span: 1, copyable: true },
+  { prop: 'bankCard', label: '结算银行卡', mask: 'bankCard', span: 2, copyable: true },
+  { prop: 'balance', label: '可用结算余额', type: 'currency', currencyPrecision: 2, span: 1 },
+  { prop: 'status', label: '账号风控状态', span: 1 },
+  { prop: 'department', label: '所属业务部门', span: 1 }, // 自动渲染为 '--'
+];
+</script>
+
+<template>
+  <div class="descriptions-showcase">
+    <ElCard header="账户主体档案与资产安全详情">
+      <AtengDescriptions
+        :data="profileData"
+        :items="profileItems"
+        title="企业认证账户全景视图"
+        border
+        copyable
+        :column="3"
+        empty-text="--"
+      >
+        <!-- 作用域插槽自定义状态字典徽章 -->
+        <template #status="{ value }">
+          <AtengDictTag :value="value" dict-code="sys_user_status" round />
+        </template>
+      </AtengDescriptions>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **数据安全与“内存真明文”不变量**：`profileData` 内存数据 100% 保持未脱敏的真实原始明文。五大脱敏管道（`phone`、`idCard`、`email`、`name`、`bankCard`）**仅在视图呈现层格式化打星号，严禁就地篡改底层响应式模型**，杜绝将带星号数据意外提交回写数据库造成脏写事故。
+2. **声明式真明文一键复制 (`copyable`)**：开启 `copyable` 后，脱敏字段后方自动渲染微型复制图标。用户点击复制时，复制进剪贴板的是**未打码的真实原始数据**（如完整手机号与完整银行卡号），极大提升后台录入与审计核对效率。
+3. **雪花大数防失真支持**：64 位 Snowflake ID（如 `1792384918237491230`）原生支持字符串无损展示与完整复制。
+4. **空安全确定性保底 (`emptyText`)**：遇到 `null`、`undefined` 或空字符串时，组件统一渲染 `emptyText`（默认为 `'--'`），绝不崩溃或留下大片空白。
+
+---
+
+### 7.3 业务自然周期快捷选择与双字段解构绑定 (`AtengDateRange`)
+
+后端 RESTful 检索接口通常拆分为 `startTime` 与 `endTime` 两个离散入参。传统 `el-date-picker` 绑定的是单个数组 `[start, end]`，迫使前端编写大量 `watch` 解构与拼装样板代码。
+
+`AtengDateRange` 提供了**双字段解构绑定**与**智能时刻对齐**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ShallowRef } from 'vue';
+import type { ComponentSize, ElDatePicker } from 'element-plus';
+
+export type DateRangeValue = string | number | Date;
+
+export interface DateRangeShortcut {
+  text: string;
+  value: [Date, Date] | (() => [Date, Date]);
+  onClick?: (ctx: { date: [Date, Date] }) => void;
+}
+
+export interface AtengDateRangeProps {
+  modelValue?: [DateRangeValue, DateRangeValue] | null; // 数组绑定模式
+  start?: DateRangeValue | null; // 双字段解构：起始时间
+  end?: DateRangeValue | null; // 双字段解构：结束时间
+  clearValue?: null | undefined | ''; // 清空保底值，默认 null
+  type?: 'daterange' | 'datetimerange' | 'monthrange'; // 默认 'daterange'
+  shortcuts?: boolean | DateRangeShortcut[]; // 预置自然周期快捷项，默认 true
+  autoTime?: boolean; // 自动对齐 00:00:00 与 23:59:59，默认 true
+  valueFormat?: string; // 存储格式（如 'YYYY-MM-DD HH:mm:ss'）
+  format?: string; // 展现格式
+  placeholder?: string;
+  startPlaceholder?: string;
+  endPlaceholder?: string;
+  rangeSeparator?: string; // 默认 '-'
+  disabled?: boolean;
+  clearable?: boolean; // 默认 true
+  size?: ComponentSize;
+  disableFuture?: boolean; // 禁用未来日期，默认 false
+  disablePast?: boolean; // 禁用历史日期，默认 false
+  maxRangeDays?: number; // 最大允许跨度天数（如 90 天）
+  disabledDate?: (date: Date) => boolean;
+}
+
+export interface AtengDateRangeEmits {
+  (e: 'update:modelValue', value: [DateRangeValue, DateRangeValue] | null): void;
+  (e: 'update:start', value: DateRangeValue | null | undefined): void;
+  (e: 'update:end', value: DateRangeValue | null | undefined): void;
+  (e: 'change', value: [DateRangeValue, DateRangeValue] | null): void;
+  (e: 'clear'): void;
+}
+
+export interface AtengDateRangeExpose {
+  datePickerRef: ShallowRef<InstanceType<typeof ElDatePicker> | null>;
+  focus: () => void;
+  handleOpen: () => void;
+  handleClose: () => void;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { reactive } from 'vue';
+import { ElCard, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus';
+import { AtengDateRange, type DateRangeShortcut } from '@atengk/element-plus';
+
+interface OrderQueryParams {
+  orderSn: string;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+const query = reactive<OrderQueryParams>({
+  orderSn: '',
+  startTime: '2026-10-01 00:00:00',
+  endTime: '2026-10-31 23:59:59',
+});
+
+// 自定义扩充快捷自然周期：近 60 天与本季度
+const customShortcuts: DateRangeShortcut[] = [
+  {
+    text: '近 60 天',
+    value: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setTime(start.getTime() - 3600 * 1000 * 24 * 60);
+      return [start, end];
+    },
+  },
+  {
+    text: '本季度',
+    value: () => {
+      const now = new Date();
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), quarterStartMonth, 1);
+      const end = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+      return [start, end];
+    },
+  },
+];
+
+const handleSearch = () => {
+  console.log('直接将 query 提交给后端分页 API:', query);
+};
+</script>
+
+<template>
+  <div class="date-range-showcase">
+    <ElCard header="账单流水检索表单 (双字段解构绑定)">
+      <ElForm :model="query" inline>
+        <ElFormItem label="订单流水号">
+          <ElInput v-model="query.orderSn" placeholder="请输入流水号" clearable />
+        </ElFormItem>
+
+        <!-- 双字段直接双向解构绑定，并在选择时自动对齐 00:00:00 与 23:59:59 -->
+        <ElFormItem label="创建起止时间">
+          <AtengDateRange
+            v-model:start="query.startTime"
+            v-model:end="query.endTime"
+            :auto-time="true"
+            disable-future
+            :max-range-days="90"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :shortcuts="customShortcuts"
+            start-placeholder="交易起始时刻"
+            end-placeholder="交易截止时刻"
+          />
+        </ElFormItem>
+
+        <ElFormItem>
+          <ElButton type="primary" @click="handleSearch">查询流水</ElButton>
+        </ElFormItem>
+      </ElForm>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **双字段解构双向绑定 (`v-model:start` & `v-model:end`)**：彻底消灭调用方手动声明临时数组与 `watch` 解构的几十行样板胶水代码，查询入参 DTO 直接与表单控件无缝双向绑定。
+2. **智能时刻边界自动对齐 (`autoTime="true"`)**：当用户选择单日或日期范围时，组件自动将 `start` 时间对齐至当天 `00:00:00`，将 `end` 时间对齐至当天 `23:59:59`，彻底杜绝因为时间缺失时分秒导致后端漏查最后一整天数据的隐蔽生产 Bug。
+3. **开箱即用 7 大自然业务周期**：内置「今天」、「昨天」、「本周」、「上周」、「本月」、「近7天」、「近30天」，并支持通过数组灵活扩充业务自然周期。
+4. **安全跨度防御与未来日期拦截**：
+   - `disableFuture`：自动置灰今天以后的未来日期；
+   - `maxRangeDays`：限制单次查询最大时间跨度（如限制 90 天），当用户选中开始日期后，超过 90 天的日期自动置灰，杜绝大范围查询击穿数据库索引。
+
+---
+
+### 7.4 60 秒防刷新倒计时验证码与前置拦截 (`AtengCaptcha`)
+
+在用户登录、安全重置密码与敏感操作二次确认中，频繁点击发送短信验证码会造成巨大的短信成本消耗，且传统纯内存 `setInterval` 倒计时在用户按下 F5 刷新页面后会立即归零。
+
+`AtengCaptcha` 采用**到期物理时间戳持久化**与**异步前置拦截**彻底消灭此问题。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+
+export type CaptchaType = 'button' | 'image';
+export type CaptchaStorageType = 'local' | 'session';
+
+export interface AtengCaptchaProps {
+  type?: CaptchaType; // 'button'(倒计时按钮) | 'image'(图形验证码)
+  seconds?: number; // 倒计时总秒数，默认 60
+  storageKey?: string; // 本地持久化缓存 key（开启防刷新）
+  storageType?: CaptchaStorageType; // 默认 'local'
+  text?: string; // 初始文本，默认 '获取验证码'
+  countdownText?: string; // 倒计时文案，默认 '{s}s 重新获取'
+  retryText?: string; // 重试文案，默认 '重新获取'
+  disabled?: boolean; // 默认 false
+  size?: 'large' | 'default' | 'small';
+  btnType?: '' | 'default' | 'primary' | 'success' | 'warning' | 'info' | 'danger';
+  beforeSend?: () => boolean | Promise<boolean>; // 发送前异步前置校验拦截钩子
+  send?: () => Promise<void> | void; // 具体发送短信的异步网络方法
+  imageSrc?: string; // 图形验证码图片地址 (HTTP 或 Base64)
+  imageWidth?: string | number; // 默认 '110px'
+  imageHeight?: string | number; // 默认 '32px'
+  refresh?: () => Promise<void> | void; // 图形验证码刷新回调
+  customClass?: string;
+}
+
+export interface AtengCaptchaEmits {
+  (e: 'start'): void;
+  (e: 'end'): void;
+  (e: 'change', remaining: number): void;
+  (e: 'error', error: unknown): void;
+}
+
+export interface AtengCaptchaExpose {
+  start: () => Promise<boolean>; // 手动触发发送与倒计时
+  reset: () => void; // 重置倒计时与清除缓存
+  remainingSeconds: ComputedRef<number>; // 当前剩余秒数
+  isCounting: ComputedRef<boolean>; // 是否处于倒计时中
+  isLoading: ComputedRef<boolean>; // 是否处于异步发送中
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import { ElCard, ElForm, ElFormItem, ElInput, ElButton, ElMessage } from 'element-plus';
+import { AtengCaptcha, type AtengCaptchaInstance } from '@atengk/element-plus';
+
+const captchaRef = ref<AtengCaptchaInstance>();
+
+const loginForm = reactive({
+  phone: '13812345678',
+  code: '',
+  captchaCode: '',
+});
+
+// 图形验证码随机演示文本
+const captchaText = ref('8W4K');
+const generateSvg = (text: string) => {
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" style="background:%23f1f5f9;"><text x="20" y="28" font-size="22" font-family="sans-serif" font-weight="bold" fill="%234338ca" letter-spacing="4">${text}</text></svg>`;
+};
+const imageSrc = ref(generateSvg(captchaText.value));
+
+const handleRefreshImage = async () => {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let next = '';
+  for (let i = 0; i < 4; i++) next += chars.charAt(Math.floor(Math.random() * chars.length));
+  captchaText.value = next;
+  imageSrc.value = generateSvg(next);
+  ElMessage.info(`图形验证码已刷新为：${next}`);
+};
+
+// 发送前异步前置校验：验证手机号与图形验证码
+const handleBeforeSend = async (): Promise<boolean> => {
+  if (!/^1[3-9]\d{9}$/.test(loginForm.phone.trim())) {
+    ElMessage.error('请输入正确的 11 位中国大陆手机号码');
+    return false;
+  }
+  if (loginForm.captchaCode.toUpperCase() !== captchaText.value) {
+    ElMessage.error('请先输入正确的图形验证码');
+    return false;
+  }
+  return true;
+};
+
+// 模拟发送短信异步 API
+const handleSendSms = async (): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, 800));
+  ElMessage.success(`短信验证码已下发至手机 ${loginForm.phone}，请查收！`);
+};
+</script>
+
+<template>
+  <div class="captcha-showcase">
+    <ElCard header="安全短信快捷登录">
+      <ElForm :model="loginForm" label-width="110px" style="max-width: 480px">
+        <ElFormItem label="手机号码">
+          <ElInput v-model="loginForm.phone" placeholder="请输入绑定的手机号" />
+        </ElFormItem>
+
+        <!-- 图形验证码模式 -->
+        <ElFormItem label="图形防刷验证">
+          <div style="display: flex; gap: 12px; width: 100%">
+            <ElInput v-model="loginForm.captchaCode" placeholder="输入图形码" maxlength="4" />
+            <AtengCaptcha type="image" :image-src="imageSrc" :refresh="handleRefreshImage" />
+          </div>
+        </ElFormItem>
+
+        <!-- 短信防刷新倒计时按钮模式 -->
+        <ElFormItem label="短信验证码">
+          <div style="display: flex; gap: 12px; width: 100%">
+            <ElInput v-model="loginForm.code" placeholder="6 位验证码" maxlength="6" />
+            <AtengCaptcha
+              ref="captchaRef"
+              storage-key="login_sms_countdown_timer"
+              :seconds="60"
+              :before-send="handleBeforeSend"
+              :send="handleSendSms"
+              text="获取验证码"
+              countdown-text="{s}s 重新获取"
+              retry-text="重新获取验证码"
+            />
+          </div>
+        </ElFormItem>
+      </ElForm>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **物理绝对时间戳与防刷新持久化记忆 (`storageKey`)**：倒计时核心**不依赖不可靠的内存循环计数**，而是将到期物理时间戳（`Date.now() + seconds * 1000`）写入 `localStorage`。当用户在倒计时中途刷新页面、切换路由或重新打开浏览器时，组件挂载即刻按真实物理流逝时间无缝恢复倒计时，彻底杜绝恶意刷新刷短信漏洞。
+2. **`beforeSend` 异步前置校验防御**：触发倒计时前，优先执行校验守卫。若手机号未填写或图形码错误，立即阻断，**不进入 loading 状态、不启动倒计时、不消耗短信额度**。
+3. **按钮与图形验证码双形态支持**：支持倒计时按钮（`type="button"`）与带有点击一键刷新机制的图形验证码（`type="image"`）。
+
+---
+
+### 7.5 原生图标库与拼音极速模糊检索 (`AtengIconSelect`)
+
+菜单导航配置、权限节点定义与按钮外观选择高度依赖图标选择器。传统方案往往依赖庞大的第三方图标库全量包或不支持中文拼音检索。
+
+`AtengIconSelect` 内置 **SVG 零依赖矢量渲染** 与 **拼音/简拼毫秒级极速模糊检索**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Component } from 'vue';
+
+export type IconSelectMode = 'popover' | 'dialog';
+
+export interface IconItem {
+  name: string; // 图标标识（如 'User', 'Setting'）
+  label?: string; // 中文标签（如 '用户', '设置'）
+  pinyin?: string; // 汉语拼音或简拼（如 'yonghu,yh'）
+  svgPath?: string; // 内联 SVG path 路径（零依赖内建渲染）
+  component?: Component; // 自定义 Vue 图标组件
+}
+
+export interface AtengIconSelectProps {
+  modelValue?: string;
+  placeholder?: string; // 默认 '请选择图标'
+  mode?: IconSelectMode; // 'popover' | 'dialog'，默认 'popover'
+  clearable?: boolean; // 默认 true
+  disabled?: boolean;
+  size?: 'large' | 'default' | 'small';
+  customIcons?: IconItem[]; // 扩充自定义图标
+  popoverWidth?: string | number; // 默认 '380px'
+  showCopy?: boolean; // 是否展示一键复制代码按钮，默认 true
+  pageSize?: number; // 默认 36 (0 为不分页一次性展示)
+  customClass?: string;
+}
+
+export interface AtengIconSelectEmits {
+  (e: 'update:modelValue', val: string): void;
+  (e: 'change', val: string): void;
+  (e: 'select', item: IconItem): void;
+  (e: 'clear'): void;
+  (e: 'copy', code: string): void;
+}
+
+export interface AtengIconSelectExpose {
+  clear: () => void;
+  focus: () => void;
+  copyIconCode: (name?: string) => Promise<boolean>;
+  getCurrentIcon: () => IconItem | undefined;
+  open: () => void;
+  close: () => void;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import { ElCard, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus';
+import { AtengIconSelect, type IconItem, type AtengIconSelectInstance } from '@atengk/element-plus';
+
+const iconSelectRef = ref<AtengIconSelectInstance>();
+
+const menuForm = reactive({
+  menuName: '运营数据看板',
+  path: '/analytics/dashboard',
+  icon: 'DataAnalysis',
+});
+
+// 企业私有专属 SVG 矢量图标扩充（支持拼音检索）
+const customCompanyIcons: IconItem[] = [
+  {
+    name: 'AtengCloud',
+    label: '阿腾云底座',
+    pinyin: 'atengyun,aty',
+    svgPath:
+      '<path d="M704 384c-12-84-84-148-172-148-76 0-140 48-164 116-16-4-32-6-48-6-88 0-160 72-160 160 0 88 72 160 160 160h384c70 0 128-58 128-128 0-66-50-120-114-126z" fill="currentColor"/>',
+  },
+  {
+    name: 'AtengShield',
+    label: '安全堡垒机',
+    pinyin: 'anquanbaoleiji,aq',
+    svgPath:
+      '<path d="M512 64l320 128v320c0 224-192 384-320 448C384 896 192 736 192 512V192z" fill="currentColor"/>',
+  },
+];
+
+const handleIconCopied = (code: string) => {
+  ElMessage.success(`图标组件调用代码已复制到剪贴板：${code}`);
+};
+</script>
+
+<template>
+  <div class="icon-select-showcase">
+    <ElCard header="系统菜单导航配置">
+      <ElForm :model="menuForm" label-width="120px" style="max-width: 560px">
+        <ElFormItem label="菜单标题">
+          <ElInput v-model="menuForm.menuName" />
+        </ElFormItem>
+        <ElFormItem label="路由路径">
+          <ElInput v-model="menuForm.path" />
+        </ElFormItem>
+        <ElFormItem label="展示图标">
+          <AtengIconSelect
+            ref="iconSelectRef"
+            v-model="menuForm.icon"
+            mode="popover"
+            :custom-icons="customCompanyIcons"
+            placeholder="支持输入汉字、全拼、简拼或英文搜索图标"
+            show-copy
+            @copy="handleIconCopied"
+          />
+        </ElFormItem>
+      </ElForm>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **汉语拼音/全拼/简拼多模态模糊索引**：所有内置图标均建有拼音索引字典（如输入 `yonghu` 或 `yh` 即刻毫秒级命中 `User` 图标）。业务人员无需记忆生僻的英文图标名，极速降低后台配置门槛。
+2. **纯内联 SVG 矢量渲染与零额外大体积包依赖**：内置核心高频图标采用纯 SVG path 节点内联实现，即使项目中未安装 `@element-plus/icons-vue`，图标依然能 100% 正常渲染与展示。
+3. **双交互形态按需切换 (`mode="popover"` / `mode="dialog"`)**：常规配置采用极简下拉浮层 (`popover`)，视口较小或图标量极其庞大时可一键切换为居中大弹窗 (`dialog`)。
+4. **代码一键复制与自定义图标无缝拓展**：内置一键复制代码按钮，支持点击复制 `<el-icon><IconName /></el-icon>` 代码；支持通过 `:custom-icons` 注入私有企业矢量图标并纳入拼音检索字典。
+
+---
+
+## 维度二：生产扩展接管 (Customization & Extensibility)
 
 ### 3. Fesod 批注错误回写与下载集成 (`AtengExcelFeedback`)
 
@@ -1774,39 +3068,6 @@ await DictManager.preload(['sys_user_status', 'sys_notice_level']);
 />
 ```
 
-### 14. 企业级原生图标选择器与拼音极速检索 (`AtengIconSelect`)
-
-`AtengIconSelect` 面向菜单管理与权限分配，内建全量常用官方标准 SVG 图标库（零外部依赖）。支持中文、全拼与拼音首字母模糊检索，支持 Popover 浮窗与 Dialog 弹窗双模展现，并提供网格分页与一键复制 `<el-icon>` 组件代码：
-
-```vue
-<!-- 支持 Popover/Dialog 双模、拼音首字母/全拼检索与一键复制代码组件 -->
-<AtengIconSelect
-  v-model="menuIcon"
-  mode="popover"
-  placeholder="请选择菜单图标"
-  :show-copy="true"
-  :page-size="36"
-  @select="item => console.log('选中图标:', item)"
-/>
-```
-
-### 15. 安全防刷新验证码倒计时与前置拦截 (`AtengCaptcha`)
-
-`AtengCaptcha` 面向登录注册、找回密码与短信推送场景，摒弃易失的内存倒计时，基于 LocalStorage 物理时间戳防刷新清零。支持前置异步校验拦截（`beforeSend`）、异步发送 Loading 互斥防重锁与图形验证码刷新形态：
-
-```vue
-<!-- 短信/邮件验证码倒计时：持久化防刷新 + 前置异步校验拦截 -->
-<AtengCaptcha
-  storage-key="login_sms_timer"
-  :seconds="60"
-  :before-send="checkPhoneBeforeSend"
-  :send="mockSendSms"
-/>
-
-<!-- 图形验证码形态与点击刷新 -->
-<AtengCaptcha type="image" :image-src="currentImageSrc" :refresh="handleRefreshImage" />
-```
-
 ### 16. 原生轻量多格式文件在线预览门户 (`AtengFilePreview`)
 
 `AtengFilePreview` 面向附件查阅、图片轮播、音视频审查与日志报文浏览，坚决拒绝引入数十 MB 的 pdfjs 或 video.js 重型依赖。基于纯原生 HTML5 与组件联动，支持图片灯箱、原生 PDF、音视频播放、代码文本高亮（复用 `AtengCodeView`）与未知格式降级下载：
@@ -1901,75 +3162,6 @@ setThemeColor('#6366f1', {
   isDark: document.documentElement.classList.contains('dark'),
   updateDark: true,
 });
-```
-
-### 21. AtengDialog 与 AtengDrawer 表单自动校验流转与优雅防误关 (`formRef` & `confirmOnClose`)
-
-面向复杂表单弹窗/抽屉场景，`AtengDialog` 与 `AtengDrawer` 原生支持通过 `:form-ref` 绑定内嵌表单实例，确定性在触发确认动作前自动执行前置校验。校验失败时就地阻断并保留错误现场；支持 `:confirm-on-close="true"` 二次防误关确认，杜绝用户误触丢失编辑中内容：
-
-```vue
-<script setup lang="ts">
-import { ref, reactive } from 'vue';
-import { AtengDialog } from '@atengk/element-plus';
-import type { FormInstance } from 'element-plus';
-
-const visible = ref(false);
-const formRef = ref<FormInstance>();
-const formData = reactive({ name: '', email: '' });
-const rules = {
-  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
-};
-
-const handleConfirm = async () => {
-  // 仅在 formRef 前置校验 100% 通过后才会执行到此处，并自动开启 loading
-  await apiSubmit(formData);
-};
-</script>
-
-<template>
-  <AtengDialog
-    v-model="visible"
-    title="新建项目"
-    :form-ref="formRef"
-    :confirm-on-close="true"
-    :before-confirm="handleConfirm"
-  >
-    <el-form ref="formRef" :model="formData" :rules="rules" label-width="80px">
-      <el-form-item label="名称" prop="name">
-        <el-input v-model="formData.name" />
-      </el-form-item>
-      <el-form-item label="邮箱" prop="email">
-        <el-input v-model="formData.email" />
-      </el-form-item>
-    </el-form>
-  </AtengDialog>
-</template>
-```
-
-### 22. AtengDescriptions 声明式一键复制与统一空安全保底 (`copyable` & `emptyText`)
-
-`AtengDescriptions` 深度践行“内存真明文契约”，配置 `:copyable="true"` 可在容器级或单项级一键开启剪贴板复制。复制时严格提取脱敏前的原始明文数据；空值统一保底对齐企业规范 `'--'`，且空值项绝不呈现复制按钮：
-
-```vue
-<script setup lang="ts">
-import { AtengDescriptions, AtengDescriptionsItem } from '@atengk/element-plus';
-
-const userDetail = {
-  username: 'ateng_admin',
-  phone: '13812345678',
-  email: '', // 空值将自动保底显示 '--' 且不展示复制图标
-};
-</script>
-
-<template>
-  <!-- copyable 容器级开启，空值自动统一保底显示 '--' -->
-  <AtengDescriptions :data="userDetail" :column="3" border copyable>
-    <AtengDescriptionsItem prop="username" label="登录账号" />
-    <!-- 视图脱敏显示为 138****5678，点击复制按钮真实复制明文 13812345678 -->
-    <AtengDescriptionsItem prop="phone" label="手机号码" mask="phone" />
-    <AtengDescriptionsItem prop="email" label="企业邮箱" />
-  </AtengDescriptions>
-</template>
 ```
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
