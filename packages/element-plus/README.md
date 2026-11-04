@@ -637,87 +637,138 @@ const handleReset = () => {
 
 ---
 
-### 4. 开箱即用体验：页面骨架容器、弹性拖拽分栏与吸底操作栏
+## 4. 中后台框架布局与多标签导航套件 (Admin Framework & Navigation Suite)
 
-在中后台典型页面中，组装 `AtengPageContainer`、`AtengSplitLayout` 与 `AtengFooterBar` 构建标准化架构：
+### 4.1 中后台高级框架布局多形态与异构菜单映射 (`AtengProLayout`)
 
-```vue
-<template>
-  <AtengPageContainer
-    title="部门与员工协同中枢"
-    sub-title="支持左树右表拖拽调宽与偏好记忆"
-    :breadcrumb="[{ label: '首页', path: '/' }, { label: '组织架构' }]"
-    fit-viewport
-    show-back
-  >
-    <AtengSplitLayout
-      v-model="splitWidth"
-      storage-key="org_user_split"
-      default-size="280px"
-      min="180px"
-      max="480px"
-    >
-      <!-- 左栏：组织架构树 -->
-      <template #first>
-        <el-tree :data="deptTree" default-expand-all />
-      </template>
+#### 本节专属 TypeScript 契约片段
 
-      <!-- 右栏：业务表格与吸底提交栏 -->
-      <template #second>
-        <AtengTable :data="userList" border>
-          <el-table-column prop="name" label="姓名" />
-          <el-table-column prop="role" label="岗位" />
-        </AtengTable>
+```ts
+/** 布局排版模式：side 经典侧边 | top 顶部通栏 | mix 顶左混合分栏 */
+export type ProLayoutMode = 'side' | 'top' | 'mix';
 
-        <AtengFooterBar position="sticky">
-          <template #extra>已选择 12 位员工</template>
-          <el-button>重置</el-button>
-          <el-button type="primary">确认分配</el-button>
-        </AtengFooterBar>
-      </template>
-    </AtengSplitLayout>
-  </AtengPageContainer>
-</template>
+/** 数据驱动菜单项接口契约 */
+export interface ProMenuItem {
+  /** 路由或唯一路径标识 */
+  path: string;
+  /** 菜单标题文字 */
+  title: string;
+  /** 菜单图标（支持 Element Plus 图标组件或 SVG/CSS 字符串） */
+  icon?: string | Component;
+  /** 子菜单项列表 */
+  children?: ProMenuItem[];
+  /** 徽标内容（角标文字或数字） */
+  badge?: string | number;
+  /** 徽标类型，默认 'danger' */
+  badgeType?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
+  /** 是否禁用 */
+  disabled?: boolean;
+  /** 是否在菜单中隐藏（不参与渲染，但路由仍可匹配） */
+  hidden?: boolean;
+  /** 是否在多标签栏中固定常驻 */
+  affix?: boolean;
+  /** 任意业务元数据扩展包 */
+  meta?: Record<string, unknown>;
+  /** 兼容后端异构原始字段的动态索引签名 */
+  [key: string]: unknown;
+}
+
+/** 菜单字段别名自适应映射契约（解决后端 DTO 命名差异） */
+export interface ProMenuFieldNames {
+  path?: string;
+  title?: string;
+  children?: string;
+  icon?: string;
+  badge?: string;
+}
+
+/** AtengProLayout 核心属性契约 */
+export interface AtengProLayoutProps {
+  /** 布局形态模式，默认 'side' */
+  layout?: ProLayoutMode;
+  /** 系统标题 */
+  title?: string;
+  /** 系统 Logo 图片地址 */
+  logo?: string;
+  /** 数据驱动菜单项列表 */
+  menuData?: ProMenuItem[];
+  /** 异构菜单字段别名自适应映射 */
+  fieldNames?: ProMenuFieldNames;
+  /** 当前激活菜单路径（支持受控与 v-model:activeMenu） */
+  activeMenu?: string;
+  /** 侧边栏是否折叠（支持 v-model:collapsed） */
+  collapsed?: boolean;
+  /** 侧边栏展开宽度，默认 '220px' */
+  asideWidth?: string;
+  /** 侧边栏折叠宽度，默认 '64px' */
+  asideCollapsedWidth?: string;
+  /** 是否开启移动端自适应（< 768px 自动切换为抽屉遮罩），默认 true */
+  responsive?: boolean;
+  /** 是否内置渲染多标签栏，默认 true */
+  showTabs?: boolean;
+  /** 内容区全屏沉浸最大化模式（支持 v-model:isMaximized） */
+  isMaximized?: boolean;
+}
 ```
 
-### 5. 开箱即用体验：企业级框架布局与多标签页深度协同 (AtengProLayout + AtengTabsNav)
-
-面向现代中后台管理系统，`AtengProLayout` 内置多标签栏托管、全屏沉浸最大化切换与 `AtengFooterBar` 避让总线联动：
+#### 实战业务 SFC 代码示例
 
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useTabsNav } from '@atengk/vue';
-import { AtengProLayout, AtengFooterBar, type ProMenuItem } from '@atengk/element-plus';
+import {
+  AtengProLayout,
+  AtengFooterBar,
+  type ProMenuItem,
+  type ProMenuFieldNames,
+} from '@atengk/element-plus';
 
-const menuData: ProMenuItem[] = [
-  { path: '/dashboard', title: '工作台首页', icon: 'el-icon-monitor', affix: true },
+// 1. 模拟后端返回的异构权限菜单树（使用 menuUrl 代替 path，menuName 代替 title）
+const rawMenuData = [
+  { menuUrl: '/dashboard', menuName: '控制台首页', icon: 'Monitor', affix: true },
   {
-    path: '/system',
-    title: '系统管理',
-    icon: 'el-icon-setting',
-    children: [
-      { path: '/system/user', title: '用户列表' },
-      { path: '/system/role', title: '角色权限' },
+    menuUrl: '/order',
+    menuName: '订单管理',
+    icon: 'Document',
+    subList: [
+      { menuUrl: '/order/list', menuName: '订单列表' },
+      { menuUrl: '/order/refund', menuName: '退款审核', badge: 3 },
+    ],
+  },
+  {
+    menuUrl: '/system',
+    menuName: '系统设置',
+    icon: 'Setting',
+    subList: [
+      { menuUrl: '/system/user', menuName: '用户管理' },
+      { menuUrl: '/system/role', menuName: '角色权限' },
     ],
   },
 ];
 
-const activeMenu = ref('/system/user');
-const collapsed = ref(false);
+// 2. 声明字段映射契约，消灭前端手工递归重组对象
+const customFieldNames: ProMenuFieldNames = {
+  path: 'menuUrl',
+  title: 'menuName',
+  children: 'subList',
+};
 
-// 初始化多标签页响应式状态机
+const activeMenu = ref('/dashboard');
+const collapsed = ref(false);
+const layoutMode = ref<'side' | 'top' | 'mix'>('side');
+
+// 3. 装配多标签页响应式状态机
 const { tabs, activeKey, cachedViews, openTab, closeTab, refreshTab, isMaximized } = useTabsNav({
-  defaultActiveKey: '/system/user',
+  defaultActiveKey: '/dashboard',
   defaultTabs: [
-    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
-    { key: '/system/user', title: '用户列表', componentName: 'UserList' },
+    { key: '/dashboard', title: '控制台首页', affix: true, componentName: 'Dashboard' },
   ],
 });
 
 const handleMenuSelect = (path: string, item: ProMenuItem) => {
   activeMenu.value = path;
-  openTab({ key: path, title: item.title, closable: path !== '/dashboard' });
+  openTab({ key: path, title: item.title, closable: !item.affix });
 };
 </script>
 
@@ -726,30 +777,779 @@ const handleMenuSelect = (path: string, item: ProMenuItem) => {
     v-model:collapsed="collapsed"
     v-model:active-menu="activeMenu"
     v-model:is-maximized="isMaximized"
-    layout="side"
-    :menu-data="menuData"
+    :layout="layoutMode"
+    :menu-data="rawMenuData"
+    :field-names="customFieldNames"
     show-tabs
     :tabs-props="{ tabs, modelValue: activeKey }"
-    title="Ateng Admin"
+    title="Ateng Cloud Admin"
     @menu-select="handleMenuSelect"
     @tab-click="t => (activeMenu = t.key)"
     @tab-close="k => closeTab(k)"
     @tab-refresh="k => refreshTab(k)"
   >
-    <!-- 内容视口：KeepAlive 真实缓存名单驱动 (遵循 Vue Router 4 规范插槽范式) -->
+    <!-- 头部右上角操作区 -->
+    <template #headerRight>
+      <el-radio-group v-model="layoutMode" size="small">
+        <el-radio-button value="side">Side 侧边</el-radio-button>
+        <el-radio-button value="top">Top 顶部</el-radio-button>
+        <el-radio-button value="mix">Mix 混合</el-radio-button>
+      </el-radio-group>
+    </template>
+
+    <!-- 主体路由内容视口：KeepAlive 真实白名单联动缓存 -->
     <router-view v-slot="{ Component }">
       <KeepAlive :include="cachedViews">
         <component :is="Component" :key="activeKey" />
       </KeepAlive>
     </router-view>
 
-    <!-- 底部操作栏：通过 position="fixed" 自动感知侧边栏展开与折叠避让，最大化模式下避让归零 -->
+    <!-- 底部操作栏：通过 position="fixed" 自动感知侧边栏展开（220px）与折叠（64px）避让 -->
     <template #footer>
-      <AtengFooterBar position="fixed" show-submit submit-text="保存当前页" />
+      <AtengFooterBar position="fixed" show-submit submit-text="保存当前配置" />
     </template>
   </AtengProLayout>
 </template>
 ```
+
+#### 核心机制与生产边界说明
+
+1. **三大经典形态零成本切换**：
+   - `side` 模式：经典左侧树形菜单栏 + 顶栏标题与用户信息；
+   - `top` 模式：顶部通栏横向一级菜单，彻底隐藏侧边栏，适合宽屏报表；
+   - `mix` 模式：顶部通栏渲染一级模块导航，左侧侧边栏联动渲染对应一级的二级子菜单树。
+2. **异构字段自适应映射与零胶水**：支持通过 `:field-names` 声明后端返回对象的别名字段（如 `path: 'menuUrl'`），组件内部自动完成递归映射，避免在业务代码中编写多余的数据转换逻辑。
+3. **全屏沉浸最大化模式 (isMaximized)**：开启最大化时平滑隐藏顶部 Header 与侧边 Aside，主体内容全屏展开；向上文与子组件派发总线通知，使 `AtengFooterBar` 避让边距瞬间平滑归零。
+4. **移动端自适应抽屉遮罩**：当视口宽度小于 768px 时，侧边栏自动退化为全屏抽屉遮罩（Drawer Overlay），点击背景自动收起，全自洽适配移动端。
+
+---
+
+### 4.2 视口溢出滚动、拖拽调序与多标签协同 (`AtengTabsNav`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+/** 视觉外观形态：card 独立卡片 | pill 胶囊圆角 | line 极简下划线 */
+export type TabsStyle = 'card' | 'pill' | 'line';
+
+/** AtengTabsNav 核心属性契约 */
+export interface AtengTabsNavProps {
+  /** 当前激活标签项的 key（支持受控与 v-model） */
+  modelValue?: string;
+  /** 标签页列表数据数组（支持受控与 v-model:tabs） */
+  tabs?: TabItem[];
+  /** 视觉外观形态，默认 'card' */
+  styleType?: TabsStyle;
+  /** 标签栏物理高度，默认 '38px' */
+  height?: number | string;
+  /** 是否显示标签图标，默认 true */
+  showIcon?: boolean;
+  /** 是否允许关闭标签，默认 true */
+  closable?: boolean;
+  /** 是否开启原生 HTML5 拖拽排序，默认 true */
+  draggable?: boolean;
+  /** 是否开启右键快捷上下文菜单，默认 true */
+  contextMenu?: boolean;
+  /** 是否显示右侧快捷操作面板下拉按钮，默认 true */
+  showQuickActions?: boolean;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useTabsNav } from '@atengk/vue';
+import { AtengTabsNav } from '@atengk/element-plus';
+
+// 初始化多标签页响应式状态机
+const {
+  tabs,
+  activeKey,
+  openTab,
+  closeTab,
+  closeOtherTabs,
+  closeAllTabs,
+  refreshTab,
+  isMaximized,
+} = useTabsNav({
+  defaultActiveKey: '/dashboard',
+  defaultTabs: [
+    { key: '/dashboard', title: '控制台首页', affix: true },
+    { key: '/goods', title: '商品中心', closable: true },
+    { key: '/orders', title: '订单流水', closable: true },
+    { key: '/customers', title: '客户档案', closable: true },
+  ],
+});
+
+const tabsStyle = ref<'card' | 'pill' | 'line'>('card');
+</script>
+
+<template>
+  <div class="tabs-demo-panel">
+    <!-- 企业级多标签导航：视口溢出滚动、原生拖拽排序与右键快捷菜单 -->
+    <AtengTabsNav
+      v-model="activeKey"
+      v-model:tabs="tabs"
+      v-model:is-maximized="isMaximized"
+      :style-type="tabsStyle"
+      draggable
+      context-menu
+      show-quick-actions
+      show-maximize
+      @tab-close="closeTab"
+      @tab-refresh="refreshTab"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **原生 HTML5 拖拽防呆与调序**：基于原生 Drag & Drop API 实现标签拖拽调序，且具备防呆防护——普通标签绝对无法拖动至 `affix: true` 固定标签的前方，保护首页常驻顺序不被打乱。
+2. **滚轮横向溢出滑动与激活居中**：当打开标签过多超出视口宽度时，鼠标滚轮在标签栏上方滚动自动转译为横向平滑滚动；切换激活标签时，激活项自动以 CSS 平滑动画滚动居中至可视区域。
+3. **右键上下文菜单与 KeepAlive 白名单**：右键任意标签调出原生高质感操作菜单（刷新当前、关闭当前、关闭其他、关闭左侧、关闭右侧、关闭全部）；与 `@atengk/vue` 的 `useTabsNav` 状态机无缝打通，自动同步维护 `<KeepAlive :include="cachedViews">` 页面缓存名单。
+
+---
+
+### 4.3 纯无状态基础布局与弹性 Aside 探测 (`AtengLayout`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type AtengLayoutDirection = 'horizontal' | 'vertical';
+
+/** AtengLayout 属性契约 */
+export interface AtengLayoutProps {
+  /** 布局排列方向，未提供时自动扫描子节点包含 AtengAside 则为 'horizontal'，否则为 'vertical' */
+  direction?: AtengLayoutDirection;
+  /** 自定义根 HTML 标签名，默认 'section' */
+  tag?: string;
+}
+
+/** AtengAside 属性契约 */
+export interface AtengAsideProps {
+  /** 侧边栏展开宽度，默认 '220px' */
+  width?: number | string;
+  /** 侧边栏折叠宽度，默认 '64px' */
+  collapsedWidth?: number | string;
+  /** 是否折叠（支持受控 v-model:collapsed） */
+  collapsed?: boolean;
+  /** 是否允许折叠，默认 false */
+  collapsible?: boolean;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengLayout,
+  AtengHeader,
+  AtengAside,
+  AtengContent,
+  AtengFooter,
+} from '@atengk/element-plus';
+
+const collapsed = ref(false);
+</script>
+
+<template>
+  <!-- 纯无状态基础布局：自动感知子节点包含 AtengAside 并无缝切换为横向排版 -->
+  <AtengLayout class="main-layout-container">
+    <AtengAside v-model:collapsed="collapsed" collapsible width="240px" collapsed-width="64px">
+      <div class="aside-logo">Logo</div>
+      <div class="aside-menu">自定义纯 CSS 侧边菜单</div>
+    </AtengAside>
+
+    <AtengLayout>
+      <AtengHeader height="60px">
+        <el-button link @click="collapsed = !collapsed">切换折叠</el-button>
+        <span class="header-title">业务工作台</span>
+      </AtengHeader>
+
+      <AtengContent>
+        <div class="content-box">主体业务视图内容区</div>
+      </AtengContent>
+
+      <AtengFooter height="40px">
+        <span>© 2026 Ateng UI 基础设施套件</span>
+      </AtengFooter>
+    </AtengLayout>
+  </AtengLayout>
+</template>
+
+<style scoped>
+.main-layout-container {
+  height: 100vh;
+}
+</style>
+```
+
+#### 核心机制与生产边界说明
+
+1. **纯 CSS Flex 驱动与零业务状态**：`AtengLayout` 属于纯粹的几何排版架构容器，不绑定任何路由、Pinia 或业务逻辑；内部基于 Flexbox 弹性盒模型驱动。
+2. **智能 Aside 探测与显式逃生门**：组件在渲染前自动扫描子 VNode 节点；当发现存在 `AtengAside` 时，自动向根节点追加 `.has-aside` 并将 Flex 方向切换为横向（`row`），同时保留 `direction` 属性作为强行指定方向的显式逃生门。
+
+---
+
+### 4.4 2px 顶栏纳米科技流光线与路由自动化接管 (`installLoadingBar`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+/** 顶栏流光线配置选项 */
+export interface LoadingBarConfig {
+  /** 流光条物理高度，默认 '2px' */
+  height?: string;
+  /** 自动递增步长区间最小值，默认 10 */
+  minStep?: number;
+  /** 自动递增步长区间最大值，默认 18 */
+  maxStep?: number;
+}
+
+/** 全局流光条门面方法 */
+export declare const LoadingBar: {
+  start(): void;
+  done(): void;
+  error(): void;
+  config(options: LoadingBarConfig): void;
+};
+
+/** 全自动 Vue Router 导航守卫接管方法 */
+export declare function installLoadingBar(router: any, options?: LoadingBarConfig): () => void;
+```
+
+#### 实战业务 SFC 代码示例
+
+```ts
+import { createApp } from 'vue';
+import { createRouter, createWebHashHistory } from 'vue-router';
+import { installLoadingBar } from '@atengk/element-plus';
+import App from './App.vue';
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes: [
+    { path: '/', component: () => import('./views/Home.vue') },
+    { path: '/analytics', component: () => import('./views/Analytics.vue') },
+  ],
+});
+
+// 单行安装：0 侵入全自动接管 router.beforeEach 与 router.afterEach
+installLoadingBar(router, { height: '2px' });
+
+const app = createApp(App);
+app.use(router);
+app.mount('#app');
+```
+
+#### 核心机制与生产边界说明
+
+1. **极净纯粹主义 (0 遮罩 · 0 模态 · 0 滤镜)**：传统大型全屏 Loading 遮罩或中间旋转菊花会严重打断用户沉浸感与界面可读性。`LoadingBar` 坚持 2px 顶栏流光线模型，页面内容始终清晰可见。
+2. **独立 GPU 硬件合成图层**：流光线应用 `will-change: width`，独立提升至浏览器 GPU 硬件加速图层，渲染与重绘耗时稳定在 0.01ms 以内，即使主线程在解析巨型组件也不会引发掉帧卡顿；发生路由解析异常时自动调用 `LoadingBar.error()` 呈现高警示绯红流光。
+
+---
+
+## 5. 页面主体容器与排版交互套件 (Page Container & Layout Scaffold Suite)
+
+### 5.1 标准页面承载容器、自动面包屑与操作流折叠 (`AtengPageContainer`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+/** 页头操作流按钮契约 */
+export interface AtengPageActionItem {
+  key?: string;
+  label: string;
+  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'default';
+  icon?: unknown;
+  plain?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
+  onClick?: (e: MouseEvent) => void | Promise<unknown>;
+}
+
+/** AtengPageContainer 核心属性契约 */
+export interface AtengPageContainerProps {
+  /** 页面标题 */
+  title?: string;
+  /** 页面副标题文案 */
+  subTitle?: string;
+  /** 是否展示返回上一页箭头按钮，默认 false */
+  showBack?: boolean;
+  /** 是否开启内容撑满视口双模自适应滚动，默认 false */
+  fitViewport?: boolean;
+  /** 页头是否吸顶悬浮固顶，默认 false */
+  fixedHeader?: boolean;
+  /** 是否启用自动感知路由推导面包屑，默认 true */
+  autoBreadcrumb?: boolean;
+  /** 向下滚动时是否自动平滑收起页头，默认 false */
+  collapseHeaderOnScroll?: boolean;
+  /** 是否完全隐藏页头呈现沉浸纯内容模式，默认 true */
+  headerVisible?: boolean;
+  /** 是否开启 Teleport 脱壳全屏最大化，默认 false */
+  fullscreen?: boolean;
+  /** 声明式页头操作按钮列表 */
+  extraActions?: AtengPageActionItem[];
+  /** 页头最大可见按钮数，超出部分自动收起至下拉菜单，默认 3 */
+  maxVisibleActions?: number;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengPageContainer, type AtengPageActionItem } from '@atengk/element-plus';
+import { ElMessage } from 'element-plus';
+
+const isFullscreen = ref(false);
+
+// 声明式页头操作流按钮：超过 maxVisibleActions(3) 自动收折
+const pageActions: AtengPageActionItem[] = [
+  {
+    label: '新建商品',
+    type: 'primary',
+    onClick: () => ElMessage.info('触发新建商品'),
+  },
+  {
+    label: '批量导入',
+    type: 'default',
+    onClick: () => ElMessage.info('调起批量导入'),
+  },
+  {
+    label: '同步库存',
+    type: 'default',
+    onClick: () => ElMessage.info('同步库存中...'),
+  },
+  {
+    label: '导出台账',
+    type: 'default',
+    onClick: () => ElMessage.success('触发导出数据'),
+  },
+  {
+    label: '归档历史',
+    type: 'danger',
+    onClick: () => ElMessage.warning('执行归档'),
+  },
+];
+</script>
+
+<template>
+  <AtengPageContainer
+    title="商品资产管理台"
+    sub-title="协同管理全局在售 SKU、库存警戒与价格策略"
+    show-back
+    fixed-header
+    fit-viewport
+    v-model:fullscreen="isFullscreen"
+    :extra-actions="pageActions"
+    :max-visible-actions="3"
+    @back="console.log('点击返回')"
+  >
+    <!-- 主体业务视图 -->
+    <div class="content-card">
+      <p>标准页面主体容器内容区域</p>
+    </div>
+  </AtengPageContainer>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **容器上下文总线 (PAGE_CONTAINER_INJECTION_KEY)**：父级 `AtengPageContainer` 动态向子孙组件提供滚动视口引用、容器物理尺寸与底部垫块注册通道；内嵌 `AtengFooterBar` 时自动追加等高 `padding-bottom` 垫块，彻底消除遮挡。
+2. **Teleport 全屏脱壳与防穿透滚动锁**：开启全屏时通过 `<Teleport to="body">` 将容器瞬移至根节点，彻底绕过祖先节点含有 `transform`、`filter` 等 CSS 属性造成的包含块限制；集成模块级引用计数滚动锁，多层全屏嵌套退出时平滑还原宿主滚动状态。
+3. **操作流自适应折叠 (Action Overflow)**：针对复杂业务页头按钮膨胀问题，支持配置 `maxVisibleActions`。前 N 个主按钮常驻高亮，超出项自动折叠收敛为“更多操作”下拉菜单，兼顾效率与界面整洁。
+
+---
+
+### 5.2 原生 Pointer Events 弹性拖拽分栏与边缘磁吸附 (`AtengSplitLayout`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type AtengSplitDirection = 'horizontal' | 'vertical';
+export type AtengSplitCollapseTarget = 'first' | 'second' | 'both';
+
+/** AtengSplitLayout 核心属性契约 */
+export interface AtengSplitLayoutProps {
+  /** 分栏方向：'horizontal' 水平左右分栏 | 'vertical' 垂直上下分栏，默认 'horizontal' */
+  direction?: AtengSplitDirection;
+  /** 首栏主尺寸（支持受控 v-model），支持像素数字或百分比字符串，默认 '260px' */
+  modelValue?: number | string;
+  /** 首栏最小尺寸限制，默认 '120px' */
+  min?: number | string;
+  /** 首栏最大尺寸限制，默认 '80%' */
+  max?: number | string;
+  /** 分割线是否渲染一键折叠把手，默认 true */
+  collapsible?: boolean;
+  /** 折叠把手面向的目标栏：'first' | 'second' | 'both'，默认 'first' */
+  collapseTarget?: AtengSplitCollapseTarget;
+  /** 边缘阻尼磁吸附阈值（px），逼近阈值时自动平滑吸附折叠，默认 30 */
+  snapThreshold?: number;
+  /** 本地偏好尺寸与折叠状态持久化 Storage 键名 */
+  storageKey?: string;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengSplitLayout } from '@atengk/element-plus';
+
+const leftAsideWidth = ref('280px');
+</script>
+
+<template>
+  <div class="split-demo-wrapper">
+    <!-- 原生 Pointer Events 触控驱动，带 40px 边缘阻尼磁吸附与偏好持久化 -->
+    <AtengSplitLayout
+      v-model="leftAsideWidth"
+      storage-key="org_dept_split_size"
+      :snap-threshold="40"
+      collapse-target="both"
+      min="180px"
+      max="500px"
+    >
+      <!-- 左栏：组织目录树 -->
+      <template #first>
+        <div class="left-panel">
+          <h4>组织目录树</h4>
+          <p>当前首栏宽度：{{ leftAsideWidth }}</p>
+        </div>
+      </template>
+
+      <!-- 右栏：人员详情面板 -->
+      <template #second>
+        <div class="right-panel">
+          <h4>部门人员信息列表</h4>
+          <p>左右拖拽中间把手调整宽度，拖拽逼近边缘 40px 自动平滑吸附折叠。</p>
+        </div>
+      </template>
+    </AtengSplitLayout>
+  </div>
+</template>
+
+<style scoped>
+.split-demo-wrapper {
+  height: 480px;
+  border: 1px solid var(--el-border-color-light);
+}
+</style>
+```
+
+#### 核心机制与生产边界说明
+
+1. **W3C Pointer Events 触控捕获**：使用现代 `setPointerCapture` API 接管光标事件，无论是快速鼠标挥动还是平板触摸屏滑动，指针一旦越过窗口或进入 iframe 绝不丢帧，平滑稳定。
+2. **Snap Points 边缘阻尼磁吸附**：当拖拽把手逼近左侧或右侧临界边缘达到 `snapThreshold`（如 40px）时，系统自动产生物理磁吸附并触发微动效瞬时折叠为 0；反向拉出把手时自动平滑恢复折叠前尺寸。
+3. **W3C A11y 键盘无障碍微调**：把手具有 `role="separator"` 与 `tabindex="0"`，支持使用键盘方向键（Left/Right/Up/Down）进行 8px 精密微调（按住 Shift 进行 32px 快速步进）。
+
+---
+
+### 5.3 容器总线自适应避让与异步防重吸底操作栏 (`AtengFooterBar`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type AtengFooterBarPosition = 'sticky' | 'fixed';
+
+/** AtengFooterBar 核心属性契约 */
+export interface AtengFooterBarProps {
+  /** 定位模式：'sticky' 局部粘滞 | 'fixed' 全局视口悬浮，默认 'sticky' */
+  position?: AtengFooterBarPosition;
+  /** 局部 sticky 模式下是否自动占位，默认 true */
+  placeholder?: boolean;
+  /** 操作栏高度，默认 '56px' */
+  height?: string;
+  /** 是否开启自动避让 ProLayout 侧边栏宽度，默认 true */
+  autoOffset?: boolean;
+  /** 是否显示主提交按钮，默认 false */
+  showSubmit?: boolean;
+  /** 提交按钮文本，默认 '提交' */
+  submitText?: string;
+  /** 提交点击回调，绑定异步 Promise 函数时全自动接管 Loading 互斥防重锁 */
+  onSubmit?: () => Promise<unknown> | void;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { AtengFooterBar } from '@atengk/element-plus';
+import { ElMessage } from 'element-plus';
+
+// 模拟耗时 1200ms 的异步保存动作
+const handleSave = async () => {
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  ElMessage.success('配置已成功持久化保存');
+};
+</script>
+
+<template>
+  <div class="form-scroll-container">
+    <div class="long-form-content">长表单业务字段...</div>
+
+    <!-- 吸底操作栏：绑定 async onSubmit 自动接管 loading 锁防重复点击 -->
+    <AtengFooterBar position="sticky" show-submit submit-text="确认保存" :on-submit="handleSave">
+      <template #extra>
+        <span class="tip-text">表单包含 8 项待核验信息</span>
+      </template>
+      <el-button>存为草稿</el-button>
+    </AtengFooterBar>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **异步 Promise 防重连击锁**：当向 `:on-submit` 传入 `async () => Promise` 异步函数时，`AtengFooterBar` 内部状态机自动拦截并发点击，瞬间开启按钮 loading 态并阻断事件穿透；Promise 决议后无论成功或失败自动安全释放锁，彻底消灭二次点击脏写。
+2. **容器总线动态高度垫块协同**：嵌套在 `AtengPageContainer` 内部时，操作栏自动感知父容器上下文并注册自身 56px 高度，由父容器内容区自动追加等高 `padding-bottom` 垫块，彻底杜绝内容被吸底栏遮挡。
+
+---
+
+### 5.4 结构化卡片与手风琴集中编排 (`AtengCard` & `AtengCardGroup`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+/** AtengCard 核心属性契约 */
+export interface AtengCardProps {
+  /** 卡片唯一键名（用于 AtengCardGroup 编排） */
+  name?: string | number;
+  /** 卡片主标题 */
+  title?: string;
+  /** 卡片副标题 */
+  subTitle?: string;
+  /** 是否允许一键折叠收起，默认 false */
+  collapsible?: boolean;
+  /** 是否允许视口全屏最大化，默认 false */
+  fullscreenable?: boolean;
+  /** 是否展示局部刷新按钮，默认 false */
+  showRefresh?: boolean;
+  /** 卡片当前是否处于加载状态，默认 false */
+  loading?: boolean;
+}
+
+/** AtengCardGroup 核心属性契约 */
+export interface AtengCardGroupProps {
+  /** 当前展开的卡片 name 数组（支持 v-model:activeKeys） */
+  activeKeys?: (string | number)[];
+  /** 是否开启手风琴模式（同时仅允许展开单张卡片），默认 false */
+  accordion?: boolean;
+  /** 多卡片垂直间距，默认 '16px' */
+  gutter?: string | number;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCard, AtengCardGroup, type AtengCardGroupInstance } from '@atengk/element-plus';
+import { ElMessage } from 'element-plus';
+
+const groupRef = ref<AtengCardGroupInstance>();
+const activeKeys = ref(['card-1', 'card-2']);
+const cardLoading = ref(false);
+
+const handleCardRefresh = () => {
+  cardLoading.value = true;
+  setTimeout(() => {
+    cardLoading.value = false;
+    ElMessage.success('卡片数据已局部刷新');
+  }, 800);
+};
+</script>
+
+<template>
+  <div class="card-demo-box">
+    <div class="actions-bar">
+      <el-button size="small" @click="groupRef?.expandAll()">全部展开</el-button>
+      <el-button size="small" @click="groupRef?.collapseAll()">全部收起</el-button>
+    </div>
+
+    <!-- 多卡片集中状态编排器 -->
+    <AtengCardGroup ref="groupRef" v-model:active-keys="activeKeys" gutter="16px">
+      <!-- 具备 360 度刷新动效与视口全屏的结构化面板 -->
+      <AtengCard
+        name="card-1"
+        title="实时交易大盘"
+        sub-title="每 10 秒拉取增量流水"
+        collapsible
+        fullscreenable
+        show-refresh
+        :loading="cardLoading"
+        @refresh="handleCardRefresh"
+      >
+        <p>今日累计交易金额：¥ 1,280,450.00</p>
+      </AtengCard>
+
+      <AtengCard name="card-2" title="异常风险告警" collapsible fullscreenable>
+        <p>当前风控引擎运行状态：健康度 99.8%</p>
+      </AtengCard>
+    </AtengCardGroup>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **Vue Provide/Inject 跨层编排状态机**：`AtengCardGroup` 跨层协调子 `AtengCard` 状态机，开启 `accordion: true` 时单开互斥；暴露对称的 `expandAll()` 与 `collapseAll()` 实例门面。
+2. **卡片视口最大化与滚动穿透锁**：点击全屏最大化时，卡片脱壳撑满当前视口，并调用全局防穿透滚动锁锁定背景页面，按 ESC 键平滑退出全屏。
+
+---
+
+### 5.5 页面骨架屏插槽平滑包装与后台形态预设 (`AtengPageSkeleton`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type AtengSkeletonType = 'table' | 'form' | 'detail' | 'card' | 'dashboard' | 'custom';
+
+/** AtengPageSkeleton 核心属性契约 */
+export interface AtengPageSkeletonProps {
+  /** 是否处于骨架屏加载状态，默认 true */
+  loading?: boolean;
+  /** 预设骨架形态：'table' | 'form' | 'detail' | 'card' | 'dashboard' | 'custom'，默认 'table' */
+  type?: AtengSkeletonType;
+  /** 是否带有呼吸脉冲闪烁动效，默认 true */
+  animated?: boolean;
+  /** 模拟行数，默认 5 */
+  rows?: number;
+  /** 模拟列数，默认 3 */
+  columns?: number;
+  /** 表格列宽比例数组，如 [120, '30%', '20%'] */
+  columnWidths?: (string | number)[];
+  /** 表格底部是否渲染假分页栏骨架，默认 false */
+  showPagination?: boolean;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengPageSkeleton, AtengTable } from '@atengk/element-plus';
+
+const pageLoading = ref(true);
+
+// 模拟异步数据加载完成后淡入真实内容
+setTimeout(() => {
+  pageLoading.value = false;
+}, 1500);
+</script>
+
+<template>
+  <!-- 插槽平滑包装器协议：直接包裹页面真实内容，loading 结束平滑 Fade 切换无白屏 -->
+  <AtengPageSkeleton
+    :loading="pageLoading"
+    type="table"
+    :rows="6"
+    :column-widths="[60, 180, '30%', 120, 160]"
+    show-pagination
+  >
+    <div class="real-page-content">
+      <AtengTable :data="goodsList" border>
+        <el-table-column prop="id" label="ID" width="180" />
+        <el-table-column prop="name" label="商品名称" />
+      </AtengTable>
+    </div>
+  </AtengPageSkeleton>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **插槽平滑包装协议 (Slot Wrapper Protocol)**：无需在页面中编写繁琐的 `v-if="loading"` 与 `v-else` 双分支；直接将真实页面包裹在 `AtengPageSkeleton` 默认插槽中，加载完成后自动通过 CSS Fade Transition 无缝淡入真实视图，杜绝白屏闪烁。
+2. **高保真后台 5 大形态预设**：开箱提供 table（带假分页栏与表头）、form（栅格表单）、detail（图文详情）、card（卡片网格）与 dashboard（4 张指标翻牌卡 + 双图表区块）五大高拟真骨架预设。
+
+---
+
+### 5.6 容器自适应流式网格与电梯楼层导航锚点 (`AtengGrid` & `AtengAnchor`)
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+/** AtengGrid 核心属性契约 */
+export interface AtengGridProps {
+  /** 网格项最小宽度（纯数字像素或带单位字符串），默认 '260px' */
+  minItemWidth?: number | string;
+  /** 网格间距，默认 '16px' */
+  gap?: number | string | [number | string, number | string];
+  /** 强制固定列数（1~12），提供后将覆盖 minItemWidth */
+  cols?: number;
+}
+
+/** AtengAnchor 核心属性契约 */
+export interface AtengAnchorProps {
+  /** 声明式树形锚点列表 */
+  items?: AtengAnchorItem[];
+  /** 局部滚动宿主容器逃生舱（选择器字符串或 DOM） */
+  container?: string | HTMLElement | Window;
+  /** 锚点吸顶安全避让偏移量（px），默认 0 */
+  targetOffset?: number;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { AtengGrid, AtengAnchor, type AtengAnchorItem } from '@atengk/element-plus';
+
+const floorNavItems: AtengAnchorItem[] = [
+  { href: '#base-info', title: '1. 基础档案' },
+  { href: '#finance-info', title: '2. 财务账户' },
+  { href: '#audit-log', title: '3. 审批流水' },
+];
+</script>
+
+<template>
+  <div class="floor-page-layout">
+    <div class="scroll-body" id="doc-scroll-host">
+      <section id="base-info" class="doc-section">
+        <h3>1. 基础档案</h3>
+        <!-- 容器级原生 CSS 网格：父容器变宽时无断点自适应排布 -->
+        <AtengGrid min-item-width="240px" gap="16px">
+          <div class="grid-card">卡片 1</div>
+          <div class="grid-card">卡片 2</div>
+          <div class="grid-card">卡片 3</div>
+        </AtengGrid>
+      </section>
+
+      <section id="finance-info" class="doc-section">
+        <h3>2. 财务账户</h3>
+        <p>账户详情与对账流水记录...</p>
+      </section>
+
+      <section id="audit-log" class="doc-section">
+        <h3>3. 审批流水</h3>
+        <p>全生命周期操作记录...</p>
+      </section>
+    </div>
+
+    <!-- 侧边电梯楼层导航锚点 -->
+    <div class="floor-nav-aside">
+      <AtengAnchor :items="floorNavItems" container="#doc-scroll-host" :target-offset="20" />
+    </div>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **容器查询原生自适应流式网格 (`AtengGrid`)**：采用 `container-type: inline-size` 与 `grid-template-columns: repeat(auto-fill, minmax(minItemWidth, 1fr))` 纯 CSS 原生驱动，即使在变宽的分栏或抽屉中，也能够实现 0 JS 性能开销的平滑重排。
+2. **双模滚动感知电梯锚点 (`AtengAnchor`)**：自动向上探测最近的局部滚动区（如 `.at-page-container__content`），滚动时通过 requestAnimationFrame 节流计算当前可见小节，游标墨水指示条实时跟随，点击时调用平滑滑动定位。
 
 ---
 
@@ -904,40 +1704,6 @@ await DictManager.preload(['sys_user_status', 'sys_notice_level']);
   type="success"
   text="多模导出"
 />
-```
-
-### 6. 吸底操作栏异步防重锁与骨架屏插槽平滑包装 (`AtengFooterBar` & `AtengPageSkeleton`)
-
-`AtengFooterBar` 原生内置保存/重置/取消标准操作流与异步 Loading 互斥防重锁：
-
-```vue
-<!-- 绑定 async onSubmit 自动接管 loading 并禁用连击，彻底杜绝脏写并发 -->
-<AtengFooterBar
-  position="sticky"
-  :on-submit="handleSaveForm"
-  submit-text="保存企业资料"
-  show-reset
-  show-cancel
-/>
-```
-
-`AtengPageSkeleton` 遵循插槽平滑包装器协议，直接包裹业务真实视图，并支持高拟真表格参数化定制（自定义各列宽度比例、底部假分页栏模拟与纯表格隐藏检索区）：
-
-```vue
-<!-- loading=false 时自带淡入淡出（Fade Transition）切换，告别突变与空白闪屏 -->
-<!-- 表格高拟真参数化骨架屏：自定义列宽、假分页条模拟占位与纯表格开关 -->
-<AtengPageSkeleton
-  :loading="pageLoading"
-  type="table"
-  :rows="4"
-  :column-widths="[180, 220, '25%', 140]"
-  :show-pagination="true"
-  :show-header="true"
->
-  <AtengTable :data="tableData" border>
-    <!-- 业务表格内容 -->
-  </AtengTable>
-</AtengPageSkeleton>
 ```
 
 ### 10. 面向 LLM 与 SSE 流式响应的纯原生打字机 (`AtengStreamText`)
@@ -1205,208 +1971,6 @@ const userDetail = {
   </AtengDescriptions>
 </template>
 ```
-
-### 23. 容器上下文总线与 AtengPageContainer / AtengFooterBar / AtengAnchor 零胶水协同 (`PAGE_CONTAINER_INJECTION_KEY`)
-
-`AtengPageContainer` 向上文与所有嵌套子组件提供 `PAGE_CONTAINER_INJECTION_KEY`（亦支持别名 `ATENG_PAGE_CONTAINER_INJECTION_KEY`）强类型上下文总线（`AtengPageContainerContext`），实现跨组件生命周期与滚动宿主的深度协同：
-
-1. **底栏动态占位防遮挡**：当 `AtengFooterBar` 嵌套在 `AtengPageContainer` 内容区末尾时，自动通过上下文总线向父容器注册自身高度，父容器为滚动区域动态追加等高 `padding-bottom` 垫块，彻底杜绝底栏遮挡内容末尾表单与按钮；
-2. **专属 `#footer` 具名插槽**：`AtengPageContainer` 提供专属 `#footer` 插槽，插槽内容固定位于 Flex 布局底部，绝不随内容滚动，实现完美的吸底固定展示；
-3. **电梯楼层锚点自动识别滚动宿主**：`AtengAnchor` 在缺省 `:container` 时，自动向上探测并绑定祖先 `AtengPageContainer` 的局部滚动内容节点（`.at-page-container__content`），无需开发者手动获取 DOM ref 或写选择器；当脱离容器使用时，100% 优雅降级监听 `window` 全局滚动。
-
-```vue
-<script setup lang="ts">
-import { AtengPageContainer, AtengFooterBar, AtengAnchor } from '@atengk/element-plus';
-
-const anchorItems = [
-  { key: 'basic', href: '#basic', title: '基本信息' },
-  { key: 'config', href: '#config', title: '系统配置' },
-];
-
-const handleSave = async () => {
-  // 异步提交逻辑...
-};
-</script>
-
-<template>
-  <AtengPageContainer title="零胶水容器协同" fit-viewport>
-    <div style="display: flex; gap: 24px;">
-      <!-- 1. AtengAnchor 无需指定 container，自动向上绑定 AtengPageContainer 的滚动容器 -->
-      <AtengAnchor :items="anchorItems" style="width: 160px;" />
-
-      <div style="flex: 1;">
-        <div id="basic" style="height: 600px;">基本信息区块</div>
-        <div id="config" style="height: 600px;">系统配置区块</div>
-
-        <!-- 2. AtengFooterBar 嵌套在内容末尾，自动向父容器注册高度并获得 padding-bottom 补偿 -->
-        <AtengFooterBar :on-submit="handleSave" submit-text="保存企业资料" />
-      </div>
-    </div>
-
-    <!-- 3. 或者使用 #footer 具名插槽，固定在 Flex 底部不随内容滚动 -->
-    <!-- <template #footer><AtengFooterBar ... /></template> -->
-  </AtengPageContainer>
-</template>
-```
-
-### 24. 页头声明式操作流折叠、防篡改安全水印与沉浸无页头模式 (`AtengPageContainer`)
-
-在企业级中后台复杂页面中，操作按钮过多容易破坏页头版面美感；同时大屏/画布场景需要沉浸式无页头，内部涉密页面需要安全水印防护。`AtengPageContainer` 提供全套高阶能力：
-
-1. **声明式操作流与自动折叠 (Action Overflow)**：传入 `extraActions: AtengPageActionItem[]`，当按钮数量超过 `maxVisibleActions`（默认 3）时，前 N 项自动平铺渲染，其余按钮自动折叠收敛至 `<el-dropdown>` 下拉菜单中，支持禁用态、分割线与事件统一派发；支持与 `#extra` 插槽并存共生；
-2. **快捷安全水印 (watermark)**：直接配置 `watermark="机密文档 @atengk"` 或传入 `AtengWatermarkProps` 详细对象，内部自动接入矢量防篡改图层，自适应覆盖整个页面滚动内容区；
-3. **沉浸式无页头模式 (headerVisible)**：配置 `:header-visible="false"` 时平滑隐藏整个页头，保留 Flex 撑满、卡片包裹与局部/整页双模滚动能力。
-
-```vue
-<script setup lang="ts">
-import { AtengPageContainer, type AtengPageActionItem } from '@atengk/element-plus';
-import { ElMessage } from 'element-plus';
-
-const actions: AtengPageActionItem[] = [
-  { key: 'edit', label: '编辑资料', type: 'primary', onClick: () => ElMessage.info('编辑') },
-  { key: 'export', label: '导出报表', onClick: () => ElMessage.success('导出') },
-  { key: 'print', label: '打印单据', onClick: () => ElMessage.info('打印') },
-  { key: 'audit', label: '安全审计', divided: true, onClick: () => ElMessage.warning('审计') },
-  { key: 'delete', label: '注销档案', disabled: true },
-];
-</script>
-
-<template>
-  <AtengPageContainer
-    title="客户档案中枢"
-    fit-viewport
-    watermark="机密文件 严禁外传"
-    :extra-actions="actions"
-    :max-visible-actions="3"
-    @action-click="act => console.log('触发操作', act)"
-  >
-    <div style="height: 1000px">长表格或表单内容，受水印安全防护且操作流自动收折</div>
-  </AtengPageContainer>
-</template>
-```
-
-### 25. 骨架与通用容器套件大满贯综合实战装配 (`ContainerSuite`)
-
-在中后台核心管理中枢或复杂业务控制台中，组合 `AtengLayout` + `AtengPageContainer` + `AtengSplitLayout` + `AtengFooterBar` + `AtengAnchor` + `v-skeleton` + `AtengPageSkeleton` 构建全链路工业级布局体系：
-
-```vue
-<template>
-  <!-- 1. 无状态基础布局：侧边栏受控折叠 -->
-  <AtengLayout style="height: 100vh;">
-    <AtengAside v-model:collapsed="isAsideCollapsed" width="220px" collapsible>
-      <div class="nav-tree">系统资源导航</div>
-    </AtengAside>
-
-    <AtengContent>
-      <!-- 2. 标准页面容器：视口撑满、页头操作流收折、安全防篡改水印 -->
-      <AtengPageContainer
-        title="微服务集群中枢"
-        fit-viewport
-        watermark="Ateng Cloud 工业级安全管控"
-        :extra-actions="pageActions"
-        :max-visible-actions="3"
-      >
-        <!-- 3. 高拟真页面骨架屏包装 -->
-        <AtengPageSkeleton
-          :loading="pageLoading"
-          type="table"
-          :column-widths="['120px', '240px', '140px', '100px']"
-          show-pagination
-        >
-          <!-- 4. 弹性拖拽分栏：边缘阻尼磁吸附 -->
-          <AtengSplitLayout v-model="splitWidth" :snap-threshold="80" min="180px">
-            <template #first>
-              <!-- 5. 电梯楼层导航：自动识别祖先 PageContainer 滚动宿主 -->
-              <AtengAnchor :items="anchorItems" />
-            </template>
-
-            <template #second>
-              <div class="workspace">
-                <div id="metrics">
-                  <!-- 6. 原地细粒度微骨架：Zero-CLS 消除排版跳变 -->
-                  <div v-skeleton="metricLoading" class="metric-num">126,890 QPS</div>
-                </div>
-
-                <!-- 7. 吸底操作栏：自动注册高度，父容器为内容区动态追加等高 padding-bottom 垫块 -->
-                <AtengFooterBar :on-submit="handleSave" submit-text="保存集群配置" />
-              </div>
-            </template>
-          </AtengSplitLayout>
-        </AtengPageSkeleton>
-      </AtengPageContainer>
-    </AtengContent>
-  </AtengLayout>
-</template>
-```
-
-### 26. 框架布局多形态、异构字段映射与多标签 KeepAlive 缓存实战 (AtengProLayout + AtengTabsNav)
-
-在企业级大型系统骨架中，`AtengProLayout` 支持 Side、Top、Mix 三大模式平滑切换，内置异构菜单别名映射（`fieldNames`），并与 `@atengk/vue` 的 `useTabsNav` 状态机无缝协同：
-
-```vue
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useTabsNav } from '@atengk/vue';
-import { AtengProLayout, AtengTabsNav, AtengFooterBar } from '@atengk/element-plus';
-
-// 后端异构菜单数据（字段为 url / name / subList）
-const backendMenu = [
-  { url: '/dashboard', name: '工作台首页' },
-  {
-    url: '/system',
-    name: '系统管理',
-    subList: [
-      { url: '/system/user', name: '用户管理' },
-      { url: '/system/role', name: '角色策略' },
-    ],
-  },
-];
-
-const activeMenu = ref('/system/user');
-const layoutMode = ref<'side' | 'top' | 'mix'>('mix');
-const collapsed = ref(false);
-
-const { tabs, activeKey, cachedViews, openTab, closeTab, refreshTab, isMaximized } = useTabsNav({
-  defaultActiveKey: '/system/user',
-  defaultTabs: [
-    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'Dashboard' },
-    { key: '/system/user', title: '用户管理', componentName: 'UserList' },
-  ],
-});
-</script>
-
-<template>
-  <AtengProLayout
-    v-model:collapsed="collapsed"
-    v-model:active-menu="activeMenu"
-    v-model:is-maximized="isMaximized"
-    :layout="layoutMode"
-    :menu-data="backendMenu"
-    :field-names="{ path: 'url', title: 'name', children: 'subList' }"
-    :mix-auto-select-first-leaf="true"
-    show-tabs
-    :tabs-props="{ tabs, modelValue: activeKey }"
-    title="企业协同中枢"
-    @tab-click="t => (activeMenu = t.key)"
-    @tab-close="k => closeTab(k)"
-    @tab-refresh="k => refreshTab(k)"
-  >
-    <!-- 真实 KeepAlive 缓存视口：遵循 Vue Router 4 规范插槽并在 refreshTab 触发时局部物理重载 -->
-    <router-view v-slot="{ Component }">
-      <KeepAlive :include="cachedViews">
-        <component :is="Component" :key="activeKey" />
-      </KeepAlive>
-    </router-view>
-
-    <!-- 底部操作栏：通过 position="fixed" 自动平滑避让侧边栏，最大化时避让归零 -->
-    <template #footer>
-      <AtengFooterBar position="fixed" show-submit submit-text="保存布局配置" />
-    </template>
-  </AtengProLayout>
-</template>
-```
-
----
 
 ## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
 
