@@ -32,6 +32,18 @@ _Avoid_: Auto-complete, hint function, suggestion list
 差异比对器的视觉呈现模式，支持双栏并排（Split / Side-by-Side）与行间内联（Inline）两种形态。
 _Avoid_: Diff view type, comparison layout
 
+**DiffStats**:
+描述原始版本与修改版本比对后，新增行、删除行与修改块的结构化统计数据实体。
+_Avoid_: Change counter, diff result, change summary
+
+**SqlFormatProvider**:
+用于受管接管与定制 SQL 美化排版算法的扩展 SPI 接口，支持同步或异步格式化实现。
+_Avoid_: SQL pretty printer, format callback, sql parser
+
+**LineHighlighting**:
+在只读审计或语法诊断场景中，通过行背景色与边槽标记声明式高亮特定关键代码行的行为。
+_Avoid_: Line marker, alert row, row coloring
+
 **GeometricSelfHealing**:
 当容器挂载于隐藏弹窗或未激活标签页（0x0 像素）时，通过尺寸感应与挂起机制自愈内部 Canvas 的健壮性保障。
 _Avoid_: Auto resize, delayed render, force refresh
