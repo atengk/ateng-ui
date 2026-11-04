@@ -1276,10 +1276,395 @@ setupMonacoWorkers({
 
 ## 8. 视口几何自愈与生命周期治理
 
-> 待工单 #239 细化落实：涵盖 8.1 弹窗、抽屉与多标签 0x0 视口几何自愈、8.2 生产运维只读审计与高危删库行高亮、8.3 确定性四步生命周期注销防线三要素同屏闭环。
+### 8.1 弹窗、抽屉与多标签 0x0 视口几何自愈
+
+当代码编辑器挂载于 `<el-dialog>` 模态弹窗、`<el-drawer>` 抽屉或多标签 `<el-tabs>` 等动态显隐容器中时，初次渲染由于处于 `display: none`（视口宽高为 `0x0`），易引发 Canvas 绘制错乱与文本折叠。组件内置尺寸感知状态机与自愈机制彻底根绝此问题。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorProps {
+  /** 是否启用 0x0 视口几何挂起与恢复可见自愈 @default true */
+  autoLayoutHealing?: boolean;
+}
+
+export interface CodeEditorExpose {
+  /** 当前视口是否处于 0x0 几何挂起状态（如处于未打开弹窗或隐藏 Tab 中） */
+  isSuspended: () => boolean;
+  /** 触发视口几何自愈布局（从 0x0 恢复可见时安全重算） */
+  healLayout: () => void;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 DialogTabsLifecycleScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor, type AtengCodeEditorInstance } from '@atengk/code-editor-vue';
+
+// 弹窗与抽屉可见性控制
+const dialogVisible = ref<boolean>(false);
+const drawerVisible = ref<boolean>(false);
+const activeTab = ref<string>('tab1');
+
+const dialogEditorRef = ref<AtengCodeEditorInstance | null>(null);
+
+const dialogCode = ref(`// === 模态弹窗内代码编辑场景 ===
+function handleDialogConfirm() {
+  console.log("提交弹窗中的业务逻辑配置");
+  return { success: true };
+}
+`);
+
+const tab1Code = ref(`export function transformPayload(raw: Record<string, unknown>) {
+  return { ...raw, processedAt: Date.now() };
+}`);
+
+const tab2Code = ref(`SELECT dept_id, AVG(salary) FROM hr_employee GROUP BY dept_id;`);
+</script>
+
+<template>
+  <div class="lifecycle-demo">
+    <div class="actions">
+      <button @click="dialogVisible = true">📂 打开模态弹窗编辑器</button>
+      <button @click="drawerVisible = true">📑 打开侧边抽屉编辑器</button>
+    </div>
+
+    <!-- 1. 隐藏标签页场景：切换 Tab 时视口自动挂起与恢复自愈 -->
+    <div class="tabs-container">
+      <div class="tab-headers">
+        <button :class="{ active: activeTab === 'tab1' }" @click="activeTab = 'tab1'">
+          数据管道脚本 (TS)
+        </button>
+        <button :class="{ active: activeTab === 'tab2' }" @click="activeTab = 'tab2'">
+          离线批处理 (SQL)
+        </button>
+      </div>
+      <div v-show="activeTab === 'tab1'">
+        <AtengCodeEditor v-model="tab1Code" language="typescript" height="300px" />
+      </div>
+      <div v-show="activeTab === 'tab2'">
+        <AtengCodeEditor v-model="tab2Code" language="sql" height="300px" />
+      </div>
+    </div>
+
+    <!-- 2. 模态弹窗场景：挂载时 0x0 挂起，弹出动画结束后自愈 -->
+    <div v-if="dialogVisible" class="dialog-mask">
+      <div class="dialog-body">
+        <h3>配置修改弹窗</h3>
+        <AtengCodeEditor
+          ref="dialogEditorRef"
+          v-model="dialogCode"
+          language="javascript"
+          height="320px"
+        />
+        <button @click="dialogVisible = false">关闭</button>
+      </div>
+    </div>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **0x0 视口自动挂起**：内部基于 `ResizeObserver` 检测宿主 DOM。当 `clientWidth === 0 || clientHeight === 0` 时，`isSuspended` 状态置为 `true`，立即暂停所有高开销的 `editor.layout()` 与重排计算，彻底防止 Canvas 生成脏尺寸。
+- **恢复可见防抖自愈**：一旦弹窗打开动画完成或标签页切入使得尺寸变为非零，状态机自动触发防抖版 `healLayout()`，确保重排仅执行一次，避免 CSS 动画期间频繁重排引发的卡顿。
+
+---
+
+### 8.2 生产运维只读审计与高危删库代码行高亮
+
+面向线上运维控制台、发布审计中心与敏感 SQL 执行审批，提供只读防篡改防护与声明式指定行背景/边槽高危标记能力。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorProps {
+  /** 是否只读模式 @default false */
+  readOnly?: boolean;
+  /** 只读审计高亮行号列表 (1-based 行号数组，如 [4, 11, 16]) */
+  highlightLines?: number[];
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 AuditReadOnlyScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor } from '@atengk/code-editor-vue';
+
+// 声明需要示警的高危行号 (行 4 越权、行 11 删库、行 16 绕过审计)
+const criticalLines = ref<number[]>([4, 11, 16]);
+
+const auditScript = ref(`// === 生产环境运维审计日志 ===
+function executeProductionScript(user, payload) {
+  // 1. 权限前置校验
+  if (!user.hasRole('SUPER_ADMIN')) {
+    throw new Error('403: 越权敏感操作'); // [高危告警行 4]
+  }
+
+  // 2. 数据库清空敏感指令
+  const table = payload.targetTable;
+  console.log("准备执行清除动作: " + table);
+  db.execute("DROP TABLE " + table); // [高危 SQL 注入/删库行 11]
+
+  // 3. 绕过审计日志写入
+  if (payload.skipAuditLog) {
+    return false; // [审计绕过告警行 16]
+  }
+
+  return true;
+}
+`);
+
+// 动态切换高亮标记
+const toggleOnlySqlDrop = (): void => {
+  criticalLines.value = [11];
+};
+const resetAllAlerts = (): void => {
+  criticalLines.value = [4, 11, 16];
+};
+</script>
+
+<template>
+  <div class="audit-box">
+    <div class="alert-bar">
+      <button @click="resetAllAlerts">标记全部高危行 (4, 11, 16)</button>
+      <button @click="toggleOnlySqlDrop">仅标记删库行 (11)</button>
+    </div>
+    <AtengCodeEditor
+      v-model="auditScript"
+      language="javascript"
+      :read-only="true"
+      :highlight-lines="criticalLines"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **增量 Decorator 集合管理**：底层通过 Monaco 原生 `editor.createDecorationsCollection()` 托管行装饰器，响应式监视 `highlightLines` 的变化并应用差异增量替换，杜绝旧高亮标记幽灵残留。
+- **高对比度双重示警**：高亮行同时在行背景渲染轻量半透明红色背景，并在左侧行号槽（Gutter）显示高危警告图标，在暗黑与浅色模式下均符合 WCAG 无障碍对比度标准。
+
+---
+
+### 8.3 确定性四步生命周期注销防线
+
+为杜绝单页应用（SPA）频繁路由跳转、弹窗反复销毁与重建导致的浏览器内存泄漏，底层确立了确定性注销时序契约。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface UseCodeEditorReturn {
+  /** 销毁当前实例与监听，并彻底注销池内所有 Model */
+  dispose: () => void;
+}
+```
+
+#### 核心机制与四步注销时序
+
+```mermaid
+flowchart TD
+    START["1. 触发组件卸载 / onScopeDispose"] --> STEP1["第一步：解除当前 Model 绑定<br/>(editor.setModel(null)，断开变更事件)"]
+    STEP1 --> STEP2["第二步：销毁 TextModel 模型池<br/>(遍历 poolModels 并执行 model.dispose())"]
+    STEP2 --> STEP3["第三步：注销所有物理监听器<br/>(断开 ResizeObserver、MutationObserver、MediaQuery 与补全 Provider)"]
+    STEP3 --> STEP4["第四步：彻底销毁 Monaco 实例<br/>(执行 editor.dispose() 并置空 ShallowRef)"]
+    STEP4 --> END["销毁完成：内存 100% 回收，零幽灵回调"]
+```
+
+- **第一步：Model 干净解绑**：调用 `editor.setModel(null)`，切断 Monaco View 对内存中 TextModel 的所有物理事件总线与选区依赖，防止后续触发离线回调。
+- **第二步：遍历销毁模型池**：模型池内部维护的受管 `ITextModel` 列表（包括未激活文件的 Model）全部执行 `model.dispose()`，从全局内存堆中彻底擦除。
+- **第三步：注销外部监听**：解绑 `ResizeObserver`（视口几何感应）、`MutationObserver`（深色模式类名感知）、`matchMedia`（系统色彩方案）以及全局 `CompletionRegistry` 注册句柄，彻底根绝离线执行与跨页面污染。
+- **第四步：原生实例释放**：调用原生 `editor.dispose()` 释放 Canvas 绘图上下文与内部 Worker 通信信道，最后将 `editor.value` 和 `model.value` 置为 `null`，完成垃圾回收。
 
 ---
 
 ## 9. 完整 TypeScript 接口/Props/CSS 变量速查清单 (全量速查附录)
 
-> 待工单 #239 细化落实：包含 AtengCodeEditor 全量字典表、AtengCodeDiffEditor 全量字典表、无头 Composables 强类型接口清单与 CSS Design Tokens 规范表。
+### 9.1 `AtengCodeEditor` 全量属性、事件、插槽与 Expose 速查表
+
+#### 组件 Props 接口定义 (`CodeEditorProps`)
+
+| 属性名称             | 类型                                                 | 默认值         | 说明                                                               |
+| :------------------- | :--------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
+| `modelValue`         | `string`                                             | `''`           | 代码文本内容（支持 `v-model` 双向绑定）                            |
+| `language`           | `CodeLanguage`                                       | `'typescript'` | 代码语言，支持 19 种高频预设与自定义扩展                           |
+| `theme`              | `EditorTheme`                                        | `'auto'`       | 编辑器主题：`'auto'` (自动感知)、`'vs'`、`'vs-dark'`、`'hc-black'` |
+| `readOnly`           | `boolean`                                            | `false`        | 是否开启只读模式，锁定代码不可修改                                 |
+| `height`             | `string \| number`                                   | `'400px'`      | 编辑器容器高度（如 `'360px'` 或 `'100%'`）                         |
+| `width`              | `string \| number`                                   | `'100%'`       | 编辑器容器宽度                                                     |
+| `fontSize`           | `number`                                             | `14`           | 代码字体像素大小（px）                                             |
+| `tabSize`            | `number`                                             | `2`            | 按 Tab 键插入的缩进空格数                                          |
+| `wordWrap`           | `'off' \| 'on' \| 'wordWrapColumn' \| 'bounded'`     | `'on'`         | 自动换行模式                                                       |
+| `lineNumbers`        | `'on' \| 'off' \| 'relative' \| 'interval'`          | `'on'`         | 行号展示模式                                                       |
+| `minimap`            | `boolean \| { enabled?: boolean }`                   | `true`         | 是否开启右侧微地图（大文件下自动禁用）                             |
+| `showToolbar`        | `boolean`                                            | `true`         | 是否渲染原生轻量微操作栏                                           |
+| `showStatusbar`      | `boolean`                                            | `true`         | 是否渲染底部状态栏（显示当前语言与只读标识）                       |
+| `bordered`           | `boolean`                                            | `true`         | 是否显示 1px 细边框与圆角                                          |
+| `options`            | `monaco.editor.IStandaloneEditorConstructionOptions` | `undefined`    | Monaco 原生高级配置对象（Escape Hatch）                            |
+| `workerOptions`      | `MonacoWorkerOptions`                                | `undefined`    | 自定义 Worker 提供者配置与静态 CDN 寻址选项                        |
+| `largeFileThreshold` | `number`                                             | `50000`        | 超大文件性能保护阈值（行数），超过时自动关闭 minimap               |
+| `autoLayoutHealing`  | `boolean`                                            | `true`         | 是否启用 0x0 视口几何挂起与恢复可见防抖自愈                        |
+| `formatSqlProvider`  | `SqlFormatProvider`                                  | `undefined`    | 自定义 SQL 格式化排版提供者 SPI（优先于内置算法）                  |
+| `completionProvider` | `CompletionProviderFn`                               | `undefined`    | 自定义智能补全项提供者（受管生命周期，自动注销）                   |
+| `jsonSchema`         | `object`                                             | `undefined`    | 声明式 JSON Schema 语法校验规则对象                                |
+| `highlightLines`     | `number[]`                                           | `[]`           | 只读审计指定高亮代码行列表（1-based 行号数组）                     |
+
+#### 组件 Emits 事件定义 (`CodeEditorEmits`)
+
+| 事件名称            | 参数类型                                                 | 说明                                           |
+| :------------------ | :------------------------------------------------------- | :--------------------------------------------- |
+| `update:modelValue` | `(value: string)`                                        | 代码内容更新时触发，驱动 `v-model` 双向同步    |
+| `change`            | `(value: string, event: IModelContentChangedEvent)`      | 内容变动详细事件，附带 Monaco 增量变更事件实体 |
+| `mount`             | `(editor: IStandaloneCodeEditor, monaco: typeof monaco)` | Monaco 原生实例初始化挂载就绪后触发            |
+| `focus`             | `()`                                                     | 编辑器获取焦点时触发                           |
+| `blur`              | `()`                                                     | 编辑器失去焦点时触发                           |
+
+#### 组件 Slots 插槽定义
+
+| 插槽名称     | 插槽参数 | 说明                                                       |
+| :----------- | :------- | :--------------------------------------------------------- |
+| `#toolbar`   | `()`     | 完整替换微操作栏整个区域（100% 插槽反转）                  |
+| `#extra`     | `()`     | 在微操作栏右侧操作区追加自定义业务按钮（如格式化、保存等） |
+| `#statusbar` | `()`     | 完整替换底部状态栏区域                                     |
+
+#### 组件 Ref 暴露方法 (`CodeEditorExpose`)
+
+| 方法名称               | 参数签名                      | 返回值类型                      | 说明                                          |
+| :--------------------- | :---------------------------- | :------------------------------ | :-------------------------------------------- |
+| `getEditor`            | `()`                          | `IStandaloneCodeEditor \| null` | 获取 Monaco 编辑器原生实例                    |
+| `getModel`             | `()`                          | `ITextModel \| null`            | 获取当前绑定的活动 TextModel                  |
+| `focus`                | `()`                          | `void`                          | 聚焦编辑器                                    |
+| `format`               | `()`                          | `Promise<void>`                 | 手动触发代码排版美化（自动适配内置/SPI 引擎） |
+| `layout`               | `()`                          | `void`                          | 重新计算并自适应视口尺寸                      |
+| `getValue`             | `()`                          | `string`                        | 获取当前代码文本完整内容                      |
+| `setValue`             | `(value: string)`             | `void`                          | 全量设置代码文本（重置撤销栈）                |
+| `applyIncrementalEdit` | `(newText: string, options?)` | `void`                          | 增量应用代码变更（保全光标与 Undo 历史栈）    |
+| `undo`                 | `()`                          | `void`                          | 撤销上一步操作 (Undo)                         |
+| `redo`                 | `()`                          | `void`                          | 重做下一步操作 (Redo)                         |
+| `isLargeFile`          | `()`                          | `boolean`                       | 当前是否处于超大文件性能保护模式              |
+| `isSuspended`          | `()`                          | `boolean`                       | 当前视口是否处于 0x0 尺寸挂起状态             |
+| `healLayout`           | `()`                          | `void`                          | 手动触发视口自愈重排（从 0x0 恢复时调用）     |
+| `createModel`          | `(val, lang?, uri?)`          | `ITextModel`                    | 在受管模型池中创建独立 TextModel              |
+| `setModel`             | `(modelOrUri)`                | `void`                          | 切换当前绑定的活动 TextModel 并保持光标视图   |
+| `disposeModel`         | `(modelOrUri)`                | `boolean`                       | 销毁模型池中的指定 TextModel                  |
+| `getActiveModel`       | `()`                          | `ITextModel \| null`            | 获取当前激活的 TextModel                      |
+| `getModels`            | `()`                          | `ITextModel[]`                  | 获取模型池中所有受管的 TextModel 列表         |
+| `saveViewState`        | `(modelOrUri?)`               | `ICodeEditorViewState \| null`  | 保存指定模型的视图状态（光标与滚动位置）      |
+| `restoreViewState`     | `(modelOrUri, state?)`        | `void`                          | 恢复指定模型的视图状态                        |
+| `setJsonSchema`        | `(schema?)`                   | `void`                          | 动态更新声明式 JSON Schema 校验规范           |
+
+---
+
+### 9.2 `AtengCodeDiffEditor` 全量属性、事件、插槽与 Expose 速查表
+
+#### 组件 Props 接口定义 (`CodeDiffEditorProps`)
+
+| 属性名称            | 类型                                                     | 默认值         | 说明                                                        |
+| :------------------ | :------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
+| `original`          | `string`                                                 | `''`           | 原始基准代码文本（支持 `v-model:original`）                 |
+| `modified`          | `string`                                                 | `''`           | 修改后候选代码文本（支持 `v-model:modified` 或 `v-model`）  |
+| `modelValue`        | `string`                                                 | `undefined`    | `modified` 的属性别名                                       |
+| `diffMode`          | `DiffMode`                                               | `'split'`      | 视图对比模式：`'split'` (双栏并排) 或 `'inline'` (单栏行内) |
+| `language`          | `CodeLanguage`                                           | `'typescript'` | 代码语言                                                    |
+| `theme`             | `EditorTheme`                                            | `'auto'`       | 编辑器主题                                                  |
+| `readOnly`          | `boolean`                                                | `false`        | 修改侧代码是否只读                                          |
+| `originalReadOnly`  | `boolean`                                                | `true`         | 原始侧代码是否只读（默认为只读基准）                        |
+| `height`            | `string \| number`                                       | `'400px'`      | 容器高度                                                    |
+| `width`             | `string \| number`                                       | `'100%'`       | 容器宽度                                                    |
+| `fontSize`          | `number`                                                 | `14`           | 代码字体像素大小                                            |
+| `tabSize`           | `number`                                                 | `2`            | 缩进空格数                                                  |
+| `wordWrap`          | `'off' \| 'on' \| 'wordWrapColumn' \| 'bounded'`         | `'on'`         | 自动换行模式                                                |
+| `lineNumbers`       | `'on' \| 'off' \| 'relative' \| 'interval'`              | `'on'`         | 行号显示模式                                                |
+| `showToolbar`       | `boolean`                                                | `true`         | 是否显示内置 Diff 切换微操作栏                              |
+| `bordered`          | `boolean`                                                | `true`         | 是否显示外边框                                              |
+| `options`           | `monaco.editor.IStandaloneDiffEditorConstructionOptions` | `undefined`    | Monaco 原生 DiffEditor 高级配置选项                         |
+| `workerOptions`     | `MonacoWorkerOptions`                                    | `undefined`    | 自定义 Worker 提供者配置                                    |
+| `autoLayoutHealing` | `boolean`                                                | `true`         | 是否启用 0x0 视口几何自愈                                   |
+
+#### 组件 Emits 事件定义 (`CodeDiffEditorEmits`)
+
+| 事件名称            | 参数类型             | 说明                                          |
+| :------------------ | :------------------- | :-------------------------------------------- |
+| `update:modified`   | `(value: string)`    | 修改侧代码更新时触发，驱动 `v-model:modified` |
+| `update:modelValue` | `(value: string)`    | 修改侧更新别名事件，驱动 `v-model`            |
+| `update:original`   | `(value: string)`    | 原始侧更新时触发，驱动 `v-model:original`     |
+| `update:diffMode`   | `(mode: DiffMode)`   | 视图模式切换时触发，驱动 `v-model:diffMode`   |
+| `diffUpdated`       | `(stats: DiffStats)` | 差异计算刷新时触发，提供最新增删行数统计      |
+
+#### 组件 Ref 暴露方法 (`CodeDiffEditorExpose`)
+
+| 方法名称           | 参数签名           | 返回值类型                      | 说明                                                      |
+| :----------------- | :----------------- | :------------------------------ | :-------------------------------------------------------- |
+| `getDiffEditor`    | `()`               | `IStandaloneDiffEditor \| null` | 获取 Monaco 原生 DiffEditor 实例                          |
+| `getOriginalModel` | `()`               | `ITextModel \| null`            | 获取原始侧 TextModel 实例                                 |
+| `getModifiedModel` | `()`               | `ITextModel \| null`            | 获取修改侧 TextModel 实例                                 |
+| `focus`            | `()`               | `void`                          | 聚焦 Diff 编辑器                                          |
+| `layout`           | `()`               | `void`                          | 重新计算并自适应视口尺寸                                  |
+| `getOriginalValue` | `()`               | `string`                        | 获取原始侧当前文本                                        |
+| `getModifiedValue` | `()`               | `string`                        | 获取修改侧当前文本                                        |
+| `setDiffMode`      | `(mode: DiffMode)` | `void`                          | 编程式切换双栏并排 (split) 或单栏行内 (inline)            |
+| `goToPreviousDiff` | `()`               | `void`                          | 平滑跳转至上一处差异并居中高亮                            |
+| `goToNextDiff`     | `()`               | `void`                          | 平滑跳转至下一处差异并居中高亮                            |
+| `getDiffStats`     | `()`               | `DiffStats`                     | 获取当前增删统计数据 (additions, deletions, changesCount) |
+| `isSuspended`      | `()`               | `boolean`                       | 当前视口是否处于 0x0 尺寸挂起状态                         |
+| `healLayout`       | `()`               | `void`                          | 手动触发视口自愈重排                                      |
+
+---
+
+### 9.3 无头 Composables 强类型接口清单
+
+#### `useCodeEditor` 状态机
+
+```ts
+export function useCodeEditor(
+  containerRef: Ref<HTMLElement | null | undefined>,
+  options?: UseCodeEditorOptions,
+): UseCodeEditorReturn;
+```
+
+#### `useCodeDiff` 状态机
+
+```ts
+export function useCodeDiff(
+  containerRef: Ref<HTMLElement | null | undefined>,
+  options?: UseCodeDiffOptions,
+): UseCodeDiffReturn;
+```
+
+#### `useEditorTheme` 状态机
+
+```ts
+export function useEditorTheme(themeGetter?: () => EditorTheme | undefined): UseEditorThemeReturn;
+```
+
+---
+
+### 9.4 全量 CSS 变量 Design Tokens 规范表
+
+组件库根样式基于 `.at-code-editor` 命名空间隔离，支持通过覆盖原生 CSS 变量完全接管配色与微工具栏样式：
+
+| CSS 变量名称                    | 浅色模式默认值 | 深色模式默认值 (`.at-code-editor--dark`) | 业务含义说明                 |
+| :------------------------------ | :------------- | :--------------------------------------- | :--------------------------- |
+| `--at-editor-diff-add`          | `#16a34a` (绿) | `#4ade80` (明亮绿)                       | Diff 比对新增行指示标识颜色  |
+| `--at-editor-diff-del`          | `#dc2626` (红) | `#f87171` (浅红)                         | Diff 比对删除行指示标识颜色  |
+| `--at-editor-btn-active-bg`     | `#e0f2fe`      | `#0c4a6e`                                | 微工具栏激活态按钮背景色     |
+| `--at-editor-btn-active-border` | `#38bdf8`      | `#0284c7`                                | 微工具栏激活态按钮边框色     |
+| `--at-editor-btn-active-color`  | `#0369a1`      | `#38bdf8`                                | 微工具栏激活态按钮文字高亮色 |
+
+#### 核心样式类名选择器速查
+
+- `.at-code-editor`：单体编辑器主容器（Flex 纵向布局）
+- `.at-code-editor--dark`：深色主题修饰类
+- `.at-code-editor--bordered`：外边框与圆角修饰类
+- `.at-code-editor--fullscreen`：脱壳真全屏定位类（Fixed 覆盖视口）
+- `.at-code-editor__toolbar`：微操作栏容器（36px 紧凑设计）
+- `.at-code-editor__canvas`：Monaco 原生画布挂载宿主容器
+- `.at-code-editor__statusbar`：底部轻量状态指示栏
+- `.at-code-editor__highlight-line`：只读审计高危行背景高亮类
+- `.at-code-editor__highlight-gutter`：只读审计行号槽（Gutter）高危图标标记类
+- `.at-code-diff-editor`：双模 Diff 比对器主容器
