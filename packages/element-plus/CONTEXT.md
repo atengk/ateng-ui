@@ -182,6 +182,10 @@ _Avoid_: 边缘自动折叠, 磁吸折叠, AutoCollapseThreshold
 在 AtengPageContainer 页头中当操作项超出数量阈值或容器宽度受限时，自动将次要操作收敛至下拉菜单的自适应折叠机制。
 _Avoid_: 更多按钮, 按钮溢出菜单, MoreDropdown, OverflowActions
 
+**Container Suite (容器套件大满贯)**:
+`AtengPageContainer` + `AtengSplitLayout` + `AtengFooterBar` + `AtengAnchor` + `AtengPageSkeleton` 深度协同的无缝中后台页面全解架构。
+_Avoid_: 页面框架全家桶, PageScaffoldSet, FullContainerLayout
+
 ## 表格与检索高级交互机制
 
 **列宽自适应持久化 (Column Width Persistence)**:
@@ -253,6 +257,14 @@ _Avoid_: BrokenStepper, CutRing, SplitNumberInput
 **AtengLoadingBar**:
 基于 2px 顶栏纳米流光线、0 全屏遮罩、0 模糊滤镜且独立提升至 GPU 硬件加速层的企业级非侵入式全局路由与网络加载指示器门面。
 _Avoid_: TopProgressBar, NProgress, GlobalSpinner, FullscreenMask
+
+**Nano Loading Bar (纳米科技流光线)**:
+基于 CSS `will-change: width`、2px 顶栏高、0 遮罩、0 模态与路由自动绑定的顶栏纳秒级加载机制（`installLoadingBar`）。
+_Avoid_: 顶部加载条, TopProgressBar, PaceBar, NProgressClone
+
+**Theme Pro Dynamic Palette (动态双轨调色板)**:
+基于混合计算生成 10 级深空 Slate 衍生色与主题主色派生梯度的企业级动态换肤色彩算法引擎（`setThemeColor` / `initTheme`）。
+_Avoid_: 动态色板, DynamicColorTable, ColorCalculator
 
 **AtengLoading**:
 支持顶沿 2px 极光流线（Zero-Overlay）、三点弹性微波浪与骨架屏多态切换的企业级轻量容器包裹组件。
