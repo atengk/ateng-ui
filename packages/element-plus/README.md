@@ -2918,177 +2918,1368 @@ const handleIconCopied = (code: string) => {
 
 ---
 
+## 8. 二进制流式传输与多源切片上传套件 (Binary Stream & Multi-Source Chunk Upload Suite)
+
+企业级系统在处理大文件传输、报表导入导出与非结构化多媒体时，面临内存溢出、网络抖动中断、伪文件损坏下载以及中文乱码等严峻挑战。本套件提供工业级切片并发状态机、Blob-JSON 双态异常防御与全格式在线预览门户。
+
+---
+
+### 8.1 多源切片并发上传、暂停恢复与多媒体预览 (`AtengUpload`)
+
+`AtengUpload` 在 Element Plus 原生上传组件的基础上深度集成 `@atengk/vue` 的 `useUpload` 状态机，开箱即用支持大文件切片、受控并发池、指数退避重试、在途暂停恢复与内存安全释放。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ShallowRef, DeepReadonly, Ref } from 'vue';
+import type {
+  ElUpload,
+  UploadFile,
+  UploadFiles,
+  UploadUserFile,
+  UploadRawFile,
+} from 'element-plus';
+import type { UploadChunkItem, UploadStatus } from '@atengk/vue';
+import type { UploadChunkResult } from '@atengk/core';
+
+export interface UploadMergeParams<T = unknown> {
+  file: File | Blob; // 原始待合并文件
+  chunks: UploadChunkItem<T>[]; // 已上传分片列表
+  totalChunks: number; // 分片总量
+}
+
+export interface AtengUploadProps<T = unknown> {
+  chunk?: boolean; // 是否开启大文件分片模式，默认 false
+  chunkSize?: number; // 分片大小，默认 5MB (5 * 1024 * 1024)
+  concurrency?: number; // 最大并发数，默认 3
+  maxRetries?: number; // 切片失败重试次数，默认 3
+  retryDelay?: number; // 重试基础延迟（毫秒），默认 1000
+  customUploadChunk?: (chunk: UploadChunkItem<T>, signal?: AbortSignal) => Promise<T>;
+  customMerge?: (params: UploadMergeParams<T>) => Promise<unknown>;
+  maxSize?: number; // 文件最大字节限制
+  accept?: string; // 允许上传的文件格式 (如 ".bin,.tar.gz,image/*")
+  showPreview?: boolean; // 是否集成预览灯箱，默认 true
+  previewTitle?: string;
+  previewDialogWidth?: string | number; // 默认 '80%'
+  previewHeight?: string | number; // 默认 '520px'
+  previewDownloadable?: boolean; // 默认 true
+  beforePreview?: (file: UploadFile) => boolean | void | Promise<boolean | void>;
+  showChunkList?: boolean; // 是否展示切片明细列表，默认 true
+  fileList?: UploadUserFile[]; // v-model:file-list
+  disabled?: boolean;
+}
+
+export interface AtengUploadEmits<T = unknown> {
+  (e: 'update:fileList', fileList: UploadUserFile[]): void;
+  (e: 'chunk-progress', progress: number, loadedBytes: number, totalBytes: number): void;
+  (e: 'chunk-success', results: UploadChunkResult<T>[] | unknown): void;
+  (e: 'chunk-error', error: unknown): void;
+  (e: 'status-change', status: UploadStatus): void;
+}
+
+export interface AtengUploadExpose<T = unknown> {
+  uploadRef: ShallowRef<InstanceType<typeof ElUpload> | null>;
+  uploadStatus: DeepReadonly<Ref<UploadStatus>>;
+  chunkProgress: DeepReadonly<Ref<number>>;
+  uploading: DeepReadonly<Ref<boolean>>;
+  chunks: DeepReadonly<Ref<UploadChunkItem<T>[]>>;
+  uploadChunkFile: (file: File | Blob) => Promise<UploadChunkResult<T>[]>;
+  pause: () => void; // 暂停在途切片上传
+  resume: () => Promise<UploadChunkResult<T>[]>; // 恢复切片上传
+  cancel: () => void; // 取消当前切片上传
+  reset: () => void;
+  clearFiles: () => void;
+  submit: () => void;
+  previewFile: (file: UploadFile) => Promise<void>;
+  closePreview: () => void;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElProgress, ElTag, ElMessage, type UploadUserFile } from 'element-plus';
+import {
+  AtengUpload,
+  type AtengUploadInstance,
+  type UploadMergeParams,
+} from '@atengk/element-plus';
+import type { UploadChunkItem } from '@atengk/vue';
+
+const uploadRef = ref<AtengUploadInstance>();
+const fileList = ref<UploadUserFile[]>([]);
+
+// 1. 自定义单个切片上传适配器（对接后端分块存储接口）
+const handleUploadChunk = async (
+  chunk: UploadChunkItem<unknown>,
+  signal?: AbortSignal,
+): Promise<{ chunkIndex: number; etag: string }> => {
+  const formData = new FormData();
+  formData.append('chunkIndex', String(chunk.index));
+  formData.append('chunkBlob', chunk.blob);
+
+  // 模拟切片网络上传耗时
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, 600);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(new Error('切片上传已取消或暂停'));
+    });
+  });
+
+  return { chunkIndex: chunk.index, etag: `etag-${chunk.index}-${Date.now()}` };
+};
+
+// 2. 自定义全部分片上传完成后的合并通知接口
+const handleMergeChunks = async (params: UploadMergeParams<unknown>): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, 800));
+  ElMessage.success(
+    `固件安装包 [${(params.file as File).name}] 全部 ${params.totalChunks} 个分片合并成功！`,
+  );
+};
+
+const handlePause = () => uploadRef.value?.pause();
+const handleResume = () => uploadRef.value?.resume();
+const handleCancel = () => uploadRef.value?.cancel();
+</script>
+
+<template>
+  <div class="upload-showcase">
+    <ElCard header="集群系统固件与海量日志切片并发上传">
+      <AtengUpload
+        ref="uploadRef"
+        v-model:file-list="fileList"
+        chunk
+        :chunk-size="5 * 1024 * 1024"
+        :concurrency="3"
+        :max-retries="3"
+        :custom-upload-chunk="handleUploadChunk"
+        :custom-merge="handleMergeChunks"
+        accept=".bin,.iso,.tar.gz,.zip"
+        :max-size="1024 * 1024 * 1024"
+        show-chunk-list
+        show-preview
+      >
+        <template #default>
+          <ElButton type="primary">选取大文件固件安装包 (支持分片)</ElButton>
+        </template>
+      </AtengUpload>
+
+      <!-- 实时分片状态控制栏 -->
+      <div
+        v-if="uploadRef?.uploading"
+        class="upload-controls"
+        style="margin-top: 16px; display: flex; gap: 12px; align-items: center"
+      >
+        <ElTag :type="uploadRef.uploadStatus === 'uploading' ? 'primary' : 'warning'">
+          当前状态: {{ uploadRef.uploadStatus }}
+        </ElTag>
+        <ElProgress
+          :percentage="uploadRef.chunkProgress"
+          style="width: 260px"
+          :status="uploadRef.chunkProgress === 100 ? 'success' : undefined"
+        />
+        <ElButton size="small" @click="handlePause">暂停上传</ElButton>
+        <ElButton size="small" type="success" @click="handleResume">断点续传</ElButton>
+        <ElButton size="small" type="danger" @click="handleCancel">取消任务</ElButton>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **分片切片数学模型与纯原生并发池**：通过 `Blob.prototype.slice` 将超大二进制文件精确切割为指定大小（默认 5MB）的独立切片，结合 `concurrency=3` 受控并发池流水线调度，既跑满网络吞吐带宽，又杜绝并发过多击穿浏览器长连接池限制。
+2. **在途连接即时中断与断点续传**：调用 `pause()` 时，底层通过 `AbortSignal` 毫秒级中断所有在途 HTTP 连接；恢复时仅需对尚未完成状态的切片发起重试，已成功分片纯内存保留，实现真正意义上的**毫秒级断点续传**。
+3. **`ObjectURL` 确定性垃圾回收防线**：在文件预览与缩略图加载过程中生成的 `blob:` 临时 URL，组件在弹窗关闭或文件移除钩子中通过 `URL.revokeObjectURL` 100% 确定性销毁句柄，彻底杜绝百万级上传导致的浏览器内存泄漏崩溃。
+4. **内置无缝集成 `AtengFilePreview` 灯箱**：开启 `showPreview` 后，点击列表文件名即可呼出全屏预览门户，自动支持多格式文件调阅。
+
+---
+
+### 8.2 多格式文件轻量在线预览门户 (`AtengFilePreview`)
+
+`AtengFilePreview` 提供开箱即用的富媒体在线查看能力，自动推导并渲染图片、原生 PDF、音视频流与代码高亮文本。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+
+export type PreviewFileType =
+  'auto' | 'image' | 'pdf' | 'video' | 'audio' | 'code' | 'text' | 'unknown';
+export type PreviewDisplayMode = 'inline' | 'dialog';
+
+export interface AtengFilePreviewProps {
+  url?: string; // 文件访问地址或 Base64
+  file?: File | Blob; // 本地 File/Blob 实体
+  content?: string; // 纯文本或代码字符串
+  name?: string; // 文件名（用于自动探测格式）
+  fileType?: PreviewFileType; // 默认 'auto' 智能推导
+  mode?: PreviewDisplayMode; // 默认 'inline' 内联嵌入（支持 'dialog' 弹窗）
+  visible?: boolean; // 弹窗模式下受控显隐
+  title?: string; // 弹窗标题
+  dialogWidth?: string | number; // 默认 '80%'
+  height?: string | number; // 默认 '520px'
+  downloadable?: boolean; // 是否显示一键下载，默认 true
+  customClass?: string;
+}
+
+export interface AtengFilePreviewEmits {
+  (e: 'update:visible', val: boolean): void;
+  (e: 'close'): void;
+  (e: 'download', filename: string): void;
+  (e: 'error', error: unknown): void;
+}
+
+export interface AtengFilePreviewExpose {
+  download: () => void; // 触发下载该文件
+  detectedType: ComputedRef<PreviewFileType>; // 智能探测得到的文件类型
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElRadioGroup, ElRadioButton } from 'element-plus';
+import { AtengFilePreview, type PreviewFileType } from '@atengk/element-plus';
+
+const previewVisible = ref(false);
+const activeFileUrl = ref('https://sample.org/contracts/framework-agreement.pdf');
+const activeFileName = ref('企业采购框架合作协议.pdf');
+
+const handleOpenPreview = (type: 'pdf' | 'image' | 'code' | 'video') => {
+  if (type === 'pdf') {
+    activeFileUrl.value = 'https://sample.org/contracts/framework-agreement.pdf';
+    activeFileName.value = '企业采购框架合作协议.pdf';
+  } else if (type === 'image') {
+    activeFileUrl.value = 'https://sample.org/assets/network-architecture.png';
+    activeFileName.value = '微服务网关多活拓扑架构图.png';
+  } else if (type === 'video') {
+    activeFileUrl.value = 'https://sample.org/media/product-demo.mp4';
+    activeFileName.value = '智能驾驶避障实测演示视频.mp4';
+  }
+  previewVisible.value = true;
+};
+</script>
+
+<template>
+  <div class="file-preview-showcase">
+    <ElCard header="业务凭证与多格式附件在线预览门户">
+      <div style="display: flex; gap: 12px; margin-bottom: 20px">
+        <ElButton type="primary" @click="handleOpenPreview('pdf')">在线审阅 PDF 电子合同</ElButton>
+        <ElButton type="success" @click="handleOpenPreview('image')">调阅高清拓扑架构图</ElButton>
+        <ElButton type="warning" @click="handleOpenPreview('video')">播放 MP4 实测视频</ElButton>
+      </div>
+
+      <!-- 弹窗浮层模式在线预览门户 -->
+      <AtengFilePreview
+        v-model:visible="previewVisible"
+        mode="dialog"
+        :url="activeFileUrl"
+        :name="activeFileName"
+        dialog-width="75%"
+        height="640px"
+        downloadable
+      />
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **智能文件类型推导矩阵 (`fileType="auto"`)**：优先读取 `fileType` 显式设定；未指定时，依次分析 `name` 扩展名、MIME 类型及 URL 路径后缀，精准映射至 `image`、`pdf`、`video`、`audio`、`code` 与 `text`。
+2. **零臃肿原生能力优先**：
+   - PDF：采用安全受限原生 `<iframe sandbox="allow-scripts allow-same-origin">` 调用浏览器内建 PDF 渲染器，零外部重型依赖；
+   - 视频/音频：原生 HTML5 Video / Audio 控件硬件加速播放；
+   - 代码/文本：集成 `AtengCodeView` 提供等宽行号与暗黑语法高亮。
+3. **安全沙箱与未知文件确定性保底**：遇到未知二进制格式（如 `.dat`、`.dmg`）时，平滑降级呈现标准格式图标并提供一键安全下载入口，绝不引发组件渲染白屏。
+
+---
+
+### 8.3 Fesod 流式 Excel 导出与 ADR-0004 双态异常识别 (`AtengExcelExport`)
+
+前端导出经常面临后端接口因参数非法或权限缺失返回 `Result<never>` 报错 JSON，而前端由于设置了 `responseType: 'blob'` 将报错文本直接打包为损坏的 `.xlsx` 伪文件下载到用户电脑的恶劣体验。
+
+`AtengExcelExport` 深度贯彻 **[ADR-0004](./docs/adr/0004-blob-error-dual-state-and-fesod-excel-protocol.md)** 规范，实现 **Blob-JSON 双态拦截**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+
+export type ExcelExportMode = 'button' | 'dropdown';
+export type ExcelExportType = 'all' | 'selected';
+
+export interface AtengExcelExportProps {
+  action?: (params: Record<string, unknown>) => Promise<unknown>; // 导出异步 API 请求
+  filename?: string; // 默认文件名
+  params?: Record<string, unknown>; // 检索过滤条件入参
+  selectedIds?: (string | number)[]; // 选中导出项 ID 集合
+  mode?: ExcelExportMode; // 'button' | 'dropdown'，默认 'button'
+  type?: '' | 'default' | 'primary' | 'success' | 'warning' | 'info' | 'danger';
+  size?: 'large' | 'default' | 'small';
+  text?: string; // 按钮文案，默认 '导出数据'
+  disabled?: boolean;
+  loading?: boolean; // 受控 loading
+}
+
+export interface AtengExcelExportEmits {
+  (e: 'export-start', mode: ExcelExportType): void;
+  (e: 'export-success', result: unknown): void;
+  (e: 'export-error', error: unknown): void;
+}
+
+export interface AtengExcelExportExpose {
+  triggerExport: (exportType?: ExcelExportType) => Promise<void>;
+  isLoading: ComputedRef<boolean>;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { reactive, ref } from 'vue';
+import { ElCard, ElMessage } from 'element-plus';
+import { AtengExcelExport } from '@atengk/element-plus';
+
+const searchParams = reactive({
+  department: 'financial_dept',
+  fiscalYear: '2026',
+});
+
+const selectedRowIds = ref<string[]>(['1001', '1002', '1005']);
+
+// 模拟导出 API：遵循 ADR-0004 规范，可能成功返回 Blob 流，也可能返回 JSON 错误
+const handleExportApi = async (params: Record<string, unknown>): Promise<Blob> => {
+  // 模拟请求延迟
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  // 模拟成功生成 Excel Blob
+  const excelContent = '模拟生成的 Fesod 财务审计报表二进制流';
+  return new Blob([excelContent], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+};
+</script>
+
+<template>
+  <div class="excel-export-showcase">
+    <ElCard header="财务报表流式 Excel 导出 (Blob-JSON 双态异常防御)">
+      <!-- 单按钮全量导出模式 -->
+      <AtengExcelExport
+        :action="handleExportApi"
+        :params="searchParams"
+        filename="2026年度财务审计结算报表.xlsx"
+        text="导出当前筛选报表"
+        type="primary"
+        @export-success="() => ElMessage.success('财务报表导出成功，浏览器已开始下载！')"
+        @export-error="err => ElMessage.error('导出中断: ' + (err as Error).message)"
+      />
+
+      <!-- 多模下拉导出模式（支持全量导出与仅导出选中项） -->
+      <AtengExcelExport
+        mode="dropdown"
+        :action="handleExportApi"
+        :params="searchParams"
+        :selected-ids="selectedRowIds"
+        filename="结算记录明细.xlsx"
+        style="margin-left: 16px"
+      />
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **ADR-0004 Blob-JSON 双态异常精准熔断**：在网络拦截层与组件内部，当响应为 `Blob` 时，自动探测其 MIME 类型。若为 `application/json`，组件将其异步读取为文本并反序列化为 `Result<never>` 错误实体，转译为 `BusinessException` 抛出异常并触发提示，**绝不将 JSON 报错下载为后缀为 `.xlsx` 的损坏打不开文件**。
+2. **`Content-Disposition` UTF-8 编码文件名解析**：原生支持 RFC 5987 国际化标准协议，自动从 `filename*=UTF-8''...` 头中提取并解码中文文件名。
+3. **内存即时清理不变量**：通过 `URL.createObjectURL(blob)` 触发浏览器下载后，组件利用微任务机制立即执行 `URL.revokeObjectURL(url)`，彻底消除大文件导出造成的内存泄漏隐患。
+
+---
+
+### 8.4 导入错误在线明细预览与批注回写/CSV 降级导出 (`AtengExcelFeedback`)
+
+在批量导入 Excel 时，后端常需标红错误单元格并附带批注（Fesod 协议）回写给前端。当后端未生成批注 Excel 时，前端需能即时展示结构化错误表格并本地降级导出无乱码的 CSV。
+
+`AtengExcelFeedback` 提供了完整的错误行号、列名与失败原因看板。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Ref, ShallowRef } from 'vue';
+import type { AtengDialogInstance } from '@atengk/element-plus';
+
+export interface ExcelFeedbackItem {
+  rowNum: number | string; // 对应 Excel 物理行号 (如 2, 3)
+  columnName?: string; // 列名或字段名 (如 "手机号")
+  errorMessage: string; // 错误原因
+  rawValue?: unknown; // 原始提交脏值
+}
+
+export interface AtengExcelFeedbackProps {
+  modelValue?: boolean; // 弹窗显隐状态 (支持 v-model)
+  title?: string; // 默认 '导入校验失败'
+  errors?: ExcelFeedbackItem[]; // 错误明细列表
+  fileUrl?: string; // 标红批注 Excel 静态下载地址
+  downloadAction?: () => Promise<Blob | unknown>; // 异步下载批注文件动作
+  fileName?: string; // 默认 '导入错误明细批注.xlsx'
+  width?: string | number; // 默认 '720px'
+  showCopy?: boolean; // 默认 true
+  pageSize?: number; // 默认 10
+  allowCsvFallback?: boolean; // 后端未提供批注文件时是否允许导出 CSV，默认 true
+  csvFileName?: string; // 默认 '导入错误清单.csv'
+}
+
+export interface AtengExcelFeedbackEmits {
+  (e: 'update:modelValue', visible: boolean): void;
+  (e: 'close'): void;
+  (e: 'copy', text: string): void;
+  (e: 'download-success', filename: string): void;
+  (e: 'download-error', error: unknown): void;
+}
+
+export interface AtengExcelFeedbackExpose {
+  copyErrors: () => Promise<boolean>;
+  downloadAnnotatedExcel: () => Promise<boolean>;
+  exportErrorsAsCsv: () => Promise<boolean>;
+  downloadLoading: Ref<boolean>;
+  dialogRef: ShallowRef<AtengDialogInstance | null>;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElMessage } from 'element-plus';
+import { AtengExcelFeedback, type ExcelFeedbackItem } from '@atengk/element-plus';
+
+const feedbackVisible = ref(false);
+
+// 模拟后端校验校验拦截返回的结构化错误明细
+const errorList = ref<ExcelFeedbackItem[]>([
+  {
+    rowNum: 2,
+    columnName: '联系手机',
+    rawValue: '138000',
+    errorMessage: '手机号格式不合法，必须为 11 位大陆手机号',
+  },
+  {
+    rowNum: 4,
+    columnName: '身份证号',
+    rawValue: '11010119900307',
+    errorMessage: '身份证校验码错误，长度不足 18 位',
+  },
+  {
+    rowNum: 7,
+    columnName: '所属部门',
+    rawValue: '财务部_未知',
+    errorMessage: '部门字典项不存在或已被停用',
+  },
+  {
+    rowNum: 12,
+    columnName: '结算银行卡',
+    rawValue: '6222',
+    errorMessage: '银行卡号 Luhn 算法校验未通过',
+  },
+]);
+
+// 模拟后端返回的带 Fesod 红色批注的原版 Excel 文件流
+const handleDownloadAnnotatedFile = async (): Promise<Blob> => {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return new Blob(['模拟生成的 Fesod 批注 Excel 二进制内容'], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+};
+</script>
+
+<template>
+  <div class="excel-feedback-showcase">
+    <ElCard header="批量用户导入校验异常与批注回写">
+      <ElButton type="danger" @click="feedbackVisible = true">
+        模拟导入失败：查看 4 处校验错误并下载批注
+      </ElButton>
+
+      <AtengExcelFeedback
+        v-model="feedbackVisible"
+        title="批量员工数据导入失败明细"
+        :errors="errorList"
+        :download-action="handleDownloadAnnotatedFile"
+        file-name="员工导入校验失败批注清单.xlsx"
+        allow-csv-fallback
+        csv-file-name="员工导入校验错误清单.csv"
+        @copy="() => ElMessage.success('错误明细已成功复制到系统剪贴板！')"
+      />
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **Fesod 标红批注文件与结构化明细同屏交互**：前端弹窗结构化呈现物理行号、出错列名、原始提交脏值与错误原因，右下角提供「下载标红批注 Excel」，业务人员可直观在原表格批注中定位修正。
+2. **纯前端本地 UTF-8 BOM CSV 零延迟安全降级**：当后端未提供标红文件时，组件**纯前端本地无缝生成带有 UTF-8 BOM (`\uFEFF`) 标识的 CSV 错误清单**。Windows Excel 用户双击打开 100% 不乱码，保障离线自愈。
+3. **结构化剪贴板一键导出**：点击「复制错误信息」将各行错误整齐格式化为制表符文本，便于直接粘贴至企业微信或邮件流转。
+
+---
+
+## 9. 企业级安全防篡改与效率指令套件 (Security Anti-Tamper & Efficiency Directives Suite)
+
+在企业级中后台中，按钮级别的细粒度鉴权、高频提交防重复点击、敏感数据防截屏水印以及零排版跳变骨架，是保障数据资产与提升人机交互流畅度的基础防线。
+
+---
+
+### 9.1 细粒度操作权限与角色控制指令 (`v-permission` & `v-role`)
+
+`v-permission` 与 `v-role` 彻底解决传统 `v-if` 权限判断导致的模板逻辑臃肿，并提供 **DOM 物理移除（注释节点锚点原位还原）** 与 **`.disabled` 禁用态样式拦截** 双模。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Directive } from 'vue';
+
+export type PermissionDirectiveValue = string | string[] | undefined | null;
+export type RoleDirectiveValue = string | string[] | undefined | null;
+
+export type PermissionDirective = Directive<HTMLElement, PermissionDirectiveValue>;
+export type RoleDirective = Directive<HTMLElement, RoleDirectiveValue>;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElTag, ElMessage } from 'element-plus';
+import { useAuth } from '@atengk/vue';
+
+const auth = useAuth();
+
+// 模拟切换当前登录用户的权限集与角色集
+const handleSwitchToOperator = () => {
+  auth.setRoles(['operator']);
+  auth.setPermissions(['sys:user:query', 'sys:user:export']);
+  ElMessage.info('已切换为普通操作员身份 (无删除与配置权限)');
+};
+
+const handleSwitchToSuperAdmin = () => {
+  auth.setRoles(['admin', 'auditor']);
+  auth.setPermissions([
+    'sys:user:query',
+    'sys:user:edit',
+    'sys:user:delete',
+    'sys:user:export',
+    'sys:config:all',
+  ]);
+  ElMessage.success('已切换为超级管理员身份 (拥有全量权限)');
+};
+</script>
+
+<template>
+  <div class="auth-directives-showcase">
+    <ElCard header="RBAC 细粒度操作权限与角色控制">
+      <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center">
+        <span>当前权限演练：</span>
+        <ElButton size="small" @click="handleSwitchToOperator">切为操作员</ElButton>
+        <ElButton size="small" type="primary" @click="handleSwitchToSuperAdmin"
+          >切为超级管理员</ElButton
+        >
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap">
+        <!-- 默认模式：无权限时从 DOM 树物理移除 (安全级别最高) -->
+        <ElButton v-permission="['sys:user:query']" type="primary">
+          查询用户列表 (sys:user:query)
+        </ElButton>
+
+        <ElButton v-permission="['sys:user:delete']" type="danger">
+          危险删除操作 (sys:user:delete - 无权限物理移除)
+        </ElButton>
+
+        <!-- .disabled 模式：无权限时保留在 DOM 中但进入置灰禁用态，捕获阶段拦截点击 -->
+        <ElButton v-permission.disabled="['sys:user:edit']" type="warning">
+          编辑用户资料 (sys:user:edit - 无权限置灰)
+        </ElButton>
+
+        <!-- .all 修饰符：要求同时满足全量权限/角色 -->
+        <ElButton v-role.all="['admin', 'auditor']" type="success">
+          双重审批操作 (必须同时具备 admin 与 auditor 角色)
+        </ElButton>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **DOM 物理移除与注释定位锚点原位还原**：默认模式下，若无权限，指令将目标元素从 DOM 树中剔除，并用带有语义说明的 `<!-- auth-anchor -->` 纯注释节点原位占位。当响应式权限（`auth.permissions`）动态获得放行时，**自动将真实 DOM 节点替换回原注释位置**，保证元素在父容器中的排版顺序绝对不被打乱。
+2. **`.disabled` 修饰符与捕获阶段事件强力阻断**：开启 `.disabled` 时，无权限节点自动注入 `is-disabled` 类名、`pointer-events: none` 与 `opacity: 0.5`；更重要的是，指令在原生 DOM **捕获阶段（Capture Phase）** 挂载了全局事件拦截器，即便黑客通过控制台或非标准 API 强行触发 `click`，也会被 `stopImmediatePropagation()` 彻底掐断，杜绝越权逻辑执行。
+3. **WeakMap 内存安全守护**：指令内部状态保存在私有 `WeakMap<HTMLElement, State>` 中，当组件或视图被卸载销毁时，浏览器 GC 自动回收全部引用，绝无内存泄漏。
+
+---
+
+### 9.2 提交动作防刷与前端幂等互斥锁指令 (`v-idempotent`)
+
+用户在网络缓慢时因焦虑频繁狂点确定按钮，容易引发多笔订单重复创建或资金重复扣减。`v-idempotent` 在**前端原生事件捕获层**直接建立幂等互斥屏障。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Directive } from 'vue';
+
+export interface IdempotentOptions {
+  handler?: (event: MouseEvent) => unknown | Promise<unknown>; // 异步互斥锁处理函数
+  delay?: number; // 时间窗口防刷间隔（毫秒），默认 1000
+  timeout?: number; // 超时防死锁兜底阈值（毫秒），默认 30000
+  feedback?: boolean; // 是否自动装配 loading 与置灰，默认 true
+}
+
+export type IdempotentDirectiveValue =
+  | number // 时间窗口模式 (毫秒)
+  | ((event: MouseEvent) => unknown | Promise<unknown>) // 异步互斥锁模式
+  | IdempotentOptions;
+
+export type IdempotentDirective = Directive<HTMLElement, IdempotentDirectiveValue>;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ElCard, ElButton, ElMessage } from 'element-plus';
+
+// 异步提交网络请求动作（耗时 2 秒）
+const handleCreateOrder = async (e: MouseEvent): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ElMessage.success('订单流水支付成功！互斥锁已安全释放。');
+};
+</script>
+
+<template>
+  <div class="idempotent-showcase">
+    <ElCard header="前端提交防刷与动作幂等互斥锁">
+      <div style="display: flex; gap: 16px">
+        <!-- 模式 A：异步 Promise 互斥锁（自动注入 loading、禁用按钮，直到异步任务结束） -->
+        <ElButton v-idempotent="handleCreateOrder" type="primary">
+          提交结算订单 (Promise 互斥锁 - 2秒处理期防重点击)
+        </ElButton>
+
+        <!-- 模式 B：时间窗口防刷模式（点击后立即锁定 1500ms） -->
+        <ElButton
+          v-idempotent="1500"
+          type="success"
+          @click="() => ElMessage.info('触发即时动作！')"
+        >
+          点赞/签到 (1.5 秒时间窗口防刷)
+        </ElButton>
+
+        <!-- 模式 C：参数快捷语法 (v-idempotent:800) -->
+        <ElButton v-idempotent:800 type="warning" @click="() => ElMessage.warning('快速计数')">
+          快速计数器 (800ms 防抖)
+        </ElButton>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **DOM 捕获阶段零延迟掐断**：指令在原生元素的捕获阶段 (`capture: true`) 监听点击，锁定期内的重复点击直接在事件分发到任何 Vue 业务监听器之前被 `stopImmediatePropagation()` 与 `preventDefault()` 拦截，**无论业务逻辑写在组件的哪一层，都无法被重复穿透**。
+2. **全自动置灰与 Loading 视觉协同**：在异步 Promise 互斥模式下，指令自动为宿主按钮追加 `is-loading`、`is-disabled` 并将原生 `button.disabled` 置为 `true`，调用方无需在每个页面声明 `const isSubmitting = ref(false)` 的冗余样板代码。
+3. **30 秒超时防死锁终极保底**：若网络请求发生严重挂起或死锁，指令内置 `timeout: 30000ms` 兜底定时器，强制释放锁定与视觉反馈，避免界面永久死锁卡死。
+
+---
+
+### 9.3 剪贴板一键复制与安全降级指令 (`v-copy`)
+
+`v-copy` 提供轻量化的一键复制能力，**现代剪贴板 API 优先**，并自动在 HTTP 或旧版环境中无缝降级。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Directive } from 'vue';
+
+export interface CopyOptions {
+  value?: string | number | (() => string | number | undefined | null);
+  message?: string | boolean; // 自定义成功文案，false 为静默复制
+  onSuccess?: (text: string) => void;
+  onError?: (error: unknown) => void;
+}
+
+export type CopyDirectiveValue =
+  string | number | (() => string | number | undefined | null) | CopyOptions;
+
+export type CopyDirective = Directive<HTMLElement, CopyDirectiveValue>;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElInput, ElTag, ElMessage } from 'element-plus';
+
+const apiKey = ref('sk-ateng-prod-9f8234a1082ce4');
+const snowflakeSn = ref('1792384918237491230');
+
+const handleCopySuccess = (text: string) => {
+  ElMessage.success(`成功复制凭据：${text}`);
+};
+</script>
+
+<template>
+  <div class="copy-directive-showcase">
+    <ElCard header="剪贴板一键复制与平滑降级">
+      <div style="display: flex; gap: 16px; align-items: center">
+        <!-- 静态文本直接复制 -->
+        <ElButton v-copy="'https://ateng-ui.dev/docs'" type="primary"> 复制官方文档地址 </ElButton>
+
+        <!-- 响应式状态与动态 Getter 复制 -->
+        <ElButton v-copy="() => apiKey" type="warning"> 复制 API 秘钥凭据 (动态 Getter) </ElButton>
+
+        <!-- 高级配置对象（自定义文案与成功回调） -->
+        <ElButton
+          v-copy="{
+            value: snowflakeSn,
+            message: '雪花单号已放入剪贴板',
+            onSuccess: handleCopySuccess,
+          }"
+          type="success"
+        >
+          复制流水单号 (带回调通知)
+        </ElButton>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **双轨双模安全降级调度**：在现代 HTTPS 安全上下文下优先调用 `navigator.clipboard.writeText`；在局域网内网 HTTP 环境或不支持 Clipboard API 的浏览器中，自动构建不可见 `<textarea>` 并触发 `document.execCommand('copy')` 完成降级，保证复制 100% 成功。
+2. **动态 Getter 求值**：支持传入函数 `() => state.val`，点击瞬间动态求值，保证复制的内容始终为最新计算结果。
+
+---
+
+### 9.4 动态防篡改水印指令与安全包裹容器 (`v-watermark` & `AtengWatermark`)
+
+针对客户信息、财务数据与敏感后台，截屏泄露追踪至关重要。传统 CSS 背景水印容易被攻击者通过 F12 打开开发者工具简单删除或修改 `display: none` 瞬间抹除。
+
+`v-watermark` 与 `AtengWatermark` 采用 **Canvas 离屏渲染** 与 **`MutationObserver` 微任务级防篡改自愈引擎**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Directive } from 'vue';
+
+export interface WatermarkOptions {
+  text?: string | string[]; // 水印文本（支持多行数组）
+  font?: string; // 默认 '14px sans-serif'
+  color?: string; // 默认 'rgba(0, 0, 0, 0.12)'
+  rotate?: number; // 旋转角度，默认 -22
+  width?: number; // 默认 240
+  height?: number; // 默认 140
+  zIndex?: number; // 默认 9999
+  full?: boolean; // 是否全屏覆盖 fixed，默认 false
+}
+
+export type WatermarkDirectiveValue = string | string[] | WatermarkOptions;
+export type WatermarkDirective = Directive<HTMLElement, WatermarkDirectiveValue>;
+
+// 声明式组件属性
+export interface AtengWatermarkProps extends WatermarkOptions {
+  inheritParent?: boolean;
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElTable, ElTableColumn, ElButton } from 'element-plus';
+import { AtengWatermark } from '@atengk/element-plus';
+
+const customerData = ref([
+  { id: '1', name: '王总', phone: '138****5678', company: '华东算力集团', credit: 'AAA' },
+  { id: '2', name: '李总监', phone: '139****1234', company: '南方微纳半导体', credit: 'AA+' },
+  { id: '3', name: '张处长', phone: '136****9988', company: '国家先进计算中心', credit: 'AAA' },
+]);
+
+const watermarkText = ref(['机密企业资产 - 严禁外泄', '操作人员: Ateng (工号 1088)']);
+</script>
+
+<template>
+  <div class="watermark-showcase">
+    <ElCard header="数据防截屏泄露与防篡改水印 (尝试 F12 删除遮罩)">
+      <!-- 方式 A：指令模式应用于局部容器 -->
+      <div
+        v-watermark="{
+          text: watermarkText,
+          color: 'rgba(239, 68, 68, 0.15)',
+          rotate: -20,
+          width: 280,
+          height: 160,
+        }"
+        style="padding: 24px; border: 1px dashed var(--el-border-color); border-radius: 8px"
+      >
+        <ElTable :data="customerData" border style="width: 100%">
+          <ElTableColumn prop="id" label="客户编号" width="100" />
+          <ElTableColumn prop="name" label="法定代表人" width="140" />
+          <ElTableColumn prop="phone" label="加密电话" width="160" />
+          <ElTableColumn prop="company" label="所属企业名称" min-width="200" />
+          <ElTableColumn prop="credit" label="信用评级" width="120" />
+        </ElTable>
+      </div>
+
+      <!-- 方式 B：声明式组件包裹模式 -->
+      <div style="margin-top: 24px">
+        <AtengWatermark :text="['内部机密', '2026-11-04']" :color="'rgba(0, 0, 0, 0.08)'">
+          <div
+            style="height: 120px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center"
+          >
+            <span>声明式 AtengWatermark 容器内部安全区域</span>
+          </div>
+        </AtengWatermark>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **`MutationObserver` 物理防篡改与自愈重建**：指令持续监听宿主 DOM 的子节点与样式属性（`style`、`class`、`hidden`）。无论攻击者在控制台中执行 `el.remove()` 强行删除遮罩节点，还是篡改 `style.display = 'none'`、`style.opacity = '0'`，观察者将在**微任务周期内毫秒级重新插回并重置样式**，实现坚不可摧的主动自愈防御。
+2. **Canvas 离屏高清与 SVG 零依赖双轨渲染**：根据设备像素比（`devicePixelRatio`）进行高清抗锯齿绘制并导出 PNG DataURL；在极端无 Canvas 运行环境中自动平滑降级至纯 SVG 矢量背景图。
+3. **`pointer-events: none` 零交互穿透**：水印遮罩层严格强制设置 `pointer-events: none`，底层表格的文字选择、按钮点击与滚动完全不受任何物理阻挡。
+
+---
+
+### 9.5 原位 CSS 盒模型微光骨架与 Zero-CLS 指令 (`v-skeleton`)
+
+传统骨架屏多采用预设占位组件替代真实组件，不仅容易破坏 Vue 虚拟 DOM 树结构导致频繁卸载重建，而且在数据返回渲染真实组件时极易造成**累积布局偏移 (Cumulative Layout Shift, CLS)**。
+
+`v-skeleton` 采用**原位盒模型伪元素遮罩机制**，实现 Zero-CLS。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { Directive } from 'vue';
+
+export interface SkeletonOptions {
+  loading?: boolean; // 是否处于骨架屏态，默认 true
+  animated?: boolean; // 是否开启微光扫过动效，默认 true
+  radius?: string | number; // 自定义圆角大小
+}
+
+export type SkeletonDirectiveValue = boolean | SkeletonOptions;
+export type SkeletonDirective = Directive<HTMLElement, SkeletonDirectiveValue>;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton } from 'element-plus';
+
+const isLoading = ref(true);
+</script>
+
+<template>
+  <div class="skeleton-showcase">
+    <ElCard header="原位盒模型微光骨架 (Zero-CLS 零布局跳变)">
+      <div style="margin-bottom: 16px">
+        <ElButton size="small" @click="isLoading = !isLoading">
+          切换骨架屏加载状态 (当前: {{ isLoading ? '加载中' : '渲染就绪' }})
+        </ElButton>
+      </div>
+
+      <!-- 商品展示卡片：骨架态与真实态拥有完全一致的宽高盒模型 -->
+      <div
+        class="product-card"
+        style="display: flex; gap: 20px; align-items: center; max-width: 520px; padding: 16px; border: 1px solid var(--el-border-color)"
+      >
+        <!-- 保持 80x80 原位盒模型 -->
+        <div
+          v-skeleton="{ loading: isLoading, radius: '8px' }"
+          style="width: 80px; height: 80px; background: var(--el-fill-color); flex-shrink: 0; display: flex; align-items: center; justify-content: center"
+        >
+          <img
+            src="https://sample.org/icons/hardware.png"
+            alt="硬件"
+            style="width: 48px; height: 48px"
+          />
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+          <!-- 标题行原位骨架 -->
+          <h4 v-skeleton="isLoading" style="margin: 0; font-size: 16px; width: 60%">
+            高性能边缘网关服务器 X-200
+          </h4>
+          <!-- 描述行原位骨架 -->
+          <p
+            v-skeleton="isLoading"
+            style="margin: 0; font-size: 13px; color: var(--el-text-color-secondary); width: 90%"
+          >
+            搭载 64 核 ARM 架构芯片，配备双万兆 SFP+ 光口与硬件加速加密引擎。
+          </p>
+          <!-- 价格行原位骨架 -->
+          <div
+            v-skeleton="isLoading"
+            style="font-size: 18px; color: var(--el-color-danger); font-weight: bold; width: 35%"
+          >
+            ￥18,500.00
+          </div>
+        </div>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **原地 CSS 盒模型遮罩机制**：当 `v-skeleton` 激活时，指令直接为宿主元素添加 `.at-skeleton-active` 类名，文本与图标通过颜色透明化隐藏，利用 `::after` 伪元素覆以微光渐变。宿主元素的 **`width`、`height`、`margin`、`padding` 100% 保持原有物理尺寸**，数据加载完成后仅移除类名，排版跳变偏移量（CLS）严格为 0。
+2. **虚拟 DOM 零卸载零重建**：指令不依赖任何 `v-if`，真实组件的生命周期（`mounted`）只执行一次，彻底消除骨架组件与业务组件交替挂载引发的垃圾回收卡顿。
+3. **GPU 硬件加速微光扫过动效**：动效采用纯 GPU 图层合成的 `transform: translateX()` 位移动画，CPU 占用率严格为 0。
+
+---
+
+## 10. 现代智能流式与终端监控套件 (Modern Smart Stream & Terminal Monitoring Suite)
+
+面向大语言模型（LLM）对话交互与云原生/物联网运维监控场景，传统以行为单位的静态组件无法满足高频动态刷新需求。本套件提供流式逐字打字机、防爆内存环形日志终端、动效数字翻牌与结构化代码查看器。
+
+---
+
+### 10.1 面向 LLM 大模型与 SSE 的纯原生打字机 (`AtengStreamText`)
+
+`AtengStreamText` 专为 AI Agent、ChatGPT 风格对话与服务端发送事件（SSE）打造，提供**逐字平滑切片输出**与**呼吸闪烁光标**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+import type { UseStreamResult } from '@atengk/vue';
+
+export interface AtengStreamTextProps {
+  stream?: UseStreamResult; // 绑定的 @atengk/vue useStream 状态机
+  text?: string; // 静态或受控文本内容
+  speed?: number; // 打字速率（毫秒/字），默认 30
+  cursor?: boolean; // 是否展示光标，默认 true
+  cursorChar?: string; // 光标字符，默认 '|'
+  showCopy?: boolean; // 是否展示右上角复制按钮，默认 false
+  customClass?: string;
+}
+
+export interface AtengStreamTextEmits {
+  (e: 'finished', text: string): void;
+  (e: 'copy', text: string): void;
+}
+
+export interface AtengStreamTextExpose {
+  currentText: ComputedRef<string>; // 当前已吐出的打字文本
+  isFinished: ComputedRef<boolean>; // 是否全部打字完成
+  flush: () => void; // 立即跳过动画，全量呈现
+  restart: () => void; // 重新播放打字机动画
+  copy: () => Promise<boolean>; // 复制已呈现文本
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElMessage } from 'element-plus';
+import { AtengStreamText, type AtengStreamTextInstance } from '@atengk/element-plus';
+
+const streamRef = ref<AtengStreamTextInstance>();
+
+const aiAnswer = ref(
+  '根据对集群拓扑与近 24 小时链路指标的深度分析，Ingress 网关节点 CPU 负载均衡良好（平均 28.5%）。当前数据库连接池存在 3 个长事务未及时提交，建议针对订单批量结算模块增加分批提交批次限制。',
+);
+
+const handleFlush = () => streamRef.value?.flush();
+const handleRestart = () => streamRef.value?.restart();
+</script>
+
+<template>
+  <div class="stream-text-showcase">
+    <ElCard header="LLM 大模型智能助理打字机">
+      <div style="margin-bottom: 16px; display: flex; gap: 12px">
+        <ElButton size="small" type="primary" @click="handleRestart">重新模拟打字生成</ElButton>
+        <ElButton size="small" @click="handleFlush">立即跳过打字 (全量输出)</ElButton>
+      </div>
+
+      <div
+        style="padding: 20px; background: var(--el-bg-color-overlay); border-radius: 8px; border: 1px solid var(--el-border-color)"
+      >
+        <AtengStreamText
+          ref="streamRef"
+          :text="aiAnswer"
+          :speed="25"
+          cursor
+          cursor-char="▋"
+          show-copy
+          @finished="() => ElMessage.success('AI 回复生成完成！')"
+          @copy="() => ElMessage.info('AI 回复内容已复制到剪贴板')"
+        />
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **增量缓冲区与平滑队列切片**：内部基于微任务与定时器构建平滑字符队列。当大模型通过 SSE 高频突发吐出一大段 token 时，组件将其推入平滑队列，按固定节奏（如 25ms/字）平稳解包渲染，**消除传统控制台一段一段突然跳变带来的视觉疲劳**。
+2. **`flush()` 极速直出机制**：用户点击「立即查看」或主动滚动视口时，支持瞬间清空等待队列并将全部文字 1 帧绘制完毕，赋予使用者最大控制权。
+3. **呼吸光标与复制解耦**：打字期间光标处于呼吸动效态，结束后光标平滑隐藏；点击复制时仅复制纯文本正文，严禁混入光标字符。
+
+---
+
+### 10.2 2000 行环形内存缓冲实时日志滚屏终端 (`AtengLogViewer`)
+
+长时间运行的中后台微服务日志或物联网长连接推送，若未经控制地无脑往 DOM 插入节点，不出半小时就会因为 DOM 节点超过数万个引发浏览器直接崩溃白屏。
+
+`AtengLogViewer` 专为生产级运维监控设计，内置 **2000 行环形内存缓冲**、**智能贴底滚动**与**正则关键字高亮过滤**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef } from 'vue';
+import type { UseWebSocketResult } from '@atengk/vue';
+
+export type LogViewerTheme = 'dark' | 'light';
+
+export interface AtengLogViewerProps {
+  logs?: string[]; // 静态或受控日志行列表
+  webSocket?: UseWebSocketResult<unknown>; // 绑定的 @atengk/vue useWebSocket 实例
+  maxLines?: number; // 环形缓冲最大行数，默认 2000
+  theme?: LogViewerTheme; // 默认 'dark'
+  autoScroll?: boolean; // 默认开启贴底滚屏，默认 true
+  height?: string | number; // 默认 '420px'
+  title?: string; // 默认 '实时运行终端'
+  showControls?: boolean; // 默认 true
+  customClass?: string;
+}
+
+export interface AtengLogViewerEmits {
+  (e: 'clear'): void;
+  (e: 'scroll-change', autoScroll: boolean): void;
+  (e: 'download', lines: string[]): void;
+}
+
+export interface AtengLogViewerExpose {
+  clear: () => void; // 清屏
+  download: (filename?: string) => void; // 导出下载当前全部日志
+  scrollToBottom: () => void; // 强制平滑滚到底部
+  appendLog: (log: string) => void; // 手动追加单条日志
+  totalLines: ComputedRef<number>; // 当前总行数
+  filteredLines: ComputedRef<string[]>; // 过滤后匹配的日志行
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { ElCard, ElButton } from 'element-plus';
+import { AtengLogViewer, type AtengLogViewerInstance } from '@atengk/element-plus';
+
+const logViewerRef = ref<AtengLogViewerInstance>();
+let pushTimer: ReturnType<typeof setInterval> | null = null;
+
+const sampleLogLevels = ['INFO', 'INFO', 'WARN', 'ERROR', 'DEBUG'];
+const sampleServices = ['auth-gateway', 'payment-core', 'order-orchestrator', 'db-pool'];
+
+// 模拟集群实时日志流高频产生（每 400ms 推送一条）
+onMounted(() => {
+  let count = 1;
+  pushTimer = setInterval(() => {
+    const level = sampleLogLevels[Math.floor(Math.random() * sampleLogLevels.length)];
+    const service = sampleServices[Math.floor(Math.random() * sampleServices.length)];
+    const time = new Date().toISOString().replace('T', ' ').substring(0, 23);
+    const line = `[${time}] [${level}] [${service}] [trace-${count}08912] Handled request successfully from 192.168.1.${count % 255}`;
+    logViewerRef.value?.appendLog(line);
+    count++;
+  }, 400);
+});
+
+onUnmounted(() => {
+  if (pushTimer) clearInterval(pushTimer);
+});
+</script>
+
+<template>
+  <div class="log-viewer-showcase">
+    <ElCard header="微服务集群实时运维滚屏终端 (2000 行环形内存防爆防崩)">
+      <AtengLogViewer
+        ref="logViewerRef"
+        title="K8s Ingress 网关实时访问日志流"
+        :max-lines="2000"
+        theme="dark"
+        height="460px"
+        auto-scroll
+        show-controls
+      />
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **2000 行环形 FIFO 内存缓冲守护**：内部维护严格定长环形队列。当累计日志超出 `maxLines`（默认 2000 行）时，以 O(1) 效率自动剔除最早的日志行，**DOM 节点数量恒定保持在受控上限**，即便挂载运行一周也不会发生内存泄露或浏览器假死。
+2. **智能贴底滚动感知与免打扰暂停**：开启 `autoScroll` 时，终端自动紧贴最底部展示最新日志。当运维人员使用鼠标滚轮向上翻看历史日志排查问题时，**终端自动智能暂停自动滚动**，绝不强行将用户的滚动条拽回底部；当用户滚回最底部时，贴底滚动自动自愈恢复。
+3. **日志级别正则彩色渲染与实时检索高亮**：自动识别 `[INFO]`、`[WARN]`、`[ERROR]`、`[DEBUG]` 并施以标准工业色彩；内置检索输入框支持即时对 2000 行日志实施过滤与命中字符黄色高亮。
+
+---
+
+### 10.3 金融级动效数字翻牌与趋势指标卡片 (`AtengStatistic`)
+
+`AtengStatistic` 面向经营分析大盘与交易看板，提供**平滑缓动数字翻牌**、**千分位格式化**与**正负趋势动态箭头**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+import type { ComputedRef, StyleValue } from 'vue';
+
+export type StatisticTrend = 'up' | 'down' | 'none';
+
+export interface AtengStatisticProps {
+  value: number | string; // 目标数值
+  title?: string; // 指标标题
+  precision?: number; // 小数点位数（未传则自动推导）
+  thousands?: boolean; // 是否开启千分位，默认 true
+  separator?: string; // 默认 ','
+  prefix?: string; // 前缀（如 '¥'）
+  suffix?: string; // 后缀（如 '万元', '%'）
+  duration?: number; // 滚动动画时长（毫秒），默认 1500
+  trend?: StatisticTrend; // 趋势方向：'up' | 'down' | 'none'
+  trendValue?: string | number; // 趋势增减量（如 '+18.5%'）
+  trendColorInverse?: boolean; // 是否国际配色反转（默认大陆红涨绿跌）
+  loading?: boolean; // 默认 false
+  valueStyle?: StyleValue;
+}
+
+export interface AtengStatisticExpose {
+  restart: () => void; // 重播翻牌动画
+  currentValue: ComputedRef<number>; // 缓动过程中的实时值
+  displayValue: ComputedRef<string>; // 最终呈现字符串
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton } from 'element-plus';
+import { AtengStatistic } from '@atengk/element-plus';
+
+const revenue = ref(12850900.5);
+const orders = ref(486200);
+const riskIndex = ref(0.042);
+
+const handleRefreshData = () => {
+  revenue.value += Math.random() * 200000 - 50000;
+  orders.value += Math.floor(Math.random() * 5000);
+};
+</script>
+
+<template>
+  <div class="statistic-showcase">
+    <ElCard header="核心经营与财务指标大盘">
+      <div style="margin-bottom: 20px">
+        <ElButton size="small" type="primary" @click="handleRefreshData">模拟经营数据刷新</ElButton>
+      </div>
+
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px"
+      >
+        <!-- 交易流水金额指标 -->
+        <div style="padding: 16px; background: var(--el-bg-color-overlay); border-radius: 8px">
+          <AtengStatistic
+            title="本月累计结算金额"
+            :value="revenue"
+            prefix="￥"
+            :precision="2"
+            thousands
+            :duration="1200"
+            trend="up"
+            trend-value="+14.8%"
+          />
+        </div>
+
+        <!-- 订单成交量指标 -->
+        <div style="padding: 16px; background: var(--el-bg-color-overlay); border-radius: 8px">
+          <AtengStatistic
+            title="有效支付订单数"
+            :value="orders"
+            suffix="笔"
+            thousands
+            :duration="1200"
+            trend="up"
+            trend-value="+8.2%"
+          />
+        </div>
+
+        <!-- 异常风险率指标 -->
+        <div style="padding: 16px; background: var(--el-bg-color-overlay); border-radius: 8px">
+          <AtengStatistic
+            title="交易风控拦截率"
+            :value="riskIndex"
+            suffix="%"
+            :precision="3"
+            :duration="1000"
+            trend="down"
+            trend-value="-0.015%"
+          />
+        </div>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **`requestAnimationFrame` 缓动插值算法**：数字滚动采用标准的 `ease-out-quad` 曲线插值，平滑由初始值过渡至目标值，在 60fps/120fps 高刷屏下均能呈现丝滑滚动，严禁卡顿断层。
+2. **规范化金融千分位与精度保留**：数值自动经过标准千分位（`,`）分割，根据 `precision` 补足末尾 0（如 `12,850,900.50`），确保财务对账严谨性。
+3. **红涨绿跌与国际反转自适应**：默认遵循中国大陆金融市场标准的「红涨绿跌」配色规范；当配置 `trendColorInverse: true` 时一键切换为国际市场的「绿涨红跌」。
+
+---
+
+### 10.4 零依赖结构化代码高亮与 JSON 树形折叠 (`AtengCodeView`)
+
+在配置中心、接口调试与告警详情中，引入 Prism.js 或 Highlight.js 动辄增加 300KB+ 的产物体积。`AtengCodeView` 提供**零第三方依赖纯原生正则语法高亮**与**多层级括号/JSON 树形折叠**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type CodeViewLanguage =
+  'json' | 'sql' | 'xml' | 'html' | 'javascript' | 'typescript' | 'text';
+export type CodeViewTheme = 'dark' | 'light';
+
+export interface AtengCodeViewProps {
+  code: string | object | unknown[] | null | undefined; // 源代码或结构化数据
+  language?: CodeViewLanguage; // 默认 'json'
+  theme?: CodeViewTheme; // 默认 'dark'
+  lineNumbers?: boolean; // 默认 true
+  copyable?: boolean; // 默认 true
+  wordWrap?: boolean; // 默认 true
+  height?: string | number;
+  maxHeight?: string | number;
+  title?: string;
+  showHeader?: boolean; // 默认 true
+  indent?: number; // 默认 2
+  collapsible?: boolean; // 默认 true
+  defaultCollapsed?: boolean; // 默认 false
+}
+
+export interface AtengCodeViewEmits {
+  (e: 'copy', text: string): void;
+  (e: 'fold-change', collapsedLines: number[]): void;
+}
+
+export interface AtengCodeViewExpose {
+  copy: () => Promise<boolean>;
+  getRawCode: () => string;
+  lineCount: number;
+  foldAll: () => void; // 全部折叠
+  unfoldAll: () => void; // 全部展开
+  toggleFold: (lineIndex: number) => void;
+  getCollapsedLines: () => number[];
+}
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElButton, ElMessage } from 'element-plus';
+import { AtengCodeView, type AtengCodeViewInstance } from '@atengk/element-plus';
+
+const codeViewRef = ref<AtengCodeViewInstance>();
+
+// 模拟微服务网关路由配置 JSON
+const gatewayConfig = {
+  serviceId: 'payment-mesh-gateway',
+  cluster: 'prod-cn-east-1',
+  routes: [
+    {
+      path: '/api/v1/checkout/**',
+      upstream: 'https://checkout.internal.service:8443',
+      timeoutMs: 3000,
+      retry: { maxAttempts: 3, backoffMultiplier: 1.5 },
+      rateLimit: { qps: 5000, burst: 8000 },
+    },
+    {
+      path: '/api/v1/refund/**',
+      upstream: 'https://refund.internal.service:8443',
+      timeoutMs: 5000,
+      authRequired: true,
+    },
+  ],
+  securityHeaders: {
+    xFrameOptions: 'DENY',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+  },
+};
+
+const handleFoldAll = () => codeViewRef.value?.foldAll();
+const handleUnfoldAll = () => codeViewRef.value?.unfoldAll();
+</script>
+
+<template>
+  <div class="code-view-showcase">
+    <ElCard header="网关路由配置结构化代码查看器">
+      <div style="margin-bottom: 12px; display: flex; gap: 12px">
+        <ElButton size="small" @click="handleFoldAll">全部折叠代码块</ElButton>
+        <ElButton size="small" @click="handleUnfoldAll">全部展开代码块</ElButton>
+      </div>
+
+      <AtengCodeView
+        ref="codeViewRef"
+        :code="gatewayConfig"
+        language="json"
+        theme="dark"
+        title="GatewayRouteConfig.json"
+        line-numbers
+        collapsible
+        copyable
+        height="380px"
+        @copy="() => ElMessage.success('网关配置 JSON 已成功复制到剪贴板！')"
+      />
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **0 额外依赖纯原生正则词法解析**：采用纯原生高效正则表达式进行分词染色，支持 JSON、SQL、JS/TS、XML/HTML，**体积增加严格为 0 KB 第三方包开销**，保障极致轻量。
+2. **多层括号树形折叠匹配算法**：内置括号配对栈算法，精确计算代码中 `{` 与 `}`、`[` 与 `]` 的对应关系。行号栏左侧自动呈现折叠展开箭头，支持逐级折叠与 `foldAll()` 全量收起。
+3. **真实纯文本一键复制**：点击右上角复制按钮时，读取未加 HTML 标签的原始格式化字符串（`getRawCode()`），粘贴进 VS Code 或终端中格式绝对整洁自洽。
+
+---
+
 ## 维度二：生产扩展接管 (Customization & Extensibility)
-
-### 3. Fesod 批注错误回写与下载集成 (`AtengExcelFeedback`)
-
-当用户上传导入 Excel 失败时，后端通常返回结构化错误明细或带有错误批注的 Excel 文件。通过 `AtengExcelFeedback` 可无缝接入：
-
-```vue
-<!-- 场景 A：后端返回 Fesod 标红批注 Excel 文件回写 -->
-<AtengExcelFeedback
-  v-model="feedbackVisible"
-  title="用户数据导入校验失败"
-  :errors="errorList"
-  :download-action="handleDownloadAnnotatedExcel"
-  file-name="用户导入校验失败批注清单.xlsx"
-  @copy="onCopySuccess"
-/>
-
-<!-- 场景 B：后端未提供批注文件时，前端本地无缝降级生成带 UTF-8 BOM (\uFEFF) 的 CSV 错误清单（Windows Excel 双击不乱码） -->
-<AtengExcelFeedback
-  v-model="feedbackCsvVisible"
-  title="用户数据导入校验失败"
-  :errors="errorList"
-  csv-file-name="导入校验错误清单.csv"
-  @copy="onCopySuccess"
-/>
-```
-
-### 4. 大文件切片并发上传状态机 (`AtengUpload`)
-
-开启 `:chunk="true"` 模式后，`AtengUpload` 自动组装 `@atengk/vue` 的 `useUpload` 状态机，无需编写复杂的切片切片循环与并发限制：
-
-```vue
-<AtengUpload
-  ref="uploadRef"
-  :chunk="true"
-  :chunk-size="5 * 1024 * 1024"
-  :concurrency="3"
-  :custom-upload-chunk="uploadChunkApi"
-  :custom-merge="mergeChunksApi"
-  @chunk-progress="progress => console.log('总进度:', progress)"
-  @chunk-success="onAllChunksSuccess"
-/>
-```
-
-通过对外暴露的 `uploadRef.value.pause()`、`resume()`、`cancel()` 可实现毫秒级暂停、恢复与网络中断。
-
-同时深度组装 `AtengFilePreview` 预览灯箱，支持图片、PDF、音视频与代码文本在线即时调阅，内置 `beforePreview` 业务权限前置守卫：
-
-```vue
-<!-- 多媒体在线预览与 beforePreview 绝密权限业务前置守卫 (Ticket #117) -->
-<AtengUpload
-  v-model:file-list="fileList"
-  :before-preview="
-    file => {
-      if (file.name.includes('secret')) {
-        ElMessage.error('绝密档案禁止在线调阅！');
-        return false; // 阻断预览
-      }
-      return true;
-    }
-  "
-/>
-```
-
-### 5. 流式 Excel 声明式导出与 ADR-0004 双态异常防御 (`AtengExcelExport`)
-
-`AtengExcelExport` 深度契合 ADR-0004 协议，可嵌套于 `AtengTable` 自动感知当前查询条件与跨页勾选行，或独立传参使用：
-
-```vue
-<!-- 表格上下文感知：勾选时优先导出选中项，无勾选时全量导出；内置 Blob-JSON 双态拦截与 Loading 互斥锁 -->
-<AtengExcelExport :action="exportApi" filename="用户清单.xlsx" />
-
-<!-- 独立传参与多模下拉菜单 -->
-<AtengExcelExport
-  :action="exportApi"
-  :params="{ role: 'admin' }"
-  mode="dropdown"
-  type="success"
-  text="多模导出"
-/>
-```
-
-### 10. 面向 LLM 与 SSE 流式响应的纯原生打字机 (`AtengStreamText`)
-
-`AtengStreamText` 面向现代大语言模型生成式输出与 SSE 流式数据推送，纯原生微任务实现平滑打字机切片呈现，内置呼吸光标状态机，可一键复制文本并无缝对接 `@atengk/vue` 的 `useStream` 状态机：
-
-```vue
-<!-- 纯原生逐字打字机切片、呼吸光标自适应淡出与一键复制代码 -->
-<AtengStreamText
-  ref="streamRef"
-  :text="aiGeneratedMarkdown"
-  :speed="30"
-  :cursor="true"
-  cursor-char="|"
-  :show-copy="true"
-  @finished="val => console.log('流式输出完毕, 总长:', val.length)"
-  @copy="val => ElMessage.success(`内容已复制 (${val.length} 字符)`)"
-/>
-```
-
-### 11. 高性能运维日志终端与防内存泄漏缓冲 (`AtengLogViewer`)
-
-`AtengLogViewer` 面向 CI/CD 容器构建、服务端日志追踪与设备监控，深度对接 `@atengk/vue` 的 `useWebSocket` 或静态日志列表：
-
-```vue
-<!-- 绑定 WebSocket 实时流，限制最大 2000 行环形缓冲，内置关键词检索过滤与 XSS 安全防御 -->
-<AtengLogViewer
-  :web-socket="wsResult"
-  :max-lines="2000"
-  height="480px"
-  theme="dark"
-  title="生产构建监控终端"
-/>
-```
-
-### 12. 金融级动效统计指标卡片 (`AtengStatistic`)
-
-`AtengStatistic` 基于原生 `requestAnimationFrame` 指数衰减缓动算法实现平滑翻牌过渡动画（零第三方依赖），支持金融级千分位与涨跌微标：
-
-```vue
-<!-- 金融级平滑数字滚动卡片，支持千分位格式化、红涨绿跌微标与骨架屏 Loading -->
-<AtengStatistic
-  title="年度总成交额 (GMV)"
-  :value="8923450.68"
-  prefix="¥"
-  suffix="元"
-  :thousands="true"
-  trend="up"
-  trend-value="+18.5%"
-  :duration="1200"
-/>
-```
-
-### 13. 零依赖结构化代码与数据查看器 (`AtengCodeView`)
-
-`AtengCodeView` 面向接口报文查阅、审计日志详情与配置展示，坚决拒绝引入 Monaco Editor 或 Prism.js 等庞大类库。采用纯原生 TypeScript 分词状态机与成对括号折叠算法，支持 JSON 对象/数组树形折叠、SQL 语法高亮、自适应行号侧边栏与一键复制反馈：
-
-```vue
-<!-- 结构化数据查看器，支持 JSON 树形折叠、代码高亮、行号与明暗双模 -->
-<AtengCodeView
-  :code="responsePayload"
-  language="json"
-  theme="dark"
-  :collapsible="true"
-  :line-numbers="true"
-  max-height="450px"
-  @copy="text => ElMessage.success(`代码已复制 (${text.length} 字符)`)"
-/>
-```
-
-### 16. 原生轻量多格式文件在线预览门户 (`AtengFilePreview`)
-
-`AtengFilePreview` 面向附件查阅、图片轮播、音视频审查与日志报文浏览，坚决拒绝引入数十 MB 的 pdfjs 或 video.js 重型依赖。基于纯原生 HTML5 与组件联动，支持图片灯箱、原生 PDF、音视频播放、代码文本高亮（复用 `AtengCodeView`）与未知格式降级下载：
-
-```vue
-<!-- 内嵌模式：智能推导文件类型（支持图片、PDF、音视频、代码文本与未知降级） -->
-<AtengFilePreview
-  url="https://example.com/files/report.pdf"
-  name="年度经营汇报.pdf"
-  height="520px"
-  @download="filename => console.log('下载文件:', filename)"
-/>
-
-<!-- 对话框弹窗模式 (v-model:visible) 与本地 File/Blob 即时预览 -->
-<AtengFilePreview
-  v-model:visible="isPreviewDialogVisible"
-  mode="dialog"
-  :file="uploadFileRaw"
-  title="本地文件预览"
-/>
-```
 
 ### 17. 现代极客多主题引擎与预设科技风切换 (`@atengk/element-plus/theme-pro.css`)
 
