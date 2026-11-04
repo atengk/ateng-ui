@@ -642,19 +642,635 @@ const onDiffUpdated = (stats: DiffStats): void => {
 
 ## 5. 多文件 TextModel 模型池与增量编辑防线
 
-> 待工单 #238 细化落实：涵盖 5.1 单底座 Canvas 多文件瞬时切换、5.2 增量编辑光标保护管道、5.3 超大文件自适应性能保护模式三要素同屏闭环。
+### 5.1 单底座 Canvas 多文件瞬时切换与状态保持
+
+在多脚本标签页（如 IDE 式多文件开发、工作流脚本组）场景中，组件提供受管的 TextModel 模型池，复用单一底座 Canvas 实例毫秒级切换不同代码文件，同时独立保全各文件的撤销/重做历史与光标选区。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorExpose {
+  /** 在模型池中创建受管 TextModel */
+  createModel: (
+    value: string,
+    language?: CodeLanguage,
+    uri?: string | monaco.Uri,
+  ) => monaco.editor.ITextModel;
+  /** 切换当前编辑器绑定的活动 TextModel 并平滑保持视口与光标状态 */
+  setModel: (modelOrUri: monaco.editor.ITextModel | string) => void;
+  /** 销毁模型池中的指定 TextModel */
+  disposeModel: (modelOrUri: monaco.editor.ITextModel | string) => boolean;
+  /** 获取当前活动的 TextModel */
+  getActiveModel: () => monaco.editor.ITextModel | null;
+  /** 获取模型池中所有受管的 TextModel 列表 */
+  getModels: () => monaco.editor.ITextModel[];
+  /** 保存指定模型或当前活动的视图状态 (光标与滚动位置) */
+  saveViewState: (
+    modelOrUri?: monaco.editor.ITextModel | string,
+  ) => monaco.editor.ICodeEditorViewState | null;
+  /** 恢复指定模型的视图状态 */
+  restoreViewState: (
+    modelOrUri: monaco.editor.ITextModel | string,
+    state?: monaco.editor.ICodeEditorViewState | null,
+  ) => void;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 BasicCodeEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import {
+  AtengCodeEditor,
+  type CodeLanguage,
+  type AtengCodeEditorInstance,
+} from '@atengk/code-editor-vue';
+
+interface FileTab {
+  id: string;
+  name: string;
+  lang: CodeLanguage;
+  uri: string;
+  initialContent: string;
+}
+
+const editorRef = ref<AtengCodeEditorInstance | null>(null);
+const activeFileId = ref<string>('main');
+
+const fileTabs = ref<FileTab[]>([
+  {
+    id: 'main',
+    name: 'main.ts',
+    lang: 'typescript',
+    uri: 'file:///workspace/main.ts',
+    initialContent: 'export interface User { id: string; name: string; }',
+  },
+  {
+    id: 'config',
+    name: 'config.json',
+    lang: 'json',
+    uri: 'file:///workspace/config.json',
+    initialContent: '{\n  "projectName": "ateng-ui",\n  "version": "1.0.0"\n}',
+  },
+  {
+    id: 'queries',
+    name: 'queries.sql',
+    lang: 'sql',
+    uri: 'file:///workspace/queries.sql',
+    initialContent: 'SELECT id, username FROM sys_user WHERE status = 1;',
+  },
+]);
+
+// 1. 初始化并在模型池中注册多个受管文件
+onMounted(() => {
+  if (!editorRef.value) return;
+  for (const tab of fileTabs.value) {
+    editorRef.value.createModel(tab.initialContent, tab.lang, tab.uri);
+  }
+  editorRef.value.setModel('file:///workspace/main.ts');
+});
+
+// 2. 毫秒级瞬时切换活动模型（平滑保留各文件独立光标与撤销历史）
+const handleSwitchTab = (tab: FileTab): void => {
+  activeFileId.value = tab.id;
+  editorRef.value?.setModel(tab.uri);
+};
+</script>
+
+<template>
+  <div class="model-pool-demo">
+    <div class="file-tabs">
+      <button
+        v-for="tab in fileTabs"
+        :key="tab.id"
+        :class="{ active: activeFileId === tab.id }"
+        @click="handleSwitchTab(tab)"
+      >
+        📄 {{ tab.name }}
+      </button>
+    </div>
+    <AtengCodeEditor ref="editorRef" height="380px" />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **单底座实例复用**：不同于通过 `v-if` 创建多个编辑器实例造成的内存暴涨（每个 Monaco 实例开销约 30~50MB），模型池仅保持单个底座 Canvas，仅在内存中切换 `ITextModel`，瞬时切换且内存开销降低 80% 以上。
+- **状态无损保持**：`setModel` 内部自动调度 `saveViewState` 与 `restoreViewState`，在离开和切回某文件时，行号、滚动条位置、活动选区与光标完全零跳动恢复。
+- **确定性注销清理**：组件在 `onUnmounted` 卸载时，自动遍历池内所有 Model 并执行 `model.dispose()`，杜绝幽灵内存泄漏。
+
+---
+
+### 5.2 增量编辑光标保护管道
+
+外部响应式数据变更或协同数据推送时，杜绝直接调用 `setValue()` 导致的光标跳回首行与撤销栈丢失问题，底层提供增量原子更新管道。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorExpose {
+  /**
+   * 增量应用代码文本变更
+   * @param newText 最新代码文本
+   * @param options 增量控制选项 (preserveCursor 保持光标, recordUndo 记入撤销栈)
+   */
+  applyIncrementalEdit: (
+    newText: string,
+    options?: { preserveCursor?: boolean; recordUndo?: boolean },
+  ) => void;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 BasicCodeEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor, type AtengCodeEditorInstance } from '@atengk/code-editor-vue';
+
+const editorRef = ref<AtengCodeEditorInstance | null>(null);
+const code = ref('export const basePort = 8080;\nexport const cluster = "prod";');
+
+// 外部异步向末尾追加代码片段（增量保持当前光标位置与撤销历史）
+const handleAppendTimestamp = (): void => {
+  const appendSnippet = `\n// [外部异步追加记录: ${new Date().toLocaleTimeString()}]\nexport const timestamp = ${Date.now()};\n`;
+  // 方式一：直接更新 v-model，内部自动走增量光标保护管道
+  code.value += appendSnippet;
+  // 方式二：或通过 Ref 方法精准增量注入
+  // editorRef.value?.applyIncrementalEdit(code.value, { preserveCursor: true, recordUndo: true });
+};
+</script>
+
+<template>
+  <div class="incremental-box">
+    <div class="actions">
+      <button @click="handleAppendTimestamp">⚡ 模拟外部协同追加内容</button>
+    </div>
+    <AtengCodeEditor ref="editorRef" v-model="code" language="typescript" height="320px" />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **光标防跳行原理**：当通过 `v-model` 更新时，状态机首先计算全文差异；若确实发生变动，内部通过 `model.pushEditOperations` 与 `editor.executeEdits` 将差异作为单次原子事务打入模型，当前光标的 `lineNumber`、`column` 与选区完全受控冻结。
+- **Undo/Redo 栈保全**：外部注入变更自动作为单一原子步骤写入撤销历史栈，用户按下 `Ctrl+Z` 能够平滑撤销外部插入内容，不会冲毁本地输入历史。
+
+---
+
+### 5.3 超大文件自适应性能保护模式
+
+面向大数据处理、离线 ETL 与海量日志审计场景，当打开超长代码文件时，组件自动感知并平滑进入轻量保护模式。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorProps {
+  /**
+   * 超大文件性能保护行数阈值
+   * 当代码总行数超过此阈值时，自动关闭 minimap 并精简高开销装饰项
+   * @default 50000
+   */
+  largeFileThreshold?: number;
+}
+
+export interface CodeEditorExpose {
+  /** 当前是否处于超大文件自适应保护降级模式 */
+  isLargeFile: () => boolean;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 BasicCodeEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor, type AtengCodeEditorInstance } from '@atengk/code-editor-vue';
+
+const editorRef = ref<AtengCodeEditorInstance | null>(null);
+const code = ref('// 初始代码');
+const isLarge = ref<boolean>(false);
+
+// 生成 60,000 行业务大文本测试数据集
+const handleGenerateLarge = (): void => {
+  const lines: string[] = ['// === 60,000 行业务大文本性能治理测试数据集 ==='];
+  for (let i = 1; i <= 60000; i++) {
+    lines.push(`const record_${i} = { id: ${i}, status: 'active', code: 'CODE_${i}' };`);
+  }
+  code.value = lines.join('\n');
+  isLarge.value = editorRef.value?.isLargeFile() ?? true;
+};
+</script>
+
+<template>
+  <div class="large-file-box">
+    <div class="panel">
+      <button @click="handleGenerateLarge">🚀 生成 60,000 行大文本</button>
+      <span v-if="isLarge" class="badge warning">⚠️ 已激活大文件性能自适应保护模式</span>
+    </div>
+    <AtengCodeEditor
+      ref="editorRef"
+      v-model="code"
+      language="javascript"
+      :large-file-threshold="50000"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **主线程防冻结机制**：当文本总行数超过 `largeFileThreshold`（默认 50,000 行）时，内部自动动态调用 `editor.updateOptions({ minimap: { enabled: false } })` 并挂起全量折叠行重排，防止 V8 主线程因 Canvas 缩略图渲染引发卡顿与假死。
+- **动态恢复机制**：一旦用户删除内容使得总行数回落至阈值以内，系统自动自适应恢复完整的高级特性配置。
 
 ---
 
 ## 6. 智能补全与 SQL / JSON 语法拓展套件
 
-> 待工单 #238 细化落实：涵盖 6.1 受管生命周期智能补全中心、6.2 轻量原生 SQL 美化与外部 SPI 接管、6.3 声明式微服务部署 JSON Schema 校验三要素同屏闭环。
+### 6.1 受管生命周期智能补全中心
+
+纳管全局 Monaco 语言补全提供者，提供组件级生命周期受管封装，确保页面切换或组件销毁时 100% 自动注销，杜绝跨页面幽灵提示与内存泄漏。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+/**
+ * 自定义代码智能补全提供者函数契约
+ */
+export type CompletionProviderFn = (
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) =>
+  | monaco.languages.CompletionItem[]
+  | Promise<monaco.languages.CompletionItem[]>
+  | monaco.languages.CompletionList
+  | Promise<monaco.languages.CompletionList>;
+
+/**
+ * 集中受管的补全注册中心
+ */
+export class CompletionRegistry {
+  /** 注册特定语言智能补全提供者，返回受管注销句柄 */
+  static register(language: string, provider: CompletionProviderFn): monaco.IDisposable;
+  /** 全量清空并注销所有受管补全项 */
+  static clearAll(): void;
+}
+
+export function registerCompletionProvider(
+  language: string,
+  provider: CompletionProviderFn,
+): monaco.IDisposable;
+```
+
+#### 实战业务代码示例 (逆向提取自 SqlFormattingScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor, type CompletionProviderFn } from '@atengk/code-editor-vue';
+
+const sqlCode = ref('SELECT id, username FROM sys_user WHERE status = 1;');
+
+// 业务数据库表名与字段元数据补全项注入（受管生命周期，组件销毁自动注销）
+const sqlCompletions: CompletionProviderFn = () => {
+  return [
+    {
+      label: 'sys_user',
+      kind: 7, // Class
+      insertText: 'sys_user',
+      detail: '系统用户主表 (sys_user)',
+      documentation: '包含核心用户账号、手机、邮箱与状态字段',
+    },
+    {
+      label: 'biz_order',
+      kind: 7,
+      insertText: 'biz_order',
+      detail: '业务订单交易流水表 (biz_order)',
+      documentation: '包含订单号、实付金额与支付时间',
+    },
+    {
+      label: 'total_amount',
+      kind: 5, // Field
+      insertText: 'total_amount',
+      detail: 'DECIMAL(12, 2)',
+      documentation: '订单实付金额字段',
+    },
+    {
+      label: 'user_id',
+      kind: 5,
+      insertText: 'user_id',
+      detail: 'BIGINT (Snowflake)',
+      documentation: '全局用户分布式关联主键',
+    },
+  ];
+};
+</script>
+
+<template>
+  <div class="sql-box">
+    <AtengCodeEditor
+      v-model="sqlCode"
+      language="sql"
+      :completion-provider="sqlCompletions"
+      height="360px"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **生命周期受管治理**：Monaco 原生 `monaco.languages.registerCompletionItemProvider` 是进程级全局单例。直接注册会导致跨页面、跨标签组件甚至离开当前路由后依然弹出失效建议项。组件内部将注销句柄（`IDisposable`）纳入生命周期回收名单，在 `onUnmounted` 时自动确定性调用 `dispose()`。
+- **异步补全支持**：`CompletionProviderFn` 契约原生支持返回 `Promise`，可按需与远程元数据服务异步集成（如用户输入表名后异步查询列字典）。
+
+---
+
+### 6.2 轻量原生 SQL 美化与外部 SPI 格式化接管
+
+内置零体积膨胀的轻量原生 SQL 美化算法，同时提供 `formatSqlProvider` SPI 扩展接口，允许企业级平台无缝接管或注入专用远程排版引擎。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+/**
+ * 自定义 SQL 格式化提供者 SPI 接口
+ */
+export type SqlFormatProvider = (sql: string) => Promise<string> | string;
+
+/**
+ * 原生轻量 SQL 词法状态机格式化算法
+ */
+export function formatSql(sql: string): string;
+
+export interface CodeEditorProps {
+  /** 自定义 SQL 格式化提供者 SPI (针对 sql 语言生效) */
+  formatSqlProvider?: SqlFormatProvider;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 SqlFormattingScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengCodeEditor,
+  type SqlFormatProvider,
+  type AtengCodeEditorInstance,
+} from '@atengk/code-editor-vue';
+
+const editorRef = ref<AtengCodeEditorInstance | null>(null);
+
+// 凌乱 SQL 源码
+const sqlCode = ref(
+  'select u.id,u.username,count(o.id) as order_count from sys_user u left join biz_order o on u.id=o.user_id where u.status=1 group by u.id,u.username limit 20;',
+);
+
+// 自定义企业级 SPI 格式化器：注入标准只读查询头部审计注释
+const customFormatter: SqlFormatProvider = async (rawSql: string): Promise<string> => {
+  return [
+    `-- ===================================================`,
+    `-- [企业级数据分析中心 · 受管只读查询计划]`,
+    `-- 生成时间: ${new Date().toLocaleString()}`,
+    `-- ===================================================`,
+    rawSql.toUpperCase(),
+  ].join('\n');
+};
+
+const handleFormat = (): void => {
+  editorRef.value?.format();
+};
+</script>
+
+<template>
+  <div class="sql-formatter-demo">
+    <div class="toolbar">
+      <button @click="handleFormat">⚡ 执行 SQL 排版美化 (format)</button>
+    </div>
+    <AtengCodeEditor
+      ref="editorRef"
+      v-model="sqlCode"
+      language="sql"
+      :format-sql-provider="customFormatter"
+      height="360px"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **零依赖原生词法状态机**：内置 `formatSql` 算法基于有限状态机（FSM）逐字符切分，精准识别字符串字面量（单引号、双引号、反引号）与单行/多行注释，将 `SELECT`, `FROM`, `WHERE`, `LEFT JOIN`, `GROUP BY`, `ORDER BY` 等高频关键字标准大写并换行缩进，0 引入任何重型外部包。
+- **外部 SPI 优先接管**：调用 `format()` 时，组件优先判断是否存在 `formatSqlProvider`；若已注入，优先委托给自定义 SPI 执行，SPI 抛出异常时平滑回退至内置算法，保障高可用性。
+
+---
+
+### 6.3 声明式微服务部署 JSON Schema 校验
+
+针对微服务发布中心、低代码配置平台与表单规则，提供基于 JSON Schema 的声明式语法诊断校验与悬停文档能力。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface CodeEditorProps {
+  /** 声明式 JSON Schema 校验规范对象 (针对 json 语言生效) */
+  jsonSchema?: object;
+}
+
+export interface CodeEditorExpose {
+  /** 动态更新声明式 JSON Schema 校验规范 */
+  setJsonSchema: (schema?: object) => void;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 JsonSchemaValidationScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengCodeEditor } from '@atengk/code-editor-vue';
+
+// 微服务部署契约 Schema 规范
+const deployConfigSchema = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  title: 'ServiceDeploymentConfig',
+  type: 'object',
+  required: ['serviceName', 'version', 'replicas', 'port', 'environment'],
+  properties: {
+    serviceName: {
+      type: 'string',
+      description: '微服务唯一服务标识（如 user-service）',
+    },
+    version: {
+      type: 'string',
+      description: '符合语义化版本规范的镜像 Tag（如 1.0.0）',
+    },
+    replicas: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 32,
+      description: '集群 Pod 副本数，范围必须在 1 ~ 32 之间',
+    },
+    port: {
+      type: 'integer',
+      minimum: 1024,
+      maximum: 65535,
+      description: '服务监听端口（1024 ~ 65535）',
+    },
+    environment: {
+      type: 'string',
+      enum: ['development', 'testing', 'staging', 'production'],
+      description: '部署目标运行环境',
+    },
+  },
+};
+
+// 初始带有一项类型错误 (replicas: 0 越界)
+const jsonCode = ref(`{
+  "serviceName": "auth-gateway-service",
+  "version": "2.4.0",
+  "replicas": 0,
+  "port": 8080,
+  "environment": "production"
+}`);
+</script>
+
+<template>
+  <div class="schema-box">
+    <AtengCodeEditor
+      v-model="jsonCode"
+      language="json"
+      :json-schema="deployConfigSchema"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+- **原生 Web Worker 异步校验**：底层将 Schema 配置直接注入 `monaco.languages.json.jsonDefaults`，语法树分析与错误检查在独立 Worker 线程中异步执行，不阻塞主线程渲染。
+- **全自动交互体验**：自动为必填字段缺失、类型不匹配、枚举值越界（如 `replicas: 0` 小于 `minimum: 1`）标红波浪线；光标悬停时弹出标准的 Markdown 格式属性说明与类型约束。
 
 ---
 
 ## 7. 三级弹性 Worker 调度与环境降级防线
 
-> 待工单 #238 细化落实：涵盖 7.1 Vite ESM 原生 Worker 零配置集成、7.2 企业内网私有 CDN 镜像寻址、7.3 极端网络单线程静默降级三要素同屏闭环。
+### 7.1 Vite ESM 原生 Worker 零配置集成
+
+解决现代前端工程中 Monaco Editor 静态 Worker 资源打包配置繁琐、Chunk 路径错乱问题，提供一行代码接入的原生 ESM 助手。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface ViteMonacoWorkerConstructors {
+  editorWorker?: new () => Worker;
+  jsonWorker?: new () => Worker;
+  htmlWorker?: new () => Worker;
+  cssWorker?: new () => Worker;
+  tsWorker?: new () => Worker;
+}
+
+/**
+ * 注册 Vite 原生 ESM Worker 构造器
+ */
+export function setupViteMonacoWorkers(workers: ViteMonacoWorkerConstructors): void;
+```
+
+#### 实战业务代码示例 (逆向提取自 src/workers/index.ts 与 Sample)
+
+```ts
+// 在应用入口 main.ts 中一行代码注入
+import { createApp } from 'vue';
+import { setupViteMonacoWorkers } from '@atengk/code-editor-vue';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
+import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import App from './App.vue';
+
+// 注入 Vite 原生 Worker 构造函数
+setupViteMonacoWorkers({
+  editorWorker: EditorWorker,
+  jsonWorker: JsonWorker,
+  tsWorker: TsWorker,
+});
+
+createApp(App).mount('#app');
+```
+
+#### 核心机制与生产边界说明
+
+- **Vite ESM 原生能力对齐**：基于 Vite 原生 `?worker` 查询参数，Vite 会自动将 Worker 打包为独立无跨域阻碍的脚本并在运行时实例化，彻底免除在 `vite.config.ts` 中手写复杂的 Rollup 别名或手动拷贝静态资源的痛苦。
+
+---
+
+### 7.2 企业内网私有 CDN 镜像寻址
+
+针对政企内网、金融内网等严格离线或无外网访问环境，提供静态基础路径覆盖寻址能力。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface MonacoWorkerOptions {
+  /** 静态 Worker 基础路径（如企业内网 CDN 镜像地址） */
+  workerBaseUrl?: string;
+  /** 自定义动态 Worker 实例工厂 */
+  getWorker?: (workerId: string, label: string) => Worker;
+  /** 自定义 Worker 脚本 URL 获取函数 */
+  getWorkerUrl?: (workerId: string, label: string) => string;
+}
+
+export function setupMonacoWorkers(options?: MonacoWorkerOptions): void;
+```
+
+#### 实战业务代码示例 (逆向提取自 src/workers/index.ts)
+
+```ts
+import { setupMonacoWorkers } from '@atengk/code-editor-vue';
+
+// 针对企业私有化部署，指定内网静态 Worker 资源根路径
+setupMonacoWorkers({
+  workerBaseUrl: 'https://cdn.internal.corp/assets/monaco-workers/',
+});
+```
+
+#### 核心机制与生产边界说明
+
+- **URL 确定性解析**：内部根据语言标签自动拼装 `${workerBaseUrl}/${label}.worker.js`，支持在内网私有对象存储（MinIO / 内部 Nginx）上托管 Worker 静态资源，彻底消除对外部互联网公共 CDN 的隐蔽依赖。
+
+---
+
+### 7.3 极端网络与 CSP 限制下单线程静默降级
+
+在浏览器环境存在严苛的内容安全策略（CSP，如 `worker-src 'none'`）或 Worker 脚本加载失败时，确保组件平稳运行而不发生白屏崩溃。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export interface MonacoWorkerOptions {
+  /** 是否强制回退至单线程主线程模式（禁用 Web Worker） */
+  forceSingleThread?: boolean;
+}
+```
+
+#### 实战业务代码示例 (逆向提取自 test/workers.test.ts)
+
+```ts
+import { setupMonacoWorkers } from '@atengk/code-editor-vue';
+
+// 在严苛 CSP 限制环境或极简兼容沙箱中强制开启单线程安全模式
+setupMonacoWorkers({
+  forceSingleThread: true,
+});
+```
+
+#### 核心机制与生产边界说明
+
+- **主线程安全兜底**：当配置 `forceSingleThread: true` 或系统捕获到 Worker 实例化抛出 `SecurityError` 时，WorkerProvider 自动返回基于 `Blob` 的空包装或主线程处理程序；
+- **防白屏容灾不变量**：在缺少 Worker 支援时，Monaco Editor 的语法高亮、代码折叠与基本编辑功能仍能在主线程完全正常运转，绝不阻塞整个业务系统的页面加载。
 
 ---
 
