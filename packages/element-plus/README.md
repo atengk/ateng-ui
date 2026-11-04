@@ -4279,83 +4279,501 @@ const handleUnfoldAll = () => codeViewRef.value?.unfoldAll();
 
 ---
 
-## 维度二：生产扩展接管 (Customization & Extensibility)
+## 11. 现代多主题设计引擎与科技风定制套件 (Modern Theme Pro & Tech Styling Suite)
 
-### 17. 现代极客多主题引擎与预设科技风切换 (`@atengk/element-plus/theme-pro.css`)
+现代企业级中后台对于视觉设计系统的诉求，已从单一的“浅色 / 暗黑”二元切换，演进至**多租户定制、科技感高反差、微动效触觉反馈与 GPU 级流畅渲染**。
 
-面向现代云原生控制台、DevOps 平台与 AI 交互系统，提供开箱即用、纯 CSS 变量驱动的工业级现代极客主题引擎：
+`@atengk/element-plus` 深度内建 **Theme Pro 工业级设计体系** 与 **客户端动态生命周期编排器**，实现 0 运行时闪烁的现代化极客体验。
 
-- **5 款预置科技配色（支持全局与局部容器子树穿透）**：
-  - `indigo`（极客靛蓝，默认 Linear 质感高智冷调 `#4f46e5`）
-  - `emerald`（极客翠绿，清新翡翠青 `#10b981`）
-  - `violet`（赛博幻紫，未来主义霓虹幻紫 `#7c3aed`）
-  - `ocean`（商务深海，严谨可靠深海蓝 `#0284c7`）
-  - `rose`（极光绯红，热烈创新高能绯红 `#e11d48`）
-- **Slate 冷感深空暗黑基底与 SSOT 单一数据源**：基于 Slate 调色板重构 Element Plus 暗黑体系（底板 `--el-bg-color-page`、卡片 `--el-bg-color`、浮层 `--el-bg-color-overlay`、半透实体毛玻璃 `--at-bg-overlay-translucent`），全面消除组件规则中的硬编码物理暗色，支持任意企业级暗黑基底全局覆写；
-- **全景组件与非功能性体验增强**：
-  - **组件大满贯入驻**：补齐 `ElPageHeader`、`ElBacktop`、`ElCheckTag`、`ElStatistic` 等官方缺位组件现代质感与等宽数值排版；
-  - **键盘无障碍 (Focus-Visible)**：Tabs、Anchor、Pagination 等全面对齐双层激光聚焦环（`--at-shadow-focus-ring`）；
-  - **媒体查询全景守卫**：内置 `prefers-reduced-motion` 动效减弱、`forced-colors` Windows 高对比度、`@media print` 打印优化、触屏细滚动条防误触（`pointer: coarse`）；
-  - **切换动效风暴防御 (Transition Storm)**：模式流转瞬间注入 `html.is-theme-switching`，250ms 内冻结 transition 杜绝全屏重绘掉帧。
+---
 
-```vue
-<!-- 1. 切换预设主题与暗黑基底 -->
-<script setup lang="ts">
-import { ref } from 'vue';
+### 11.1 5 款高反差科技预设与 Slate 深空暗黑基底引入 (`theme-pro.css`)
 
-type ThemeName = 'indigo' | 'emerald' | 'violet' | 'ocean' | 'rose';
-const currentTheme = ref<ThemeName>('indigo');
+`theme-pro.css` 不仅覆盖 Element Plus 原生控件的所有阶梯色彩，更提供 **5 款极客科技预设** 与 **Slate 冷灰暗黑基底**。
 
-function switchTheme(theme: ThemeName) {
-  currentTheme.value = theme;
-  document.documentElement.setAttribute('data-theme', theme);
-}
-</script>
-
-<!-- 2. 组件样式的零 !important 优雅局部定制与逃生门 -->
-<style scoped>
-/* 业务视图无需任何 !important 即可优雅覆盖组件样式 */
-.custom-card {
-  --el-card-border-color: rgba(59, 130, 246, 0.4);
-  border-radius: 16px;
-}
-</style>
-```
-
-### 18. 客户端自动化主题生命周期编排 (`initTheme` & `setThemeColor`)
-
-针对多租户 SaaS 系统、个性化自选品牌色以及深浅模式自动跟随系统等动态场景，提供纯原生、零外部依赖的自动化主题管理器与动态色阶演算器：
+#### 本节专属 TypeScript 契约片段
 
 ```ts
-import { initTheme, setThemeColor } from '@atengk/element-plus';
+/**
+ * 5 套开箱即用经典极客科技预设标识与推荐主色。
+ */
+export type ThemePresetName = 'indigo' | 'emerald' | 'violet' | 'ocean' | 'rose';
 
-// 1. 初始化客户端主题管理器（自动管理 light/dark/auto 流转、防动效风暴与系统偏好监听）
-const themeManager = initTheme({
-  defaultMode: 'auto',
-  storageKey: 'my_app_theme_mode',
-  themeColor: '#4f46e5',
-  listenSystemPreference: true,
-});
+export interface ThemePresetConfig {
+  name: ThemePresetName;
+  label: string;
+  primaryColor: string;
+  description: string;
+}
 
-// 查询与切换模式
-console.log(themeManager.getMode()); // 'auto'
-console.log(themeManager.getActiveTheme()); // 'light' 或 'dark'
-themeManager.setMode('dark'); // 切换至暗黑模式（自动触发 is-theme-switching 防御与深色阶演算）
-
-// 动态修改主品牌色
-themeManager.setColor('#10b981');
-
-// 组件或页面卸载时注销系统监听
-themeManager.cleanup();
-
-// 2. 独立调用 setThemeColor（具备暗黑模式自适应算法，消除 light-9 刺眼近白）
-setThemeColor('#6366f1', {
-  isDark: document.documentElement.classList.contains('dark'),
-  updateDark: true,
-});
+export const THEME_PRESETS: ThemePresetConfig[] = [
+  {
+    name: 'indigo',
+    label: '科技靛蓝',
+    primaryColor: '#4f46e5',
+    description: 'Linear / Tailwind 现代极客极简风（默认）',
+  },
+  {
+    name: 'emerald',
+    label: '极客翠绿',
+    primaryColor: '#10b981',
+    description: 'Supabase 现代清新、可持续能源质感',
+  },
+  {
+    name: 'violet',
+    label: '赛博幻紫',
+    primaryColor: '#7c3aed',
+    description: 'Twitch / AI 大模型、创新探索前沿',
+  },
+  {
+    name: 'ocean',
+    label: '商务深海',
+    primaryColor: '#0284c7',
+    description: 'Docker / Cloud 云原生、稳健中台',
+  },
+  {
+    name: 'rose',
+    label: '极光绯红',
+    primaryColor: '#e11d48',
+    description: 'Vite / Deno 激情极速、高亮告警',
+  },
+];
 ```
 
-## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElRadioGroup, ElRadioButton, ElButton, ElMessage } from 'element-plus';
+
+const currentTheme = ref('indigo');
+
+// 切换数据主题属性 data-theme
+const handleChangeTheme = (themeName: string) => {
+  currentTheme.value = themeName;
+  const root = document.documentElement;
+  if (themeName === 'indigo') {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', themeName);
+  }
+  ElMessage.success(`已切换为主题预设: ${themeName}`);
+};
+</script>
+
+<template>
+  <div class="theme-presets-showcase">
+    <ElCard header="Theme Pro 5 款经典极客科技预设切换">
+      <div style="margin-bottom: 20px">
+        <ElRadioGroup v-model="currentTheme" @change="handleChangeTheme">
+          <ElRadioButton value="indigo">科技靛蓝 (Indigo #4f46e5)</ElRadioButton>
+          <ElRadioButton value="emerald">极客翠绿 (Emerald #10b981)</ElRadioButton>
+          <ElRadioButton value="violet">赛博幻紫 (Violet #7c3aed)</ElRadioButton>
+          <ElRadioButton value="ocean">商务深海 (Ocean #0284c7)</ElRadioButton>
+          <ElRadioButton value="rose">极光绯红 (Rose #e11d48)</ElRadioButton>
+        </ElRadioGroup>
+      </div>
+
+      <!-- 控件矩阵预览主题渲染 -->
+      <div style="display: flex; gap: 12px; align-items: center">
+        <ElButton type="primary">Primary 品牌主色</ElButton>
+        <ElButton type="primary" plain>Plain 朴素幽灵态</ElButton>
+        <ElButton type="primary" round>Round 胶囊形态</ElButton>
+        <ElButton type="primary" loading>Loading 态</ElButton>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **单一样式引入标准**：在应用入口（如 `main.ts`）执行 `import '@atengk/element-plus/theme-pro.css'`，即可完成包含 Element Plus 原生控件样式覆写与全部 5 款主题预设的声明式加载。
+2. **Slate 深空冷灰暗黑基底 (`#0c1017`)**：摒弃传统单纯加深纯黑（`#000000`）导致的生硬对比感，采用深空冷灰（`--el-bg-color: #0c1017`、`--el-bg-color-page: #07090e`、`--el-bg-color-overlay: #121824`），长时间凝视不刺眼、层次错落有致。
+3. **`[data-theme="*"]` 属性选择器隔离**：通过在 `<html>` 根节点切换 `data-theme` 属性，即可瞬间切换全阶梯 1~9 级色彩变量与 `-rgb` 通道，无需刷新网页与重载静态资源。
+
+---
+
+### 11.2 客户端运行时主题生命周期编排 (`initTheme`)
+
+`initTheme` 协调暗黑模式、品牌色与系统偏好，提供 **过渡风暴防御 (Transition Storm)** 与 **100% 确定性监听注销**。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export type ThemeMode = 'light' | 'dark' | 'auto';
+export type ActiveTheme = 'light' | 'dark';
+
+export interface InitThemeOptions {
+  themeColor?: string; // 默认或初始品牌色（如 '#4f46e5'）
+  storageKey?: string; // 默认 'ateng-theme-mode'
+  listenSystemPreference?: boolean; // 监听 prefers-color-scheme，默认 true
+  defaultMode?: ThemeMode; // 默认 'auto'
+  target?: HTMLElement; // 目标挂载 DOM，默认 document.documentElement
+}
+
+export interface ThemeManager {
+  getMode: () => ThemeMode; // 获取当前设定模式 ('light' | 'dark' | 'auto')
+  getActiveTheme: () => ActiveTheme; // 获取实际生效主题 ('light' | 'dark')
+  setMode: (mode: ThemeMode) => void; // 设置主题模式并自动持久化
+  setColor: (hex: string) => boolean; // 动态换肤并自适应深浅色阶
+  cleanup: () => void; // 注销系统监听器与释放定时器
+}
+
+export function initTheme(options?: InitThemeOptions): ThemeManager;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { ElCard, ElRadioGroup, ElRadioButton, ElTag } from 'element-plus';
+import { initTheme, type ThemeManager, type ThemeMode } from '@atengk/element-plus';
+
+let themeManager: ThemeManager | null = null;
+const currentMode = ref<ThemeMode>('auto');
+const activeTheme = ref<'light' | 'dark'>('light');
+
+onMounted(() => {
+  // 1. 初始化客户端自动化主题管理器
+  themeManager = initTheme({
+    defaultMode: 'auto',
+    storageKey: 'corp-theme-mode',
+    listenSystemPreference: true,
+  });
+
+  currentMode.value = themeManager.getMode();
+  activeTheme.value = themeManager.getActiveTheme();
+});
+
+onUnmounted(() => {
+  // 2. 确定性注销与资源清理（遵守工业级生命周期防线）
+  themeManager?.cleanup();
+});
+
+const handleModeChange = (mode: ThemeMode) => {
+  themeManager?.setMode(mode);
+  currentMode.value = mode;
+  activeTheme.value = themeManager?.getActiveTheme() ?? 'light';
+};
+</script>
+
+<template>
+  <div class="theme-lifecycle-showcase">
+    <ElCard header="客户端运行时主题生命周期编排器 (initTheme)">
+      <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px">
+        <span>切换主题模式：</span>
+        <ElRadioGroup v-model="currentMode" @change="handleModeChange">
+          <ElRadioButton value="light">浅色模式 (Light)</ElRadioButton>
+          <ElRadioButton value="dark">暗黑模式 (Dark)</ElRadioButton>
+          <ElRadioButton value="auto">跟随系统 (Auto OS Preference)</ElRadioButton>
+        </ElRadioGroup>
+        <ElTag :type="activeTheme === 'dark' ? 'info' : 'primary'">
+          实际生效: {{ activeTheme }}
+        </ElTag>
+      </div>
+      <p style="color: var(--el-text-color-secondary); font-size: 13px; margin: 0">
+        已自动接入防过度重绘过渡风暴（Transition Storm）防御：在切换瞬间为 html 附加
+        .is-theme-switching 类名，冻结 250ms CSS 过渡，杜绝大页面掉帧卡顿。
+      </p>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **过渡风暴防御机制 (Transition Storm Defense)**：当用户切换明暗模式时，整页成千上万个元素的 `background-color`、`border-color` 若同时触发 CSS `transition`，会导致主线程数十帧连续掉帧。`initTheme` 在切换瞬间自动向根节点附加 `.is-theme-switching`，**临时将全局 `transition` 设为 `none !important`，并在 250ms 后平滑解除**，页面切换瞬间如丝般顺滑。
+2. **系统偏好双轨监听与自动卸载**：支持 `matchMedia('(prefers-color-scheme: dark)')` 响应式监听；当在 SPA 或微前端环境下页面销毁时，调用 `themeManager.cleanup()` 100% 确定性解除事件绑定，杜绝内存泄漏。
+
+---
+
+### 11.3 动态租户品牌换肤与纯原生调色板计算 (`setThemeColor`)
+
+SaaS 多租户系统要求各企业客户自定义其品牌 VI 色（如中国电信蓝、美团黄、顺丰红）。传统方案依赖向后端拉取动态打包的 CSS 或运行庞大的前端 LESS/Sass 编译器。
+
+`setThemeColor` 采用纯原生 **色彩线性混合插值算法**，毫秒级演算出 10 级衍生阶梯色与 RGB 通道。
+
+#### 本节专属 TypeScript 契约片段
+
+```ts
+export interface ThemeColorOptions {
+  target?: HTMLElement; // 目标挂载 DOM，默认 document.documentElement
+  updateDark?: boolean; // 是否同步更新暗黑模式深色阶，默认 true
+  isDark?: boolean; // 显式指定暗黑态（未指定时自动探测 class）
+}
+
+export function mixColor(
+  color1: [number, number, number],
+  color2: [number, number, number],
+  weight: number,
+): string;
+
+export function setThemeColor(hex: string, options?: ThemeColorOptions): boolean;
+```
+
+#### 实战业务 SFC 代码示例
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElCard, ElColorPicker, ElButton, ElMessage } from 'element-plus';
+import { setThemeColor } from '@atengk/element-plus';
+
+const tenantPrimaryColor = ref('#0ea5e9');
+
+const handleColorChange = (color: string | null) => {
+  if (!color) return;
+  const success = setThemeColor(color);
+  if (success) {
+    ElMessage.success(`租户主品牌色已动态换肤为: ${color}`);
+  } else {
+    ElMessage.error('颜色格式非法，必须为合法 16 进制颜色');
+  }
+};
+</script>
+
+<template>
+  <div class="tenant-theme-showcase">
+    <ElCard header="动态租户品牌换肤与纯原生色阶生成 (setThemeColor)">
+      <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px">
+        <span>选取租户品牌 VI 色：</span>
+        <ElColorPicker v-model="tenantPrimaryColor" @change="handleColorChange" />
+        <ElButton type="primary">主色按钮 Primary</ElButton>
+        <ElButton type="primary" plain>浅底按钮 Plain</ElButton>
+      </div>
+
+      <!-- 实时色阶生成矩阵预览 -->
+      <div
+        style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; text-align: center; font-size: 11px"
+      >
+        <div
+          style="background: var(--el-color-primary); color: #fff; padding: 12px 4px; border-radius: 4px"
+        >
+          Base
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-1); color: #fff; padding: 12px 4px; border-radius: 4px"
+        >
+          L-1
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-2); color: #fff; padding: 12px 4px; border-radius: 4px"
+        >
+          L-2
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-3); padding: 12px 4px; border-radius: 4px"
+        >
+          L-3
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-4); padding: 12px 4px; border-radius: 4px"
+        >
+          L-4
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-5); padding: 12px 4px; border-radius: 4px"
+        >
+          L-5
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-6); padding: 12px 4px; border-radius: 4px"
+        >
+          L-6
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-7); padding: 12px 4px; border-radius: 4px"
+        >
+          L-7
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-8); padding: 12px 4px; border-radius: 4px"
+        >
+          L-8
+        </div>
+        <div
+          style="background: var(--el-color-primary-light-9); padding: 12px 4px; border-radius: 4px"
+        >
+          L-9
+        </div>
+      </div>
+    </ElCard>
+  </div>
+</template>
+```
+
+#### 核心机制与生产边界说明
+
+1. **100% 对齐 Sass `color.mix` 的纯原生加权算法**：算法数学模型对齐 Element Plus 官方编译器，浅色模式下与纯白（`#ffffff`）混合，暗黑模式下自动切换为与深空暗黑基底（`#141414`）混合，**彻底终结了暗黑模式下 `light-9` 呈现刺眼大白块的传统换肤缺陷**。
+2. **多租户容器局部隔离支持 (`options.target`)**：可将自定义颜色直接挂载在指定局部容器（如 `<div class="sub-tenant-app">`）上，天然支持微前端不同子应用采用不同企业品牌色。
+3. **衍生 Focus-Ring 激光光晕环**：换肤时自动演算并注入 4px 激光 Focus-Ring (`--at-shadow-focus-ring`) 与环境光晕 (`--at-ambient-glow`)。
+
+---
+
+### 11.4 独立 GPU 合成图层加载态与遮罩模型
+
+中后台中高频的加载遮罩（Loading Overlay）与全屏弹层若大量使用 `backdrop-filter: blur(10px)`，在低端办公机集成显卡上会引发灾难性的掉帧与风扇狂转。
+
+Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗黑方案：
+
+- 遮罩采用精确调谐的复合半透明度：浅色模式采用 `rgba(255, 255, 255, 0.95)`，暗黑模式采用 `rgba(18, 24, 36, 0.92)`；
+- 所有交互动效统一绑定硬件加速属性（`transform` 与 `opacity`），并显式声明 `will-change: transform`；
+- 杜绝非合成属性（如 `height`、`top`、`margin`）触发的重排（Reflow），确保即便是千行大表格与高频日志流，渲染帧率始终坚挺在 60fps。
+
+---
+
+## 12. 完整 TypeScript 接口/Props/CSS 变量速查清单 (全量速查附录)
+
+本章收录 `@atengk/element-plus` 导出的全部公共类型定义、泛型组件 Props/Emits/Slots 契约、总线注入键与 `--at-*` 全局设计令牌速查表。
+
+---
+
+### 12.1 数据表格与检索协同套件 (Table & Query Form)
+
+#### 1. AtengTable 核心接口
+
+| 接口 / 类型名               | 类别      | 核心字段 / 签名说明                                                                                                                             | 所在源码路径                                                                             |
+| :-------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| `AtengTableColumnConfig<T>` | Interface | `prop: keyof T                                                                                                                                  | string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter` | `src/components/table/types.ts` |
+| `AtengTableProps<T>`        | Interface | `data: T[]`, `columns: AtengTableColumnConfig<T>[]`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string | ((row: T) => string)`                                                                    | `src/components/table/types.ts` |
+| `AtengTableEmits<T>`        | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`                                                 | `src/components/table/types.ts`                                                          |
+| `AtengTableExpose<T>`       | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                   | `src/components/table/types.ts`                                                          |
+
+#### 2. AtengQueryForm 核心接口
+
+| 接口 / 类型名          | 类别      | 核心字段 / 签名说明                                                                                                  | 所在源码路径                         |
+| :--------------------- | :-------- | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
+| `QueryFormFieldConfig` | Interface | `prop: string`, `label: string`, `type: 'input'                                                                      | 'select'                             | 'date' | 'daterange'`, `placeholder`, `options`, `dictCode` | `src/components/query-form/types.ts` |
+| `AtengQueryFormProps`  | Interface | `model: Record<string, any>`, `fields: QueryFormFieldConfig[]`, `collapsedRows?: number`, `showCollapse?: boolean`   | `src/components/query-form/types.ts` |
+| `AtengQueryFormEmits`  | Interface | `search: (model: Record<string, any>) => void`, `reset: () => void`, `collapse-change: (collapsed: boolean) => void` | `src/components/query-form/types.ts` |
+
+---
+
+### 12.2 中后台框架布局与导航套件 (ProLayout, TabsNav, Layout, LoadingBar)
+
+| 组件 / 门面         | 核心 Props / 参数                                                     | 核心 Emits / 方法                                         | 核心上下文与类型                                                                          |
+| :------------------ | :-------------------------------------------------------------------- | :-------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
+| `AtengProLayout`    | `mode: 'side'                                                         | 'top'                                                     | 'mix'`, `menus: ProMenuItem[]`, `fieldNames?: ProMenuFieldNames`, `isMaximized?: boolean` | `update:collapsed`, `update:isMaximized`, `select: (index: string) => void` | `src/components/pro-layout/types.ts` |
+| `AtengTabsNav`      | `modelValue: string`, `items: AtengTabsNavItem[]`, `styleMode: 'card' | 'pill'                                                    | 'line'`, `maxTabs?: number`                                                               | `tab-click`, `tab-remove`, `tab-order-change`, `tab-refresh`                | `src/components/tabs-nav/types.ts`   |
+| `AtengLayout`       | `direction?: 'horizontal'                                             | 'vertical'`, `tag?: string`                               | Stateless Pure Flex Layout                                                                | `src/components/layout/types.ts`                                            |
+| `installLoadingBar` | `app: App`, `router?: Router`, `options?: { speed, color }`           | `AtengLoadingBar.start()`, `inc()`, `finish()`, `error()` | `src/loading/loadingBar.ts`                                                               |
+
+---
+
+### 12.3 页面主体容器与排版交互套件 (PageContainer, SplitLayout, FooterBar, Card, Skeleton, Grid, Anchor)
+
+| 组件 / 总线          | 关键输入 Props                                                                                                 | 关键暴露 Expose / 总线协议                                                               | 所在源码路径                                         |
+| :------------------- | :------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- | :--------------------------------------------------- |
+| `AtengPageContainer` | `title`, `extraActions: AtengPageActionItem[]`, `maxVisibleActions`, `autoBreadcrumb`, `scrollMode: 'viewport' | 'local'`                                                                                 | `PAGE_CONTAINER_INJECTION_KEY`, `toggleFullscreen()` | `src/components/page-container/types.ts` |
+| `AtengSplitLayout`   | `direction: 'horizontal'                                                                                       | 'vertical'`, `modelValue: number`, `min: number`, `max: number`, `snapThreshold: number` | 原生 Pointer Events 驱动，`setPointerCapture`        | `src/components/split-layout/types.ts`   |
+| `AtengFooterBar`     | `onSubmit: () => Promise<any>`, `autoOffset: boolean`, `showCancel: boolean`                                   | 自动向父级 PageContainer 注册底部间距                                                    | `src/components/footer-bar/types.ts`                 |
+| `AtengCard`          | `title`, `collapsible`, `fullscreenable`, `refreshable`, `accordionKey`                                        | `CARD_GROUP_INJECTION_KEY`, `refresh()`, `toggleCollapse()`                              | `src/components/card/types.ts`                       |
+| `AtengPageSkeleton`  | `loading: boolean`, `preset: 'table'                                                                           | 'form'                                                                                   | 'detail'                                             | 'card'                                   | 'dashboard'` | 平滑淡入淡出插槽包裹协议 | `src/components/page-skeleton/types.ts` |
+| `AtengGrid`          | `minItemWidth: string`, `gap: string                                                                           | number`                                                                                  | CSS Container Queries `container-type: inline-size`  | `src/components/grid/types.ts`           |
+| `AtengAnchor`        | `items: AtengAnchorItem[]`, `container: string                                                                 | HTMLElement`, `targetOffset: number`                                                     | `scrollTo(hash)`, `activeLink` 响应式游标指示条      | `src/components/anchor/types.ts`         |
+
+---
+
+### 12.4 模态交互、多态反馈与加载套件 (Dialog, Drawer, Empty, Loading)
+
+| 组件           | 核心 Props                                                                                          | 核心机制与 Expose                                                         |
+| :------------- | :-------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| `AtengDialog`  | `modelValue`, `formRef`, `beforeConfirm`, `confirmOnClose`, `lazyRender`, `draggable`, `fullscreen` | 自动执行 `form.validate()`，`toggleFullscreen()`, `confirm()`, `cancel()` |
+| `AtengDrawer`  | `modelValue`, `size: 'small'                                                                        | 'default'                                                                 | 'large'`, `formRef`, `beforeConfirm`, `confirmOnClose` | 移动端视口 `< 768px` 自动全宽自愈，`confirm()`, `cancel()` |
+| `AtengEmpty`   | `status: 'empty'                                                                                    | 'search'                                                                  | '403'                                                  | 'network-error'                                            | '500'`, `imageSize`, `description` | 5 套纯内联矢量 SVG 插画，暗黑模式原生自适应 |
+| `AtengLoading` | `loading: boolean`, `mode: 'shimmer'                                                                | 'dots'                                                                    | 'skeleton'`, `delay: 150`, `minDuration: 300`          | Zero-Overlay 顶沿 2px 极光流线，集成防闪烁状态机           |
+
+---
+
+### 12.5 业务数据表单、通用字典与时间套件 (DictManager, Dict*, Descriptions, DateRange, Captcha, IconSelect)
+
+| 组件 / 门面            | 核心 Props / 配置                                                                          | 核心行为说明                                                        |
+| :--------------------- | :----------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
+| `DictManager`          | `setProvider`, `setBatchProvider`, `preload`, `loadDict(code, customLoader, forceRefresh)` | 纯内存常驻缓存，未决 Promise 飞行合并去重，严禁持久化脏数据         |
+| `AtengDictSelect`      | `dictCode`, `loader`, `options`, `fieldNames`, `valueType="auto"`, `multiple`, `clearable` | 字典下拉单选/多选，支持拼音搜索与弱类型比对                         |
+| `AtengDictRadio`       | `dictCode`, `button: boolean`, `border: boolean`, `size`                                   | 经典单选或胶囊按钮形态单选框组                                      |
+| `AtengDictCheckbox`    | `dictCode`, `separator: string`, `showCheckAll: boolean`, `button: boolean`                | 支持逗号分隔字符串双向绑定与全选复选框联动                          |
+| `AtengDictTag`         | `dictCode`, `value`, `round: boolean`, `emptyText: string`                                 | 自动提取 `tagType` 映射 Element Plus 彩色徽章标签                   |
+| `AtengDescriptions<T>` | `data: T`, `items: DescriptionsItemConfig<T>[]`, `copyable: boolean`, `mask`, `type`       | 内存真明文不变量，5 大脱敏管道，一键复制真实原始明文                |
+| `AtengDateRange`       | `v-model:start`, `v-model:end`, `autoTime=true`, `disableFuture`, `maxRangeDays=90`        | 双字段解构双向绑定，自动对齐 00:00:00 与 23:59:59                   |
+| `AtengCaptcha`         | `type: 'button'                                                                            | 'image'`, `storageKey: string`, `seconds: 60`, `beforeSend`, `send` | 到期物理时间戳持久化防刷新攻击，异步前置拦截守卫        |
+| `AtengIconSelect`      | `modelValue`, `mode: 'popover'                                                             | 'dialog'`, `customIcons: IconItem[]`, `showCopy`                    | 汉语拼音/全拼/简拼毫秒级极速模糊检索，0 依赖纯 SVG 渲染 |
+
+---
+
+### 12.6 二进制传输与多源切片上传套件 (Upload, FilePreview, ExcelExport, ExcelFeedback)
+
+| 组件                 | 核心 Props                                                                         | 核心异常与安全防线                                                    |
+| :------------------- | :--------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| `AtengUpload`        | `chunk: boolean`, `chunkSize`, `concurrency=3`, `customUploadChunk`, `customMerge` | `pause()` / `resume()` 毫秒级断点续传，`URL.revokeObjectURL` 垃圾回收 |
+| `AtengFilePreview`   | `url`, `file`, `name`, `fileType='auto'`, `mode='inline'                           | 'dialog'`, `downloadable`                                             | 沙箱内联 PDF、HTML5 音视频、代码高亮、未知类型安全降级      |
+| `AtengExcelExport`   | `action`, `params`, `selectedIds`, `filename`, `mode='button'                      | 'dropdown'`                                                           | ADR-0004 Blob-JSON 双态识别，绝不将 JSON 报错下载为损坏文件 |
+| `AtengExcelFeedback` | `errors: ExcelFeedbackItem[]`, `downloadAction`, `allowCsvFallback=true`           | Fesod 批注回写，纯前端本地带 UTF-8 BOM CSV 导出防乱码                 |
+
+---
+
+### 12.7 企业级安全防篡改与效率指令套件 (Directives)
+
+| 指令名         | 绑定值形态 | 修饰符支持       | 核心安全机制        |
+| :------------- | :--------- | :--------------- | :------------------ |
+| `v-permission` | `string    | string[]`        | `.disabled`, `.all` | 默认以注释节点从 DOM 物理移除原位还原；`.disabled` 在捕获阶段拦截点击 |
+| `v-role`       | `string    | string[]`        | `.disabled`, `.all` | 角色权限判定，WeakMap 内存安全守护                                    |
+| `v-idempotent` | `number    | Function         | IdempotentOptions`  | `.noFeedback`                                                         | DOM 捕获阶段阻断连击，自动注入 loading 与置灰，30 秒超时防死锁   |
+| `v-copy`       | `string    | number           | Function            | CopyOptions`                                                          | 无                                                               | 优先 `clipboard.writeText`，自动降级至 `execCommand('copy')` |
+| `v-watermark`  | `string    | string[]         | WatermarkOptions`   | `.full`                                                               | Canvas 离屏抗锯齿，`MutationObserver` 物理删除与样式篡改即时自愈 |
+| `v-skeleton`   | `boolean   | SkeletonOptions` | 无                  | 原地 CSS 盒模型伪元素遮罩，100% 保持宽高，Zero-CLS 零排版跳变         |
+
+---
+
+### 12.8 现代智能流式与终端监控套件 (StreamText, LogViewer, Statistic, CodeView)
+
+| 组件              | 核心 Props                                                                     | 核心机制与 Expose                                                |
+| :---------------- | :----------------------------------------------------------------------------- | :--------------------------------------------------------------- |
+| `AtengStreamText` | `stream`, `text`, `speed=30`, `cursor=true`, `cursorChar='                     | '`, `showCopy`                                                   | 增量平滑字符队列切片输出，`flush()` 极速直出，正文一键复制 |
+| `AtengLogViewer`  | `logs`, `webSocket`, `maxLines=2000`, `theme='dark'`, `autoScroll=true`        | 2000 行环形 FIFO 内存防爆防崩，智能贴底感知滚动，正则高亮过滤    |
+| `AtengStatistic`  | `value`, `precision`, `thousands=true`, `duration=1500`, `trend`, `trendValue` | `requestAnimationFrame` 缓动翻牌，金融千分位，红涨绿跌与国际反转 |
+| `AtengCodeView`   | `code`, `language='json'`, `theme='dark'`, `lineNumbers`, `collapsible`        | 0 外部重型依赖纯正则词法高亮，多层括号树形折叠，原始纯文本复制   |
+
+---
+
+### 12.9 Theme Pro 主题引擎与全局 CSS 设计令牌字典 (`--at-*` & `--el-*`)
+
+#### 1. 全局设计令牌 (Global Design Tokens)
+
+| CSS 变量名                    | 默认值 (Light Mode)                              | 暗黑模式取值 (Dark Slate)              | 用途说明                                   |
+| :---------------------------- | :----------------------------------------------- | :------------------------------------- | :----------------------------------------- |
+| `--at-radius-card`            | `10px`                                           | `10px`                                 | 现代化复合卡片与容器圆角                   |
+| `--at-radius-dialog`          | `16px`                                           | `16px`                                 | 模态弹窗与抽屉核心圆角                     |
+| `--at-shadow-focus-ring`      | `0 0 0 1px primary, 0 0 0 4px primary-rgb(0.18)` | 自适应暗黑底                           | 表单元素与按钮 4px 激光高亮微影            |
+| `--at-ambient-glow`           | `primary-rgb(0.14)`                              | `primary-rgb(0.20)`                    | 环境泛光与渐变卡片微光                     |
+| `--at-shadow-floating`        | `0 20px 48px -8px rgba(15, 23, 42, 0.16)`        | `0 20px 48px -8px rgba(0, 0, 0, 0.55)` | 高层级浮层投影                             |
+| `--at-bg-overlay-translucent` | `rgba(255, 255, 255, 0.95)`                      | `rgba(18, 24, 36, 0.92)`               | 半透明磨砂玻璃质感基底 (0 backdrop-filter) |
+| `--at-z-index-base`           | `1`                                              | `1`                                    | 基础内容层级                               |
+| `--at-z-index-sticky`         | `100`                                            | `100`                                  | 粘滞定位与吸底操作栏层级                   |
+| `--at-z-index-overlay`        | `1000`                                           | `1000`                                 | 弹窗遮罩与抽屉浮层层级                     |
+| `--at-z-index-fullscreen`     | `2000`                                           | `2000`                                 | 局部/全屏沉浸式工作区层级                  |
+| `--at-z-index-top-bar`        | `9999`                                           | `9999`                                 | 顶栏 2px 纳米科技流光线层级                |
+
+#### 2. Element Plus 核心重写基底 (Base Palette Override)
+
+| CSS 变量名                  | 浅色基底 (Light)         | Slate 深空冷灰 (Dark)       | 语义说明             |
+| :-------------------------- | :----------------------- | :-------------------------- | :------------------- |
+| `--el-bg-color`             | `#ffffff`                | `#0c1017`                   | 核心组件默认背景     |
+| `--el-bg-color-page`        | `#f8fafc`                | `#07090e`                   | 页面底板背景         |
+| `--el-bg-color-overlay`     | `#ffffff`                | `#121824`                   | 浮层与卡片表面背景   |
+| `--el-text-color-primary`   | `#090d16`                | `#f1f5f9`                   | 一级标题与高反差正文 |
+| `--el-text-color-regular`   | `#334155`                | `#cbd5e1`                   | 常规正文与表单标签   |
+| `--el-text-color-secondary` | `#64748b`                | `#94a3b8`                   | 次级辅助文案与提示   |
+| `--el-border-color`         | `rgba(15, 23, 42, 0.08)` | `rgba(255, 255, 255, 0.10)` | 基础边框分割线       |
+
+---
+
+## 13. 工业级核心设计不变量与全真质量准出体系 (Production Boundaries & Invariants)
+
+### 13.1 35 道不可逾越的核心设计不变量清单 (The 35 Invariants)
 
 1. **字典高并发请求合并去重不变量 (In-Flight Request Coalescing Invariant)**：
    - 界面上无论同时渲染多少个同类型字典组件（例如表格一屏 50 行同时使用 `AtengDictTag dict-code="sys_user_status"`），`DictManager` 在飞行中（In-Flight）自动合并同 code 的并发 Promise。真实物理网络只发送 1 次 HTTP 请求，结果解析后全量常驻内存，彻底杜绝字典并发风暴；
@@ -4443,7 +4861,7 @@ setThemeColor('#6366f1', {
 
 ---
 
-## 维度四：物理排版与代码全真验证 (Evergreen & Zero-Glitch)
+### 13.2 物理排版与全真代码质量门禁 (Evergreen & Zero-Glitch Quality Gate)
 
 - 所有代码示例与 API 100% 对齐 TypeScript 强类型定义；
 - 所有特性 100% 经由 `packages/element-plus/test` 离线单元测试覆盖，并在 `apps/sample-element-plus` 自验展厅中跑通真实交互。
