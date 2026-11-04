@@ -1,0 +1,81 @@
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #2d3748;
+}
+
+.desc {
+  font-size: 14px;
+  color: #718096;
+  margin-bottom: 16px;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.tool-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+h3 {
+  font-size: 15px;
+  margin: 0 0 12px 0;
+  color: #334155;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.result {
+  font-size: 14px;
+  margin: 6px 0;
+  color: #475569;
+}
+
+.highlight {
+  color: #2563eb;
+}
