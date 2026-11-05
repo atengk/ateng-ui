@@ -52,15 +52,27 @@ jobs:
         run: echo "version=$(node -p "require('./packages/core/package.json').version")" >> $GITHUB_OUTPUT
 
       - name: 运行 Changesets Action (版本聚合 PR 或发布 npm)
+        id: changesets
         uses: changesets/action@v1
         with:
           publish: pnpm changeset publish --no-git-tag
           version: pnpm changeset version
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
-          createGithubReleases: aggregate
-          githubTagName: v${{ steps.pkg_version.outputs.version }}
-          githubReleaseName: v${{ steps.pkg_version.outputs.version }}
+          createGithubReleases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 创建单一聚合全局 GitHub Release 与 Git Tag
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          VERSION="${{ steps.pkg_version.outputs.version }}"
+          TAG_NAME="v$VERSION"
+          echo "正在为套件创建全局唯一 Git Tag 与 GitHub Release: $TAG_NAME"
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --generate-notes \
+            --target main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
