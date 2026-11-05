@@ -1200,22 +1200,890 @@ async function fetchUserOrders(): Promise<void> {
 
 ## 8. 三级数据脱敏、指纹聚合与会话熔断断路器套件
 
-_(待工单 #280 系统交付：8.1 三级数据脱敏防线、8.2 错误指纹 FNV-1a 聚合与会话熔断断路器)_
+为守护企业客户敏感信息安全与保障高频雪崩下客户端主线程与网络的高可用，套件内置了覆盖网络与 DOM 的三级数据脱敏防线、基于 FNV-1a 特征哈希的错误指纹去重聚合器，以及会话级熔断断路器。
+
+### 8.1 三级数据脱敏防线 (URL Query、HTTP Header 与 DOM 密码容器)
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+/** 默认敏感 URL Query 参数键集合 (忽略大小写比对) */
+export const DEFAULT_SENSITIVE_QUERY_KEYS: readonly string[];
+
+/** 默认敏感 HTTP 请求头集合 (小写化比对) */
+export const DEFAULT_SENSITIVE_HEADER_KEYS: readonly string[];
+
+/** 默认脱敏 DOM 属性与类名选择器列表 */
+export const DEFAULT_MASK_SELECTORS: readonly string[];
+
+/**
+ * 过滤与清洗 URL 中的敏感 Query 参数，自动替换敏感值为 '******'。
+ *
+ * @param url 待脱敏的完整或相对 URL
+ * @param sensitiveKeys 自定义敏感键名清单（不区分大小写，默认包含 token, password, secret 等）
+ * @returns 脱敏处理后的安全 URL
+ */
+export function sanitizeUrl(url: string, sensitiveKeys?: readonly string[]): string;
+
+/**
+ * 清洗敏感 HTTP 请求头，将 Authorization、Cookie、Token 等替换为 '******'。
+ *
+ * @param headers 原始请求头字典对象
+ * @param sensitiveHeaders 自定义敏感请求头清单（不区分大小写）
+ * @returns 经过脱敏后的安全请求头副本
+ */
+export function sanitizeHeaders(
+  headers: Record<string, string>,
+  sensitiveHeaders?: readonly string[],
+): Record<string, string>;
+
+/**
+ * 判断指定 DOM 节点或向上追溯其任意层级祖先节点是否命中脱敏规则。
+ *
+ * @param element 目标 DOM 节点
+ * @param customMaskSelectors 用户额外配置的脱敏选择器列表
+ * @returns 命中返回 true，未命中返回 false
+ */
+export function isElementMasked(
+  element: Element | null | undefined,
+  customMaskSelectors?: string[],
+): boolean;
+
+/**
+ * 针对 DOM 节点安全提取文本与输入值。若命中脱敏规则，自动返回 '******'。
+ *
+ * @param element 目标 DOM 节点
+ * @param customMaskSelectors 用户额外配置的脱敏选择器列表
+ * @returns 脱敏后的文本内容与输入值实体
+ */
+export function sanitizeDomText(
+  element: Element | null | undefined,
+  customMaskSelectors?: string[],
+): { text: string; value?: string; isMasked: boolean };
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/BreadcrumbPanel.vue](../../apps/sample-monitor/src/components/BreadcrumbPanel.vue) 与数据脱敏实战：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElInput, ElCard } from 'element-plus';
+import { sanitizeUrl, sanitizeHeaders } from '@atengk/monitor';
+
+const passwordInput = ref('MySecretPassword123');
+const idCardText = ref('110101199001018888');
+
+// 1. 网络请求 URL 与 Header 自动化脱敏校验
+const rawUrl = 'https://api.company.com/v1/orders?page=1&token=sec_987654&password=pwd123#detail';
+const safeUrl = sanitizeUrl(rawUrl);
+console.log('脱敏后的 URL:', safeUrl);
+// 输出: "https://api.company.com/v1/orders?page=1&token=******&password=******#detail"
+
+const rawHeaders = {
+  'Content-Type': 'application/json',
+  Authorization: 'Bearer eyJhbGciOi...',
+  'X-Tenant-Id': 'tenant_cloud_01',
+};
+const safeHeaders = sanitizeHeaders(rawHeaders);
+console.log('脱敏后的 Headers:', safeHeaders);
+// Authorization 自动脱敏为 "******"，其余业务请求头安全保留
+</script>
+
+<template>
+  <el-card shadow="never" class="sanitizer-demo">
+    <!-- 2. 密码输入框自动脱敏：Breadcrumb 采集器提取时自动替换为 '******' -->
+    <el-input v-model="passwordInput" type="password" placeholder="密码内容输入框" />
+
+    <!-- 3. 自定义脱敏容器：带有 [data-monitor-mask] 或 .monitor-mask 的子节点全部自动掩码 -->
+    <div data-monitor-mask="true" class="mask-box">
+      <span>敏感证件号: {{ idCardText }}</span>
+    </div>
+  </el-card>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **三级立体脱敏矩阵**：
+   - **网络传输层**：`sanitizeUrl` 与 `sanitizeHeaders` 在底层网络插件与 Axios 拦截器发送前自动生效，确保 `token`、`secret`、`password`、`Authorization`、`Cookie` 等机密字段 100% 替换为 `******`；
+   - **DOM 交互层**：自动识别 `input[type="password"]`、`[data-monitor-mask]`、`.monitor-mask` 与 `.at-mask`，在用户点击或输入时安全返回掩码值；
+   - **载荷前置清洗**：文本提取统一通过 `slice(0, 100)` 截断过长字符串，防止巨大文本撑爆网络载荷；
+2. **“内存真明文”不变量严格恪守**：脱敏仅发生在遥测事件生成、提取与网络序列化的那一刻，**绝对严禁直接就地突变或篡改业务内存中的真实响应式变量与用户输入值**，确保业务提交至服务端的数据始终保持 100% 原始真实明文。
+
+---
+
+### 8.2 错误指纹 FNV-1a 聚合与会话熔断断路器
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+/**
+ * 基于 FNV-1a 算法计算确定性 32 位整型哈希，并输出 8 位 16 进制字符串。
+ * 纯 TypeScript 原生实现，离线确定性自洽。
+ *
+ * @param str 输入原始字符串
+ * @returns 8 位十六进制哈希特征码 (如 'a1b2c3d4')
+ */
+export function hashString(str: string): string;
+
+/**
+ * 清洗调用堆栈，去除绝对本地路径、动态 Chunk Hash 与行号微小偏差，提取稳定的结构化特征。
+ *
+ * @param stack 原始堆栈文本
+ * @returns 规整后的堆栈特征文本
+ */
+export function cleanStack(stack?: string): string;
+
+/**
+ * 为异常事件载荷计算确定性特征指纹 (Fingerprint)。
+ *
+ * @param payload 异常载荷实体
+ * @returns 唯一错误指纹字符串
+ */
+export function generateErrorFingerprint(payload: Partial<ErrorPayload>): string;
+
+export interface DeduplicatorOptions {
+  /** 聚合防抖时间窗口 (毫秒)，默认 5000ms */
+  windowMs?: number;
+}
+
+export class ErrorDeduplicator {
+  constructor(options?: DeduplicatorOptions);
+
+  /**
+   * 处理一个错误指纹，判定当前是否为窗口内的重复异常，并累计重复计数。
+   *
+   * @param fingerprint 错误唯一指纹
+   * @param now 当前时间戳 (毫秒)，默认 Date.now()
+   * @returns 去重判定结果及当前累计重复次数
+   */
+  process(fingerprint: string, now?: number): { isDuplicate: boolean; repeatCount: number };
+
+  /** 获取指定指纹当前的累计重复次数 */
+  getCount(fingerprint: string): number;
+
+  /** 重置清空所有去重记录 */
+  clear(): void;
+}
+
+export interface CircuitBreakerOptions {
+  /** 单会话允许累计的最大错误数，超过后自动进入休眠态，默认 50 */
+  maxErrors?: number;
+}
+
+export interface CircuitBreakerResult {
+  /** 当前异常是否允许派发 */
+  allowed: boolean;
+  /** 是否恰在此次错误中首次触发熔断开关 */
+  trippedJustNow: boolean;
+  /** 当前累计错误数 */
+  currentCount: number;
+}
+
+export class CircuitBreaker {
+  constructor(options?: CircuitBreakerOptions);
+
+  /** 是否已处于熔断休眠状态 */
+  readonly isTripped: boolean;
+  /** 当前单会话累计错误数 */
+  readonly errorCount: number;
+  /** 配置的熔断阈值 */
+  readonly maxErrors: number;
+
+  /**
+   * 记录一次异常事件，判定是否允许派发及是否触发熔断。
+   *
+   * @returns 熔断决策状态
+   */
+  recordError(): CircuitBreakerResult;
+
+  /** 重置断路器状态 */
+  reset(): void;
+}
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/FaultPanel.vue](../../apps/sample-monitor/src/components/FaultPanel.vue)：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElMessage } from 'element-plus';
+import { getActiveMonitor } from '@atengk/monitor';
+
+const monitor = getActiveMonitor()!;
+const stormCount = ref(0);
+
+// 模拟触发高频死循环风暴异常，验证去重聚合与熔断断路器
+const triggerStormErrors = () => {
+  stormCount.value += 15;
+
+  // 连续快速触发 15 次同类异常
+  for (let i = 1; i <= 15; i++) {
+    monitor.captureException(new Error('高频死循环风暴异常: Render loop limit exceeded'), {
+      category: 'custom',
+    });
+  }
+
+  ElMessage.warning('已批量触发 15 次同类异常！');
+  // 观察：
+  // 1. ErrorDeduplicator 会将同指纹异常在 5 秒窗口内聚合，仅首次上报并递增 repeatCount；
+  // 2. 当会话总累计异常达到 maxErrorsPerSession 时，CircuitBreaker 自动切断新异常采集。
+};
+</script>
+
+<template>
+  <div class="circuit-breaker-demo">
+    <el-button type="danger" @click="triggerStormErrors">
+      连续触发 15 次高频异常 (验证聚合与熔断)
+    </el-button>
+  </div>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **FNV-1a 堆栈规整与指纹稳定性**：`cleanStack` 自动剥离 URL 协议前缀、`?v=123` 打包版本号以及 `:lineno:colno` 行列号微小偏差；由错误名称、核心消息与规整堆栈共同计算出的 8 位 16 进制 FNV-1a 哈希指纹在客户端跨版本与局部代码变更时保持极佳的稳定性；
+2. **5 秒时间窗口防抖去重**：`ErrorDeduplicator` 在 5000ms 的时间滑动窗口内，若连续收到相同指纹的异常，自动抑制重复派发，仅在内存中累加 `repeatCount` 并更新首发事件的计数值，从源头扼杀异常死循环导致的主线程冻结与网络洪峰；
+3. **会话级熔断断路器 (`CircuitBreaker`)**：当单次用户会话中的累计异常数达到 `maxErrorsPerSession`（默认 50 条）时，断路器立即切换为开启态（`isTripped = true`）；在此之后的所有新异常被直接静默丢弃，同时触发一次 `CIRCUIT_BREAKER_TRIPPED` 生命周期事件，防止客户端监控 SDK 自身沦为拖垮崩溃页面的二次推手。
 
 ---
 
 ## 9. 三阶高可用传输管道与页面卸载冲刷套件
 
-_(待工单 #280 系统交付：9.1 三阶通道自适应降级与卸载紧急冲刷、9.2 防死循环调用协议与自定义通道)_
+监控数据在复杂的客户端网络环境中面临弱网重试、浏览器页面关闭丢包、微前端上下文切换以及监控自身的递归死循环挑战。套件提供了三阶通道自适应降级、页面卸载紧急冲刷以及防死循环协议。
+
+### 9.1 三阶通道自适应降级与卸载紧急冲刷
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+/**
+ * 优先通道：利用 navigator.sendBeacon 异步无阻塞上报。
+ * 具备穿透页面卸载能力，不阻塞浏览器退出与事件循环。
+ *
+ * @param url 上报接收网关
+ * @param events 待上报事件列表
+ * @returns 浏览器是否成功接收并排队
+ */
+export function sendBeaconTransport(url: string, events: MonitorEvent[]): boolean;
+
+/**
+ * 降级通道：利用 fetch({ keepalive: true }) 进行非阻塞上报。
+ *
+ * @param url 上报接收网关
+ * @param events 待上报事件列表
+ * @returns 是否发送成功
+ */
+export function fetchTransport(url: string, events: MonitorEvent[]): Promise<boolean>;
+
+/**
+ * 兜底通道：利用原生 XMLHttpRequest 进行异步发送。
+ *
+ * @param url 上报接收网关
+ * @param events 待上报事件列表
+ * @returns 是否发送成功
+ */
+export function xhrTransport(url: string, events: MonitorEvent[]): Promise<boolean>;
+
+/**
+ * 创建内置的三阶自适应传输上报执行器 (Reporter)。
+ *
+ * @param reportUrl 上报接收端点 URL
+ * @returns 标准 reporter 执行函数 (依次尝试 sendBeacon ➔ fetch ➔ xhr)
+ */
+export function createDefaultReporter(
+  reportUrl?: string,
+): (events: MonitorEvent[]) => Promise<void>;
+
+export interface TransportQueueOptions {
+  /** 批量聚合上限，达到该数量立即冲刷上报，默认 10 */
+  batchSize?: number;
+
+  /** 防抖刷新定时器延迟 (毫秒)，默认 3000ms */
+  flushInterval?: number;
+
+  /** 监控上报网关 URL */
+  reportUrl?: string;
+
+  /** 自定义上报执行器 SPI */
+  reporter?: (events: MonitorEvent[]) => void | Promise<void>;
+}
+
+export class TransportQueue {
+  constructor(options?: TransportQueueOptions);
+
+  /** 当前队列中积压的未发送事件数 */
+  readonly size: number;
+
+  /** 当前配置的监控上报网关 URL */
+  readonly reportUrl?: string;
+
+  /**
+   * 向队列追加事件。
+   * 当积压数量达到 batchSize 时立即冲刷；否则启动防抖定时器。
+   *
+   * @param event 规范化的监控事件
+   */
+  push(event: MonitorEvent): void;
+
+  /** 正常异步冲刷当前内存队列 */
+  flush(): Promise<void>;
+
+  /**
+   * 页面卸载或隐藏时的同步紧急冲刷。
+   * 优先借助 navigator.sendBeacon 实现非阻塞零丢失发送。
+   */
+  emergencyFlush(): void;
+
+  /** 销毁队列，解除全局生命周期监听并清空内存 */
+  destroy(): Promise<void>;
+}
+```
+
+#### ② 面向实战的业务 TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/monitor.ts](../../apps/sample-monitor/src/monitor.ts) 与底层传输队列测试实战：
+
+```ts
+import { initMonitor, TransportQueue, type MonitorEvent } from '@atengk/monitor';
+
+// 1. 初始化包含批量缓冲与高可用传输的监控实例
+const monitor = initMonitor({
+  reportUrl: 'https://apm-gateway.company.com/v1/report',
+  batchSize: 10, // 累计达到 10 条立即合并批量冲刷
+  flushInterval: 3000, // 未达到批次上限时，3000ms 防抖自动合并冲刷
+});
+
+// 2. 核心队列生命周期：页面关闭或跳出时的零丢包保障
+// 内部已自动监听 visibilitychange 与 pagehide 事件；
+// 在用户意外关闭标签页时，系统自动执行 emergencyFlush：
+window.addEventListener('beforeunload', () => {
+  // 可显式调用微内核或队列的紧急冲刷，保障瞬态异常 100% 投递
+  const queue = (monitor as unknown as { _queue?: TransportQueue })._queue;
+  queue?.emergencyFlush();
+});
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **三阶梯自适应降级矩阵**：
+   - **阶梯一 (`navigator.sendBeacon`)**：天然具备跨页面生命周期的后台穿透能力，使用 `application/json` Blob 进行标准封装；
+   - **阶梯二 (`fetch` 带 `keepalive: true`)**：当数据载荷超过 64KB 限制导致 `sendBeacon` 返回 `false` 时，无缝自动降级为非阻塞的 `keepalive` Fetch；
+   - **阶梯三 (`XMLHttpRequest`)**：针对不支持前两者的极端老旧浏览器或受限 Worker 容器，提供兜底异步 XHR 投递；
+2. **生命周期卸载防丢保障 (`EmergencyFlush`)**：`TransportQueue` 在构造时自动挂载 `document.addEventListener('visibilitychange')` 与 `window.addEventListener('pagehide')`；当检测到 `document.visibilityState === 'hidden'` 时，立即从队列中一次性抽空（Drain）积压的所有批次数据，通过 `sendBeacon` 同步排入浏览器发送栈，彻底攻克现代 SPA 应用关闭即丢数据的业界通病。
+
+---
+
+### 9.2 防死循环调用协议与自定义通道
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+/** 监控内部上报跳过标记请求头，避免拦截器二次捕获导致死循环 */
+export const MONITOR_SKIP_HEADER = 'X-Ateng-Monitor-Skip';
+
+/**
+ * 判断某个网络请求是否为监控系统发起的上报请求。
+ *
+ * @param url 目标请求绝对或相对 URL
+ * @param headers 请求头字典
+ * @param reportUrl 监控上报网关地址
+ * @returns 是否应当在网络采集插件中跳过忽略
+ */
+export function isMonitorReportRequest(
+  url?: string,
+  headers?: Record<string, string>,
+  reportUrl?: string,
+): boolean;
+
+/**
+ * 自定义上报执行器 SPI 函数类型契约。
+ */
+export type CustomReporter = (events: MonitorEvent[]) => void | Promise<void>;
+```
+
+#### ② 面向实战的业务 TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/monitor.ts](../../apps/sample-monitor/src/monitor.ts) 与自定义传输通道实战：
+
+```ts
+import {
+  initMonitor,
+  MONITOR_SKIP_HEADER,
+  type CustomReporter,
+  type MonitorEvent,
+} from '@atengk/monitor';
+
+// 自定义上报执行器：对接企业内部专有鉴权网关或私有日志中台
+const enterpriseCustomReporter: CustomReporter = async (events: MonitorEvent[]) => {
+  if (!events || events.length === 0) return;
+
+  await fetch('https://log-collector.internal.corp/api/telemetry/push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Enterprise-AppId': 'finance-pc-app',
+      'X-Signature-Auth': 'hmac-sha256-sign-code',
+      // 关键：必须显式附加防套娃标记，防止被 NetworkPlugin 循环二次监听
+      [MONITOR_SKIP_HEADER]: 'true',
+    },
+    body: JSON.stringify(events),
+    keepalive: true,
+  });
+};
+
+// 注入自定义执行器
+const monitor = initMonitor({
+  reporter: enterpriseCustomReporter,
+  batchSize: 5,
+});
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **防死循环调用协议 (`AntiLoopProtocol`)**：当监控上报请求因弱网或鉴权失败返回 4xx/5xx 状态码时，若监控网络插件再次捕获该失败请求并尝试上报，会瞬间形成灾难性的“报错 ➔ 上报 ➔ 报错 ➔ 上报”无限死循环。本套件确立双重防卫机制：
+   - **标头识别**：所有上报请求自动注入 `X-Ateng-Monitor-Skip: true`；
+   - **URL 前缀匹配**：`isMonitorReportRequest` 对命中 `reportUrl` 的所有请求直接判定为内部流量，网络嗅探插件前置卫语句无条件放行，彻底消除递归雪崩；
+2. **纯粹 SPI 解耦设计**：通过 `reporter` 配置项，微内核完全解耦了网络传输实现的物理依赖；无论是直接打向自建 ClickHouse、写入 IndexedDB 本地日志离线存储，还是中转至第三方 APM 服务商，均可通过无侵入的函数注入实现 100% 自由定制。
 
 ---
 
 ## 10. 完整 TypeScript 接口与配置速查清单 (全量速查附录字典)
 
-_(待工单 #280 系统交付：全量集中收录 MonitorOptions、MonitorEvent、ErrorEventPayload 等完整 TS 源码声明)_
+本章集中完整收录 `@atengk/monitor` 导出的全部 TypeScript 契约与配置接口定义，供开发者全面查阅字段细节、类型约束与 JSDoc 注释。
+
+### 10.1 全局配置契约 (`MonitorOptions`)
+
+```ts
+export interface MonitorOptions {
+  /** 应用发版版本号 (如 Git Commit SHA 或 Semver)，默认 '1.0.0' */
+  appVersion?: string;
+
+  /** 部署环境 (如 'prod' | 'uat' | 'test' | 'dev')，默认 'dev' */
+  environment?: string;
+
+  /** 会话标识符，默认由 SDK 自动生成 */
+  sessionId?: string;
+
+  /** 多租户企业隔离标识 */
+  tenantId?: string;
+
+  /** 启用的采集插件列表 */
+  plugins?: MonitorPlugin[];
+
+  /** 全局事件采样率 (0.0 ~ 1.0)，默认 1.0 全量采集 */
+  sampleRate?: number;
+
+  /** 监控数据接收网关端点 URL */
+  reportUrl?: string;
+
+  /**
+   * 自定义上报执行器 SPI。
+   * 当注入此方法时，内部将优先调用此方法上报事件。
+   *
+   * @param events 待上报事件列表
+   */
+  reporter?: (events: MonitorEvent[]) => void | Promise<void>;
+
+  /**
+   * 终极生命周期过滤与脱敏钩子。
+   * 允许在事件写入传输队列前对数据进行审查、脱敏或修改。
+   * 若返回 false 或 null，该事件将被直接丢弃，不予上报。
+   *
+   * @param event 待审核的完整事件实体
+   * @returns 经过处理的事件实体，或 false / null 予以丢弃
+   */
+  beforeSend?: (event: MonitorEvent) => MonitorEvent | false | null;
+
+  /** 内存队列批处理容量上限，达到该数量立即触发上报，默认 10 */
+  batchSize?: number;
+
+  /** 内存队列防抖刷新延迟 (毫秒)，默认 3000ms */
+  flushInterval?: number;
+
+  /** 单会话允许累计采集的最大异常数，超过后断路器触发熔断休眠，默认 50 */
+  maxErrorsPerSession?: number;
+
+  /** 敏感数据脱敏 DOM 选择器列表，匹配的节点文本将掩码为 '******' */
+  maskSelectors?: string[];
+
+  /** 是否全局禁用监控采集 (多用于本地极度纯净开发模式)，默认 false */
+  disabled?: boolean;
+}
+```
+
+### 10.2 核心事件载荷契约
+
+```ts
+export type EventType =
+  'error' | 'performance' | 'white_screen' | 'breadcrumb' | 'network' | 'custom' | 'lifecycle';
+
+export type EventLevel = 'info' | 'warn' | 'error' | 'fatal';
+
+export interface MonitorEvent<T = unknown> {
+  /** 事件唯一全局 ID (UUID v4) */
+  id: string;
+  /** 事件核心分类 */
+  type: EventType;
+  /** 事件告警严重级别 */
+  level: EventLevel;
+  /** 事件生成时间戳 (毫秒) */
+  timestamp: number;
+  /** 核心事件载荷数据 */
+  payload: T;
+  /** 事件发生时的系统全局上下文快照 */
+  context: MonitorContextSnapshot;
+}
+
+export type ErrorCategory = 'js' | 'promise' | 'resource' | 'console' | 'vue' | 'custom';
+
+export interface ErrorPayload {
+  /** 异常子分类 */
+  category: ErrorCategory;
+  /** 核心错误描述信息 */
+  message: string;
+  /** 错误类型名称 (如 TypeError, ReferenceError) */
+  name?: string;
+  /** 原始或解析后的格式化调用堆栈 */
+  stack?: string;
+  /** 发生错误的脚本文件名 */
+  filename?: string;
+  /** 代码出错行号 */
+  lineno?: number;
+  /** 代码出错列号 */
+  colno?: number;
+  /** 发生资源加载崩溃的 DOM 选择器或标签 */
+  selector?: string;
+  /** 唯一错误特征指纹 (用于窗口内聚合去重) */
+  fingerprint?: string;
+  /** 在时间窗口内的聚合重复次数 */
+  repeatCount?: number;
+  /** 随附的现场用户交互行为面包屑切片 */
+  breadcrumbs?: BreadcrumbItem[];
+}
+
+export interface WhiteScreenPayload {
+  /** 诊断事件名称，固定为 'WHITE_SCREEN_ERROR' */
+  name?: string;
+  /** 是否判定为白屏 */
+  isWhiteScreen: boolean;
+  /** 视口点阵采样点命中诊断列表 */
+  samplePoints: Array<{
+    x: number;
+    y: number;
+    target: string;
+    isRoot: boolean;
+    isWhitelisted: boolean;
+  }>;
+  /** 命中选择器清单（去重后的命中元素选择器或标签集合） */
+  hitSelectors?: string[];
+  /** 采样时的视口物理边界 */
+  viewport: {
+    width: number;
+    height: number;
+  };
+  /** 检测耗时 (毫秒) */
+  duration: number;
+}
+
+export interface PerformancePayload {
+  /** 性能指标代号 (如 FCP, LCP, CLS, INP, TTFB, longtask, navigation) */
+  name: string;
+  /** 指标数值 (单位: 毫秒，CLS 为无量纲数值) */
+  value: number;
+  /** Google 官方体验评级 */
+  rating?: 'good' | 'needs-improvement' | 'poor';
+  /** 原始 PerformanceEntry 诊断明细 */
+  entry?: Record<string, unknown>;
+}
+
+export interface BreadcrumbItem {
+  /** 面包屑大类 */
+  type: 'click' | 'route' | 'console' | 'network' | 'custom';
+  /** 分类标签说明 */
+  category: string;
+  /** 描述文案 */
+  message: string;
+  /** 附加数据 */
+  data?: Record<string, unknown>;
+  /** 发生时刻的时间戳 (毫秒) */
+  timestamp: number;
+  /** 严重级别 */
+  level?: EventLevel;
+}
+
+export interface NetworkPayload {
+  /** 请求目标绝对地址 */
+  url: string;
+  /** HTTP 请求方法 (GET, POST 等) */
+  method: string;
+  /** HTTP 响应状态码 */
+  status: number;
+  /** 网络请求往返耗时 (毫秒) */
+  duration: number;
+  /** 后端全链路追踪分布式 MDC TraceId */
+  traceId?: string;
+  /** 网络请求底层类型 */
+  requestType: 'xhr' | 'fetch';
+  /** 请求是否成功判定 */
+  success: boolean;
+}
+```
+
+### 10.3 上下文与设备快照契约
+
+```ts
+export interface UserContext {
+  /** 用户唯一主键标识 */
+  id?: string;
+  /** 用户姓名或展示昵称 */
+  name?: string;
+  /** 用户角色代码 */
+  role?: string;
+  /** 用户邮箱 */
+  email?: string;
+  /** 拓展属性 */
+  [key: string]: unknown;
+}
+
+export interface DeviceContext {
+  /** 浏览器 User-Agent */
+  userAgent: string;
+  /** 系统主语言 */
+  language: string;
+  /** 视口像素尺寸 */
+  viewport: {
+    width: number;
+    height: number;
+  };
+  /** 物理屏幕分辨率 */
+  screen: {
+    width: number;
+    height: number;
+  };
+  /** 设备像素比 (DPR) */
+  pixelRatio: number;
+  /** 网络在线状态 */
+  online: boolean;
+  /** 网络连接类型 (如 4g, 5g, wifi, 2g) */
+  connectionType?: string;
+}
+
+export interface MonitorContext {
+  /** 静态应用版本标识 */
+  appVersion: string;
+  /** 部署运行环境 */
+  environment: string;
+  /** 会话唯一标识符 */
+  sessionId: string;
+  /** 多租户企业隔离标识 */
+  tenantId?: string;
+  /** 当前已登录用户信息 */
+  user?: UserContext;
+  /** 静态或动态自定义标签键值对 */
+  tags: Record<string, string>;
+  /** 附加额外上下文数据 */
+  extra: Record<string, unknown>;
+}
+
+export interface MonitorContextSnapshot extends MonitorContext {
+  /** 设备环境数据 */
+  device: DeviceContext;
+  /** 事件触发时的页面绝对 URL */
+  url: string;
+  /** 事件触发时的文档标题 */
+  title: string;
+}
+
+export interface ContextStoreInstance {
+  /** 获取当前上下文快照数据（已克隆防污染） */
+  getContext: () => MonitorContext;
+  /** 获取当前完整上下文快照（包含当前 URL、标题及实时设备状态） */
+  getSnapshot: () => MonitorContextSnapshot;
+  /** 动态设置或更新当前登录用户信息 */
+  setUser: (user?: UserContext) => void;
+  /** 动态设置或更新多租户企业隔离标识 */
+  setTenant: (tenantId?: string) => void;
+  /** 批量注入或更新动态业务标签 */
+  setTags: (tags: Record<string, string>) => void;
+  /** 设置单项业务标签 */
+  setTag: (key: string, value: string) => void;
+  /** 注入自定义附加数据 */
+  setExtra: (key: string, value: unknown) => void;
+  /** 重置上下文回滚至初始状态 */
+  clear: () => void;
+}
+```
+
+### 10.4 插件与微内核调度契约
+
+```ts
+export interface MonitorKernelInstance {
+  readonly isInitialized: boolean;
+  readonly contextStore: ContextStoreInstance;
+  readonly circuitBreaker: CircuitBreaker;
+  readonly deduplicator: ErrorDeduplicator;
+  readonly queue: TransportQueue;
+
+  registerPlugin: (plugin: MonitorPlugin) => void;
+  unregisterPlugin: (pluginName: string) => void;
+  getPlugin: (pluginName: string) => MonitorPlugin | undefined;
+  emit: <T = unknown>(partialEvent: Omit<MonitorEvent<T>, 'id' | 'timestamp' | 'context'>) => void;
+  flush: () => Promise<void>;
+  destroy: () => Promise<void>;
+  captureException: (error: unknown, customPayload?: Partial<ErrorPayload>) => void;
+  captureMessage: (message: string, level?: EventLevel, extra?: Record<string, unknown>) => void;
+}
+
+export interface MonitorPlugin {
+  readonly name: string;
+  setup: (kernel: MonitorKernelInstance) => void | Promise<void>;
+  teardown?: (kernel: MonitorKernelInstance) => void | Promise<void>;
+}
+
+export interface ErrorPluginOptions {
+  enableJsError?: boolean;
+  enablePromiseError?: boolean;
+  enableResourceError?: boolean;
+  enableConsoleError?: boolean;
+}
+
+export interface WhiteScreenPluginOptions {
+  rootSelectors?: readonly string[];
+  whitelistSelectors?: readonly string[];
+  initialDelay?: number;
+  recheckDelay?: number;
+  autoCheckOnLoad?: boolean;
+  threshold?: number;
+}
+
+export interface PerformancePluginOptions {
+  vitals?: boolean;
+  navigation?: boolean;
+  longtask?: boolean;
+  jankThreshold?: number;
+  sampleRate?: number;
+}
+
+export interface BreadcrumbPluginOptions {
+  maxBreadcrumbs?: number;
+  enableClick?: boolean;
+  enableRoute?: boolean;
+  enableConsole?: boolean;
+  maskSelectors?: string[];
+}
+
+export interface NetworkPluginOptions {
+  enableFetch?: boolean;
+  enableXhr?: boolean;
+  reportUrl?: string;
+  ignoreUrls?: Array<string | RegExp>;
+  recordHttpError?: boolean;
+}
+```
+
+### 10.5 弹性工程、脱敏与传输管道契约
+
+```ts
+export interface DeduplicatorOptions {
+  windowMs?: number;
+}
+
+export interface CircuitBreakerOptions {
+  maxErrors?: number;
+}
+
+export interface CircuitBreakerResult {
+  allowed: boolean;
+  trippedJustNow: boolean;
+  currentCount: number;
+}
+
+export interface TransportQueueOptions {
+  batchSize?: number;
+  flushInterval?: number;
+  reportUrl?: string;
+  reporter?: (events: MonitorEvent[]) => void | Promise<void>;
+}
+
+export type CustomReporter = (events: MonitorEvent[]) => void | Promise<void>;
+
+export interface CoreAxiosMonitorInterceptor {
+  responseInterceptor: <T = unknown>(response: T) => T;
+  errorInterceptor: (error: unknown) => Promise<never>;
+  install: (axiosInstance: {
+    interceptors: {
+      response: {
+        use: (onFulfilled?: unknown, onRejected?: unknown) => number;
+        eject: (id: number) => void;
+      };
+    };
+  }) => () => void;
+}
+```
 
 ---
 
 ## 11. 1:1 物理排版与全维测试守护 (Evergreen & Zero-Glitch)
 
-_(待工单 #280 系统交付：10 套单测清单与自动化全真回归命令)_
+本套件严格遵守《工业级成熟度防线九：对抗性极限用例守护》，采用全维自洽测试与 1:1 真实交互自验展厅提供长效安全保障。
+
+### 11.1 十大单元测试套件矩阵
+
+全部测试位于 `packages/monitor/test/` 目录下，100% 离线自洽，DOM 现场严格还原，零全局状态污染：
+
+| 序号 | 单元测试文件                                           | 用例数 | 覆盖核心能力与守护边界                                                          |
+| :--: | :----------------------------------------------------- | :----: | :------------------------------------------------------------------------------ |
+|  1   | [test/kernel.test.ts](./test/kernel.test.ts)           | 13 项  | 微内核初始化、单例生命周期、插件热装载/卸载、beforeSend 终极拦截过滤            |
+|  2   | [test/context.test.ts](./test/context.test.ts)         |  7 项  | 动态上下文克隆防污染、SSR 宿主降级守卫、多租户与用户标签动态管理                |
+|  3   | [test/error.test.ts](./test/error.test.ts)             | 11 项  | JS 运行时报错、Promise 拒付、静态资源 404 捕获阶段监听、Vue 3 异常桥接          |
+|  4   | [test/whiteScreen.test.ts](./test/whiteScreen.test.ts) |  8 项  | 3×3 视口几何点阵九点穿透采样、骨架屏白名单祖先追溯、双阶段延迟复验自愈          |
+|  5   | [test/performance.test.ts](./test/performance.test.ts) | 16 项  | Google Core Web Vitals 官方评级算法、Navigation Timing 链路阶段、长任务卡顿告警 |
+|  6   | [test/breadcrumb.test.ts](./test/breadcrumb.test.ts)   | 14 项  | FIFO 定长环形缓冲区防内存泄漏、DOM 点击、SPA 虚拟路由耗时、Console 轨迹         |
+|  7   | [test/network.test.ts](./test/network.test.ts)         | 13 项  | 原生 Fetch/XHR 请求嗅探代理、Axios 拦截器 MDC TraceId 提取与注入                |
+|  8   | [test/sanitizer.test.ts](./test/sanitizer.test.ts)     | 13 项  | URL Query 敏感参数脱敏、HTTP 请求头脱敏、DOM 密码框与掩码属性提取               |
+|  9   | [test/resilience.test.ts](./test/resilience.test.ts)   |  8 项  | FNV-1a 特征指纹规整、5 秒时间窗口防抖聚合去重、会话级熔断断路器                 |
+|  10  | [test/transport.test.ts](./test/transport.test.ts)     | 13 项  | Beacon/Fetch/XHR 三阶通道自适应降级、页面卸载紧急冲刷、防死循环调用协议         |
+
+- **底座单元测试总计**：10 个测试套件，**116 项用例 100% 全绿通过**；
+- **自验展厅沙箱单测**：[apps/sample-monitor/test/sample.test.ts](../../apps/sample-monitor/test/sample.test.ts) 提供 **3 项端到端组件挂载与交互测试**；
+- **全项目守护总计**：**119 项测试持续稳定守护**。
+
+---
+
+### 11.2 镜像自验展厅与端到端沙箱
+
+配套自验工程位于 [apps/sample-monitor](../../apps/sample-monitor)，基于 Vue 3 + Element Plus 构建高保真交互展厅，提供 5 大实测面板：
+
+1. **故障注入与异常熔断面板 ([FaultPanel.vue](../../apps/sample-monitor/src/components/FaultPanel.vue))**：演练 JS 同步错误、Promise 拒付、静态资源 404、Vue 错误与 15 次批量异常触发断路器；
+2. **白屏感知与骨架自愈面板 ([WhiteScreenPanel.vue](../../apps/sample-monitor/src/components/WhiteScreenPanel.vue))**：演练 3×3 视口点阵采样、清空视窗触发白屏告警，以及展示骨架屏验证白名单豁免；
+3. **性能大盘与卡顿感知面板 ([PerformancePanel.vue](../../apps/sample-monitor/src/components/PerformancePanel.vue))**：直观展示 FCP/LCP/CLS/INP 核心指标与红黄绿三态评级，模拟密集 CPU 触发 >50ms 长任务与卡顿告警；
+4. **行为轨迹与敏感脱敏面板 ([BreadcrumbPanel.vue](../../apps/sample-monitor/src/components/BreadcrumbPanel.vue))**：演练密码输入框脱敏、`[data-monitor-mask]` 脱敏、SPA 路由跳转与时间轴逐步回放；
+5. **本地 Mock APM 实时终端面板 ([ApmTerminal.vue](../../apps/sample-monitor/src/components/ApmTerminal.vue))**：实时查看上报事件的瀑布流、完整 JSON 载荷与前后端分布式 MDC `traceId` 串联回显。
+
+自验展厅体验卡详见 [apps/sample-monitor/README.md](../../apps/sample-monitor/README.md)。
+
+---
+
+### 11.3 工业级四合一全真自动化回归命令
+
+在代码提交或 CI 流水线前，可在根目录一键执行四合一全真自动化校验：
+
+```powershell
+# 1. 严格 TypeScript 类型检查 (零 any、零类型报错)
+pnpm --filter @atengk/monitor --filter sample-monitor typecheck
+
+# 2. 静态代码规范检查 (ESLint 零违规)
+pnpm --filter @atengk/monitor --filter sample-monitor lint
+
+# 3. 运行 L0 底座 116 项单测与展厅 3 项交互单测 (119 项全绿)
+pnpm --filter @atengk/monitor test
+pnpm --filter sample-monitor test
+
+# 4. 自验展厅生产构建打包检验 (Vite 构建零破损)
+pnpm --filter sample-monitor build
+```
