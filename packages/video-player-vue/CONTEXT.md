@@ -35,9 +35,9 @@ _Avoid_: usePlayerSession, useMediaState, useVideoController
 多路分屏矩阵生命周期、通道分配、焦点选路与自动轮巡调度的无头组合式 Hook。导出 channels、activeChannelId、layout、touring 等响应式状态，以及 setLayout、selectChannel、maximizeChannel、startTour、stopTour 等编排指令。
 _Avoid_: useSplitState, useMatrixController, useMultiPlayer
 
-**usePtz**:
-云台控制交互状态机。收敛八方向移动、步进速度、变倍聚焦、预置位切换与手势拖拽计算，对外派发统一的标准化云台控制载荷。
-_Avoid_: useGimbal, useCameraControl
+**usePtzGesture**:
+视频画面手势联动云台状态机。将用户在视频视口上的拖拽向量通过 8 个 45° 象限扇区算法精准映射为标准化八方向云台控制动作，支持滚轮变倍缩放与松手自动发送 stop 指令，与底层网络协议彻底解耦。
+_Avoid_: usePtz, useGimbal, useCameraControl, useVideoGesture
 
 **useDigitalZoom**:
 纯前端电子放大与画面平移拖拽状态机。基于 CSS Transform 硬件加速实现 1.0x~5.0x 滚轮视口无级缩放与阻尼边界约束。
@@ -46,6 +46,14 @@ _Avoid_: useVideoZoom, usePanZoom
 **useStreamReconnect**:
 流媒体断流与网络波动指数退避重连状态机。根据解码停滞、网络错误与超时信号，自动执行抖动重连并维护可重试次数。
 _Avoid_: useRetry, useAutoConnect
+
+**useVideoPlaybackHistory**:
+本地播放历史与记忆续播响应式状态机。基于 localStorage 自动记录媒体播放进度时间戳，支持二次打开时自动恢复或交互式卡片提示恢复，提供防抖保存与历史进度清空。
+_Avoid_: usePlayHistory, useResumeState, useProgressStorage
+
+**useVideoSubtitles**:
+外挂多轨双语字幕同步与语言切换状态机。基于 WebVTT/SRT 解析片元实现当前播放时刻的字幕检索、多语言活动音轨切换与作用域插槽解构。
+_Avoid_: useCaptionState, useSubtitles, useVttSync
 
 ## 解耦引擎与协议驱动
 
@@ -70,6 +78,14 @@ _Avoid_: FlvDriver, TsLoader
 **DanmakuPlugin**:
 基于 Canvas 高性能渲染的弹幕系统插件。作为独立按需分包导出，未使用的业务项目享受 0 字节体积残留。
 _Avoid_: BarrageModule, DanmuCore
+
+**DanmakuEngine**:
+纯 Canvas 2D 硬件加速的弹幕渲染核心引擎。负责弹幕发射、双重黑白描边、视网膜高清自适应、多重屏蔽规则与每秒 60 帧动画循环。
+_Avoid_: BarrageEngine, CanvasDanmu
+
+**DanmakuTrackPool**:
+弹幕轨道通道防重叠与相对速度追尾预测调度池。根据视口与字号推导可用轨道，执行进屏尾部碰撞检测与追尾预测计算，负载均衡分配空闲通道。
+_Avoid_: DanmuTrackManager, BarragePool
 
 **TimelineMarker**:
 时间轴关键帧打点与事件标注项。原生内置于进度条，支持 Hover 悬浮预览与快速跳转。
