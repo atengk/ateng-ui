@@ -726,13 +726,940 @@ const reconnectOptions = {
 
 ## 5. 广播级安防多路分屏协同矩阵套件
 
-_(待工单 #272 系统交付：5.1 CSS Grid 分屏容器、5.2 选路聚焦与平滑独占放大、5.3 主次码流自适应防爆带宽、5.4 多路音频互斥发声、5.5 多通道自动轮巡调度器)_
+在大型指挥调度中心、智慧园区、交通卡口与安防物联场景中，同时监控多路视频流并灵活编排布局是核心需求。`@atengk/video-player-vue` 提供了工业级多路协同套件，核心由 `<AtengVideoGrid />` 组件与 `useVideoGrid` 纯响应式无头状态机构成，底层通过纯 CSS Grid 实现高性能声明式排版，内置选路聚焦高亮、双击平滑独占放大、主次码流自适应防爆带宽、多路音频互斥防啸叫与大通道池自动轮巡调度器。
+
+```mermaid
+flowchart TD
+    subgraph GridEngine["多路分屏协同矩阵引擎 (useVideoGrid)"]
+        Pool["16~100+ 路监控通道池 (VideoGridChannel[])"] --> Filter["视口容量裁剪 (getLayoutCapacity)"]
+        Layout["布局模式 (1x1, 2x2, 3x3, 4x4, 1+5, 1+7)"] --> Filter
+        Filter --> Decision{"独占放大判定 (maximizedChannelId)"}
+        Decision -- "是 (独占单路)" --> ForceMain["100% 切换主流高清 url + 解锁原声道"]
+        Decision -- "否 (多路宫格)" --> AutoSub{"主次码流自适应 (autoSubStream)"}
+        AutoSub -- "开启 (宫格)" --> UseSub["自动降级拉取 subUrl (标清/节约70%带宽)"]
+        AutoSub -- "关闭" --> UseMain["直拉高清主流 url"]
+        Decision --> AudioMutex["音频互斥仲裁 (audioExclusive)"]
+        AudioMutex --> Exclusive["仅当前选路 activeId 允许发声，其余强制静音"]
+        Tour["自动轮巡调度器 (startTour)"] -->|"定时触发环形翻页"| Pool
+    end
+```
+
+---
+
+### 5.1 响应式 CSS Grid 分屏矩阵容器 (`<AtengVideoGrid />`, `layout`, `channels`, `getLayoutCapacity`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { ComponentPublicInstance } from 'vue';
+
+/**
+ * 分屏矩阵支持的布局模式：
+ * - '1x1': 单画面
+ * - '2x2': 4分屏对称宫格
+ * - '3x3': 9分屏对称宫格
+ * - '4x4': 16分屏对称宫格
+ * - '1+5': 6分屏广播级主从布局 (1大主窗 + 5小副窗)
+ * - '1+7': 8分屏广播级主从布局 (1大主窗 + 7小副窗)
+ */
+export type VideoGridLayout = '1x1' | '2x2' | '3x3' | '4x4' | '1+5' | '1+7';
+
+/**
+ * 获取布局模式对应的路数容量。
+ */
+export function getLayoutCapacity(layout: VideoGridLayout): number;
+
+/**
+ * 分屏矩阵视频通道模型契约。
+ */
+export interface VideoGridChannel {
+  id: string | number; // 通道唯一标识
+  title?: string; // 通道标题或监控机位名称
+  url: string; // 主码流视频播放地址 (1080P/4K 高清)
+  subUrl?: string; // 次码流视频播放地址 (360P/D1 标清，多路宫格防爆带宽)
+  type?: VideoPlayerType; // 协议类型 ('auto' | 'mp4' | 'hls' | 'flv')
+  poster?: string; // 封面海报图地址
+  isLive?: boolean; // 是否为直播流 (默认 true)
+  auth?: boolean; // 是否自动注入 Token 鉴权凭据 (默认 true)
+  muted?: boolean; // 用户显式指定的静音状态
+}
+
+/**
+ * AtengVideoGrid 组件 Props 契约。
+ */
+export interface VideoGridProps {
+  channels: VideoGridChannel[]; // 监控机位通道列表
+  layout?: VideoGridLayout; // 当前布局模式 (默认 '2x2')
+  activeId?: string | number | null; // 当前聚焦选中的通道 ID
+  autoSubStream?: boolean; // 是否开启主次码流自适应 (默认 true)
+  audioExclusive?: boolean; // 是否开启多路音频互斥发声 (默认 true)
+  themeColor?: string; // 选路聚焦时的高亮主题色 (默认 '#38bdf8')
+  gap?: number; // 宫格单元间隙 (px，默认 4)
+  autoplay?: boolean; // 加载时是否静音自动播放 (默认 true)
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/GridDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoGrid,
+  type VideoGridChannel,
+  type VideoGridLayout,
+} from '@atengk/video-player-vue';
+
+// 模拟园区 4 路监控机位数据
+const channels = ref<VideoGridChannel[]>([
+  {
+    id: 'cam-01',
+    title: '01# 园区东门全景球机',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    subUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+  },
+  {
+    id: 'cam-02',
+    title: '02# 园区西门车道卡口',
+    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+    subUrl: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+  },
+  {
+    id: 'cam-03',
+    title: '03# 行政大楼 A 座大堂',
+    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    subUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  },
+  {
+    id: 'cam-04',
+    title: '04# 核心机房防静电通道',
+    url: 'https://www.w3schools.com/html/movie.mp4',
+    subUrl: 'https://www.w3schools.com/html/movie.mp4',
+  },
+]);
+
+const currentLayout = ref<VideoGridLayout>('2x2');
+const activeChannelId = ref<string | number | null>('cam-01');
+</script>
+
+<template>
+  <div style="width: 100%; height: 600px; background: #020617;">
+    <AtengVideoGrid
+      :channels="channels"
+      :layout="currentLayout"
+      :active-id="activeChannelId"
+      :auto-sub-stream="true"
+      :audio-exclusive="true"
+      :gap="6"
+      theme-color="#0ea5e9"
+      @select="ch => (activeChannelId = ch.id)"
+    >
+      <!-- 自定义通道顶部状态标头插槽 -->
+      <template #channel-header="{ channel, isActive, isMaximized }">
+        <div class="custom-channel-header">
+          <span class="cam-dot">●</span>
+          <span class="cam-title">{{ channel.title }}</span>
+          <span v-if="isMaximized" class="cam-tag tag--max">独占全屏</span>
+          <span v-else-if="isActive" class="cam-tag tag--focus">当前聚焦</span>
+        </div>
+      </template>
+    </AtengVideoGrid>
+  </div>
+</template>
+
+<style scoped>
+.custom-channel-header {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #f8fafc;
+  font-size: 12px;
+}
+.cam-dot {
+  color: #22c55e;
+}
+.cam-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.tag--focus {
+  background: rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+}
+.tag--max {
+  background: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+</style>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **原生 CSS Grid 硬件级排版引擎**：相比第三方绝对定位或计算密集型 Flexbox 方案，`<AtengVideoGrid />` 纯依靠原生 CSS Grid 实现，在 '1+5' 与 '1+7' 主从布局中，主画面通过 `grid-column: span 2 / span 3; grid-row: span 2 / span 3` 独占主视觉区，副画面流式填充，GPU 极速合成渲染，零 JS 拖慢重排；
+  - **动态视口容量截断守卫 (`getLayoutCapacity`)**：无论通道池输入多少机位，视口仅对当前布局最大容纳数（$capacity \in \{1, 4, 6, 8, 9, 16\}$）进行 DOM 实例化渲染，多余通道在后台处于静默态，杜绝一次性实例化数十路视频播放器导致浏览器显存溢出与崩溃。
+
+---
+
+### 5.2 选路聚焦与双击平滑独占放大还原 (`activeId`, `@select`, `@channel-dblclick`, `restoreGrid`, ESC 键恢复)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * AtengVideoGrid 组件 Emits 事件契约。
+ */
+export interface VideoGridEmits {
+  (e: 'channel-select', channel: VideoGridChannel): void; // 单击聚焦选路
+  (e: 'channel-maximize', channel: VideoGridChannel): void; // 双击独占放大
+  (e: 'channel-restore'): void; // 退出独占平滑恢复宫格
+  (e: 'layout-change', layout: VideoGridLayout): void; // 布局模式变更
+  (e: 'tour-change', isTouring: boolean): void; // 轮巡启停状态变更
+}
+
+/**
+ * AtengVideoGrid 组件 Ref 实例类型。
+ */
+export type AtengVideoGridInstance = ComponentPublicInstance<
+  VideoGridProps,
+  {
+    gridState: UseVideoGridReturn;
+    selectChannel(id: string | number): void;
+    toggleMaximize(id?: string | number): void;
+    restoreGrid(): void;
+    setLayout(layout: VideoGridLayout): void;
+    startTour(options?: VideoGridTourOptions): void;
+    stopTour(): void;
+    nextTourPage(): void;
+    prevTourPage(): void;
+  }
+>;
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/GridDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoGrid,
+  type AtengVideoGridInstance,
+  type VideoGridChannel,
+} from '@atengk/video-player-vue';
+
+const gridRef = ref<AtengVideoGridInstance | null>(null);
+const activeId = ref<string | number | null>('cam-01');
+
+// 单击选路聚焦
+const onSelect = (channel: VideoGridChannel) => {
+  activeId.value = channel.id;
+  console.log(`👉 聚焦选路: [${channel.title}] (ID: ${channel.id})`);
+};
+
+// 双击独占单路放大
+const onChannelDblClick = (channel: VideoGridChannel) => {
+  console.log(`🔍 双击切换独占放大: [${channel.title}]`);
+};
+
+// 恢复宫格
+const onRestore = () => {
+  console.log('↩️ 退出独占放大，已平滑恢复宫格视图');
+};
+
+// 外部按钮强制还原宫格
+const handleRestoreGrid = () => {
+  gridRef.value?.restoreGrid();
+};
+</script>
+
+<template>
+  <div>
+    <button @click="handleRestoreGrid">↩️ 强制恢复宫格 (也可按键盘 ESC 键)</button>
+    <AtengVideoGrid
+      ref="gridRef"
+      :channels="channels"
+      :active-id="activeId"
+      @select="onSelect"
+      @channel-dblclick="onChannelDblClick"
+      @restore="onRestore"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **双击平滑独占放大**：双击任一机位触发 `toggleMaximize(channel.id)`，选中路通道瞬时以 $100\%$ 尺寸覆盖整个容器视口，并自动提升 z-index，未选中通道被优雅挂起；
+  - **ESC 物理快捷键确定性拦截与清理**：组件在进入独占放大态时，自动在宿主 `window` 注册 `keydown (Escape)` 监听，一旦用户按下键盘 ESC 键，立即自动触发 `restoreGrid()` 恢复原有宫格排版并派发 `@restore` 事件；在 `onScopeDispose` 钩子中执行 100% 确定性的监听器注销，绝无全局键盘事件残留泄漏；
+  - **聚焦高亮外光晕令牌**：通过 `:active-id` 绑定的选中路外层应用 `--at-grid-theme-color` 高亮外光晕（`box-shadow: 0 0 0 2px var(--at-grid-theme-color)`），确保调度员在大屏远距离操作时拥有极高辨识度的焦点定位。
+
+---
+
+### 5.3 主次码流自适应防爆带宽不变量 (`autoSubStream`, `subUrl` vs `url`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 经过状态机解析后当前视口正在展示的通道实体。
+ */
+export interface VideoGridDisplayItem extends VideoGridChannel {
+  effectiveUrl: string; // 经过主次码流自适应决策后实际加载的流地址
+  isMuted: boolean; // 经过多路音频互斥算法决策后实际生效的静音状态
+  isActive: boolean; // 当前通道是否处于聚焦高亮态
+  isMaximized: boolean; // 当前通道是否处于独占放大全屏态
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/GridDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoGrid, type VideoGridChannel } from '@atengk/video-player-vue';
+
+// 真实安防机位：配置 1080P 高清主流 url 与 360P 标清次码流 subUrl
+const securityChannels = ref<VideoGridChannel[]>([
+  {
+    id: 'cam-east-gate',
+    title: '园区东门全景高清球机',
+    url: 'https://live.example.com/hls/east_gate_1080p.m3u8', // 主码流 (4Mbps)
+    subUrl: 'https://live.example.com/hls/east_gate_360p.m3u8', // 次码流 (500Kbps)
+  },
+  {
+    id: 'cam-west-gate',
+    title: '园区西门车辆抓拍卡口',
+    url: 'https://live.example.com/hls/west_gate_1080p.m3u8',
+    subUrl: 'https://live.example.com/hls/west_gate_360p.m3u8',
+  },
+]);
+</script>
+
+<template>
+  <AtengVideoGrid :channels="securityChannels" layout="2x2" :auto-sub-stream="true" />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **主次码流自适应防爆带宽不变量 (Bandwidth Explosion-Proof Invariant)**：
+    在安防大屏中，若同时开启 16 路甚至更多分屏，若每路均拉取 1080P/4K 高清主码流（单路 4~8 Mbps），并发网络带宽将飙升至 64~128 Mbps，不仅会迅速挤爆交换机或客户端千兆网卡，还会引发浏览器 GPU 解码器资源枯竭崩溃；
+  - **动态切流算法公式**：
+    状态机内部在计算 `effectiveUrl` 时执行动态决断：
+    $$\text{effectiveUrl}_i = \begin{cases} \text{channel.url} & \text{if } \text{isMaximized} \lor \text{layout} = \text{'1x1'} \lor \neg\text{autoSubStream} \\ \text{channel.subUrl} \parallel \text{channel.url} & \text{if } \text{capacity} > 1 \land \text{autoSubStream} \end{cases}$$
+    在多路小宫格形态下，系统自动为所有通道加载低码率次码流 `subUrl`（单路约 500 Kbps），节约 $70\% \sim 85\%$ 的网络吞吐；一旦用户双击任意通道独占放大，状态机毫秒级将该通道无缝升级为主码流高清 `url`，兼顾全局网络健康与局部细节审讯。
+
+---
+
+### 5.4 多路音频互斥发声不变量 (`audioExclusive`, `isMuted`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+// 组件 Props：
+// audioExclusive?: boolean; // 默认 true (开启多路音频互斥发声)
+// activeId?: string | number | null; // 当前出声通道 ID
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/GridDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoGrid, type VideoGridChannel } from '@atengk/video-player-vue';
+
+const channels = ref<VideoGridChannel[]>([
+  {
+    id: 'cam-01',
+    title: '01# 园区东门全景球机',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    subUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+  },
+  {
+    id: 'cam-02',
+    title: '02# 园区西门车道卡口',
+    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+    subUrl: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+  },
+]);
+const activeId = ref<string | number | null>('cam-01');
+const audioExclusive = ref(true);
+</script>
+
+<template>
+  <div>
+    <label>
+      <input v-model="audioExclusive" type="checkbox" />
+      多路音频互斥 (仅聚焦路出声，其余通道强制静音)
+    </label>
+
+    <AtengVideoGrid
+      :channels="channels"
+      :active-id="activeId"
+      :audio-exclusive="audioExclusive"
+      @select="ch => (activeId = ch.id)"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **音频互斥不变量 (Audio Mutual Exclusion Invariant)**：
+    多路监控画面同屏播放时，如果同时开启多路音频，不仅会产生灾难级的混音刺耳啸叫，而且现代主流浏览器（Chrome、Edge、Safari）具有严格的 Autoplay Policy，同时播放多路带声音的流媒体会被浏览器底层直接抛出 `NotAllowedError` 并强行阻断所有视频播放；
+  - **仲裁数学模型**：
+    状态机对每一路通道的 `isMuted` 执行原子仲裁：
+    $$\text{isMuted}_i = \begin{cases} \text{channel.muted} \lor (id_i \ne \text{activeId}) & \text{if } \text{audioExclusive} = \text{true} \\ \text{channel.muted} & \text{if } \text{audioExclusive} = \text{false} \end{cases}$$
+    在 `audioExclusive: true` 下，仅当前被操作员点击聚焦（`activeId`）的通道拥有出声权，其余所有通道在底层 `<video>` 元素上强制锁定 `muted: true`，从根源规避了浏览器策略拦截与现场噪音灾难。
+
+---
+
+### 5.5 多通道自动轮巡调度器 (`VideoGridTourOptions`, `startTour`, `stopTour`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 自动轮巡调度器配置契约。
+ */
+export interface VideoGridTourOptions {
+  interval?: number; // 轮巡单页驻留时间 (毫秒，默认 10000ms)
+  pool?: VideoGridChannel[]; // 参与自动轮巡的完整通道池 (默认使用传入的 channels)
+  onStep?: (pageIndex: number, currentChannels: VideoGridChannel[]) => void; // 翻页回调
+}
+
+// 门面指令与状态 (UseVideoGridReturn):
+// isTouring: Ref<boolean>; // 是否处于自动轮巡调度状态
+// tourPageIndex: Ref<number>; // 当前轮巡批次/页码索引 (0 起始)
+// startTour(options?: VideoGridTourOptions): void; // 启动轮巡
+// stopTour(): void; // 停止轮巡
+// nextTourPage(): void; // 手动切至下一批通道
+// prevTourPage(): void; // 手动切至上一批通道
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/GridDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref, onBeforeUnmount } from 'vue';
+import {
+  AtengVideoGrid,
+  type AtengVideoGridInstance,
+  type VideoGridChannel,
+} from '@atengk/video-player-vue';
+
+const gridRef = ref<AtengVideoGridInstance | null>(null);
+const channelsPool = ref<VideoGridChannel[]>([
+  { id: 'cam-01', title: '01# 园区东门全景球机', url: 'https://vjs.zencdn.net/v/oceans.mp4' },
+  {
+    id: 'cam-02',
+    title: '02# 园区西门车道卡口',
+    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+  },
+  {
+    id: 'cam-03',
+    title: '03# 行政大楼 A 座大堂',
+    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  },
+  {
+    id: 'cam-04',
+    title: '04# 核心机房防静电通道',
+    url: 'https://www.w3schools.com/html/movie.mp4',
+  },
+  {
+    id: 'cam-05',
+    title: '05# 地下车库负一层 B 区',
+    url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+  },
+  {
+    id: 'cam-06',
+    title: '06# 研发中心连廊周界',
+    url: 'https://artplayer.org/assets/sample/video.mp4',
+  },
+]);
+const tourInterval = ref(8000); // 8 秒翻页
+
+// 启动自动轮巡
+const handleStartTour = () => {
+  gridRef.value?.startTour({
+    interval: tourInterval.value,
+    pool: channelsPool.value,
+    onStep: (pageIndex, currentBatch) => {
+      console.log(
+        `🔄 自动轮巡翻页: 第 ${pageIndex + 1} 批，当前机位: ${currentBatch.map(c => c.title).join(', ')}`,
+      );
+    },
+  });
+};
+
+// 停止自动轮巡
+const handleStopTour = () => {
+  gridRef.value?.stopTour();
+};
+
+onBeforeUnmount(() => {
+  handleStopTour();
+});
+</script>
+
+<template>
+  <div>
+    <button @click="handleStartTour">▶️ 启动自动轮巡 (8s 步长)</button>
+    <button @click="handleStopTour">⏹️ 停止轮巡</button>
+    <button @click="gridRef?.nextTourPage()">⏭️ 手动下一批</button>
+
+    <AtengVideoGrid ref="gridRef" :channels="channelsPool" layout="2x2" />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **环形通道池切片与尾部补齐算法**：面对上百路大型机位池，调度器根据当前布局容量 $C = \text{getLayoutCapacity}(layout)$，计算总页数 $P = \lceil N / C \rceil$。每隔 $interval$ 毫秒，当前指针自增 $page = (page + 1) \pmod P$；当最后一批通道数不足 $C$ 时，算法自动从池首部截取缺额补齐当前视口，避免大屏出现黑框空白；
+  - **防并发重复调用与确定性定时器释放**：调度器内部维护单例计时器句柄，在重新启动前强制清空前序残留定时器；在组件卸载或 Vue 作用域注销（`onScopeDispose`）时，100% 确定性调用 `clearInterval`，杜绝幽灵轮巡任务在后台持续拉流造成客户端内存泄漏。
 
 ---
 
 ## 6. 安防云台协议解耦控制与电子放大套件
 
-_(待工单 #272 系统交付：6.1 八方向云台调控罗盘与预置位、6.2 画面手势联动云台、6.3 纯前端 1.0x~5.0x 滚轮硬件加速电子放大与视口防脱框)_
+在专业安防监控领域，摄像机云台（PTZ, Pan-Tilt-Zoom）调控与画面细节放大是不可或缺的业务中枢。传统方案往往将前端组件与特定厂商硬件协议（如私有 Active-X 插件、特定 WebSocket 格式）深度绑死，可移植性极差。`@atengk/video-player-vue` 创新实现了**控制协议与表现层 100% 解耦**的工业级套件：
+
+- `<AtengPtzControl />`：八方向全功能调控罗盘、速度档位调节、光学变倍/聚焦/光圈调控与预置位管理；
+- `usePtzGesture`：视频画面鼠标拖拽手势联动云台，基于 45° 象限扇区数学推导方向并带有死区防抖与松手自动刹车；
+- `useDigitalZoom`：纯前端基于 CSS Transform 硬件加速的 1.0x~5.0x 滚轮无级电子放大与视口防脱框平移。
+
+```mermaid
+flowchart LR
+    subgraph UI["交互表现层 (View & Gestures)"]
+        Compass["八方向控制罗盘 (AtengPtzControl)"]
+        Gesture["画面鼠标拖拽 (usePtzGesture)"]
+        ZoomHook["滚轮电子放大 (useDigitalZoom)"]
+    end
+
+    subgraph Core["标准语义化抽象层 (Decoupled Contract)"]
+        Cmd["PtzCommand { action, speed, presetIndex, payload }"]
+        Transform["CSS Transform (translate3d + scale)"]
+    end
+
+    subgraph Gateway["企业网络与硬件适配层 (Developer Pipeline)"]
+        GB["GB28181 国标协议网关 (0x08, 0x04...)"]
+        Onvif["ONVIF XML Web Services"]
+        WS["自定义 IoT WebSocket / MQTT"]
+        GPU["GPU 合成器线程 (Compositor 60 FPS)"]
+    end
+
+    Compass -->|派发 @command| Cmd
+    Gesture -->|向量推导派发| Cmd
+    ZoomHook -->|硬件加速样式| Transform
+    Cmd --> GB
+    Cmd --> Onvif
+    Cmd --> WS
+    Transform --> GPU
+```
+
+---
+
+### 6.1 八方向云台调控罗盘与预置位面板 (`<AtengPtzControl />`, `speed`, `presets`, `PtzCommand`, `PtzAction`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { ComponentPublicInstance } from 'vue';
+
+/**
+ * 云台动作指令枚举类型。
+ */
+export type PtzAction =
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'up-left'
+  | 'up-right'
+  | 'down-left'
+  | 'down-right'
+  | 'zoom-in'
+  | 'zoom-out' // 光学变倍 (放大 / 缩小)
+  | 'focus-in'
+  | 'focus-out' // 光学聚焦 (远焦 / 近焦)
+  | 'iris-in'
+  | 'iris-out' // 光学光圈 (光圈大 / 光圈小)
+  | 'stop' // 停止动作 (松手刹车)
+  | 'preset-goto'
+  | 'preset-set'
+  | 'preset-delete'; // 预置位操作
+
+/**
+ * 语义化云台控制指令载荷契约 (与具体协议 100% 解耦)。
+ */
+export interface PtzCommand {
+  action: PtzAction; // 云台动作
+  speed?: number; // 调控步进速度 (1~10 档位)
+  presetIndex?: number; // 预置位编号索引
+  presetName?: string; // 预置位别名
+  timestamp?: number; // 指令触发毫秒时间戳
+  payload?: Record<string, unknown>; // 开发者自定义扩展协议载荷
+}
+
+/**
+ * 云台预置位项数据契约。
+ */
+export interface PtzPresetItem {
+  index: number; // 预置位编号 (1 起始)
+  name: string; // 预置位标题 (如 '东大门全景'、'车牌卡口')
+}
+
+/**
+ * AtengPtzControl 组件 Props 契约。
+ */
+export interface PtzControlProps {
+  speed?: number; // 当前速度档位 (默认 5)
+  minSpeed?: number; // 最小速度档位 (默认 1)
+  maxSpeed?: number; // 最大速度档位 (默认 10)
+  presets?: PtzPresetItem[]; // 预置位列表
+  disabled?: boolean; // 是否整体禁用云台控制
+  showPresets?: boolean; // 是否展示预置位面板 (默认 true)
+  showSpeed?: boolean; // 是否展示速度滑块 (默认 true)
+  showOptical?: boolean; // 是否展示光学变焦/聚焦/光圈按钮 (默认 true)
+  themeColor?: string; // 罗盘与高亮主题色 (默认 '#38bdf8')
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/PtzDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengPtzControl, type PtzCommand, type PtzPresetItem } from '@atengk/video-player-vue';
+
+const ptzSpeed = ref(5);
+const ptzDisabled = ref(false);
+const presets = ref<PtzPresetItem[]>([
+  { index: 1, name: '东门全景高清球机' },
+  { index: 2, name: '西门车辆识别卡口' },
+  { index: 3, name: '核心机房走廊防区' },
+  { index: 4, name: '地库负一层道闸' },
+]);
+
+// 核心解耦管道：将组件语义化 PtzCommand 映射转译为 GB28181 或业务 API 请求
+const handlePtzCommand = (cmd: PtzCommand) => {
+  console.log(`[PTZ 控制盘派发指令] 动作: ${cmd.action}, 速度: ${cmd.speed}`);
+
+  // 示例：将语义化指令转译为 GB28181 国标协议码
+  switch (cmd.action) {
+    case 'up':
+      sendGb28181Command({ ptzCmd: 0x08, speed: cmd.speed });
+      break;
+    case 'down':
+      sendGb28181Command({ ptzCmd: 0x04, speed: cmd.speed });
+      break;
+    case 'left':
+      sendGb28181Command({ ptzCmd: 0x02, speed: cmd.speed });
+      break;
+    case 'right':
+      sendGb28181Command({ ptzCmd: 0x01, speed: cmd.speed });
+      break;
+    case 'stop':
+      sendGb28181Command({ ptzCmd: 0x00 });
+      break;
+    case 'preset-goto':
+      sendGb28181Command({ ptzCmd: 0x87, presetIndex: cmd.presetIndex });
+      break;
+  }
+};
+
+const sendGb28181Command = (payload: unknown) => {
+  // 通过业务网关发送 HTTP POST / WebSocket 指令
+};
+</script>
+
+<template>
+  <div style="width: 320px; background: #0f172a; padding: 16px; border-radius: 8px;">
+    <AtengPtzControl
+      v-model:speed="ptzSpeed"
+      :presets="presets"
+      :disabled="ptzDisabled"
+      :show-optical="true"
+      :show-speed="true"
+      :show-presets="true"
+      theme-color="#38bdf8"
+      @command="handlePtzCommand"
+      @preset-add="item => presets.push(item)"
+      @preset-delete="index => (presets = presets.filter(p => p.index !== index))"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **网络与硬件协议 100% 解耦契约**：`<AtengPtzControl />` 本身不绑定任何私有协议，仅派发标准化强类型的 `PtzCommand` 对象，调用方既可轻松桥接 GB/T 28181 国标信令（通过 SIP 网关），也可直连 ONVIF SOAP 接口或自建 WebSocket 网关；
+  - **按压与松手防呆安全刹车**：按键监听区分 `mousedown` 与 `mouseup`/`mouseleave`。在按住时触发连续平移（如 `up`），**松开鼠标或鼠标滑出按键边界时必须且必定触发 `action: 'stop'` 刹车指令**，从根源防止因丢失松手事件导致物理云台无休止旋转撞死机械限位器或烧毁步进电机；
+  - **预置位一键召回与增删闭环**：预置位支持即时召回（`preset-goto`）、保存当前机位坐标（`preset-set`）与删除过时点位（`preset-delete`），满足安防联动巡更的标准 SOP 闭环。
+
+---
+
+### 6.2 视频画面手势联动云台 (`usePtzGesture`, `calculatePtzDirection`, 45° 扇区向量数学推导)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { MaybeRefOrGetter, Ref } from 'vue';
+
+/**
+ * 根据位移向量角度，计算八方向云台动作。
+ */
+export function calculatePtzDirection(dx: number, dy: number): PtzAction;
+
+/**
+ * usePtzGesture 画面手势联动配置契约。
+ */
+export interface PtzGestureOptions {
+  threshold?: number; // 拖拽位移触发云台转动的最小像素门限 (默认 15px)
+  speed?: MaybeRefOrGetter<number>; // 当前云台调速档位 (默认 5)
+  onCommand?: (cmd: PtzCommand) => void; // 指令派发回调
+}
+
+/**
+ * usePtzGesture 状态机返回值契约。
+ */
+export interface UsePtzGestureReturn {
+  isInteracting: Ref<boolean>; // 是否正在通过手势与云台交互
+  activeAction: Ref<PtzAction | null>; // 当前手势驱动的动作指令 (无交互时为 null)
+  handleMouseDown(event: MouseEvent): void; // 画面鼠标按下
+  handleMouseMove(event: MouseEvent): void; // 画面鼠标移动
+  handleMouseUp(event?: MouseEvent): void; // 画面鼠标抬起
+  handleWheel(event: WheelEvent): void; // 滚轮缩放变倍
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/PtzDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, usePtzGesture, type PtzCommand } from '@atengk/video-player-vue';
+
+const ptzSpeed = ref(5);
+
+// 初始化视频画面手势联动状态机
+const gesture = usePtzGesture({
+  threshold: 15,
+  speed: () => ptzSpeed.value,
+  onCommand: (cmd: PtzCommand) => {
+    console.log(`[画面手势联动云台] 触发动作: ${cmd.action}, 速度: ${cmd.speed}`);
+  },
+});
+</script>
+
+<template>
+  <div
+    class="video-gesture-viewport"
+    @mousedown="gesture.handleMouseDown"
+    @wheel.prevent="gesture.handleWheel"
+  >
+    <AtengVideoPlayer url="https://artplayer.org/assets/sample/video.mp4" :autoplay="true" />
+
+    <!-- 悬浮 HUD 状态指示器 -->
+    <div v-if="gesture.activeAction.value" class="gesture-hud">
+      🎯 正在向 {{ gesture.activeAction.value }} 方向巡检中...
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.video-gesture-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  cursor: crosshair;
+  user-select: none;
+}
+.gesture-hud {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  background: rgba(34, 197, 94, 0.85);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+</style>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **45° 象限扇区向量数学推导模型 (`calculatePtzDirection`)**：
+    在画面上按下并拖拽鼠标产生位移向量 $(\Delta x, \Delta y)$，利用极坐标反正切函数将其转换为角度：
+    $$\theta = \frac{\text{Math.atan2}(\Delta y, \Delta x) \times 180}{\pi} \in [-180^\circ, 180^\circ]$$
+    随后将其精确划分为 8 个 $45^\circ$ 对称扇区判定方位：
+    $$ \text{PtzAction} = \begin{cases}
+      \text{'right'} & \theta \in [-22.5^\circ, 22.5^\circ) \\
+      \text{'down-right'} & \theta \in [22.5^\circ, 67.5^\circ) \\
+      \text{'down'} & \theta \in [67.5^\circ, 112.5^\circ) \\
+      \text{'down-left'} & \theta \in [112.5^\circ, 157.5^\circ) \\
+      \text{'left'} & \theta \in [157.5^\circ, 180^\circ] \cup [-180^\circ, -157.5^\circ) \\
+      \text{'up-left'} & \theta \in [-157.5^\circ, -112.5^\circ) \\
+      \text{'up'} & \theta \in [-112.5^\circ, -67.5^\circ) \\
+      \text{'up-right'} & \theta \in [-67.5^\circ, -22.5^\circ)
+    \end{cases}$$
+    $$
+  - **位移死区防抖不变量 (Deadzone Invariant)**：
+    计算欧几里得拖拽位移 $distance = \sqrt{\Delta x^2 + \Delta y^2}$；当 $distance < threshold$（默认 15px）时，状态机判定为微小抖动或普通单击，绝不派发云台动作，彻底杜绝操作员在画面点击暂停或调节进度时引发物理摄像机误晃动；
+  - **全局松手自动刹车与资源解绑**：
+    按下鼠标后，事件监听自动挂载至宿主 `window`（保证鼠标快速滑出播放器也能平稳追踪）；一旦鼠标按键抬起（`mouseup`），状态机检测到此前若曾发生位移，立即派发 `action: 'stop'` 刹车指令，并从 `window` 彻底解绑监听，杜绝内存泄漏。
+
+---
+
+### 6.3 纯前端硬件加速电子放大与视口防脱框 (`useDigitalZoom`, 1.0x~5.0x 滚轮硬件缩放、平移拖拽与边界阻尼防脱框)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue';
+
+/**
+ * useDigitalZoom 电子放大配置选项。
+ */
+export interface DigitalZoomOptions {
+  initialScale?: number; // 初始倍率 (默认 1.0)
+  minScale?: number; // 最小允许倍率 (默认 1.0)
+  maxScale?: number; // 最大允许倍率 (默认 5.0)
+  step?: number; // 滚轮缩放步长增量 (默认 0.25)
+  containerRef?: MaybeRefOrGetter<HTMLElement | null>; // 视口容器节点引用 (用于精确边界计算)
+  onZoomChange?: (scale: number, offset: Coordinate2D) => void; // 缩放与偏移变化回调
+}
+
+/**
+ * useDigitalZoom 返回值门面契约。
+ */
+export interface UseDigitalZoomReturn {
+  scale: Ref<number>; // 当前放大倍率 (1.0 ~ 5.0)
+  offsetX: Ref<number>; // X 轴平移偏移量 (px)
+  offsetY: Ref<number>; // Y 轴平移偏移量 (px)
+  isDragging: Ref<boolean>; // 是否处于鼠标拖拽平移中
+  transformStyle: ComputedRef<Record<string, string>>; // 计算得出的 GPU 硬件加速样式对象
+  zoomIn(delta?: number): void; // 放大一步
+  zoomOut(delta?: number): void; // 缩小一步
+  resetZoom(): void; // 一键复位至 1.0x 原始视角
+  setZoom(scale: number, origin?: Coordinate2D): void; // 设置缩放倍率与焦点中心
+  setOffset(x: number, y: number): void; // 设置平移偏移
+  handleWheel(event: WheelEvent): void; // 滚轮缩放事件处理器
+  startDrag(event: MouseEvent): void; // 拖拽平移事件处理器
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/PtzDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, useDigitalZoom } from '@atengk/video-player-vue';
+
+const containerRef = ref<HTMLElement | null>(null);
+
+// 初始化纯前端 1.0x~5.0x 硬件加速电子放大状态机
+const zoom = useDigitalZoom({
+  minScale: 1.0,
+  maxScale: 5.0,
+  step: 0.25,
+  containerRef,
+});
+</script>
+
+<template>
+  <div
+    ref="containerRef"
+    class="zoom-viewport"
+    @mousedown="zoom.startDrag"
+    @wheel.prevent="zoom.handleWheel"
+    @dblclick="zoom.resetZoom"
+  >
+    <!-- 电子放大硬件加速渲染层：绑定 zoom.transformStyle -->
+    <div class="zoom-layer" :style="zoom.transformStyle.value">
+      <AtengVideoPlayer url="https://artplayer.org/assets/sample/video.mp4" :autoplay="false" />
+    </div>
+
+    <!-- 电子放大 HUD 悬浮指示栏 -->
+    <div class="zoom-hud">
+      <span
+        >当前倍率: <strong>{{ zoom.scale.value.toFixed(2) }}x</strong></span
+      >
+      <button
+        v-if="zoom.scale.value > 1.0"
+        type="button"
+        class="reset-btn"
+        @click.stop="zoom.resetZoom"
+      >
+        一键复位 (1.0x)
+      </button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.zoom-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #020617;
+  overflow: hidden;
+  user-select: none;
+  cursor: grab;
+}
+.zoom-viewport:active {
+  cursor: grabbing;
+}
+.zoom-layer {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  will-change: transform;
+}
+.zoom-hud {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reset-btn {
+  background: #0ea5e9;
+  border: none;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+</style>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **CSS 3D GPU 硬件加速渲染管道**：
+    `zoom.transformStyle` 输出格式为：
+    $$\text{transform} = \text{translate3d}(offsetX\text{px}, offsetY\text{px}, 0) \quad \text{scale}(scale)$$
+    配合 `will-change: transform`，整个画面的缩放与位移完全交付 GPU 合成器线程（Compositor Thread）处理，零 CPU 重排重绘开销，即使在 4K 超高清码流下放大平移，也能稳定维持 60 FPS 满帧丝滑交互；
+  - **视口防脱框与边界阻尼定理 (Viewport Clamping Invariant)**：
+    当画面放大至 $scale > 1.0$ 时，单侧允许平移的最大极限位移为：
+    $$maxOffsetX = \frac{(scale - 1) \times width}{2}, \quad maxOffsetY = \frac{(scale - 1) \times height}{2}$$
+    状态机在每次拖拽平移或焦点缩放时，强制对位移量进行闭区间阻尼截断：
+    $$offsetX = \text{clamp}(x, -maxOffsetX, maxOffsetX), \quad offsetY = \text{clamp}(y, -maxOffsetY, maxOffsetY)$$
+    在数学上彻底封死了将画面拖出可视区域出现黑屏露底的缺陷；当 $scale \le 1.0$ 时，偏移量瞬时复位为 $(0, 0)$；
+  - **焦点比例缩放 (Zoom-to-Focus)**：
+    滚轮滚动缩放时，状态机以鼠标所处的坐标为焦点计算动态偏移补偿，使用户关注的车辆号牌或人脸特征在放大过程中始终保持在视线焦点中心，双击画面则调用 `resetZoom()` 一键秒级还原 1.0x 初始视角。
 
 ---
 
