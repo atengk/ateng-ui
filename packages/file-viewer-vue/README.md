@@ -579,13 +579,701 @@ const customAuditToc: FileViewerDocumentAnchor[] = [
 
 ## 5. 四维 DLP 数据防泄密与反审查自愈水印
 
-> 待后续工单 #258 交付：包含四维 DLP 权限矩阵、反审查动态自愈水印等子小节的“三要素就近闭环”。
+企业级文件在线预览场景下，数字资产防泄漏（Data Loss Prevention, DLP）与水印溯源是不可逾越的合规底线。`@atengk/file-viewer-vue` 内置物理事件硬拦截引擎与具备 DOM 监听自愈能力的水印图层，构建全方位防泄密护栏。
+
+### 5.1 四维 DLP 权限控制矩阵与事件物理硬拦截 (`setupDlpProtection`)
+
+提供“禁下载”、“禁打印”、“禁复制”与“禁右键”四维正交权限开关，实施全局快捷键捕获、DOM 事件拦截与打印 CSS 白屏抑制。
+
+#### 1. 专属 TypeScript 契约与函数签名
+
+```ts
+export interface DlpOptions {
+  /** 是否允许下载 (为 false 时拦截 Ctrl+S / Cmd+S 并隐藏下载按钮) */
+  downloadable?: boolean;
+  /** 是否允许打印 (为 false 时拦截 Ctrl+P / Cmd+P 并注入打印白屏抑制类) */
+  printable?: boolean;
+  /** 是否允许复制 (为 false 时拦截 copy / cut / selectstart 并注入 user-select: none) */
+  copyable?: boolean;
+  /** 是否允许右键菜单 (为 false 时拦截 contextmenu) */
+  contextMenu?: boolean;
+}
+
+export interface DlpController {
+  /** 销毁所有全局与容器事件监听，安全还原样式类 */
+  destroy: () => void;
+  /** 手动通知 DLP 状态变更并重新同步类名 */
+  update: () => void;
+}
+
+/** 为指定容器装配四维 DLP 防泄密保护控制器 */
+export function setupDlpProtection(
+  container: HTMLElement,
+  getOptions: () => DlpOptions,
+): DlpController;
+```
+
+在组件层中，对应 `AtengFileViewer` 声明的四维 DLP Props 属性如下：
+
+```ts
+export interface AtengFileViewerProps {
+  /** 是否允许下载原文件 (默认 true，为 false 时拦截快捷键并隐藏按钮) */
+  downloadable?: boolean;
+  /** 是否允许打印文档 (默认 true，为 false 时拦截 Ctrl+P 并开启白屏抑制) */
+  printable?: boolean;
+  /** 是否允许选中与复制文本内容 (默认 true，为 false 时开启文字防选与剪贴板拦截) */
+  copyable?: boolean;
+  /** 是否允许鼠标右键上下文菜单 (默认 true，为 false 时拦截 contextmenu) */
+  contextMenu?: boolean;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`DlpSecurityScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/DlpSecurityScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer } from '@atengk/file-viewer-vue';
+
+// 四维 DLP 正交权限状态
+const downloadable = ref<boolean>(false);
+const printable = ref<boolean>(false);
+const copyable = ref<boolean>(false);
+const contextMenu = ref<boolean>(false);
+
+function triggerPrintTest(): void {
+  // 唤起浏览器打印，验证 @media print 打印白屏抑制效果
+  window.print();
+}
+</script>
+
+<template>
+  <div class="dlp-demo-container">
+    <div class="dlp-toolbar">
+      <span class="toolbar-label">🛡️ 四维 DLP 权限管控:</span>
+      <label class="dlp-checkbox">
+        <input v-model="downloadable" type="checkbox" />
+        <span>允许下载 (Ctrl+S)</span>
+      </label>
+      <label class="dlp-checkbox">
+        <input v-model="printable" type="checkbox" />
+        <span>允许打印 (Ctrl+P)</span>
+      </label>
+      <label class="dlp-checkbox">
+        <input v-model="copyable" type="checkbox" />
+        <span>允许复制文字 (Copy)</span>
+      </label>
+      <label class="dlp-checkbox">
+        <input v-model="contextMenu" type="checkbox" />
+        <span>允许右键菜单</span>
+      </label>
+      <button type="button" class="print-btn" @click="triggerPrintTest">
+        🖨️ 触发打印测试 (验证白屏抑制)
+      </button>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.pdf"
+        file-name="上市公司海外并购尽职调查报告.pdf"
+        file-type="pdf"
+        :downloadable="downloadable"
+        :printable="printable"
+        :copyable="copyable"
+        :context-menu="contextMenu"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.dlp-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 620px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dlp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.dlp-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.print-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **组合快捷键全局捕获防逃逸**：
+   - 监听在 `window` 捕获阶段（`capture: true`）的 `keydown` 事件；
+   - 当用户在容器内或处于悬浮焦点时按下 `Ctrl+S` / `Cmd+S`（保存）或 `Ctrl+P` / `Cmd+P`（打印），立即触发 `event.preventDefault()` 与 `event.stopPropagation()`，彻底绕过浏览器原生弹窗；
+2. **复制剪贴板与防选双防线**：
+   - 行为防线：在容器层级监听 `copy`、`cut` 与 `selectstart` 事件，当 `copyable: false` 时直接阻止默认行为并阻断冒泡；
+   - 视觉样式防线：动态追加 `.at-file-viewer--no-copy` 类名，施加 `user-select: none !important; -webkit-user-select: none !important;`，从根本上防止鼠标拖选文本；
+3. **物理级打印白屏抑制**：
+   - 当 `printable: false` 时，容器注入 `.at-file-viewer--no-print`；
+   - 底层 CSS 内置 `@media print { .at-file-viewer--no-print { display: none !important; } }`，即便绕过快捷键调用系统打印，预览纸张与打印产物亦呈现 100% 纯白屏，彻底消除拍照以外的泄露介质；
+4. **生命周期确定性清理**：组件卸载时，`DlpController.destroy()` 会自动且确定性地解绑全局 `keydown` 捕获监听器，彻底消除幽灵监听残留。
+
+---
+
+### 5.2 反审查自愈动态水印矩阵 (SVG 倾斜平铺与 MutationObserver 监视)
+
+针对截屏、录屏或拍照泄密场景，组件提供带水印矩阵生成与反 DevTools 篡改自愈能力，支持纯文本、警戒色及结构化参数定制。
+
+#### 1. 专属 TypeScript 契约与数据模型
+
+```ts
+export interface WatermarkOptions {
+  /** 是否启用水印 (默认 true) */
+  enabled?: boolean;
+  /** 水印文本内容 (支持如 '张三 10086 绝密尽职调查') */
+  text?: string;
+  /** 水印图片 URL (与 text 互斥，优先使用 image) */
+  image?: string;
+  /** 字体大小 (px，默认 16) */
+  fontSize?: number;
+  /** 字体颜色 (默认 'rgba(0, 0, 0, 0.15)') */
+  color?: string;
+  /** 旋转倾斜角度 (deg，默认 -22) */
+  rotate?: number;
+  /** 水印透明度 (0 ~ 1，默认 0.18) */
+  opacity?: number;
+  /** 水平间距网格单元宽度 (px，默认 260) */
+  gapX?: number;
+  /** 垂直间距网格单元高度 (px，默认 180) */
+  gapY?: number;
+  /** 水印图层 z-index (默认 9999) */
+  zIndex?: number;
+}
+
+/** 水印简写入参：支持纯文本字符串、详细结构化对象或 false 关闭 */
+export type FileViewerWatermark = string | WatermarkOptions | false;
+
+export interface WatermarkInstance {
+  /** 水印 DOM 节点引用 */
+  readonly element: HTMLElement;
+  /** 销毁水印并断开所有 MutationObserver 监视器 */
+  destroy: () => void;
+  /** 手动重新校验并强制恢复水印锁死样式 */
+  revalidate: () => void;
+}
+
+/** 在目标容器内挂载防篡改安全水印图层 */
+export function createWatermarkOverlay(
+  container: HTMLElement,
+  options: WatermarkOptions,
+): WatermarkInstance;
+
+/** 生成用于 background-image 的 data:image/svg+xml DataURL */
+export function buildWatermarkDataUrl(options: WatermarkOptions): string;
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`DlpSecurityScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/DlpSecurityScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { AtengFileViewer, type FileViewerWatermark } from '@atengk/file-viewer-vue';
+
+const watermarkType = ref<'text' | 'custom' | 'none'>('text');
+
+// 依据业务模式动态计算水印配置
+const watermarkConfig = computed<FileViewerWatermark>(() => {
+  if (watermarkType.value === 'none') return false;
+  if (watermarkType.value === 'text') return '张三 10086 绝密尽职调查';
+  // 高保真旋转警戒水印
+  return {
+    text: '研发合规专阅 2026-11-05',
+    color: '#e11d48',
+    fontSize: 18,
+    opacity: 0.25,
+    rotate: -30,
+  };
+});
+</script>
+
+<template>
+  <div class="watermark-demo-container">
+    <div class="watermark-toolbar">
+      <span class="toolbar-label">💧 安全防篡改水印:</span>
+      <select v-model="watermarkType" class="watermark-select">
+        <option value="none">关闭水印</option>
+        <option value="text">标准文本水印 (张三 10086)</option>
+        <option value="custom">高保真旋转警戒水印 (合规专阅)</option>
+      </select>
+      <span class="watermark-tip"
+        >💡 提示：打开 F12 审查元素尝试删除水印 DOM，将体验毫秒级自愈！</span
+      >
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.pdf"
+        file-name="上市公司海外并购尽职调查报告.pdf"
+        file-type="pdf"
+        :watermark="watermarkConfig"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.watermark-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 620px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.watermark-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.watermark-select {
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #334155;
+  outline: none;
+}
+
+.watermark-tip {
+  color: #64748b;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **纳秒级纯矢量 SVG 平铺计算**：
+   - 引擎根据 `gapX`、`gapY` 与 `rotate` 倾斜角度，纯前端生成轻量矢量 SVG 并通过 `encodeURIComponent` 转为 `data:image/svg+xml`，施加于全覆盖图层的 `background-image: url(...) repeat`；
+   - 字符在生成前经过严格 XML 实体转义（`&`、`<`、`>`、`"`、`'`），杜绝任何 XSS 注入可能；
+   - 样式锁死 `pointer-events: none !important;`，保证用户在具备水印覆盖的前提下仍能正常滚动、翻页与点击文档交互；
+2. **MutationObserver 双维防篡改自愈**：
+   - **节点移除防线 (`childList`)**：若内部运维或用户打开浏览器开发者工具 (F12) 尝试执行 `element.remove()` 或 `removeChild`，监视器在微任务周期捕获并在同一渲染帧重新挂载回容器；
+   - **属性篡改防线 (`attributes`)**：若用户尝试通过 Styles 面板将水印修改为 `display: none`、`opacity: 0`、`visibility: hidden` 或篡改 `z-index`，监视器立即比对锁死样式字符串，并在 1 毫秒内强制覆写恢复 `lockedStyle`；
+3. **销毁安全防护**：组件正常卸载时，内部设置 `isDestroyed = true` 熔断标志位，断开 `MutationObserver.disconnect()` 并安全移除节点，杜绝内存泄漏与死循环告警。
 
 ---
 
 ## 6. 三级弹性离线资产寻址与动态重型预设插拔
 
-> 待后续工单 #258 交付：包含 Local/Intranet/CDN 三级寻址、CAD/3D 动态重型预设等子小节的“三要素就近闭环”。
+由于现代复杂文档渲染内核高度依赖外部 Web Worker、WASM 二进制文件与离线字体（如 PDF.js、CAD 图纸解析器、Three.js 3D 渲染引擎等），`@atengk/file-viewer-vue` 架构设计确立了“静态资产三级弹性寻址”与“重型渲染器动态插拔机制”，兼顾主包超轻量体积与私有专网 100% 离线交付能力。
+
+### 6.1 三级弹性静态资产寻址机制 (Local / Intranet / CDN)
+
+针对内网隔离、跨域多环境部署诉求，提供“组件局部覆盖 ➔ 全局配置单例 ➔ 默认本地/CDN 兜底”三级优先级解析管道。
+
+#### 1. 专属 TypeScript 契约与函数签名
+
+```ts
+export interface FileViewerGlobalConfig {
+  /** 全局静态资产基地址 (例如 'https://intranet.corp.com/file-viewer/' 或 '/file-viewer/') */
+  assetBaseUrl?: string | URL | null;
+  /** 未指定私有化基地址时的默认回落模式 ('cdn' | 'local'，默认 'local') */
+  fallbackMode?: 'cdn' | 'local';
+}
+
+export interface ResolveAssetBaseUrlOptions {
+  /** 组件局部传入的基地址覆盖 (最高优先级) */
+  localOverride?: string | URL | null;
+  /** 兜底回退模式 ('cdn' | 'local') */
+  fallbackMode?: 'cdn' | 'local';
+}
+
+/** 本地 public 静态资源默认相对根路径: '/file-viewer/' */
+export const DEFAULT_LOCAL_ASSET_BASE_URL = '/file-viewer/';
+
+/** 官方公共 CDN 备用镜像基地址: 'https://cdn.jsdelivr.net/npm/@file-viewer/assets@3.2.2/dist/' */
+export const DEFAULT_PUBLIC_CDN_BASE_URL =
+  'https://cdn.jsdelivr.net/npm/@file-viewer/assets@3.2.2/dist/';
+
+/** 配置全局静态资产基地址与回落策略 */
+export function configureFileViewer(options: Partial<FileViewerGlobalConfig>): void;
+
+/** 获取当前全局配置快照 */
+export function getFileViewerConfig(): Readonly<FileViewerGlobalConfig>;
+
+/** 重置全局配置至初始默认状态 */
+export function resetFileViewerConfig(): void;
+
+/** 执行三级弹性静态资产基地址解析 */
+export function resolveThreeTierAssetBaseUrl(options?: ResolveAssetBaseUrlOptions): string;
+```
+
+在组件层中，可通过 `:asset-base-url` 属性实施单次预览的基地址覆盖：
+
+```ts
+export interface AtengFileViewerProps {
+  /** 静态资产基地址覆盖 (遵循三级弹性寻址优先级) */
+  assetBaseUrl?: string | URL | null;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`AssetStrategyScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/AssetStrategyScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import {
+  AtengFileViewer,
+  resolveThreeTierAssetBaseUrl,
+  configureFileViewer,
+} from '@atengk/file-viewer-vue';
+
+// 模拟三级寻址环境切换
+const assetStrategy = ref<'local' | 'intranet' | 'cdn'>('local');
+
+// 动态解析或注入的静态资产基地址
+const resolvedAssetBaseUrl = computed(() => {
+  if (assetStrategy.value === 'intranet') {
+    return 'http://192.168.10.88:9000/minio/file-viewer/';
+  }
+  if (assetStrategy.value === 'cdn') {
+    return resolveThreeTierAssetBaseUrl({ fallbackMode: 'cdn' });
+  }
+  // 本地同源完全离线模式 (默认 /file-viewer/)
+  return resolveThreeTierAssetBaseUrl({ fallbackMode: 'local' });
+});
+
+// 也可在应用入口 main.ts 中全局初始化一次：
+// configureFileViewer({
+//   assetBaseUrl: 'http://192.168.10.88:9000/minio/file-viewer/',
+//   fallbackMode: 'local',
+// });
+</script>
+
+<template>
+  <div class="asset-demo-container">
+    <div class="asset-toolbar">
+      <span class="toolbar-label">🌐 离线资产寻址策略:</span>
+      <select v-model="assetStrategy" class="strategy-select">
+        <option value="local">本地同源 (public/file-viewer/) [默认完全离线]</option>
+        <option value="intranet">内网私有化基地址 (MinIO/局域网专网)</option>
+        <option value="cdn">公共 CDN 高可用镜像 (JsDelivr 兜底)</option>
+      </select>
+      <code class="asset-url-badge">{{ resolvedAssetBaseUrl }}</code>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.svg"
+        file-name="智能制造总装工程图纸.svg"
+        file-type="svg"
+        :asset-base-url="resolvedAssetBaseUrl"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.asset-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.asset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.strategy-select {
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #334155;
+  outline: none;
+}
+
+.asset-url-badge {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **三级优先级仲裁机制**：
+   - 优先级 1（局部覆盖）：组件自身声明的 `:asset-base-url` 属性优先采纳；
+   - 优先级 2（全局单例）：若未声明局部属性，读取 `configureFileViewer` 注入的 `assetBaseUrl`；
+   - 优先级 3（兜底策略）：若前两者均未指定，依据 `fallbackMode` 决策：`'local'`（默认，返回 `/file-viewer/` 同源相对路径）或 `'cdn'`（返回官方高可用 jsDelivr CDN 镜像）；
+2. **自动路径正规化**：解析算法内部自动将传入的路径尾部补齐斜杠 `/`（例如将 `https://corp.com/assets` 纠正为 `https://corp.com/assets/`），杜绝因尾部斜杠遗漏拼接出的非法 URL；
+3. **离线生产环境部署 SOP**：针对政企涉密隔离网络，只需将 `@file-viewer/assets` 产物放置于生产宿主 Web 服务器的 `public/file-viewer/` 目录或内网 MinIO 对象存储，并将 `fallbackMode: 'local'` 锁定，即可实现 100% 纯物理离线渲染，无需向外网发起任何请求。
+
+---
+
+### 6.2 动态重型渲染预设插拔 (CAD / 3D 模型解耦挂载)
+
+为避免工程图纸（CAD DWG/DXF）、3D 模型（Three.js GLTF/OBJ）等高复杂度内核导致主应用首屏体积膨胀数十兆，架构采用插件化预设解耦模型，提供全局注册与局部组件按需装配两种插拔通道。
+
+#### 1. 专属 TypeScript 契约与预设接口
+
+```ts
+export interface FileViewerPresetRendererDefinition {
+  id: string;
+  extensions?: string[];
+  category?: string;
+}
+
+export interface FileViewerPresetRenderer {
+  id: string;
+  definitions?: FileViewerPresetRendererDefinition[];
+  [key: string]: unknown;
+}
+
+export interface FileViewerPreset {
+  /** 预设唯一标识 (例如 'preset-cad', 'preset-3d') */
+  id: string;
+  /** 预设可读名称 */
+  label?: string;
+  /** 包含的具体渲染器插件列表 */
+  renderers?: FileViewerPresetRenderer[] | unknown[];
+  /** 预设携带的默认高级配置项 */
+  options?: Record<string, unknown>;
+}
+
+/** 全局动态注册重型扩展预设 (若 id 重复则幂等替换) */
+export function registerPreset(preset: FileViewerPreset): void;
+
+/** 动态注销指定预设 */
+export function unregisterPreset(presetId: string): void;
+
+/** 获取当前全局已注册的所有预设列表副本 (空安全保底返回 []) */
+export function getRegisteredPresets(): FileViewerPreset[];
+
+/** 清空全局已注册的预设注册表 */
+export function clearPresets(): void;
+
+/** 安全合并全局已注册预设与组件局部传入的 :preset 属性并依 id 去重 */
+export function resolvePresets(
+  localPreset?: FileViewerPreset | FileViewerPreset[],
+): FileViewerPreset[];
+```
+
+在组件层中，可通过 `:preset` 属性挂载局部预设：
+
+```ts
+export interface AtengFileViewerProps {
+  /** 动态重载扩展预设 (支持单个预设对象或预设数组) */
+  preset?: FileViewerPreset | FileViewerPreset[];
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`AssetStrategyScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/AssetStrategyScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { AtengFileViewer, registerPreset, type FileViewerPreset } from '@atengk/file-viewer-vue';
+
+const enableCadPreset = ref<boolean>(true);
+const enableModelPreset = ref<boolean>(false);
+
+// 依据用户勾选，动态组装重型扩展渲染器预设
+const dynamicPresets = computed<FileViewerPreset[]>(() => {
+  const list: FileViewerPreset[] = [];
+  if (enableCadPreset.value) {
+    list.push({
+      id: 'preset-cad',
+      label: 'CAD 工程图纸预设 (DWG/DXF)',
+      options: { enableLayers: true, defaultColorTheme: 'dark' },
+    });
+  }
+  if (enableModelPreset.value) {
+    list.push({
+      id: 'preset-3d',
+      label: 'Three.js 3D 模型预设 (GLTF/OBJ)',
+      options: { autoRotate: false, backgroundAlpha: 0.8 },
+    });
+  }
+  return list;
+});
+
+// 若业务需要全局注册，可在模块初始化阶段调用：
+// registerPreset({ id: 'preset-cad', label: '企业 CAD 扩展套件' });
+</script>
+
+<template>
+  <div class="preset-demo-container">
+    <div class="preset-toolbar">
+      <span class="toolbar-label">🧩 重型预设插拔:</span>
+      <label class="preset-checkbox">
+        <input v-model="enableCadPreset" type="checkbox" />
+        <span>CAD 工程图纸预设 (DWG/DXF)</span>
+      </label>
+      <label class="preset-checkbox">
+        <input v-model="enableModelPreset" type="checkbox" />
+        <span>Three.js 3D 模型预设 (GLTF/OBJ)</span>
+      </label>
+      <span class="preset-summary">
+        当前装配：{{ dynamicPresets.map(p => p.label).join('、') || '仅高频默认预设 (Office/PDF)' }}
+      </span>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.svg"
+        file-name="智能制造总装工程图纸.svg"
+        file-type="svg"
+        :preset="dynamicPresets"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.preset-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.preset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.preset-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.preset-summary {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **主包物理隔离与按需打包**：
+   - 主包 `@atengk/file-viewer-vue` 默认仅内置日常高频办公文档（PDF、Word、Excel、PPT、Markdown、纯文本与图片）的轻量接入适配器；
+   - 依赖 WebGL、Three.js、CAD 二进制 C++ 编译 WASM 等十兆级重型渲染器，作为独立预设模块由业务按需导入，避免对普通后台管理系统造成无谓的体积负担；
+2. **全局注册与局部合并去重 (`resolvePresets`)**：
+   - 引擎在挂载渲染器前，自动调用 `resolvePresets(props.preset)`；
+   - 将 `getRegisteredPresets()` 全局表与组件 `:preset` 传入项按 `preset.id` 深度合并；若存在相同 `id`，组件局部配置优先级高于全局配置；
+3. **空安全保底与防御性初始化**：
+   - 若调用方传入 `null`、`undefined` 或空数组，`resolvePresets` 确定性返回当前生效的预设列表或空数组 `[]`，严禁抛错或导致渲染管道中断。
 
 ---
 
