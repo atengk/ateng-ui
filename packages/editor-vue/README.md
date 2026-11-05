@@ -1,12 +1,10 @@
-# @atengk/editor-vue
+# @atengk/editor-vue 现代富文本与内容创作扩展套件
 
-面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作响应式扩展基础设施。
-
-遵循四层洋葱拓扑之 **L2 专用能力/领域扩展层** 规范，保持纯 Vue 3 驱动与零外部 UI 框架强依赖，提供四大场景预设（Simple, Notion-like, DOCX, Agent）、全中文微工具栏、表格人体工学、媒体资产直传拦截、选区气泡浮层、块级斜杠命令面板、字数硬限制、脱壳全屏自愈与纯前端 OpenXML Word 导出。
+> 面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作响应式扩展基础设施，归属于系统四层洋葱拓扑之 **L2 专用能力/领域扩展层**。遵循“纯 Vue 3 驱动、强类型契约、零具体 UI 依赖、确定性生命周期治理”设计，提供统一多态主门面、四大生产场景预设（Simple, Notion-like, DOCX, Agent）、全中文自适应微工具栏、表格人体工学、媒体资产直传拦截、选区气泡浮层、块级斜杠命令面板、字数硬限制、0x0 视口几何自愈、脱壳全屏穿透与纯前端 OpenXML Word 二进制安全导出。
 
 ---
 
-## 维度零：特性与公共 API 全景速查矩阵
+## 0. 特性与公共 API 全景速查矩阵
 
 | 特性分类       | 特性名称              | 核心门面 / 组件 / Hook                     | 关键参数 / Props / Emits                                                                  | 核心行为说明                                                                                                       | 锚定验证源头 (*Test / Sample)                                                                                                                                     |
 | :------------- | :-------------------- | :----------------------------------------- | :---------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,21 +51,157 @@
 
 ---
 
-## 维度一：最小起步体验 (Happy Path)
+## 1. 模块定位与 pnpm 坐标
 
-### 1. 安装依赖
+`@atengk/editor-vue` 归属于 `ateng-ui` 基础设施套件的 **L2 专用能力/领域扩展层 (Extension Layer)**，专注于企业级现代富文本与内容创作响应式扩展。
+
+- **npm 坐标**：`@atengk/editor-vue`
+- **源码工程**：`packages/editor-vue`
+- **自验展厅**：`apps/sample-editor-vue`（端口 `3009`）
+- **依赖方向**：严格遵循四层洋葱拓扑单向无环依赖律，仅合法依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层标准核心库（`@tiptap/*`、`docx`、`lowlight`），**绝对严禁逆向依赖 L3 `@atengk/element-plus`**，保持 100% UI 表现解耦；
+- **微操作栏与具名插槽反转契约**：
+  - 内部以 `.at-editor-*` 独立命名空间提供轻量自适应微工具栏（`AtengSimpleToolbar` / `AtengEditorToolbar`）与全套上下文气泡浮层（选区、表格、图片、超链接）；
+  - 对外 100% 暴露具名插槽（`#toolbar`、`#bubble-menu`、`#table-menu`、`#drag-handle`、`#statusbar`），上层业务系统可无缝使用 Element Plus 控件或私有设计系统完全接管与反转定制；
+- **镜像演进**：顶层架构规范解耦，预留未来 React 镜像包 `@atengk/editor-react`。
+
+### 安装依赖
 
 ```bash
-pnpm add @atengk/editor-vue vue
+pnpm add @atengk/editor-vue @atengk/core @atengk/vue vue
 ```
 
-### 2. 引入基础样式
+### 引入基础样式
 
-在业务工程入口（如 `main.ts`）或组件中引入基础样式体系：
+在项目入口文件（如 `main.ts`）或组件中引入样式：
 
 ```ts
 import '@atengk/editor-vue/style.css';
 ```
+
+### Peer Dependencies 契约基线
+
+| 依赖包         | 兼容版本基线  | 推荐生产版本  | 作用域说明                                     |
+| :------------- | :------------ | :------------ | :--------------------------------------------- |
+| `vue`          | `>=3.5.0`     | `^3.5.44`     | Vue 原生响应式解构与泛型 SFC 核心驱动          |
+| `@atengk/core` | `workspace:*` | `workspace:*` | 统一强类型契约、Axios 管道与平台中立底层工具库 |
+| `@atengk/vue`  | `workspace:*` | `workspace:*` | 纯无头响应式状态机与通用 Composables 基础设施  |
+| `Node.js`      | `>=20.18.0`   | `22.x LTS`    | 工程构建与运行环境基线                         |
+
+---
+
+## 2. 核心架构与设计不变量
+
+### 2.1 四层洋葱拓扑定级图
+
+```mermaid
+flowchart TD
+    subgraph L3["L3 表现与高阶组件层 (UI & Suite Layer)"]
+        EP["@atengk/element-plus<br/>(Element Plus 增强组件)"]
+        ADMIN["业务中后台系统 / CMS 发布中心"]
+    end
+
+    subgraph L2["L2 专用能力/领域扩展层 (Extension Layer)"]
+        EDIT["@atengk/editor-vue<br/>(TipTap 现代富文本与内容创作扩展)"]
+    end
+
+    subgraph L1["L1 无头响应式层 (Headless Layer)"]
+        VUE["@atengk/vue<br/>(Vue 3 通用无头 Composables)"]
+    end
+
+    subgraph L0["L0 纯原生核心底座 (Core Layer)"]
+        CORE["@atengk/core<br/>(统一强类型契约 / 平台中立工具)"]
+    end
+
+    EP -->|合法单向依赖| EDIT
+    ADMIN -->|合法单向依赖| EDIT
+    EDIT -->|合法单向依赖| VUE
+    EDIT -->|合法单向依赖| CORE
+    VUE -->|合法单向依赖| CORE
+```
+
+### 2.2 TipTap 事务流转与多轨双向同步模型
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SFC as 业务视图 (Vue SFC)
+    participant Poly as AtengEditor 多态主门面
+    participant Preset as 四大场景独立预设
+    participant Hook as useEditor 无头状态机
+    participant Engine as ProseMirror / TipTap Engine
+
+    SFC->>Poly: v-model="content" (HTML / Markdown / JSON)
+    Poly->>Preset: 根据 mode 动态分发至独立预设
+    Preset->>Hook: shallowRef 实例托管 (绝不深度代理)
+    alt 外部数据响应式变更 (External Prop Update)
+        Hook->>Hook: isContentEqual(a, b) 内容等价比对
+        alt 内容真实改变且非自循环反弹
+            Hook->>Engine: applyContentPreservingSelection (单步原子事务)
+            Note over Hook,Engine: 保全选区光标位置与撤销历史栈 (Undo Stack)
+        end
+    else 内部用户键盘输入 (Internal Input)
+        Engine->>Engine: Transaction 增量派发
+        Engine-->>Hook: onUpdate 事务钩子派发
+        Hook-->>Preset: 触发 update:modelValue / change / export 等事件
+        Preset-->>SFC: 响应式回写业务数据模型
+    end
+```
+
+### 2.3 0x0 视口几何自愈与脱壳全屏状态机
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unmounted: 组件实例化
+    Unmounted --> Mounted: onMounted 挂载 DOM
+    Mounted --> InspectSize: 尺寸探测 (ResizeObserver)
+
+    state InspectSize {
+        [*] --> CheckZero: 检查 clientWidth / clientHeight
+        CheckZero --> ZeroSuspended: 宽高为 0x0 (隐藏 Tab / 未激活弹窗)
+        ZeroSuspended --> Healed: 视口恢复正向尺寸 (> 0x0)
+        Healed --> NormalLayout: 派发 forceLayout / 刷新列宽
+        CheckZero --> NormalLayout: 宽高正常 (> 0x0)
+    }
+
+    NormalLayout --> InDialog: 处于模态弹窗内部
+    InDialog --> TeleportFull: 触发全屏 (提升至 document.body)
+    TeleportFull --> InDialog: 按 Esc 键平滑自愈复位原父级
+```
+
+### 2.4 8 项工业级硬核设计不变量
+
+立足于企业级富文本长期稳定性与高并发内容创作场景，`@atengk/editor-vue` 恪守以下 8 道不可逾越的工业级设计不变量：
+
+1. **零深层代理防线 (Zero Deep-Proxy Invariant)**：
+   - TipTap 与 ProseMirror 拥有极其复杂的文档树结构（`Doc/Node`）与事务调度系统。严禁将底层 Editor 实例传递给 Vue 的深度响应式 `ref()` 或 `reactive()`；
+   - 内部统一采用 `shallowRef()` 与 `markRaw()` 进行实例托管，彻底阻断 Vue 递归依赖收集与 Proxy 属性劫持，杜绝大长文打字掉帧、光标卡顿与内存泄漏。
+2. **多轨事务同步与光标防丢不变量 (Multi-Track Transaction Sync & Selection Preservation Invariant)**：
+   - 编辑器支持 `v-model`（HTML）、`v-model:markdown` 与 `v-model:json` 多轨数据双向绑定；
+   - 外部响应式数据下发时，前置执行 `isContentEqual` 智能比对（规整空段落与换行差异），若内容等价则直接阻断更新，消除“父组件回传 ➔ 编辑器重绘 ➔ 光标跳回文档首行”的死循环恶疾；
+   - 真实需要更新时，统一采用 `applyContentPreservingSelection` 驱动 ProseMirror Transaction 增量替换，保全当前光标选区与完整的 Undo/Redo 历史栈。
+3. **maxLength 纯文本底层事务硬拦截不变量 (Transaction Hard Limit Invariant)**：
+   - 字数统计严格过滤 HTML 标签与结构节点，仅基于真实纯文本字符计算 `characters()`；
+   - 达到 `maxLength` 设定阈值时，TipTap 底层事务拦截器将**在物理事件层面彻底丢弃后续物理按键输入与大段剪贴板粘贴**，从源头杜绝脏数据穿透；
+   - 吸底状态栏 `<AtengStatusBar />` 实时变更为高危警告红字样式（`.is-limit-reached`）。
+4. **撤销历史栈零污染不变量 (Zero Undo Stack Corruption Invariant)**：
+   - AI 流式生成过程中，基于 ProseMirror 独立的 Decorations 渲染闪烁竖线光标与呼吸高亮光晕，不将每秒几十次的中间吐字过程频繁写入真实文档树，杜绝撤销历史栈被碎片字符冲垮；
+   - 在 `<AiDiffCard />` 确认采纳替换、追加或外部数据同步时，统一执行单步原子事务（Transaction）写入，支持用户通过 `Ctrl + Z` 一键撤销整个生成结果。
+5. **0x0 视口几何自愈不变量 (0x0 Viewport Geometric Self-Healing Invariant)**：
+   - 当编辑器置于隐藏 `<el-tab-pane>`、折叠手风琴面板或初次未打开的 `<el-dialog>` 时，容器尺寸呈现 `0x0` 像素；
+   - 内置 `ResizeObserver` 弹性感知尺寸从 0 到正常宽高的跃迁，毫秒级自动派发排版自愈事务，消除表格列宽坍塌与光标计算错位。
+6. **脱壳全屏突破层级不变量 (Teleport Fullscreen Boundary Invariant)**：
+   - 模态弹窗往往附带 CSS `transform` 或缩放动画，导致子元素的 `position: fixed` 被局部包含块劫持裁剪，无法真正铺满屏幕；
+   - 本套件采用动态脱壳机制（`TeleportFullscreen`），进入全屏时将真实 DOM 提升至 `document.body` 顶层（`z-index: 3000`），退出全屏或按 `Esc` 键平滑自愈复位回原父节点。
+7. **暗黑模式 0ms 热跟随不变量 (MutationObserver Hot Follow Boundary Invariant)**：
+   - 内置 `MutationObserver` 监听宿主 `document.documentElement` 的 `dark` 类名变更；
+   - 设计令牌完全映射 Element Plus 原生 CSS 变量（`--el-*`），主题切换时 0ms 零闪烁无损响应，零页面刷新、零编辑器重建。
+8. **纯前端 OpenXML 导出与内存确定性回收不变量 (Pure Frontend OpenXML & Memory Revocation Invariant)**：
+   - 纯前端解析 ProseMirror JSON 树并生成标准 Word (`.docx`) 二进制 Blob，支持段落、标题、表格、页边距与交互式页眉页脚；
+   - 触发客户端下载后，通过定时器确定性调用 `URL.revokeObjectURL(url)` 回收临时内存句柄，彻底杜绝大文件重复导出造成的内存泄漏。
+
+---
+
+## 维度一：最小起步体验 (Happy Path)
 
 ### 3. 多态门面与高阶场景预设秒级分发
 
