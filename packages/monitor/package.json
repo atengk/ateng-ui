@@ -1,6 +1,6 @@
 {
   "name": "@atengk/monitor",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "面向现代 Web 应用与企业级系统的高可用纯 TypeScript 全链路可观测性与异常监控基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,6 +1,6 @@
 {
   "name": "@atengk/flow-vue",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "面向现代 Web 应用与企业级审批流、状态机的工业级流程设计与流转可视化扩展套件",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,6 +1,6 @@
 {
   "name": "@atengk/code-editor-vue",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "面向现代 Web 应用、SQL 审计与配置发布中心的工业级 Monaco Editor 代码编辑与高保真 Diff 差异比对响应式扩展基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

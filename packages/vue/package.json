@@ -1,6 +1,6 @@
 {
   "name": "@atengk/vue",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "面向现代 Web 应用的 Vue 3 响应式通用 Composables/Hooks 基础设施",
   "type": "module",
   "main": "./dist/index.cjs",
