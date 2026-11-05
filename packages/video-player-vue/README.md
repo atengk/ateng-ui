@@ -171,13 +171,556 @@ sequenceDiagram
 
 ## 3. 单路富媒体点播与深水区交互套件
 
-_(待工单 #271 系统交付：3.1 基础容器、3.2 播放状态机、3.3 精准 Seek/逐帧、3.4 时间轴打点、3.5 缩略图预览、3.6 本地历史续播)_
+### 3.1 开箱即用富媒体点播容器 (`<AtengVideoPlayer />`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type {
+  AtengVideoPlayerInstance,
+  VideoPlayerProps,
+  VideoQualityItem,
+} from '@atengk/video-player-vue';
+
+/**
+ * 视频画质与清晰度选项契约。
+ */
+export interface VideoQualityItem {
+  html: string; // 清晰度展示文案 (如 '1080P 高清')
+  url: string; // 对应画质的播放直链
+  default?: boolean; // 是否作为默认画质
+}
+
+/**
+ * 点播核心 Props 片段。
+ */
+export interface VideoPlayerProps {
+  url: string; // 媒体播放地址 (MP4 / WebM / HLS / FLV)
+  poster?: string; // 视频封面海报图
+  title?: string; // 视频标题
+  autoplay?: boolean; // 是否自动播放 (默认 false)
+  playbackRates?: number[]; // 倍速档位列表 (默认 [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+  quality?: VideoQualityItem[]; // 多清晰度切换清单
+  screenshot?: boolean; // 是否显示截图抓拍按钮 (默认 true)
+  theme?: string; // 主题高亮主色调 (默认 '#409EFF')
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/VodDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoPlayer,
+  type AtengVideoPlayerInstance,
+  type IVideoPlayerEngine,
+  type VideoQualityItem,
+} from '@atengk/video-player-vue';
+import '@atengk/video-player-vue/style.css';
+
+const playerRef = ref<AtengVideoPlayerInstance | null>(null);
+const currentUrl = ref('https://artplayer.org/assets/sample/video.mp4');
+const posterUrl = ref('https://artplayer.org/assets/sample/poster.jpg');
+const isPlaying = ref(false);
+const duration = ref(0);
+
+// 清晰度画质切换清单
+const qualityList: VideoQualityItem[] = [
+  { default: true, html: '1080P 超清', url: 'https://artplayer.org/assets/sample/video.mp4' },
+  { html: '720P 高清', url: 'https://artplayer.org/assets/sample/video.mp4' },
+  { html: '360P 标清', url: 'https://artplayer.org/assets/sample/video.mp4' },
+];
+
+const onReady = (engine: IVideoPlayerEngine) => {
+  duration.value = engine.duration;
+};
+
+// 截图导出预览
+const handleCapture = async () => {
+  const base64 = await playerRef.value?.screenshot();
+  console.log('抓拍导出 Base64 图片长度:', base64?.length);
+};
+</script>
+
+<template>
+  <div style="width: 100%; max-width: 960px; aspect-ratio: 16 / 9;">
+    <AtengVideoPlayer
+      ref="playerRef"
+      :url="currentUrl"
+      :poster="posterUrl"
+      title="企业级富媒体高清点播"
+      :quality="qualityList"
+      :playback-rates="[0.5, 0.75, 1.0, 1.25, 1.5, 2.0]"
+      :screenshot="true"
+      @ready="onReady"
+      @play="isPlaying = true"
+      @pause="isPlaying = false"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **纯原生 UI 解耦**：播放器控件栏基于纯 CSS3 与内联 SVG 图元构建，根节点通过 `.at-video-player` 样式隔离并继承 `--at-video-player-bg` 变量，坚决杜绝依赖 Element Plus 等具体表现库；
+  - **清晰度无损平滑切换**：切换清晰度时，组件在底层记录当前播放时间戳 `currentTime` 与播放速率，无缝切换 `<video>` 源并自动无缓冲断点接播，无需重新初始化销毁整个解码器；
+  - **CORS 跨域截图安全通道**：视频截图抓拍利用离屏 `<canvas>` 提取视频当前帧，要求媒体源配置标准 CORS 头，内部已对跨域 `crossOrigin: 'anonymous'` 实施安全注入，有效防范 Canvas 污染异常。
+
+---
+
+### 3.2 纯无头播放状态机编排 (`useVideoPlayer`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { ComputedRef, MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
+import type { IVideoPlayerEngine, VideoPlayerOptions } from '@atengk/video-player-vue';
+
+export interface UseVideoPlayerOptions extends VideoPlayerOptions {
+  container?: MaybeRefOrGetter<HTMLElement | null | undefined>; // 挂载 DOM 容器
+}
+
+export interface UseVideoPlayerReturn {
+  engine: ShallowRef<IVideoPlayerEngine | null>; // 底层播放驱动抽象句柄
+  playing: Ref<boolean>; // 响应式播放状态
+  currentTime: Ref<number>; // 响应式播放秒数
+  duration: Ref<number>; // 媒体总时长
+  volume: Ref<number>; // 响应式音量 (0.0 ~ 1.0)
+  muted: Ref<boolean>; // 是否静音
+  buffered: Ref<number>; // 缓冲百分比 (0.0 ~ 1.0)
+  play(): Promise<void>; // 播放控制
+  pause(): void; // 暂停控制
+  toggle(): void; // 播放/暂停切换
+  seek(time: number): void; // 时间跳转
+  destroy(): void; // 销毁回收
+}
+```
+
+- **面向实战的业务 TS/Vue 代码示例**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useVideoPlayer } from '@atengk/video-player-vue';
+
+const containerRef = ref<HTMLDivElement | null>(null);
+
+// 声明纯无头播放状态机
+const player = useVideoPlayer({
+  container: containerRef,
+  url: 'https://artplayer.org/assets/sample/video.mp4',
+  autoplay: false,
+  volume: 0.8,
+});
+</script>
+
+<template>
+  <div>
+    <!-- 纯无头渲染视口 (完全摆脱默认控制栏，自定义操作面板) -->
+    <div ref="containerRef" style="width: 640px; height: 360px;" />
+
+    <div class="custom-controls" style="margin-top: 10px; display: flex; gap: 10px;">
+      <button @click="player.toggle()">
+        {{ player.playing.value ? '⏸️ 暂停' : '▶️ 播放' }}
+      </button>
+      <span
+        >{{ Math.floor(player.currentTime.value) }}s /
+        {{ Math.floor(player.duration.value) }}s</span
+      >
+      <button @click="player.seek(player.currentTime.value + 10)">⏩ 快进 10s</button>
+    </div>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **响应式单向流与只读保护**：`useVideoPlayer` 导出的所有响应式状态均为只读属性或受控状态，所有状态更新严格由底层的播放事件管道单向驱动，严禁外部代码就地突变；
+  - **`onScopeDispose` 确定性自动清理**：遵循工业级第二道防线，当宿主组件或作用域注销时，Hook 自动执行引擎销毁、清理解封装器、解除事件监听并释放 DOM，杜绝离线定时器与显存悬挂。
+
+---
+
+### 3.3 精准 Seek 与逐帧微调 (`step()`, `stepFrame()`, 热键与 `formatVideoTime`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { AtengVideoPlayerInstance } from '@atengk/video-player-vue';
+
+/**
+ * 格式化时间戳为规范的 mm:ss 或 hh:mm:ss 字符串。
+ * 具备负数与非有限数防御性保底（返回 '00:00'）。
+ */
+export function formatVideoTime(seconds: number): string;
+
+// AtengVideoPlayer 实例导出的步进方法契约：
+// playerRef.value?.step(seconds: number): void;
+// playerRef.value?.stepFrame(frames?: number, fps?: number): void;
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DeepVodDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoPlayer,
+  formatVideoTime,
+  type AtengVideoPlayerInstance,
+} from '@atengk/video-player-vue';
+
+const playerRef = ref<AtengVideoPlayerInstance | null>(null);
+
+// 步进微调操作 (+5s 快进, -5s 快退)
+const handleStep = (seconds: number) => {
+  playerRef.value?.step(seconds);
+};
+
+// 逐帧精确微调 (+1 帧, -1 帧，按 30 帧/秒计算)
+const handleStepFrame = (frames: number) => {
+  playerRef.value?.stepFrame(frames, 30);
+};
+</script>
+
+<template>
+  <div>
+    <AtengVideoPlayer
+      ref="playerRef"
+      url="https://artplayer.org/assets/sample/video.mp4"
+      :hotkey="true"
+    />
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <button @click="handleStep(-5)">⏪ 快退 5s</button>
+      <button @click="handleStepFrame(-1)">⏮️ 上一帧 ([,])</button>
+      <button @click="handleStepFrame(1)">⏭️ 下一帧 ([,])</button>
+      <button @click="handleStep(5)">⏩ 快进 5s</button>
+    </div>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **全局热键输入防穿透机制**：播放器内置全局键盘监听（空格暂停、方向键快进音量、F 全屏、M 静音、`[`/`]` 逐帧步进），内部前置判断事件来源，当 `e.target` 为 `INPUT`、`TEXTAREA` 或包含 `isContentEditable` 时立即短路放行，绝不干扰业务表单输入；
+  - **逐帧时间步进数学算法**：`stepFrame` 基于估算或指定帧率（默认 30fps）推导时间片元 $\Delta t = frames / fps$，并配合 $\min(duration, \max(0, currentTime + \Delta t))$ 施加严格边界约束，彻底防止跳转时间溢出范围。
+
+---
+
+### 3.4 时间轴关键帧打点与悬停跳帧 (`VideoMarkerItem`, `@marker-click`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 时间轴事件打点与关键帧标注项契约。
+ */
+export interface VideoMarkerItem {
+  time: number; // 打点所处的媒体时间戳 (秒)
+  text: string; // 悬浮提示文本或事件描述
+  color?: string; // 打点圆珠颜色 (支持 Hex / CSS 变量)
+}
+
+// 事件契约：
+// @marker-click="marker => void"
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DeepVodDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, type VideoMarkerItem } from '@atengk/video-player-vue';
+
+// 注入业务关键打点标记 (如比赛高光、课堂重点、事故时间点)
+const markers: VideoMarkerItem[] = [
+  { time: 5, text: '开篇片段', color: '#38bdf8' },
+  { time: 15, text: '精彩进球高光', color: '#f59e0b' },
+  { time: 30, text: '战术复盘关键帧', color: '#10b981' },
+  { time: 50, text: '终场采访花絮', color: '#ec4899' },
+];
+
+const onMarkerClick = (marker: VideoMarkerItem) => {
+  console.log('点击打点，快速定位:', marker.text, '秒数:', marker.time);
+};
+</script>
+
+<template>
+  <AtengVideoPlayer
+    url="https://artplayer.org/assets/sample/video.mp4"
+    :markers="markers"
+    @marker-click="onMarkerClick"
+  />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **自适应百分比定位算法**：打点圆珠基于时间比例 $left = (time / duration) \times 100\%$ 在进度条绝对定位，支持动态载入或异步替换打点列表；
+  - **边缘防溢出气泡**：鼠标悬停打点圆珠时，悬浮气泡卡片自适应根据打点所处的百分比调整偏移，靠近左侧边缘（$<10\%$）或右侧边缘（$>90\%$）时自动平移微调，彻底规避文字脱出视口被截断。
+
+---
+
+### 3.5 进度条 Hover 缩略图预览 (`VideoThumbnailOptions`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 进度条缩略图悬浮卡片配置契约 (雪碧图切片或 WebVTT 格式)。
+ */
+export interface VideoThumbnailOptions {
+  url: string; // 缩略图资源地址 (雪碧图 URL 或 VTT 地址)
+  number?: number; // 雪碧图切片总图片数量 (默认 60 或 100)
+  column?: number; // 雪碧图每行切片列数 (默认 10)
+  width?: number; // 缩略图单帧宽度 (默认 160)
+  height?: number; // 缩略图单帧高度 (默认 90)
+  scale?: number; // 缩放倍数 (默认 1)
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DeepVodDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { AtengVideoPlayer, type VideoThumbnailOptions } from '@atengk/video-player-vue';
+
+// 雪碧图切片配置 (单张大图打包 60 帧画面，每行 10 列)
+const thumbnailConfig: VideoThumbnailOptions = {
+  url: 'https://artplayer.org/assets/sample/thumbnails.png',
+  number: 60,
+  column: 10,
+  width: 160,
+  height: 90,
+  scale: 1,
+};
+</script>
+
+<template>
+  <AtengVideoPlayer
+    url="https://artplayer.org/assets/sample/video.mp4"
+    :thumbnails="thumbnailConfig"
+  />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **CSS Sprite 背景偏移推导算法**：用户在进度条移动鼠标时，根据时间百分比推导切片索引 $index = \lfloor (hoverTime / duration) \times number \rfloor$；进而精确计算背景偏移：
+    $$row = \lfloor index / column \rfloor, \quad col = index \pmod{column}$$
+    $$backgroundPosition = -(col \times width)\text{px} \quad -(row \times height)\text{px}$$
+  - **网络往返节约与零闪烁**：相比分散加载几十张小图，单张雪碧图仅消耗 1 次 HTTP 请求并享受浏览器 HTTP 缓存，彻底杜绝悬停时因图片加载延迟带来的空白闪烁。
+
+---
+
+### 3.6 本地播放历史记忆与智能续播 (`useVideoPlaybackHistory`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 记忆续播配置契约。
+ */
+export interface VideoPlaybackHistoryOptions {
+  enabled?: boolean; // 是否开启记忆续播 (默认 false)
+  storageKey?: string; // 本地存储自定义 Key (默认自动按 URL 派生)
+  minTime?: number; // 最小记录阈值秒数 (少于 5s 不记录)
+  maxTimeThreshold?: number; // 临近结束阈值秒数 (剩余少于 5s 不恢复)
+  autoPlay?: boolean; // 恢复后是否自动开始播放 (默认 false)
+  showPrompt?: boolean; // 是否弹出浮动提示卡片 (默认 true)
+  promptDuration?: number; // 浮动提示展示时长 (默认 3000ms)
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DeepVodDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoPlayer,
+  formatVideoTime,
+  type AtengVideoPlayerInstance,
+} from '@atengk/video-player-vue';
+
+const playerRef = ref<AtengVideoPlayerInstance | null>(null);
+
+const onResume = (time: number) => {
+  console.log(`✨ 成功从上次记忆位置恢复播放: ${formatVideoTime(time)}`);
+};
+
+// 手动清空当前视频记忆历史
+const clearHistory = () => {
+  playerRef.value?.clearPlaybackHistory();
+};
+</script>
+
+<template>
+  <AtengVideoPlayer
+    ref="playerRef"
+    url="https://artplayer.org/assets/sample/video.mp4"
+    :auto-resume="true"
+    :auto-play-resume="false"
+    @resume="onResume"
+  />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **防抖持久化不变量 (Debounced Storage Invariant)**：在视频持续播放过程中，底层监听 `timeupdate`（高频 250ms/次），状态机内置 1000ms 防抖更新机制写入 `localStorage`，严禁同步无节制高频写磁盘，保证 UI 线程绝对流畅；
+  - **首尾双向防误恢复守卫**：用户若刚播放不到 5 秒就退出，或已观看至片尾剩余不到 5 秒，状态机自动丢弃记忆点，杜绝用户再次点开时被误跳转至片头或片尾黑屏死胡同；
+  - **非侵入式提示浮层与一键复播**：默认在底部渲染优雅的微气泡（“已恢复上次播放进度 01:23 [重新播放]”），用户可点击一键从头复播，平衡自动化与用户知情权。
 
 ---
 
 ## 4. 流媒体低延迟直播与断流重连套件
 
-_(待工单 #271 系统交付：4.1 HLS/FLV 驱动与 Safari 降级、4.2 FLV SourceBuffer 内存防爆与智能追帧、4.3 指数退避抖动重连状态机)_
+### 4.1 HLS / HTTP-FLV 协议驱动与低延迟拉流 (`HlsDriver`, `MpegtsDriver`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { VideoPlayerType } from '@atengk/video-player-vue';
+
+// 组件协议指定 Props：
+// url: string;
+// type?: 'auto' | 'hls' | 'flv' | 'm3u8' | 'mp4';
+// isLive?: boolean; // 为 true 时自动激活直播专属控制栏与实时徽标
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/LiveDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, type IVideoPlayerEngine } from '@atengk/video-player-vue';
+
+// HLS 与 HTTP-FLV 直播流示例
+const liveUrl = ref('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+const liveType = ref<'hls' | 'flv'>('hls');
+
+const onReady = (engine: IVideoPlayerEngine) => {
+  console.log('直播流驱动就绪，已建立解封装解码通道');
+};
+</script>
+
+<template>
+  <div style="width: 100%; max-width: 960px; aspect-ratio: 16 / 9;">
+    <AtengVideoPlayer
+      :url="liveUrl"
+      :type="liveType"
+      :is-live="true"
+      :autoplay="true"
+      title="监控信号源实时直播"
+      @ready="onReady"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **Safari 原生 HLS 平滑降级**：在苹果 Safari 等浏览器原生支持 `.m3u8` 解复用的环境中，`HlsDriver` 优先直通宿主 `<video src>` 解码，规避 MSE 内存开销并完美激活底层 GPU 硬件直通；
+  - **解封装器沙箱隔离**：底层解封装核心 `hls.js` 与 `mpegts.js` 均运行在受管类包装器内，绝不向浏览器全局注入任何污染变量；
+  - **双轨凭据全链路注入**：通过 `xhrSetup` 与 `loader` 拦截器无缝对接系统的 `AuthManager`，媒体流切片请求自动附带 `token` 与 `Authorization: Bearer` 请求头。
+
+---
+
+### 4.2 FLV SourceBuffer 内存防爆与智能毫秒追帧 (`autoCleanupSourceBuffer`, 缓冲追帧)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+// 组件 Props 直播缓冲追帧参数：
+export interface LiveBufferingProps {
+  liveBufferLatencyChasing?: boolean; // 是否开启直播低延迟毫秒级追帧 (默认 true)
+  chaseThreshold?: number; // 追帧触发门限秒数 (默认 3s，缓冲区落后超过该值触发追赶)
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/LiveDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { AtengVideoPlayer } from '@atengk/video-player-vue';
+</script>
+
+<template>
+  <AtengVideoPlayer
+    url="https://live.example.com/cctv01.flv"
+    type="flv"
+    :is-live="true"
+    :live-buffer-latency-chasing="true"
+    :chase-threshold="3"
+  />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **SourceBuffer 内存防爆守卫**：安防物联网 24 小时连续推流极易撑爆浏览器内存。`MpegtsDriver` 强制激活 `autoCleanupSourceBuffer: true`，将后向保留缓冲严格限制在 30~60 秒的滑动窗口内，超期切片自动清除，杜绝长时间播放崩溃；
+  - **双阶智能毫秒追帧算法**：
+    1. **轻度滞后 ($3s \sim 6s$)**：状态机无感启动 `1.25x` 播放倍速平滑追赶，一旦缓冲时延收敛至 $<1.5s$，瞬间无缝回切 `1.0x` 原速；
+    2. **严重滞后 ($>6s$)**：网络断线割接或页面切回前台时，状态机立即执行 `video.currentTime = bufferEnd - 0.5`，毫秒级瞬移同步至最新关键帧，保证时延始终受控。
+
+---
+
+### 4.3 指数退避抖动重连状态机 (`useStreamReconnect`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { MaybeRefOrGetter, Ref, ShallowRef } from 'vue';
+
+/**
+ * 流媒体断流重连状态机配置。
+ */
+export interface StreamReconnectOptions {
+  maxRetries?: MaybeRefOrGetter<number>; // 最大重连尝试次数 (默认 5 次)
+  baseDelay?: MaybeRefOrGetter<number>; // 基础重连延迟毫秒数 (默认 1000ms)
+  maxDelay?: MaybeRefOrGetter<number>; // 最大延迟封顶 (默认 10000ms)
+  jitter?: boolean; // 是否引入 ±20% 抖动因子抗惊群 (默认 true)
+  onRetry?: (attempt: number, delay: number, error?: unknown) => void;
+  onFail?: (error?: unknown) => void;
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/LiveDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { AtengVideoPlayer } from '@atengk/video-player-vue';
+
+const reconnectOptions = {
+  maxRetries: 5,
+  baseDelay: 1000,
+  maxDelay: 8000,
+  jitter: true,
+  onRetry: (attempt: number, delay: number) => {
+    console.warn(`第 ${attempt} 次重试连接信号源，等待 ${delay}ms...`);
+  },
+  onFail: () => {
+    console.error('已达到最大重试限制，信号源中断');
+  },
+};
+</script>
+
+<template>
+  <AtengVideoPlayer
+    url="https://live.example.com/stream.flv"
+    type="flv"
+    :is-live="true"
+    :reconnect="reconnectOptions"
+  >
+    <!-- 自定义信号中断硬失败插槽 (中立语义) -->
+    <template #reconnect-failed="{ retry }">
+      <div class="custom-signal-lost">
+        <h4>📡 视频信号源连接已中断</h4>
+        <p>网络受阻或推流网关暂时不可达，请尝试重新拉取信号。</p>
+        <button @click="retry">重新拉取信号</button>
+      </div>
+    </template>
+  </AtengVideoPlayer>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **指数退避数学模型**：重试等待时长按 $delay = \min(baseDelay \times 2^{attempt}, maxDelay)$ 阶梯式回退；
+  - **$\pm 20\%$ Jitter 随机抖动抗惊群**：引入随机离散因子 $delay_{actual} = delay \times (1 \pm 0.2 \times \text{Math.random()})$，彻底避免机房网络割接或推流服务器重启瞬间，成百上千台监控客户端在同一毫秒并发狂轰推流接口引发次生雷暴雪崩；
+  - **硬失败终态与确定性清理**：尝试达到 `maxRetries` 后，状态机自动熔断挂起物理重试定时器，并通过 `#reconnect-failed` 作用域插槽派发中立友好的交互界面，绝不造成死循环或静默白屏。
 
 ---
 
