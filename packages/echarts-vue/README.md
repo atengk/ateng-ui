@@ -171,59 +171,512 @@ stateDiagram-v2
 
 ---
 
-## 维度一：最小起步体验 (Happy Path & Out-of-the-Box)
+## 3. 核心表现容器与几何生命周期套件
 
-### 1. 安装依赖
+### 3.1 AtengECharts 通用表现容器
 
-```bash
-pnpm add @atengk/echarts-vue echarts vue
-```
+`<AtengECharts />` 是企业级数据大盘的基础表现容器。专职处理 ECharts 原生 Canvas 挂载、响应式解耦防 Proxy 劫持、ResizeObserver 几何自感知、`notMerge` 声明式全量同步与原生图表事件透传。
 
-### 2. 引入基础样式
-
-在项目入口（如 `main.ts`）中引入基础样式：
+#### 1. 本节专属 TypeScript 契约片段
 
 ```ts
-import '@atengk/echarts-vue/style.css';
+export interface AtengEChartsProps {
+  /** ECharts 完整配置项对象 */
+  option: EChartsOption;
+  /** 图表主题，支持 'auto'（自动侦测深浅色）、内置主题名或自定义规范对象 @default 'auto' */
+  theme?: string | object;
+  /** 容器保底宽度 @default '100%' */
+  width?: string;
+  /** 容器保底高度，杜绝父级高度塌陷 @default '350px' */
+  height?: string;
+  /** 是否自动监听容器尺寸变化并自适应调整大小 @default true */
+  autoResize?: boolean;
+  /** 是否在更新 option 时彻底消除旧系列残影（全量替换） @default true */
+  notMerge?: boolean;
+  /** 是否启用帧合并惰性更新，防止高频触发重排重绘 @default true */
+  lazyUpdate?: boolean;
+}
+
+export interface AtengEChartsEmits {
+  (e: 'rendered', instance: EChartsInstance): void;
+  (e: 'finished'): void;
+  (e: 'chart-click', params: unknown): void;
+  (e: 'legend-change', params: unknown): void;
+  (e: 'resize'): void;
+}
 ```
 
-### 3. 开箱即用：极简趋势对比图
+#### 2. 面向实战的业务代码示例 (月度经营数据大盘)
+
+_代码 100% 逆向提取自自验沙箱：[ContainerScenario.vue](../../apps/sample-echarts-vue/src/scenarios/ContainerScenario.vue)_
 
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue';
-import { AtengTrendChart } from '@atengk/echarts-vue';
+import { AtengECharts, type AtengEChartsInstance, type EChartsOption } from '@atengk/echarts-vue';
 
-// 扁平业务数据集
-const salesData = ref([
-  { month: '1月', revenue: 120, cost: 80, rate: 33.3 },
-  { month: '2月', revenue: 132, cost: 85, rate: 35.6 },
-  { month: '3月', revenue: 101, cost: 70, rate: 30.7 },
-  { month: '4月', revenue: 134, cost: 90, rate: 32.8 },
-  { month: '5月', revenue: 190, cost: 110, rate: 42.1 },
-  { month: '6月', revenue: 230, cost: 125, rate: 45.7 },
+const chartRef = ref<AtengEChartsInstance | null>(null);
+
+// 声明式柱状/折线混合经营大盘配置
+const businessOption = ref<EChartsOption>({
+  title: { text: '月度经营数据看板 (柱线混合)', left: 'center', top: 8 },
+  tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+  legend: { data: ['销售额 (万元)', '毛利率 (%)'], top: 56 },
+  grid: { top: 92, left: '3%', right: 48, bottom: '4%', containLabel: true },
+  xAxis: { type: 'category', data: ['1月', '2月', '3月', '4月', '5月', '6月'] },
+  yAxis: [
+    { type: 'value', name: '销售额', min: 0, max: 250, axisLabel: { formatter: '{value} 万' } },
+    { type: 'value', name: '毛利率', min: 0, max: 100, axisLabel: { formatter: '{value} %' } },
+  ],
+  series: [
+    {
+      name: '销售额 (万元)',
+      type: 'bar',
+      data: [120, 132, 101, 134, 190, 230],
+      itemStyle: { borderRadius: [4, 4, 0, 0] },
+    },
+    {
+      name: '毛利率 (%)',
+      type: 'line',
+      yAxisIndex: 1,
+      data: [35, 42, 38, 55, 62, 70],
+      smooth: true,
+      lineStyle: { width: 3 },
+    },
+  ],
+});
+
+const onChartClick = (params: unknown) => {
+  const p = params as { seriesName?: string; name?: string; value?: unknown };
+  console.log(`点击系列: ${p.seriesName}, 类目: ${p.name}, 数值: ${p.value}`);
+};
+</script>
+
+<template>
+  <div style="height: 400px; padding: 16px; background: #fff; border-radius: 8px;">
+    <AtengECharts
+      ref="chartRef"
+      :option="businessOption"
+      theme="auto"
+      height="100%"
+      @chart-click="onChartClick"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **保底尺寸防坍塌**：组件默认内置 `height: 350px`（可通过 `height` 属性覆盖），彻底杜绝原生 ECharts 因父容器未设置高度而导致的 `clientHeight === 0` 无法渲染或挤压变形问题；
+- **声明式全量同步 (`notMerge: true`)**：原生 ECharts 默认采用合并更新，导致在切换查询条件删减系列时旧线条与图例顽固残留；本组件强制默认 `notMerge: true`，确保图表状态与 Vue 数据集完全同构；
+- **全事件受控透传**：完整包装原生图表事件，标准输出 `@chart-click`、`@legend-change` 与 `@rendered`，同时提供实例 Ref 的 `getInstance()` 供深层原生调用。
+
+---
+
+### 3.2 useECharts 无头状态机
+
+`useECharts` 是 `@atengk/echarts-vue` 的纯无头状态机核心，专为高阶自定义图表组件、复杂工控看板与微前端动态挂载场景设计，与具体 UI 完全解耦。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface UseEChartsOptions {
+  /** 主题设置，支持 'auto'、主题名称或主题 JSON 规范 @default 'auto' */
+  theme?: MaybeRefOrGetter<string | object | undefined>;
+  /** ECharts 原生初始化选项（渲染器类型等） */
+  initOptions?: MaybeRefOrGetter<EChartsInitOpts | undefined>;
+  /** 是否监听容器尺寸变化 @default true */
+  autoResize?: MaybeRefOrGetter<boolean | undefined>;
+  /** 尺寸调整防抖延迟时间 (ms) @default 150 */
+  resizeDebounce?: number;
+  /** 主题热切换回调 */
+  onThemeChange?: (theme: string) => void;
+  /** 尺寸变化自愈回调 */
+  onResize?: () => void;
+}
+
+export interface UseEChartsReturn {
+  /** 底层 ECharts 实例，强制采用 ShallowRef 托管，严禁深度 Proxy */
+  instance: ShallowRef<EChartsInstance | null>;
+  /** 标识当前是否处于 0x0 几何零尺寸挂起状态 */
+  isZeroDimension: Readonly<Ref<boolean>>;
+  /** 当前生效主题标识 */
+  currentTheme: Readonly<Ref<string>>;
+  /** 初始化/恢复实例 */
+  init: () => EChartsInstance | null;
+  /** 彻底注销与销毁实例 */
+  dispose: () => void;
+  /** 声明式更新图表 Option */
+  setOption: (option: EChartsOption, notMerge?: boolean, lazyUpdate?: boolean) => void;
+  /** 尺寸自适应重绘 */
+  resize: () => void;
+  /** 导出 Base64 图片地址 */
+  getDataURL: (opts?: { pixelRatio?: number }) => string;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (高频系统吞吐量时序监控)
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useECharts, type EChartsOption } from '@atengk/echarts-vue';
+
+const chartDomRef = ref<HTMLDivElement | null>(null);
+
+// 初始化无头状态机：强制 shallowRef 托管
+const { instance, setOption, isZeroDimension } = useECharts(chartDomRef, {
+  theme: 'auto',
+  autoResize: true,
+  resizeDebounce: 100,
+});
+
+onMounted(() => {
+  const throughputOption: EChartsOption = {
+    title: { text: '网关实时吞吐量 (QPS)', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'] },
+    yAxis: { type: 'value', name: 'QPS' },
+    series: [
+      {
+        type: 'line',
+        smooth: true,
+        areaStyle: { opacity: 0.3 },
+        data: [820, 932, 1434, 1290, 1330, 1320],
+      },
+    ],
+  };
+  setOption(throughputOption);
+});
+</script>
+
+<template>
+  <div style="position: relative; height: 350px;">
+    <div ref="chartDomRef" style="width: 100%; height: 100%;" />
+    <span
+      v-if="isZeroDimension"
+      style="position: absolute; top: 8px; right: 8px; color: #f59e0b; font-size: 12px;"
+    >
+      ⚠️ 容器挂起中 (0x0 尺寸自愈等待)
+    </span>
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **`shallowRef` 实例防污染防线**：`instance` 严格以 `ShallowRef<EChartsInstance | null>` 托管；若误用 Vue 原生 `ref` 深度递归代理，Proxy 劫持会导致 ECharts 原型方法丢失、闭包变量解构异常并抛出 `Cannot read properties of undefined`；
+- **确定性四步生命周期清理**：在 `onUnmounted` 阶段，状态机自动依序断开 `ResizeObserver` 监听、解绑全屏与键盘事件、调用原生 `dispose()` 释放 Canvas/WebGL 显存并清空响应式引用，彻底消除内存泄漏。
+
+---
+
+### 3.3 DOM 级多态遮罩与 0x0 几何挂起自愈
+
+传统图表在接口请求或异常时往往采用 Canvas 原生绘制文本，样式生硬且无法交互。`AtengECharts` 将画布节点与 Vue DOM 级遮罩同级分立，提供毛玻璃动效的加载中、优雅空状态与错误重试闭环。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface AtengEChartsOverlayProps {
+  /** 是否展示加载遮罩 @default false */
+  loading?: boolean;
+  /** 加载文案提示 @default '加载中...' */
+  loadingText?: string;
+  /** 是否展示空数据状态遮罩 @default false */
+  empty?: boolean;
+  /** 空状态提示文案 @default '暂无图表数据' */
+  emptyText?: string;
+  /** 异常对象或错误消息字符串，非空时自动激活错误遮罩 @default null */
+  error?: Error | string | null;
+  /** 异常标题文案 @default '图表加载异常' */
+  errorText?: string;
+}
+
+export interface AtengEChartsOverlayEmits {
+  /** 点击错误遮罩中的“重新加载”按钮时触发 */
+  (e: 'retry'): void;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (三态多态遮罩与重试闭环)
+
+_代码 100% 逆向提取自自验沙箱：[ContainerScenario.vue](../../apps/sample-echarts-vue/src/scenarios/ContainerScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengECharts, type EChartsOption } from '@atengk/echarts-vue';
+
+const isLoading = ref(false);
+const isEmpty = ref(false);
+const errorMessage = ref<string | null>(null);
+
+const pieOption = ref<EChartsOption>({
+  title: { text: '品类销售占比', left: 'center' },
+  series: [
+    {
+      type: 'pie',
+      radius: ['45%', '70%'],
+      data: [
+        { name: '云底座', value: 1048 },
+        { name: '安全套件', value: 735 },
+        { name: '音视频中台', value: 580 },
+      ],
+    },
+  ],
+});
+
+// 模拟异步加载与异常重试
+const fetchChartData = () => {
+  isLoading.value = true;
+  errorMessage.value = null;
+  setTimeout(() => {
+    isLoading.value = false;
+    // 模拟偶发超时异常
+    errorMessage.value = 'HTTP 504: 经营分析微服务网关响应超时';
+  }, 1000);
+};
+
+const handleRetry = () => {
+  errorMessage.value = null;
+  fetchChartData();
+};
+</script>
+
+<template>
+  <div style="height: 380px;">
+    <AtengECharts
+      :option="pieOption"
+      theme="auto"
+      :loading="isLoading"
+      :empty="isEmpty"
+      :error="errorMessage"
+      @retry="handleRetry"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **遮罩双轨不卸载机制**：DOM 级多态遮罩与底层的 Canvas 画布同级并存，状态切换时**绝不销毁底层的 ECharts 实例**，保证加载完成后无白屏、无重排、无闪烁；
+- **0x0 尺寸挂起防线**：在模态弹窗（Modal）未弹出、折叠面板（Collapse）收起或选项卡（Tabs）处于 `display: none` 时，`clientWidth` 与 `clientHeight` 均为 0；初始化引擎主动挂起，由绑定的 `ResizeObserver` 在容器恢复真实可见尺寸瞬间，毫秒级自动触发补救初始化并回放暂存的 Option。
+
+---
+
+## 4. 经营趋势与时序对比套件
+
+### 4.1 AtengTrendChart 趋势看板 (双 Y 轴/柱线混合/渐变面积)
+
+`AtengTrendChart` 是企业级中后台最常用的趋势看板预设组件。专职处理单/双 Y 轴折线、柱线混合排版、平滑面积渐变与千分位 Tooltip 格式化。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface TrendMetric {
+  /** 对应数据源中的字段名 */
+  key: string;
+  /** 系列展示名称 (图例与提示框显示) */
+  name?: string;
+  /** 系列表现类型 @default 'line' */
+  type?: 'line' | 'bar';
+  /** 归属 Y 轴：0 为左轴，1 为右轴 @default 0 */
+  yAxisIndex?: 0 | 1;
+  /** 数值单位后缀 (如 '元', '%', '万') */
+  unit?: string;
+  /** 系列固定色彩或渐变 */
+  color?: string;
+  /** 折线平滑贝塞尔曲线 @default true */
+  smooth?: boolean;
+  /** 是否开启渐变面积填充或传入自定义 RGBA 色彩 */
+  area?: boolean | string;
+  /** 柱状图圆角配置，如 [4, 4, 0, 0] */
+  barBorderRadius?: number | number[];
+}
+
+export interface TrendYAxisConfig {
+  /** Y 轴标题 */
+  name?: string;
+  /** 数值单位后缀 */
+  unit?: string;
+  /** 是否展示水平分割线 */
+  splitLine?: boolean;
+}
+
+export interface AtengTrendChartProps {
+  /** 扁平业务数据源列表 */
+  data: Record<string, unknown>[];
+  /** X 轴维度字段声明 (如 'month') */
+  dimension: string;
+  /** 指标度量数组 */
+  metrics: TrendMetric[];
+  /** 双 Y 轴配置元组 [leftAxis, rightAxis] */
+  yAxis?: [TrendYAxisConfig, TrendYAxisConfig];
+  /** 逃生通道：深度拦截与定制最终 EChartsOption */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (电商月度财务经营看板)
+
+_代码 100% 逆向提取自自验沙箱：[TrendScenario.vue](../../apps/sample-echarts-vue/src/scenarios/TrendScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengTrendChart, type TrendMetric, type TrendYAxisConfig } from '@atengk/echarts-vue';
+
+// 真实电商经营收支数据集
+const trendData = ref([
+  { month: '2026-01', revenue: 1250000, cost: 820000, profitRate: 34.4 },
+  { month: '2026-02', revenue: 1480000, cost: 910000, profitRate: 38.5 },
+  { month: '2026-03', revenue: 1890000, cost: 1120000, profitRate: 40.7 },
+  { month: '2026-04', revenue: 1620000, cost: 980000, profitRate: 39.5 },
+  { month: '2026-05', revenue: 2150000, cost: 1250000, profitRate: 41.8 },
+  { month: '2026-06', revenue: 2580000, cost: 1460000, profitRate: 43.4 },
 ]);
 
-// 声明指标定义
-const metrics = [
-  { key: 'revenue', name: '营业收入 (万元)', type: 'bar' },
-  { key: 'rate', name: '毛利率 (%)', type: 'line', yAxisIndex: 1, unit: '%' },
+// 声明多指标度量：柱状图 (收入/成本) + 折线 (毛利率双 Y 轴)
+const trendMetrics: TrendMetric[] = [
+  {
+    key: 'revenue',
+    name: '营业收入',
+    type: 'bar',
+    unit: '元',
+    color: '#409EFF',
+    barBorderRadius: [4, 4, 0, 0],
+  },
+  {
+    key: 'cost',
+    name: '营业成本',
+    type: 'bar',
+    unit: '元',
+    color: '#E6A23C',
+    barBorderRadius: [4, 4, 0, 0],
+  },
+  {
+    key: 'profitRate',
+    name: '毛利率',
+    type: 'line',
+    yAxisIndex: 1,
+    unit: '%',
+    color: '#67C23A',
+    smooth: true,
+  },
+];
+
+// 双 Y 轴配置：左轴金额带分割线，右轴百分比不带分割线
+const trendYAxis: [TrendYAxisConfig, TrendYAxisConfig] = [
+  { name: '财务金额 (元)', splitLine: true },
+  { name: '毛利率 (%)', splitLine: false, unit: '%' },
 ];
 </script>
 
 <template>
   <div style="height: 380px; padding: 16px; background: #fff; border-radius: 8px;">
     <AtengTrendChart
-      :data="salesData"
+      :data="trendData"
       dimension="month"
-      :metrics="metrics"
+      :metrics="trendMetrics"
+      :y-axis="trendYAxis"
       theme="auto"
-      :allow-fullscreen="true"
-      :allow-export="true"
     />
   </div>
 </template>
 ```
+
+#### 3. 核心机制与生产边界说明
+
+- **声明式解构防胶水代码**：告别原生上百行坐标轴与系列配置，仅需传入扁平数据数组、`dimension` 与 `metrics`，组件内部自动通过 `createTrendOption` 工厂构建规范图例、色彩与对齐网格；
+- **双 Y 轴分割线治理**：默认仅左 Y 轴展示网格分割线（`splitLine: true`），右轴不展示，彻底杜绝双轴网格线交叉错位导致画面脏乱。
+
+---
+
+### 4.2 DataZoom 时序缩放与千分位标线定制
+
+面向跨月、跨季度或高频 IoT 时序海量数据，`AtengTrendChart` 原生集成底部滑动缩放手柄与内置鼠标滚轮缩放，并支持平均基准线（MarkLine）与极值（MarkPoint）自动标绘。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface TrendDataZoomConfig {
+  /** 是否展示底部滑动条手柄 @default true */
+  slider?: boolean;
+  /** 是否支持鼠标滚轮与手势缩放 @default true */
+  inside?: boolean;
+  /** 初始可是范围起始百分比 (0-100) @default 0 */
+  start?: number;
+  /** 初始可视范围结束百分比 (0-100) @default 100 */
+  end?: number;
+}
+
+export interface TrendMetricMarkOptions {
+  /** 极值标记点：'max' | 'min' | 'both' */
+  markPoint?: 'max' | 'min' | 'both';
+  /** 标线基准：'average' | 'median' | 'max' | 'min' */
+  markLine?: 'average' | 'median' | 'max' | 'min';
+}
+```
+
+#### 2. 面向实战的业务代码示例 (时序平滑面积渐变与基准均线看板)
+
+_代码 100% 逆向提取自自验沙箱：[TrendScenario.vue](../../apps/sample-echarts-vue/src/scenarios/TrendScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengTrendChart, type TrendMetric } from '@atengk/echarts-vue';
+
+const trendData = ref([
+  { month: '2026-01', revenue: 1250000 },
+  { month: '2026-02', revenue: 1480000 },
+  { month: '2026-03', revenue: 1890000 },
+  { month: '2026-04', revenue: 1620000 },
+  { month: '2026-05', revenue: 2150000 },
+  { month: '2026-06', revenue: 2580000 },
+  { month: '2026-07', revenue: 2340000 },
+  { month: '2026-08', revenue: 2790000 },
+  { month: '2026-09', revenue: 3120000 },
+  { month: '2026-10', revenue: 2980000 },
+  { month: '2026-11', revenue: 3450000 },
+  { month: '2026-12', revenue: 4200000 },
+]);
+
+// 声明平滑渐变面积与标线/标点
+const areaMetrics: TrendMetric[] = [
+  {
+    key: 'revenue',
+    name: '营收走势 (面积渐变)',
+    type: 'line',
+    smooth: true,
+    area: 'rgba(64, 158, 255, 0.45)',
+    color: '#409EFF',
+    unit: '元',
+    markLine: 'average', // 自动计算年度平均线
+    markPoint: 'both', // 自动标记最大值与最小值点
+  },
+];
+</script>
+
+<template>
+  <div style="height: 380px;">
+    <AtengTrendChart
+      :data="trendData"
+      dimension="month"
+      :metrics="areaMetrics"
+      :data-zoom="true"
+      theme="auto"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **海量时序流畅交互**：开启 `:data-zoom="true"` 时，同时激活 `slider`（底部可视化拖拽条）与 `inside`（鼠标滚轮捏合缩放），结合 `lazyUpdate: true` 单帧渲染合并，防止时序拖拽时造成严重的掉帧卡顿；
+- **千分位 Tooltip 智能格式化**：提示框内置千分位正则替换（如 `1,250,000 元`），自动匹配各指标声明的 `unit` 单位，无需开发者手写正则与 HTML 字符串拼接。
+
+---
 
 ---
 
