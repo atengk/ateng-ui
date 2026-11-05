@@ -145,13 +145,435 @@ sequenceDiagram
 
 ## 3. 多格式文档原生离线渲染与智能类型嗅探
 
-> 待后续工单 #257 交付：包含主容器、Markdown 渲染、三阶智能魔数嗅探等子小节的“三要素就近闭环”。
+本章提供针对 Word (.docx)、Markdown (.md)、Excel (.xlsx)、PPT (.pptx)、PDF (.pdf)、矢量图片 (.svg) 以及无扩展名接口流的原生离线渲染与智能类型嗅探解决方案。
+
+### 3.1 核心多格式文档容器 (`<AtengFileViewer />`)
+
+`<AtengFileViewer />` 是纯前端文档原生离线渲染的核心容器组件，100% 弹性撑满宿主容器，内置轻量微工具栏、状态反馈与安全拦截防护。
+
+#### 1. 专属 TypeScript 契约与 Props 声明
+
+```ts
+export interface AtengFileViewerProps {
+  /** 待预览文件的访问 URL (支持 HTTP/HTTPS、相对路径或 ObjectURL) */
+  url?: string;
+  /** 待预览的本地二进制文件对象 (File 或 Blob) */
+  file?: File | Blob;
+  /** 显式指定文件名 (用于类型推导与下载提示) */
+  fileName?: string;
+  /** 显式指定文件类型/扩展名 (如 'docx', 'xlsx', 'pdf', 'pptx') */
+  fileType?: string;
+  /** 容器高度 (默认 '100%') */
+  height?: string | number;
+  /** 容器宽度 (默认 '100%') */
+  width?: string | number;
+  /** 是否展示默认轻量操作栏 (默认 true) */
+  showToolbar?: boolean;
+  /** 主题模式 ('light' | 'dark' | 'auto'，默认 'auto') */
+  theme?: FileViewerTheme;
+  /** 是否自动注入当前登录态凭据与双轨 Token 请求头 (默认 true) */
+  auth?: boolean;
+}
+
+export interface AtengFileViewerEmits {
+  (e: 'load', payload: { fileName: string; fileType?: string }): void;
+  (e: 'error', error: unknown): void;
+  (e: 'unload', payload: { reason?: string }): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`OfficeDocumentScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/OfficeDocumentScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer } from '@atengk/file-viewer-vue';
+
+// 真实业务场景：企业采购框架协议与财务报表在线审阅
+const currentDocUrl = ref<string>('/sample.docx');
+const currentDocName = ref<string>('企业采购框架协议.docx');
+const currentDocType = ref<string>('docx');
+const eventStatus = ref<string>('就绪');
+
+function handleLoad(payload: { fileName: string; fileType?: string }): void {
+  eventStatus.value = `文档解析并渲染成功: ${payload.fileName} [${payload.fileType || '自动嗅探'}]`;
+}
+
+function handleError(err: unknown): void {
+  eventStatus.value = `文档解析异常: ${err instanceof Error ? err.message : String(err)}`;
+}
+</script>
+
+<template>
+  <div class="doc-viewer-card">
+    <div class="doc-header">
+      <span
+        >📄 当前文档: <strong>{{ currentDocName }}</strong></span
+      >
+      <span class="status-badge">{{ eventStatus }}</span>
+    </div>
+
+    <div class="doc-body">
+      <AtengFileViewer
+        :url="currentDocUrl"
+        :file-name="currentDocName"
+        :file-type="currentDocType"
+        height="100%"
+        @load="handleLoad"
+        @error="handleError"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.doc-viewer-card {
+  display: flex;
+  flex-direction: column;
+  height: 680px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.status-badge {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.doc-body {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **纯前端原生离线解析**：核心采用 Web 标准 Worker 与 WASM 驱动解构渲染，无需搭建任何 LibreOffice、OnlyOffice 或服务端转 PDF 集群，直接在浏览器端实现毫秒级二进制解包与排版渲染；
+2. **零 Eval 纯净沙箱**：运行期间坚决杜绝使用 `eval` 或 `new Function` 动态执行二进制流中的宏脚本，杜绝恶意宏病毒与 XSS 攻击注入；
+3. **自适应几何撑满与生命周期治理**：内部容器通过 `height: 100%` 响应式撑满宿主外层容器，并在组件 `onUnmounted` 钩子中确定性中断网络拉取与 Worker 排版线程。
+
+---
+
+### 3.2 纯文本与 Markdown 渲染扩展 (TextRenderer)
+
+`@atengk/file-viewer-vue` 内置高性能流式纯文本与 Markdown 渲染引擎，支持语法高亮、暗黑模式自适应跟随与大纲自动扫描。
+
+#### 1. 专属 TypeScript 契约片段
+
+```ts
+export interface TextRendererOptions {
+  /** 代码高亮主题 ('light' | 'dark' | 'auto') */
+  theme?: FileViewerTheme;
+  /** 是否自动将换行符 \n 转译为软换行 <br> (默认 true) */
+  breaks?: boolean;
+  /** 是否对 Markdown 内嵌的 HTML 标签进行安全转义防 XSS (默认 true) */
+  sanitize?: boolean;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`OfficeDocumentScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/OfficeDocumentScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer } from '@atengk/file-viewer-vue';
+
+// 真实业务场景：研发规范与架构指导手册在线阅读
+const guideUrl = ref<string>('/sample.md');
+const guideName = ref<string>('现代前端工业级架构实践指南.md');
+</script>
+
+<template>
+  <div class="markdown-preview-wrapper">
+    <AtengFileViewer
+      :url="guideUrl"
+      :file-name="guideName"
+      file-type="md"
+      theme="auto"
+      height="100%"
+    />
+  </div>
+</template>
+
+<style scoped>
+.markdown-preview-wrapper {
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **Markdown AST 增量规整**：文本渲染器在将 Markdown 编译为虚拟 DOM 之前，针对段落中的代码块、表格、引用块执行安全过滤，杜绝非法 `<script>` 注入；
+2. **主题热跟随**：`theme: 'auto'` 会通过媒体查询 `prefers-color-scheme` 动态跟随操作系统或页面根节点的 `.dark` 类名，实现暗黑模式无损平滑切换。
+
+---
+
+### 3.3 三阶智能类型嗅探与二进制魔数推导 (`detectFileType` & `sniffMagicNumber`)
+
+针对无扩展名的 RESTful 流或伪装后缀文件，提供三阶智能推导算法（显式 ➔ 响应头 ➔ 二进制魔数）。
+
+#### 1. 专属 TypeScript 契约与算法入参
+
+```ts
+export interface SniffOptions {
+  /** 显式传入的文件类型/扩展名 */
+  explicitType?: string;
+  /** 显式传入的文件名 */
+  fileName?: string;
+  /** 资源访问 URL */
+  url?: string;
+  /** HTTP 响应头 Content-Type */
+  contentType?: string | null;
+  /** HTTP 响应头 Content-Disposition */
+  contentDisposition?: string | null;
+  /** 二进制数据块缓冲 (用于三阶魔数匹配) */
+  buffer?: ArrayBuffer | Uint8Array;
+}
+
+/** 三阶智能文件类型推导算法 */
+export function detectFileType(
+  source: string | File | Blob,
+  options?: SniffOptions,
+): Promise<string>;
+
+/** 纳秒级纯二进制魔数匹配 */
+export function sniffMagicNumber(buffer: ArrayBuffer | Uint8Array): string | null;
+```
+
+#### 2. 面向实战的业务调用示例
+
+> 逆向提取自自验展厅真实看板：[`OfficeDocumentScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/OfficeDocumentScenario.vue)
+
+```ts
+import { detectFileType, sniffMagicNumber } from '@atengk/file-viewer-vue';
+
+// 场景 1：无后缀 RESTful 接口流安全推导
+async function identifyStream(url: string, streamBlob: Blob): Promise<string> {
+  const fileType = await detectFileType(streamBlob, {
+    url,
+    contentType: streamBlob.type,
+  });
+  console.log('探测到的权威格式:', fileType); // 如输出 'docx' 或 'pdf'
+  return fileType;
+}
+
+// 场景 2：纯二进制特征头匹配 (纳秒级同步比对)
+function checkBinaryHeader(bytes: Uint8Array): void {
+  const format = sniffMagicNumber(bytes);
+  if (format === 'pdf') {
+    console.log('特征头匹配: %PDF- 规范签名');
+  } else if (format === 'docx' || format === 'xlsx' || format === 'pptx') {
+    console.log('特征头匹配: PK\\x03\\x04 OpenXML 压缩包签名');
+  }
+}
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **三阶级联推导策略**：
+   - 阶梯一（显式优先）：若传入了合法的 `explicitType` 或 `fileName` 后缀且不为通用流类型，直接采纳；
+   - 阶梯二（响应头推导）：从 `Content-Disposition` 提取 `filename="*"` 或依据标准 MIME 映射表比对；
+   - 阶梯三（魔数兜底）：直接读取 ArrayBuffer 头部前 32 字节，比对 `%PDF-`、`PK\x03\x04`、`<svg` 等原生二进制特征签名；
+2. **OpenXML 细分推导**：针对 Word (`.docx`)、Excel (`.xlsx`) 与 PPT (`.pptx`) 均共享 ZIP PK 魔数的特性，引擎自动异步解开中央目录定位 `[Content_Types].xml` 或 `word/document.xml`，实现 100% 精确的 Office 格式细分。
 
 ---
 
 ## 4. 真实 DOM 章节大纲提取与目录联动 (TOC)
 
-> 待后续工单 #257 交付：包含标题语义提取器、层级推导与平滑锚点跳转等子小节的“三要素就近闭环”。
+本章提供面向长文档阅读的真实 DOM 标题语义提取器（HeadingSemanticExtractor）与大纲目录联动方案。
+
+### 4.1 标题语义提取器 (`HeadingSemanticExtractor` / `extractDocumentHeadings`)
+
+专职从渲染完成的真实 DOM 树中扫描 Heading 节点，严格排除复合大容器与普通正文段落，杜绝全文合并污染。
+
+#### 1. 专属 TypeScript 契约与数据模型
+
+```ts
+export interface FileViewerDocumentAnchor {
+  id: string;
+  index: number;
+  label: string;
+  page?: number;
+  line?: number;
+  /** 标题层级深度 (1 ~ 6，1 表示一级大章 H1，2 表示二级小节 H2) */
+  level?: number;
+  type?: 'page' | 'line' | 'block' | 'heading';
+  top?: number;
+}
+
+/** 从渲染宿主容器中精准提取有效章节标题并生成层级大纲 */
+export function extractDocumentHeadings(container: HTMLElement | null): FileViewerDocumentAnchor[];
+
+/** 依据标签名、class 与 id 确定性推导标题层级 (1 ~ 6) */
+export function resolveHeadingLevel(el: HTMLElement): number;
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`TableOfContentsScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/TableOfContentsScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFileViewer,
+  useFileViewer,
+  type AtengFileViewerInstance,
+} from '@atengk/file-viewer-vue';
+
+const viewerRef = ref<AtengFileViewerInstance | null>(null);
+const currentDocUrl = ref<string>('/sample.docx');
+const currentDocName = ref<string>('企业采购框架协议.docx');
+
+// 使用无头 Hook 控制目录抽屉展开/收起
+const { toggleToc } = useFileViewer({
+  viewerRef: () => viewerRef.value,
+  fileName: () => currentDocName.value,
+  fileType: () => 'docx',
+});
+</script>
+
+<template>
+  <div class="toc-demo-container">
+    <div class="toc-toolbar">
+      <span
+        >当前正在阅读: <strong>{{ currentDocName }}</strong></span
+      >
+      <button type="button" class="toc-btn" @click="toggleToc">📖 展开 / 收起目录大纲</button>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        ref="viewerRef"
+        :url="currentDocUrl"
+        :file-name="currentDocName"
+        file-type="docx"
+        :show-toc="true"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.toc-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 650px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.toc-btn {
+  padding: 4px 12px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **真实 DOM 深度扫描与正文过滤**：
+   - 提取器专职扫描 `h1~h6`、`p[class*="heading"]`、`p[data-docx-toc-entry="true"]` 与 `.markdown-heading`；
+   - 严格过滤包含多个子段落的复合大容器（如 `.docx-section`、`.page-container`），防止误把数万字全文拼接到单一目录项；
+2. **纯正文空状态保底**：当文档纯为普通段落、无任何标题格式时，提取器安全返回保底空数组 `[]`，目录抽屉展示优雅的空状态提示，严禁抛错或渲染伪标题；
+3. **平滑滚动定位与页码感知**：点击目录大纲项时，底层平滑计算目标节点在滚动视口内的偏移量 `top` 并驱动 `scrollTo({ behavior: 'smooth' })`，PDF 场景下自动联动驱动 `page` 翻页。
+
+---
+
+### 4.2 外部定制大纲覆盖注入与目录树折叠导航
+
+当后端在元数据中已提前计算好结构化大纲，或业务需要覆盖定制特定导航章节时，支持通过 `tocList` 属性显式覆盖注入。
+
+#### 1. 专属 TypeScript 契约片段
+
+```ts
+export interface AtengFileViewerProps {
+  /** 是否启用文档目录大纲 (TOC) 折叠抽屉与侧边导航 (默认 true) */
+  showToc?: boolean;
+  /** 显式指定或外部注入的文档目录大纲列表 (若传入则覆盖自动提取) */
+  tocList?: FileViewerDocumentAnchor[];
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`TableOfContentsScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/TableOfContentsScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer, type FileViewerDocumentAnchor } from '@atengk/file-viewer-vue';
+
+// 外部业务注入的审计大纲章节
+const customAuditToc: FileViewerDocumentAnchor[] = [
+  { id: 'sec-1', index: 0, label: '第 1 条：各方商务主体与合作标的', page: 1, level: 1 },
+  { id: 'sec-2', index: 1, label: '第 2 条：对价结算与分期付款约束', page: 3, level: 1 },
+  { id: 'sec-2-1', index: 2, label: '2.1 履约保证金与违约责任扣罚', page: 4, level: 2 },
+  { id: 'sec-3', index: 3, label: '第 3 条：知识产权归属与保密约定', page: 7, level: 1 },
+];
+</script>
+
+<template>
+  <div style="height: 600px;">
+    <AtengFileViewer
+      url="/sample.docx"
+      file-name="重大技术合作协议.docx"
+      file-type="docx"
+      :show-toc="true"
+      :toc-list="customAuditToc"
+      height="100%"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **注入覆盖优先级原则**：若调用方显式提供了非空的 `tocList`，组件将 100% 优先采用外部传入的大纲数据模型，跳过底层自动扫描；若传入空数组或未传，则自动无感回退至真实 DOM 扫描提取；
+2. **树状层级缩进指示**：目录抽屉根据 `anchor.level`（1 ~ 6）自动计算 `padding-left: (level - 1) * 16px`，并通过微圆点与连接线呈现树状层级关系。
 
 ---
 
