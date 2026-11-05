@@ -663,6 +663,605 @@ export interface AtengSlashCommandProps {
 
 ---
 
+## 5. DOCX 物理排版与纯前端 OpenXML 导出套件
+
+DOCX 排版预设（DOCX Editor）专为**企业红头公文**、**法务制式合同**、**监管汇报材料**与**政策指导意见**设计。核心追求“A4 物理纸张 1:1 仿真、厘米/毫米刻度标尺、双击编辑页眉页脚、虚拟断页槽防切碎文本、以及纯前端零服务端依赖的 OpenXML Word (.docx) 安全导出”。
+
+### 5.1 DOCX 物理排版预设 (AtengDocxEditor)
+
+`<AtengDocxEditor />` 封装了完整的 A4 纸张仿真视口，支持纵横向切换、多档页边距规格、刻度标尺与一键导出下载 Word 文档。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { EditorBaseProps, AtengEditorExpose } from '@atengk/editor-vue';
+import type {
+  PageOrientation,
+  PageMarginPreset,
+  PageMarginConfig,
+  DocxHeaderFooterAlign,
+  DocxExportOptions,
+} from '@atengk/editor-vue';
+
+/**
+ * <AtengDocxEditor /> 预设组件 Props 契约声明。
+ */
+export interface DocxEditorProps extends EditorBaseProps {
+  /** 纸张方向：'portrait' (纵向) 或 'landscape' (横向)，默认 'portrait' */
+  orientation?: PageOrientation;
+  /** 页边距预设 ('standard' | 'narrow' | 'wide') 或自定义结构对象，默认 'standard' */
+  pageMargin?: PageMarginPreset | PageMarginConfig;
+  /** 是否展示顶部毫米刻度标尺，默认 true */
+  showRuler?: boolean;
+  /** 页眉文本内容 */
+  header?: string;
+  /** 页脚文本内容 */
+  footer?: string;
+  /** 是否展示动态页码，默认 true */
+  showPageNumber?: boolean;
+  /** 页眉文本对齐方式，默认 'center' */
+  headerAlign?: DocxHeaderFooterAlign;
+  /** 页脚文本对齐方式，默认 'center' */
+  footerAlign?: DocxHeaderFooterAlign;
+  /** 是否禁用页眉页脚双击行内编辑，默认 false */
+  editableHeaderFooter?: boolean;
+}
+
+/**
+ * <AtengDocxEditor /> 实例收敛暴露契约。
+ */
+export interface AtengDocxEditorInstance extends AtengEditorExpose {
+  /** 纯前端一键导出标准 Word (.docx) 二进制 Blob 并触发安全下载 */
+  exportDocx: (options?: DocxExportOptions | string) => Promise<Blob>;
+}
+```
+
+#### 2. 面向实战的业务 Vue 3 代码示例 (逆向自 DocxEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengDocxEditor,
+  type AtengDocxEditorInstance,
+  type PageOrientation,
+  type PageMarginPreset,
+} from '@atengk/editor-vue';
+
+const docxEditorRef = ref<AtengDocxEditorInstance | null>(null);
+
+// 真实红头文件与合同排版模型
+const docxContent =
+  ref<string>(`<h1 style="text-align: center;">关于加快推进数字化基础设施转型的指导意见</h1>
+<p style="text-align: center; color: #888;">〔2026〕创发字第 1024 号 · 绝密文件</p>
+<hr />
+<p>各直属业务中心、平台工程架构组、前端基础设施实验室：</p>
+<p>为全面对标国际一流研发基础设施水准，贯彻落实<strong>核心套件自主可控</strong>战略决策，现就全面推进现代富文本与内容创作预设体系建设提出如下实施细则...</p>`);
+
+const orientation = ref<PageOrientation>('portrait');
+const pageMargin = ref<PageMarginPreset>('standard');
+const showRuler = ref<boolean>(true);
+const headerText = ref<string>('企业数字化转型指导意见');
+const footerText = ref<string>('内部绝密 · 严禁翻印');
+
+// 调用实例门面一键导出 Word 文档
+const handleExport = async () => {
+  if (!docxEditorRef.value) return;
+  const blob = await docxEditorRef.value.exportDocx({
+    fileName: '企业数字化转型指导意见.docx',
+    orientation: orientation.value,
+    pageMargin: pageMargin.value,
+    header: headerText.value,
+    footer: footerText.value,
+    showPageNumber: true,
+  });
+  console.log(`生成 Word 二进制大小: ${(blob.size / 1024).toFixed(1)} KB`);
+};
+</script>
+
+<template>
+  <div class="docx-layout-container">
+    <!-- DOCX 排版预设：A4 纸张仿真 + 毫米刻度标尺 + 交互式页眉页脚 + 纯前端导出 -->
+    <AtengDocxEditor
+      ref="docxEditorRef"
+      v-model="docxContent"
+      :orientation="orientation"
+      :page-margin="pageMargin"
+      :show-ruler="showRuler"
+      :header="headerText"
+      :footer="footerText"
+      :show-page-number="true"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与设计说明
+
+- **A4 物理仿真纸张画布**：基于国际标准 ISO 216 规范，A4 物理尺寸严格定义为纵向 `210mm × 297mm`（横向 `297mm × 210mm`）。画布自带物理纸张外阴影（`--at-editor-page-shadow`），视觉体验高度逼真；
+- **多态门面等价映射**：业务视图层若使用统一主门面，通过 `<AtengEditor mode="docx" :orientation="orientation" :page-margin="pageMargin" />` 即可获得完全相同的排版表现与实例门面；
+- **内置全功能操作栏**：微工具栏预装撤销/重做、标题分级、段落对齐、表格插入、页眉页脚编辑开关与快捷导出按钮。
+
+---
+
+### 5.2 A4 仿真纸张画布与刻度标尺 (AtengPageCanvas / AtengPageRuler)
+
+`<AtengPageCanvas />` 充当仿真排版容器，与 `<AtengPageRuler />` 毫米刻度标尺协同联动，实现可排版区域的可视化映射与动态虚拟分页。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { PageOrientation } from '@atengk/editor-vue';
+
+/**
+ * <AtengPageRuler /> 标尺组件 Props 契约。
+ */
+export interface AtengPageRulerProps {
+  /** 当前标尺总宽度（单位 mm，纵向通常为 210，横向为 297） */
+  width?: number;
+  /** 左页边距宽度（单位 mm） */
+  marginLeft?: number;
+  /** 右页边距宽度（单位 mm） */
+  marginRight?: number;
+  /** 纸张方向 */
+  orientation?: PageOrientation;
+}
+
+/**
+ * 物理页边距解析结果。
+ */
+export interface ResolvedPageMargins {
+  top: number; // 毫米
+  bottom: number;
+  left: number;
+  right: number;
+  topTwip: number; // Word 专用 1/20 磅单位
+  bottomTwip: number;
+  leftTwip: number;
+  rightTwip: number;
+}
+```
+
+#### 2. 画布与标尺组合代码示例
+
+```vue
+<template>
+  <div class="canvas-ruler-wrapper">
+    <!-- 纯 SVG/CSS 绘制的 A4 毫米级排版刻度标尺 -->
+    <AtengPageRuler :width="210" :margin-left="31.8" :margin-right="31.8" orientation="portrait" />
+
+    <!-- A4 仿真纸张画布 -->
+    <AtengPageCanvas
+      orientation="portrait"
+      page-margin="standard"
+      :show-ruler="false"
+      header="机密公文排版"
+      footer="第 1 页 / 共 1 页"
+    >
+      <slot />
+    </AtengPageCanvas>
+  </div>
+</template>
+```
+
+#### 3. 核心机制与算法说明
+
+- **毫米与 Twip 双向精准转换**：内置 `resolvePageMargins` 工具，标准化解析多档预设（standard: 25.4mm/31.8mm；narrow: 12.7mm；wide: 25.4mm/50.8mm）。换算公式为 $1\text{ mm} = 56.7\text{ twip}$，将屏幕 CSS 毫米渲染与 Word OpenXML 底层坐标系逐像素对齐；
+- **虚拟动态断页槽算法**：基于 `ResizeObserver` 动态监视正文高度，以 $H_{\text{page}} = 297\text{mm} - \text{Margin}_{\text{top}} - \text{Margin}_{\text{bottom}}$ 计算单页排版阈值。当内容超出时，通过 CSS 伪元素与背景在视觉上渲染虚拟分页线，**绝不在底层硬切碎 ProseMirror 节点**，保证长表格、段落与代码块能跨页连续平滑编辑。
+
+---
+
+### 5.3 交互式页眉页脚与 OpenXML 二进制安全导出 (prosemirrorJsonToDocxBlob / saveDocxFile)
+
+支持通过双击进行无缝行内编辑，并提供 100% 运行于客户端浏览器的 Word 二进制转译与导出驱动引擎。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { PageOrientation, PageMarginPreset, PageMarginConfig } from '@atengk/editor-vue';
+
+/**
+ * 纯前端 docx 导出高级配置选项。
+ */
+export interface DocxExportOptions {
+  /** 导出的文件名称（默认 'document.docx'） */
+  fileName?: string;
+  /** 纸张方向 */
+  orientation?: PageOrientation;
+  /** 页边距预设或自定义 */
+  pageMargin?: PageMarginPreset | PageMarginConfig;
+  /** 页眉文本 */
+  header?: string;
+  /** 页脚文本 */
+  footer?: string;
+  /** 是否在页脚包含动态页码 */
+  showPageNumber?: boolean;
+}
+
+/** 将 ProseMirror JSON AST 转译为标准 Word 二进制 Blob */
+export function prosemirrorJsonToDocxBlob(
+  json: Record<string, unknown>,
+  options?: DocxExportOptions,
+): Promise<Blob>;
+
+/** 触发客户端安全下载并确定性回收内存句柄 */
+export function saveDocxFile(blob: Blob, fileName?: string): void;
+```
+
+#### 2. 底层导出驱动独立调用示例
+
+```ts
+import { prosemirrorJsonToDocxBlob, saveDocxFile } from '@atengk/editor-vue';
+
+// 独立于 UI 组件直接将 JSON 树转译导出
+async function exportReportWord(docJson: Record<string, unknown>) {
+  const blob = await prosemirrorJsonToDocxBlob(docJson, {
+    fileName: '季度审计分析报告.docx',
+    orientation: 'portrait',
+    pageMargin: 'standard',
+    header: '发文字号：审发〔2026〕088号',
+    footer: '内部流通 · 严禁翻印',
+    showPageNumber: true,
+  });
+
+  // 触发客户端原生下载并释放临时内存
+  saveDocxFile(blob, '季度审计分析报告.docx');
+}
+```
+
+#### 3. 核心机制与内存回收防御说明
+
+- **双击行内激活**：双击纸张上/下虚线区域即可原地聚焦编辑页眉页脚文本，失焦时自动发射 `update:header` / `update:footer` 事件回写业务状态，消除弹窗修改的断裂感；
+- **纯前端 OpenXML AST 转译**：直接在客户端将 ProseMirror 文档树映射为 OpenXML 的 Paragraph、Heading、Table、TableCell、Header 与 Footer 结构，零服务端网络往返，零敏感数据泄露风险；
+- **确定性 ObjectURL 内存回收防线**：`saveDocxFile` 在动态创建 `<a>` 标签并触发 `click()` 下载后，通过定时器延迟 1000ms 确定性调用 `URL.revokeObjectURL(url)`，彻底回收浏览器内存句柄，杜绝重复导出导致的内存溢出（OOM）；
+- **原生打印对齐**：样式内置 `@media print { @page { size: A4; margin: 0; } }`，按 `Ctrl + P` 可直接调用系统物理打印机或无损输出为 A4 印刷级 PDF。
+
+---
+
+## 6. AI 智能创作与行内原位审阅套件
+
+智能创作协作预设（Agent Editor）专为**大模型辅助内容创作**、**边写边审 (Diff Review)**、**多通道自然语言交互**设计。核心追求“流式打字机竖线光标渲染、Decoration 与真实文档树解耦、原生 LCS 文本差异比对、行内原位对比审阅卡片与单步原子事务保全”。
+
+### 6.1 智能创作协作预设 (AtengAgentEditor)
+
+`<AtengAgentEditor />` 是 AI-Native 时代的新型编辑器，内置双通道 AI 唤起机制，无缝协调大模型生成流与创作者审核流程。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { EditorBaseProps, AtengEditorExpose } from '@atengk/editor-vue';
+import type { AiStreamHandler, AiPromptAction } from '@atengk/editor-vue';
+import type { ComputedRef, ShallowRef } from 'vue';
+
+/**
+ * <AtengAgentEditor /> 预设组件 Props 契约声明。
+ */
+export interface AgentEditorProps extends EditorBaseProps {
+  /** AI 流式通信 SPI 处理函数。缺省时使用内置打字机延迟仿真器 */
+  aiStreamHandler?: AiStreamHandler;
+  /** 是否启用划选选区 AI 气泡菜单，默认 true */
+  aiBubbleMenu?: boolean;
+  /** 是否启用空白行沉浸式 AI 输入条，默认 true */
+  aiPromptBar?: boolean;
+  /** 生成完毕后是否展示行内 Diff 审阅对比卡片，默认 true */
+  showDiff?: boolean;
+  /** 自定义快捷 AI 意图动作集合 */
+  aiActions?: AiPromptAction[];
+  /** 是否展示原生轻量工具栏，默认 true */
+  showToolbar?: boolean;
+  /** 是否展示底部状态栏，默认 true */
+  showStatusBar?: boolean;
+}
+
+/**
+ * <AtengAgentEditor /> 实例收敛暴露契约。
+ */
+export interface AtengAgentEditorInstance extends AtengEditorExpose {
+  /** 手动呼出空白行沉浸式 AI 输入条 */
+  openPromptBar: () => void;
+  /** 关闭空白行沉浸式 AI 输入条 */
+  closePromptBar: () => void;
+  /** 空白行沉浸式输入条当前激活状态 */
+  isPromptBarActive: ComputedRef<boolean> | ShallowRef<boolean>;
+}
+```
+
+#### 2. 面向实战的业务 Vue 3 代码示例 (逆向自 AgentEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengAgentEditor,
+  type AtengAgentEditorInstance,
+  createMockAiStreamHandler,
+} from '@atengk/editor-vue';
+
+const agentEditorRef = ref<AtengAgentEditorInstance | null>(null);
+
+// 真实 AI 智能创作研报模型
+const reportContent = ref<string>(`<h1>🤖 智能技术雷达分析研报</h1>
+<p>在现代企业级内容生产场景中，创作者无需离开编辑画布即可就地唤起 AI，协同完成文案润色、内容扩写与提炼总结。</p>
+<blockquote>通信协议 100% 纯前端 SPI 驱动，支持企业私有网关与离线仿真。</blockquote>`);
+
+// 默认使用 100% 离线自洽打字机仿真器（每字延迟 25ms 模拟真实感）
+const mockAiHandler = createMockAiStreamHandler({ delayMs: 25 });
+</script>
+
+<template>
+  <div class="ai-editor-wrapper">
+    <!-- AI 智能创作预设：双通道唤起 + Decoration 打字机 + 行内原位审阅 Diff 卡片 -->
+    <AtengAgentEditor
+      ref="agentEditorRef"
+      v-model="reportContent"
+      :ai-stream-handler="mockAiHandler"
+      placeholder="输入正文，或划选文字按 Ctrl+J / 空行按空格唤起 AI 助手..."
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与设计说明
+
+- **双通道 AI 唤起动线**：针对“选区修改”提供划选跟随气泡；针对“新内容创作”提供空行沉浸提示条，操作心流完全贴合创作者直觉；
+- **多态门面等价映射**：通过 `<AtengEditor mode="agent" :ai-stream-handler="handler" />` 即可直接复用全部智能协作特性。
+
+---
+
+### 6.2 打字机光标扩展与流式状态机 (AiStreamingExtension / useAiStream)
+
+为了在流式吐字过程中呈现丝滑的打字机光标，同时**坚决杜绝冲垮 Undo 撤销历史栈**，套件实现了基于 ProseMirror 独立装饰层的流式扩展：
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { ShallowRef } from 'vue';
+import type { Editor } from '@tiptap/vue-3';
+import type { AiStreamHandler, AiStreamingState } from '@atengk/editor-vue';
+
+/**
+ * useAiStream 无头 Hook 入参配置契约。
+ */
+export interface UseAiStreamOptions {
+  editor: ShallowRef<Editor | null>;
+  streamHandler?: AiStreamHandler;
+  onFinish?: (generatedText: string, originalText?: string) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * useAiStream 无头 Hook 返回状态与操作契约。
+ */
+export interface UseAiStreamReturn {
+  state: ShallowRef<AiStreamingState>;
+  /** 触发 AI 流式生成任务 */
+  generate: (payload: { prompt: string; action?: string; selection?: string }) => Promise<string>;
+  /** 物理中断在途的 AI 生成流 */
+  abort: () => void;
+  /** 当前是否正在流式生成中 */
+  isStreaming: ShallowRef<boolean>;
+}
+```
+
+#### 2. 无头 Hook 状态消费代码示例
+
+```ts
+import { shallowRef } from 'vue';
+import { useAiStream, createMockAiStreamHandler } from '@atengk/editor-vue';
+
+const editor = shallowRef(null);
+const { isStreaming, generate, abort } = useAiStream({
+  editor,
+  streamHandler: createMockAiStreamHandler({ delayMs: 20 }),
+  onFinish: text => console.log('AI 生成结束：', text),
+  onError: err => console.error('AI 生成异常：', err),
+});
+```
+
+#### 3. 核心机制与撤销栈零污染防线
+
+- **ProseMirror Decoration 装饰层解耦**：流式吐字期间，光标跳动与呼吸高亮光晕通过 ProseMirror `Decoration.widget` 与 `Decoration.inline` 动态绘制于视图层。**中间百步字符绝不频繁触发 `tr.insertText()`**，文档树保持纯净，用户的 Undo 栈零碎片化；
+- **确定性中断 (AbortController)**：状态机内部纳管 `AbortController`，当用户点击“停止生成”、按 `Esc` 键或切换页面销毁组件时，`signal.abort()` 立即中断底层网络流，防止离线回调悬挂。
+
+---
+
+### 6.3 划选 AI 气泡与空白行沉浸提示条 (AtengAiBubbleMenu / AtengAiPromptBar)
+
+提供划词与空行双通道人机交互入口：
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { Editor } from '@tiptap/vue-3';
+
+/**
+ * 快捷意图动作契约接口。
+ */
+export interface AiPromptAction {
+  id: string;
+  label: string;
+  icon?: string;
+  action: 'polish' | 'expand' | 'shorten' | 'summarize' | 'translate' | 'continue' | string;
+  prompt: string;
+}
+
+/**
+ * <AtengAiBubbleMenu /> 组件入参 Props 契约。
+ */
+export interface AtengAiBubbleMenuProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  actions?: AiPromptAction[];
+  tippyOptions?: Record<string, unknown>;
+}
+
+/**
+ * <AtengAiPromptBar /> 组件入参 Props 契约。
+ */
+export interface AtengAiPromptBarProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  isStreaming?: boolean;
+}
+```
+
+#### 2. 交互动线与内置快捷预设
+
+| 交互入口              | 激活方式                                          | 内置预设能力                                    | 交互行为与失焦保护                                                               |
+| :-------------------- | :------------------------------------------------ | :---------------------------------------------- | :------------------------------------------------------------------------------- |
+| **AtengAiBubbleMenu** | 鼠标划选任意正文段落（长度 $\ge 2$ 字符）         | 💡 润色、📝 扩写、✂️ 精简、🌐 翻译、📋 提炼摘要 | 气泡平滑吸附在选区上方，点击快捷意图或输入自定义指令直接触发流式改写             |
+| **AtengAiPromptBar**  | 光标位于空白段落时按下 `Space`，或按下 `Ctrl + J` | 自然语言提示词输入框、发送按钮、快捷生成标签    | 沉浸式内嵌在当前行正文中，按 `Enter` 触发生成，按 `Esc` 或向后退格自动退出提示条 |
+
+---
+
+### 6.4 行内原位对比卡片与原生 LCS 文本比对 (AtengAiDiffCard / computeTextDiff)
+
+AI 生成完毕后，绝不直接粗暴覆盖原文，而是通过 `<AtengAiDiffCard />` 在原位呈现红绿差异对比，赋予创作者完全的决策权。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+/**
+ * 结构化文本差异切片。
+ */
+export interface DiffChangeChunk {
+  /** 变更类型：'added' (新增) | 'removed' (删除) | 'unchanged' (未变) */
+  type: 'added' | 'removed' | 'unchanged';
+  /** 切片对应文本 */
+  text: string;
+}
+
+/**
+ * 纯原生 LCS 动态规划算法：比对两个文本的增删变动。
+ */
+export function computeTextDiff(originalText: string, newText: string): DiffChangeChunk[];
+
+/**
+ * <AtengAiDiffCard /> 组件入参 Props 契约。
+ */
+export interface AtengAiDiffCardProps {
+  /** 原始文本 */
+  originalText: string;
+  /** AI 生成后的新文本 */
+  generatedText: string;
+  /** 是否处于处理中 */
+  loading?: boolean;
+}
+```
+
+#### 2. 行内对比审阅卡片交互范式
+
+```vue
+<template>
+  <div class="diff-container">
+    <!-- 原位对比审阅卡片：红绿高亮标示增删，提供三态闭环决策 -->
+    <AtengAiDiffCard
+      :original-text="oldContent"
+      :generated-text="newContent"
+      @accept="handleAcceptReplace"
+      @insert-below="handleInsertBelow"
+      @discard="handleDiscard"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与算法说明
+
+- **原生 LCS 动态规划与相邻合并**：基于纯原生最长公共子序列（Longest Common Subsequence）算法，构建 $O(M \times N)$ 差异矩阵，并对连续微小增删切片执行智能合并，输出高可读的结构化切片数组；
+- **单步原子事务采纳闭环**：
+  - 【替换选区】：执行单次原子事务 `applyContentPreservingSelection` 将选区替换为生成内容；
+  - 【插入下方】：保留原文并在段落下方插入生成的新块；
+  - 【放弃重试】：直接抹除卡片并恢复原状。整个过程保全光标选区，按 `Ctrl + Z` 可单步一键撤销。
+
+---
+
+### 6.5 大模型通信 SPI 与离线打字机仿真器 (AiStreamHandler / createMockAiStreamHandler)
+
+套件提供开箱自验仿真与真实网关直连双轨闭环：
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+/**
+ * AI 请求入参载荷。
+ */
+export interface AiStreamPayload {
+  prompt: string;
+  selection?: string;
+  context?: string;
+  action?: string;
+  signal?: AbortSignal;
+}
+
+/**
+ * 解耦后端的大模型流式通信 SPI 函数签名。
+ */
+export type AiStreamHandler = (
+  payload: AiStreamPayload,
+) =>
+  | AsyncIterable<string>
+  | ReadableStream<string>
+  | Promise<AsyncIterable<string> | ReadableStream<string>>;
+```
+
+#### 2. 双轨闭环实战代码示例
+
+```ts
+import { type AiStreamHandler, createMockAiStreamHandler } from '@atengk/editor-vue';
+
+// ----------------------------------------------------
+// 轨道一：离线自洽 Mock 仿真器（开箱自验与单测首选）
+// ----------------------------------------------------
+export const offlineMockHandler = createMockAiStreamHandler({
+  delayMs: 25, // 模拟 25ms/字渐进式吐字
+});
+
+// ----------------------------------------------------
+// 轨道二：企业级真实 Fetch SSE 流式网关生产标准接入范式
+// ----------------------------------------------------
+export const productionAiStreamHandler: AiStreamHandler = async function* (payload) {
+  const response = await fetch('/api/ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    },
+    body: JSON.stringify({
+      prompt: payload.prompt,
+      context: payload.context,
+      selection: payload.selection,
+      action: payload.action,
+      stream: true,
+    }),
+    signal: payload.signal, // 透传中断信号，支持即时中断
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`AI 网关响应异常: HTTP ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      // 产生增量文本切片
+      yield decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+};
+```
+
+#### 3. 核心机制与跨框架中立防御说明
+
+- **零凭据硬编码与零厂商锁定**：组件库严禁出现任何诸如 `api.openai.com` 等厂商私有字段或 API Key，所有通信细节 100% 收敛在外部注入的 `AiStreamHandler` SPI 中；
+- **离线自洽单测铁律**：内置 `createMockAiStreamHandler` 支持指定 `delayMs: 0` 与错误注入仿真，使得本套件 113 项单元测试在断网环境下仍能 100% 毫秒级全绿回归。
+
 ---
 
 ## 维度二：生产扩展接管 (Customization & Extensibility)
@@ -731,73 +1330,6 @@ const customUploadHandler: UploadHandler = async (file: File) => {
       </div>
     </template>
   </AtengEditor>
-</template>
-```
-
-### 3. 纯前端 OpenXML Word (.docx) 导出接管
-
-通过 `<AtengDocxEditor />` 暴露的 `exportDocx()` 门面或底层 `prosemirrorJsonToDocxBlob()` 转译器，零后端服务依赖在浏览器端直接生成 Word 二进制并确定性内存回收下载：
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-import { AtengDocxEditor, type AtengDocxEditorInstance } from '@atengk/editor-vue';
-
-const docxEditorRef = ref<AtengDocxEditorInstance | null>(null);
-const content = ref<string>('<h1>企业数字化转型指导意见</h1><p>正文内容...</p>');
-
-const handleExport = async () => {
-  // 调用实例门面一键导出并下载
-  await docxEditorRef.value?.exportDocx({
-    fileName: '数字化转型意见.docx',
-    orientation: 'portrait',
-    pageMargin: 'standard',
-    header: '发文字号：创发〔2026〕1024号',
-    footer: '内部绝密 · 严禁翻印',
-    showPageNumber: true,
-  });
-};
-</script>
-
-<template>
-  <AtengDocxEditor ref="docxEditorRef" v-model="content" />
-</template>
-```
-
-### 4. 自定义大模型通信 SPI 与 AI 流式状态机接管
-
-通过传递自定义 `aiStreamHandler`，解耦接入业务内网大模型网关、SSE 或 WebSocket，支持流式光标渲染与行内审阅对比：
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-import { AtengAgentEditor, type AiStreamHandler } from '@atengk/editor-vue';
-
-const content = ref<string>('');
-
-// 自定义大模型流式适配器
-const customAiStreamHandler: AiStreamHandler = async function* ({ prompt, context, signal }) {
-  const response = await fetch('/api/ai/chat-stream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, context }),
-    signal,
-  });
-
-  if (!response.body) return;
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    yield decoder.decode(value, { stream: true });
-  }
-};
-</script>
-
-<template>
-  <AtengAgentEditor v-model="content" :ai-stream-handler="customAiStreamHandler" />
 </template>
 ```
 
