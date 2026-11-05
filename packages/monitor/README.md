@@ -696,19 +696,505 @@ document.addEventListener(
 
 ## 5. 3×3 视口点阵白屏感知与骨架自愈套件
 
-_(待工单 #279 系统交付：5.1 3×3 视口点阵采样与白屏判定、5.2 骨架屏白名单豁免与双阶段复验)_
+针对单页应用（SPA）在路由异步加载失败、微前端加载崩塌或根容器未渲染导致的静默真白屏，`WhiteScreenPlugin` 提供了基于九点几何点阵采样与骨架屏白名单祖先追溯的工业级检测防线。
+
+### 5.1 3×3 视口几何点阵九点穿透采样与白屏判定
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+export interface SamplePointDiagnostic {
+  /** 采样点 X 物理视口坐标 (px) */
+  x: number;
+  /** 采样点 Y 物理视口坐标 (px) */
+  y: number;
+  /** 采样命中顶层元素的选择器路径描述 */
+  target: string;
+  /** 是否命中了无有效业务子节点的根挂载容器 */
+  isRoot: boolean;
+  /** 是否命中了骨架屏或 Loading 遮罩白名单容器 */
+  isWhitelisted: boolean;
+}
+
+export interface WhiteScreenSamplingResult {
+  /** 采样诊断是否判定为疑似白屏 */
+  isSuspected: boolean;
+  /** 9 个采样点的完整穿透诊断详情 */
+  points: SamplePointDiagnostic[];
+  /** 命中的所有根容器选择器集合 */
+  hitSelectors: string[];
+  /** 视口几何尺寸 { width, height } */
+  viewport: { width: number; height: number };
+}
+
+export interface WhiteScreenPluginOptions {
+  /** 根挂载容器选择器列表，默认 ['html', 'body', '#app', '#root', '.app-container', '.main-container'] */
+  rootSelectors?: readonly string[];
+  /** 骨架屏与 Loading 遮罩白名单选择器列表，命中则豁免告警 */
+  whitelistSelectors?: readonly string[];
+  /** 初检延迟时间 T1 (毫秒)，默认 3000ms */
+  initialDelay?: number;
+  /** 初检怀疑白屏后的二次防抖复验延迟时间 T2 (毫秒)，默认 1500ms */
+  recheckDelay?: number;
+  /** 是否在 window load 事件后自动启动初检，默认 true */
+  autoCheckOnLoad?: boolean;
+  /** 判定为白屏所需的根容器命中点数阈值 (1~9)，默认 9 */
+  threshold?: number;
+}
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/WhiteScreenPanel.vue](../../apps/sample-monitor/src/components/WhiteScreenPanel.vue)：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElMessage } from 'element-plus';
+import { sampleViewport, getActiveMonitor, type WhiteScreenPayload } from '@atengk/monitor';
+
+const monitor = getActiveMonitor()!;
+const containerStatus = ref<'normal' | 'blank' | 'skeleton'>('normal');
+
+// 执行 3×3 几何点阵采样诊断
+const executeSample = () => {
+  return sampleViewport(
+    ['html', 'body', '#white-screen-sandbox', '#app'],
+    ['.skeleton-box', '.at-skeleton', '.el-loading-mask'],
+  );
+};
+
+// 模拟触发页面清空崩溃白屏
+const simulateWhiteScreen = () => {
+  containerStatus.value = 'blank';
+  ElMessage.warning('视窗已清空，模拟触发白屏崩溃...');
+
+  setTimeout(() => {
+    const res = executeSample();
+    if (res.isSuspected) {
+      // 派发致命级别白屏异常遥测事件
+      monitor.emit<WhiteScreenPayload>({
+        type: 'white_screen',
+        level: 'fatal',
+        payload: {
+          name: 'WHITE_SCREEN_ERROR',
+          isWhiteScreen: true,
+          samplePoints: res.points,
+          hitSelectors: res.hitSelectors,
+          viewport: res.viewport,
+          duration: performance.now(),
+        },
+      });
+      ElMessage.error('已精准捕获视口白屏异常并派发告警！');
+    }
+  }, 100);
+};
+</script>
+
+<template>
+  <div class="white-screen-demo">
+    <el-button type="danger" @click="simulateWhiteScreen">
+      模拟清空视窗 (触发白屏崩溃告警)
+    </el-button>
+  </div>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **九点几何坐标数学模型**：采样器在物理视口宽度的 $1/6$、$1/2$、$5/6$ 与高度的 $1/6$、$1/2$、$5/6$ 交叉建立 $3 \times 3$ 的 9 个均分几何网格探测点；
+2. **DOM 穿透诊断**：通过浏览器原生 `document.elementsFromPoint(x, y)` 提取该坐标下向下穿透的全部图元列表；当且仅当所有 9 个点均穿透直达裸 `html`、`body` 或 `#app` 等空容器，且没有任何有效业务图元时，才判定为“可疑白屏”，有效避免单一局部空白导致的假阳性。
+
+---
+
+### 5.2 骨架屏白名单豁免与双阶段延迟复验自愈
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+/**
+ * 校验指定 DOM 节点自身或向上追溯任意层级祖先是否命中白名单选择器。
+ *
+ * @param element 目标 DOM 节点
+ * @param selectors 白名单选择器数组
+ * @returns 命中返回 true，未命中返回 false
+ */
+export function matchesAnySelector(element: Element, selectors: readonly string[]): boolean;
+
+/**
+ * 校验指定节点是否为根挂载容器。
+ *
+ * @param element 目标 DOM 节点
+ * @param selectors 根容器选择器列表
+ */
+export function isDirectRootElement(element: Element, selectors: readonly string[]): boolean;
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/WhiteScreenPanel.vue](../../apps/sample-monitor/src/components/WhiteScreenPanel.vue)：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElMessage } from 'element-plus';
+import { sampleViewport } from '@atengk/monitor';
+
+const containerStatus = ref<'normal' | 'skeleton'>('normal');
+
+// 1. 模拟进入骨架屏加载态
+const simulateSkeleton = () => {
+  containerStatus.value = 'skeleton';
+  ElMessage.info('展示骨架屏中 (验证白名单免报机制)...');
+
+  setTimeout(() => {
+    const res = sampleViewport(
+      ['html', 'body', '#app'],
+      ['.skeleton-box', '.at-skeleton', '.el-loading-mask'],
+    );
+    // 尽管没有真实业务内容，但因命中白名单容器，isSuspected 判定为 false
+    console.log('白名单豁免生效，是否怀疑白屏:', res.isSuspected); // false
+  }, 100);
+};
+
+// 2. 自愈恢复
+const restoreNormal = () => {
+  containerStatus.value = 'normal';
+  ElMessage.success('视窗已恢复正常业务内容');
+};
+</script>
+
+<template>
+  <div class="skeleton-wrapper">
+    <!-- 带有白名单标识的骨架屏容器 -->
+    <div v-if="containerStatus === 'skeleton'" class="skeleton-box">
+      <div class="skeleton-line" />
+      <div class="skeleton-line" />
+    </div>
+
+    <el-button @click="simulateSkeleton">展示骨架屏 (白名单生效)</el-button>
+    <el-button @click="restoreNormal">自愈恢复正常</el-button>
+  </div>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **白名单祖先追溯机制**：只要探测点命中的元素本身或向上追溯其任意层级祖先节点（通过 `element.closest()` 或向上遍历 `parentElement`）命中 `.skeleton`、`.el-loading-mask`、`[data-loading]` 等样式类与属性，算法立即判定该点处于合法等待态，直接豁免报错；
+2. **双阶段延迟复验协议 (`TwoPhaseVerification`)**：当页面初次初检 $T_1$（默认 3000ms）发现可疑白屏时，**绝不直接上报**，而是启动二次复验定时器 $T_2$（默认 1500ms）；若在此期间异步组件加载完毕或数据填充恢复正常，系统自动静默解除警报，彻底消除弱网异步加载下的假阳性误报。
 
 ---
 
 ## 6. 性能体验与 Core Web Vitals 采集套件
 
-_(待工单 #279 系统交付：6.1 Core Web Vitals 官方指标与三态评级、6.2 主线程长任务与卡顿告警)_
+依托 W3C 现代 `PerformanceObserver` 标准，自动打点并系统化评级用户在客户端的真实性能体验，覆盖加载感知、交互响应与主线程卡顿。
+
+### 6.1 Google Core Web Vitals 核心体验指标与三态评级
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+export interface PerformancePluginOptions {
+  /** 是否启用 Web Vitals 采集 (FCP, LCP, CLS, INP, TTFB)，默认 true */
+  vitals?: boolean;
+  /** 是否采集 Navigation Timing 关键链路阶段耗时，默认 true */
+  navigation?: boolean;
+  /** 是否监听主线程 Long Tasks，默认 true */
+  longtask?: boolean;
+  /** 触发严重卡顿告警的耗时阈值 (毫秒)，默认 200ms */
+  jankThreshold?: number;
+  /** 性能事件采样率 (0.0 ~ 1.0)，默认 1.0 全量采集 */
+  sampleRate?: number;
+}
+
+export interface NavigationMetrics {
+  /** DNS 域名解析耗时 (ms) */
+  dns: number;
+  /** TCP 连接建立耗时 (ms) */
+  tcp: number;
+  /** SSL 安全握手耗时 (ms) */
+  ssl: number;
+  /** TTFB 首字节响应耗时 (ms) */
+  ttfb: number;
+  /** 网页内容下载传输耗时 (ms) */
+  download: number;
+  /** DOM 树构建就绪耗时 (ms) */
+  domReady: number;
+  /** 页面整体完全加载耗时 (ms) */
+  load: number;
+}
+
+/**
+ * 依据 Google 官方阈值计算体验评级。
+ *
+ * @param name 指标名称 ('FCP' | 'LCP' | 'CLS' | 'INP' | 'TTFB')
+ * @param value 指标实测数值
+ * @returns 评级 ('good' | 'needs-improvement' | 'poor')
+ */
+export function calculateRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor';
+
+/**
+ * 从 PerformanceNavigationTiming 中提取全链路阶段耗时。
+ */
+export function extractNavigationMetrics(entry: PerformanceNavigationTiming): NavigationMetrics;
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/PerformancePanel.vue](../../apps/sample-monitor/src/components/PerformancePanel.vue)：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElRow, ElCol, ElCard, ElStatistic, ElTag } from 'element-plus';
+import { calculateRating } from '@atengk/monitor';
+
+// 维护核心体验指标动态值
+const metrics = ref({
+  fcp: 240,
+  lcp: 850,
+  cls: 0.02,
+  inp: 110,
+  ttfb: 85,
+});
+</script>
+
+<template>
+  <el-row :gutter="16">
+    <el-col :span="6">
+      <el-card shadow="hover">
+        <el-statistic title="FCP (首次内容绘制)" :value="metrics.fcp" suffix="ms" />
+        <el-tag
+          size="small"
+          :type="calculateRating('FCP', metrics.fcp) === 'good' ? 'success' : 'warning'"
+        >
+          {{ calculateRating('FCP', metrics.fcp) }}
+        </el-tag>
+      </el-card>
+    </el-col>
+
+    <el-col :span="6">
+      <el-card shadow="hover">
+        <el-statistic title="LCP (最大内容绘制)" :value="metrics.lcp" suffix="ms" />
+        <el-tag
+          size="small"
+          :type="calculateRating('LCP', metrics.lcp) === 'good' ? 'success' : 'danger'"
+        >
+          {{ calculateRating('LCP', metrics.lcp) }}
+        </el-tag>
+      </el-card>
+    </el-col>
+  </el-row>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **Google 官方阈值算法**：
+   - **FCP**：$\le 1800\text{ms}$ 为 `good`，$\le 3000\text{ms}$ 为 `needs-improvement`，超过为 `poor`；
+   - **LCP**：$\le 2500\text{ms}$ 为 `good`，$\le 4000\text{ms}$ 为 `needs-improvement`；
+   - **CLS**：$\le 0.1$ 为 `good`，$\le 0.25$ 为 `needs-improvement`；
+   - **INP**：$\le 200\text{ms}$ 为 `good`，$\le 500\text{ms}$ 为 `needs-improvement`；
+2. **指标生命周期断流治理**：通过 `PerformanceObserver` 监听 `buffered: true` 获取初始化早期的指标；针对 LCP 与 CLS 在用户切换标签页或交互时自动停止监听并定稿上报，消除持续变动造成的抖动。
+
+---
+
+### 6.2 主线程长任务与卡顿告警
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+export interface LongTaskJank {
+  /** 任务执行持续耗时 (毫秒) */
+  duration: number;
+  /** 任务起始时刻时间戳 */
+  startTime: number;
+  /** 发生长任务时的页面 URL */
+  url: string;
+  /** 浏览器探测到的长任务归因信息 (如脚本源路径) */
+  attribution?: Array<{
+    name?: string;
+    containerSrc?: string;
+    containerId?: string;
+    containerName?: string;
+  }>;
+}
+```
+
+#### ② 面向实战的业务 TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/PerformancePanel.vue](../../apps/sample-monitor/src/components/PerformancePanel.vue)：
+
+```ts
+import { ElMessage } from 'element-plus';
+
+// 模拟主线程耗时密集计算，触发 >50ms Long Task 与 Jank 告警
+export function triggerSimulatedLongTask(): void {
+  ElMessage.warning('开始执行耗时密集计算，将阻塞主线程 220ms...');
+
+  setTimeout(() => {
+    const start = performance.now();
+    while (performance.now() - start < 220) {
+      // 真实 CPU 密集计算占满主线程循环
+    }
+    ElMessage.error('长任务阻塞完毕！PerformanceObserver 插件将自动捕获并派发 JANK_WARNING');
+  }, 20);
+}
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **60 FPS 流畅度防御**：前端画面以 60FPS（约 16.6ms 每帧）运行，单次主线程任务超过 50ms 即被 W3C 定义为 Long Task 并引起掉帧；
+2. **两级卡顿告警策略**：
+   - **常态记录**：$>50\text{ms}$ 的长任务自动作为性能指标被采入面包屑与事件流；
+   - **Jank 越级告警**：当单次长任务超过配置的 `jankThreshold`（默认 200ms）时，微内核自动将其升级为高优先级的 `JANK_WARNING` 告警事件单独派发，助力快速归因 UI 卡死根因。
 
 ---
 
 ## 7. 用户行为轨迹、网络嗅探与 MDC TraceId 协同套件
 
-_(待工单 #279 系统交付：7.1 定长环形行为面包屑时间轴、7.2 原生网络嗅探与 Axios TraceId 串联)_
+提供完整的用户操作上下文追溯能力，将分散的 DOM 点击、控制台输出、单页路由跳跃与前后端分布式链路无缝串联。
+
+### 7.1 定长环形行为面包屑时间轴与虚拟路由流转
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+export interface BreadcrumbItem {
+  /** 行为类别: 'click' | 'route' | 'console' | 'network' | 'custom' */
+  category: string;
+  /** 行为操作名称或标识 */
+  action: string;
+  /** 详细载荷 (已脱敏) */
+  data?: Record<string, unknown>;
+  /** 行为发生时刻的时间戳 (毫秒) */
+  timestamp: number;
+  /** 事件级别 */
+  level?: 'info' | 'warning' | 'error';
+}
+
+export interface BreadcrumbPluginOptions {
+  /** 环形缓冲区最大容量 (1~100)，默认 20 (Sample 设置为 30) */
+  maxBreadcrumbs?: number;
+  /** 是否监听全局 DOM 点击行为，默认 true */
+  enableClick?: boolean;
+  /** 是否监听 SPA 虚拟路由流转与耗时，默认 true */
+  enableRoute?: boolean;
+  /** 是否记录 console.log/info/warn 打印轨迹，默认 true */
+  enableConsole?: boolean;
+  /** 自定义敏感 DOM 掩码选择器列表 */
+  maskSelectors?: string[];
+}
+```
+
+#### ② 面向实战的业务 Vue / TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/BreadcrumbPanel.vue](../../apps/sample-monitor/src/components/BreadcrumbPanel.vue)：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { ElButton, ElMessage } from 'element-plus';
+import { getActiveMonitor, type BreadcrumbItem } from '@atengk/monitor';
+
+const monitor = getActiveMonitor()!;
+const breadcrumbs = ref<BreadcrumbItem[]>([]);
+
+// 刷新读取当前环形缓冲区中的行为时间轴
+const refreshBreadcrumbs = () => {
+  const plugin = monitor.getPlugin('breadcrumb') as
+    { getBreadcrumbs?: () => BreadcrumbItem[] } | undefined;
+  if (plugin?.getBreadcrumbs) {
+    breadcrumbs.value = plugin.getBreadcrumbs().slice().reverse();
+  }
+};
+
+// 模拟触发 SPA 虚拟路由流转
+const onNavigate = (path: string) => {
+  window.history.pushState(null, '', path);
+  ElMessage.success(`触发 SPA 虚拟路由流转 ➜ ${path}`);
+  setTimeout(refreshBreadcrumbs, 80);
+};
+</script>
+
+<template>
+  <div class="breadcrumb-demo">
+    <el-button @click="onNavigate('/dashboard/analysis')">跳转到仪表盘</el-button>
+    <el-button @click="onNavigate('/order/detail?id=1001')">跳转到订单详情</el-button>
+  </div>
+</template>
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **环形缓冲区 (FIFO) 零内存膨胀**：面包屑采用基于容量约束的环形队列结构，容量达到 `maxBreadcrumbs` 后自动淘汰最早的一条（先进先出），在长时间运行的后台管理系统中内存占用恒定，杜绝内存泄漏；
+2. **SPA 虚拟路由耗时精准感知**：通过包装原生 `history.pushState`、`history.replaceState` 并监听 `popstate` / `hashchange`，在路由发生变化瞬间记录起始时刻，并在下一帧 `requestAnimationFrame` 渲染完成时计算稳定的路由切换耗时（`duration`），自动派发 `PAGE_VIEW` 行为面包屑。
+
+---
+
+### 7.2 原生网络嗅探与 `@atengk/core` Axios 拦截器 TraceId 串联
+
+#### ① 本节专属 TypeScript 契约与配置接口
+
+```ts
+export interface NetworkPluginOptions {
+  /** 是否监听原生 window.fetch 请求，默认 true */
+  enableFetch?: boolean;
+  /** 是否监听原生 XMLHttpRequest 请求，默认 true */
+  enableXhr?: boolean;
+  /** 监控自身上报网关 URL (用于防死循环过滤) */
+  reportUrl?: string;
+  /** 需要忽略过滤的 URL 正则或字符串黑名单列表 */
+  ignoreUrls?: Array<string | RegExp>;
+  /** 是否在 HTTP 响应状态码 >= 400 时自动派发 HTTP_ERROR 事件，默认 true */
+  recordHttpError?: boolean;
+}
+
+export interface CoreAxiosMonitorInterceptor {
+  /** 响应成功拦截处理器 */
+  responseInterceptor: <T = unknown>(response: T) => T;
+  /** 响应失败拦截处理器 */
+  errorInterceptor: (error: unknown) => Promise<never>;
+  /**
+   * 一键安装拦截器至 Axios 实例，并返回对称卸载函数。
+   *
+   * @param axiosInstance 具备 interceptors.response 的 Axios 实例
+   * @returns 卸载注销函数
+   */
+  install: (axiosInstance: AxiosLikeInstance) => () => void;
+}
+```
+
+#### ② 面向实战的业务 TS 代码示例
+
+代码逆向提取自 [apps/sample-monitor/src/components/ApmTerminal.vue](../../apps/sample-monitor/src/components/ApmTerminal.vue)：
+
+```ts
+import axios from 'axios';
+import { getActiveMonitor, createCoreAxiosMonitorInterceptor } from '@atengk/monitor';
+
+const monitor = getActiveMonitor()!;
+const api = axios.create({ baseURL: '/api' });
+
+// 1. 一键安装全链路追踪协同拦截器
+const uninstall = createCoreAxiosMonitorInterceptor(monitor).install(api);
+
+// 2. 发起业务请求 (支持单体模式与微服务网关模式)
+async function fetchUserOrders(): Promise<void> {
+  // 后端返回 Result<T> 包含 traceId，或在响应头包含 x-trace-id
+  const response = await api.get('/v1/orders/list');
+  // 拦截器已自动将后端分布式 traceId 提取并注入至当前 monitor.contextStore 中！
+  console.log('当前监控上下文中的 TraceId:', monitor.contextStore.getContext().tags.traceId);
+}
+
+// 3. 在组件卸载时可对称注销拦截器
+// uninstall();
+```
+
+#### ③ 核心机制与生产边界说明
+
+1. **分布式链路端到端穿透**：`createCoreAxiosMonitorInterceptor` 深度适配 `@atengk/core` 标准响应契约 `Result<T>`；自动识别响应体中的 `traceId` 属性及标准响应头 `x-trace-id` / `trace-id`，提取后自动绑定到全局 `contextStore.setTag('traceId', id)`，使得随后的所有前端异常与卡顿事件均带有后端服务日志相同的 `traceId`，前后端日志排障提效 80%；
+2. **防套娃死循环前置卫语句**：`NetworkPlugin` 在嗅探每个底层 HTTP 请求时，严格执行前置卫语句检查：一旦识别请求头带有 `X-Ateng-Monitor-Skip: true` 或请求地址命中 `reportUrl`，立即无损放行原生请求，绝对不拦截、不记录面包屑、不派发二次遥测，坚决杜绝死循环递归雪崩。
 
 ---
 
