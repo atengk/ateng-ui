@@ -53,7 +53,7 @@
   ],
   "author": "atengk",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/atengk/ateng-ui#readme",
+  "homepage": "https://www.npmjs.com/package/@atengk/element-plus",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/atengk/ateng-ui.git"

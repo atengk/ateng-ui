@@ -2,14 +2,34 @@
   "$schema": "https://unpkg.com/@changesets/config/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@atengk/core",
+      "@atengk/vue",
+      "@atengk/element-plus",
+      "@atengk/code-editor-vue",
+      "@atengk/echarts-vue",
+      "@atengk/editor-vue",
+      "@atengk/file-viewer-vue",
+      "@atengk/flow-vue",
+      "@atengk/monitor",
+      "@atengk/video-player-vue"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "sample-code-editor-vue",
     "sample-core",
-    "sample-vue",
-    "sample-element-plus"
+    "sample-echarts-vue",
+    "sample-editor-vue",
+    "sample-element-plus",
+    "sample-file-viewer-vue",
+    "sample-flow-vue",
+    "sample-monitor",
+    "sample-video-player-vue",
+    "sample-vue"
   ]
 }

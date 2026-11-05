@@ -90,7 +90,7 @@ show_help() {
   printf "%b\n" ""
   printf "%b\n" "选项说明 (支持交互向导与非交互式/AI自动化调用):"
   printf "%b\n" "  -t, --type <type>       提交类型 (feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)"
-  printf "%b\n" "  -s, --scope <scope>     可选影响范围 (推荐: core, vue, element-plus, sample-core, sample-vue, sample-element-plus, root, deps, ci, docs, changeset)"
+  printf "%b\n" "  -s, --scope <scope>     可选影响范围 (核心套件: core, vue, element-plus; 扩展套件: code-editor-vue, echarts-vue, editor-vue, file-viewer-vue, flow-vue, monitor, video-player-vue; 展厅: sample-*; 通用: root, deps, ci, docs, changeset, scripts)"
   printf "%b\n" "  -m, --message <msg>     提交主标题描述 (必填，简明扼要)"
   printf "%b\n" "  -d, --detail, --body    提交正文详细说明 (可选，支持多行文本)"
   printf "%b\n" "  -l, --item <text>       提交详细条目列表 (可选，可多次传入，自动组装为列表)"
@@ -285,25 +285,56 @@ else
     esac
   done
 
-  printf "\n%b请选择或输入影响范围 Scope (留空按回车，推荐选择):%b\n" "${COLOR_BOLD}" "${COLOR_RESET}"
-  printf "  1) core                2) vue               3) element-plus\n"
-  printf "  4) sample-core         5) sample-vue        6) sample-element-plus\n"
-  printf "  7) root                8) deps              9) ci\n"
-  printf "  10) docs               11) changeset        0) 自定义 / 留空\n"
-  printf "%b请输入编号或直接输入范围名: %b" "${COLOR_BOLD}" "${COLOR_RESET}"
+  printf "\n%b请选择或输入影响范围 Scope (留空按回车，推荐按编号选择):%b\n" "${COLOR_BOLD}" "${COLOR_RESET}"
+  printf "%b--- [L0/L1 核心底座与无头层] ---%b\n" "${COLOR_CYAN}" "${COLOR_RESET}"
+  printf "  1) core                      2) vue\n"
+  printf "%b--- [L2 专用领域扩展套件] ---%b\n" "${COLOR_CYAN}" "${COLOR_RESET}"
+  printf "  3) code-editor-vue           4) echarts-vue\n"
+  printf "  5) editor-vue                6) file-viewer-vue\n"
+  printf "  7) flow-vue                  8) monitor\n"
+  printf "  9) video-player-vue\n"
+  printf "%b--- [L3 表现与高阶组件套件] ---%b\n" "${COLOR_CYAN}" "${COLOR_RESET}"
+  printf "  10) element-plus\n"
+  printf "%b--- [自验展厅工程 (apps/sample-*)] ---%b\n" "${COLOR_CYAN}" "${COLOR_RESET}"
+  printf "  11) sample-core              12) sample-vue\n"
+  printf "  13) sample-element-plus      14) sample-code-editor-vue\n"
+  printf "  15) sample-echarts-vue       16) sample-editor-vue\n"
+  printf "  17) sample-file-viewer-vue   18) sample-flow-vue\n"
+  printf "  19) sample-monitor           20) sample-video-player-vue\n"
+  printf "%b--- [基础设施与全局工程] ---%b\n" "${COLOR_CYAN}" "${COLOR_RESET}"
+  printf "  21) root                     22) deps\n"
+  printf "  23) ci                       24) docs\n"
+  printf "  25) changeset                26) scripts\n"
+  printf "  0) 自定义 / 留空\n"
+  printf "%b请输入编号 [0-26] 或直接输入范围名: %b" "${COLOR_BOLD}" "${COLOR_RESET}"
   read -r SCOPE_INPUT
   case "$SCOPE_INPUT" in
     1) SCOPE="core" ;;
     2) SCOPE="vue" ;;
-    3) SCOPE="element-plus" ;;
-    4) SCOPE="sample-core" ;;
-    5) SCOPE="sample-vue" ;;
-    6) SCOPE="sample-element-plus" ;;
-    7) SCOPE="root" ;;
-    8) SCOPE="deps" ;;
-    9) SCOPE="ci" ;;
-    10) SCOPE="docs" ;;
-    11) SCOPE="changeset" ;;
+    3) SCOPE="code-editor-vue" ;;
+    4) SCOPE="echarts-vue" ;;
+    5) SCOPE="editor-vue" ;;
+    6) SCOPE="file-viewer-vue" ;;
+    7) SCOPE="flow-vue" ;;
+    8) SCOPE="monitor" ;;
+    9) SCOPE="video-player-vue" ;;
+    10) SCOPE="element-plus" ;;
+    11) SCOPE="sample-core" ;;
+    12) SCOPE="sample-vue" ;;
+    13) SCOPE="sample-element-plus" ;;
+    14) SCOPE="sample-code-editor-vue" ;;
+    15) SCOPE="sample-echarts-vue" ;;
+    16) SCOPE="sample-editor-vue" ;;
+    17) SCOPE="sample-file-viewer-vue" ;;
+    18) SCOPE="sample-flow-vue" ;;
+    19) SCOPE="sample-monitor" ;;
+    20) SCOPE="sample-video-player-vue" ;;
+    21) SCOPE="root" ;;
+    22) SCOPE="deps" ;;
+    23) SCOPE="ci" ;;
+    24) SCOPE="docs" ;;
+    25) SCOPE="changeset" ;;
+    26) SCOPE="scripts" ;;
     0|"") SCOPE="" ;;
     *) SCOPE=$(echo "$SCOPE_INPUT" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') ;;
   esac

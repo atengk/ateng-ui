@@ -1,6 +1,6 @@
 # ==============================================================================
-# 工作流：Changesets 自动化多包独立发版流水线 (Release Pipeline)
-# 适用场景：ateng-ui 核心包与组件库独立版本发布 (npm + GitHub Releases)
+# 工作流：Changesets 自动化多包锁步发版流水线 (Release Pipeline)
+# 适用场景：ateng-ui 核心包与组件库统一聚合发版 (npm + 唯一全局 Tag / GitHub Releases)
 # 触发条件：
 #   - push: 主干分支 (main) 代码推送
 # ==============================================================================
@@ -47,13 +47,20 @@ jobs:
       - name: 产物编译与类型构建
         run: pnpm run build
 
+      - name: 提取当前发版版本号
+        id: pkg_version
+        run: echo "version=$(node -p "require('./packages/core/package.json').version")" >> $GITHUB_OUTPUT
+
       - name: 运行 Changesets Action (版本聚合 PR 或发布 npm)
         uses: changesets/action@v1
         with:
-          publish: pnpm changeset publish
+          publish: pnpm changeset publish --no-git-tag
           version: pnpm changeset version
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
+          createGithubReleases: aggregate
+          githubTagName: v${{ steps.pkg_version.outputs.version }}
+          githubReleaseName: v${{ steps.pkg_version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
