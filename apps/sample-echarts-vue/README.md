@@ -1,40 +1,49 @@
-# sample-echarts-vue (EChartsVue 1:1 镜像全特性自验展厅)
+# sample-echarts-vue EChartsVue 响应式图表可视化体验展厅
 
-面向 `@atengk/echarts-vue` 的 1:1 开箱镜像与端到端真实交互验证展厅。
+> 专注于演示与自验 `@atengk/echarts-vue` 核心特性在真实业务场景下的开箱使用与交互自验。
 
 ---
 
-## 运行与自验
+## 1. 快速启动与服务端口
+
+- **默认固定端口**：`3006` (严格遵守 ADR-0001 / ADR-0009 端口契约)
+- **启动方式**：
+  ```bash
+  pnpm --filter sample-echarts-vue dev
+  ```
+- 启动后浏览器访问：`http://localhost:3006`
+
+---
+
+## 2. 运行环境与 Mock 双模切换
+
+- **默认/CI 模式**：内置离线自洽 Mock 数据（内置全国、广东省、深圳市三级行政区划 GeoJSON 数据与模拟指标数据集），无需启动任何外部后端服务即可直接体验完整交互与跑通自动化测试；
+- **Local 真实网关/CDN 模式**：若需连接真实内网 OSS / CDN 或业务网关，可通过 `createUrlGeoProvider('https://your-oss-cdn.example.com/geo/{code}.json')` 注入真实的区划 GeoJSON 地址，并配置 `VITE_API_BASE_URL` 直连真实接口。
+
+---
+
+## 3. 核心场景看板与交互路由表
+
+应用启动后，可通过顶部卡片导航切换以下 6 大场景看板进行直观交互体验：
+
+| 场景分类               | 场景看板组件                    | 核心可视化交互操作                                                                            | 验证重点                                                                                                                |
+| :--------------------- | :------------------------------ | :-------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **通用表现容器**       | `ContainerScenario.vue`         | 动态刷新数据、切换 Loading/Empty/Error 遮罩、点击重试、切换 60% 压缩宽度、导出截图            | 验证声明式 `notMerge` 全量同步、DOM 级三态遮罩防白屏、`ResizeObserver` 容器防抖自适应重排                               |
+| **经营趋势看板**       | `TrendScenario.vue`             | 随机刷新趋势数据、切换 DataZoom 缩放手柄、切换面积平滑渐变、切换空数据遮罩、加载遮罩          | 验证双 Y 轴刻度对齐、柱线混合排版、千分位 Tooltip 格式化、MarkLine/MarkPoint 极值标注                                   |
+| **占比与转化漏斗**     | `DonutFunnelScenario.vue`       | 刷新多云算力费用占比、切换南丁格尔玫瑰图、切换居中 KPI 统计卡、切换漏斗升/降序、调节断层间隙  | 验证中心绝对居中 KPI 指标卡自动求和与千分位、扇区圆角高亮、漏斗相邻环节与总体转化率双轨自动计算                         |
+| **达成率与能力画像**   | `GaugeRadarScenario.vue`        | 随机生成 SLA 可用性达成率数值、切换指针/环形进度条双模、刷新研发效能分值、切换渐变填充/纯轮廓 | 验证极值达成率多段阈值色阶渐变、现代圆角环形进度条与经典指针平滑切换、雷达图 polygon 多边形网格自适应                   |
+| **行政区划地图下钻**   | `MapDrillDownScenario.vue`      | 点击“下钻至广东省”、“下钻至深圳市”、点击“返回上一级”、“重置全国”、点击地图区域                | 验证 GeoDataProvider SPI 异步按需拉取与内存去重缓存、全国 ➔ 省 ➔ 市三级受控下钻状态机、渐变面包屑药丸回退               |
+| **高级生命周期与导出** | `LifecycleAdvancedScenario.vue` | 点击“页面级脱壳全屏”、“系统全屏”、“导出 2x/3x 高清报表”、“模态弹窗内初次渲染”、“初始隐藏 Tab” | 验证 0x0 零尺寸挂起与弹窗展开毫秒级自愈、CSS Fixed 视口脱壳全屏防黑边、2x/3x 高分辨率安全导出与 `#toolbar` 插槽完全接管 |
+
+---
+
+## 4. 全真自动化回归命令
 
 ```bash
-# 启动自验展厅开发服务器 (默认端口 3006)
-pnpm --filter sample-echarts-vue dev
+pnpm --filter @atengk/echarts-vue --filter sample-echarts-vue typecheck && \
+pnpm --filter @atengk/echarts-vue --filter sample-echarts-vue lint && \
+pnpm --filter @atengk/echarts-vue test && \
+pnpm --filter sample-echarts-vue build
 ```
 
-浏览器访问：`http://localhost:3006`
-
----
-
-## 验证场景矩阵
-
-1. **侧边栏折叠联动与几何感知自愈**：
-   - 点击“折叠/展开侧边栏 (220px ➔ 64px)”，右侧图表卡片平滑过渡，验证 ResizeObserver 毫秒级几何自感知与自适应重排；
-2. **模态弹窗内初次渲染 (Modal Zero-Dimension Healing)**：
-   - 点击“模态弹窗内渲染图表”，验证图表在弹窗弹出瞬间从 `0x0` 零尺寸自愈展开并正确绘制；
-3. **Tab 选项卡保真与零尺寸挂起**：
-   - 切换隐藏选项卡（初始 `display: none`），切入瞬间自愈绘制，切出挂起，绝不崩溃；
-4. **暗黑模式无损热切换**：
-   - 点击“切换为暗黑模式”，底层 ECharts 实例平滑销毁并以 `ateng-dark` 主题重建，Option 与图例事件无损回放；
-5. **DOM 级多态遮罩**：
-   - 模拟 Loading、Empty、Error 遮罩切换，验证错误重试与空状态防白屏；
-6. **六大业务高频预设看板**：
-   - `AtengTrendChart`：双 Y 轴、柱线混合、平滑渐变面积、DataZoom 缩放；
-   - `AtengDonutChart`：居中自动求和 KPI 统计指标卡与南丁格尔玫瑰图切换；
-   - `AtengFunnelChart`：双轨自动计算环节转化率与总体转化率；
-   - `AtengGaugeChart`：极值 KPI 达成率，指针与环形进度条双模切换；
-   - `AtengRadarChart`：多维能力画像，多边形/蛛网网格与渐变半透明填充；
-   - `AtengMapChart`：全国 ➔ 广东省 ➔ 深圳市三级行政区划受控下钻，面包屑路径栈回退；
-7. **全屏脱壳与高清图片报表导出**：
-   - 浏览器原生系统全屏与 CSS 脱壳视口全屏双模切换；
-   - 2x/3x 高清设备像素比图片导出并生成带时间戳的安全文件名；
-   - `#toolbar` 自定义操作插槽替换与扩展。
+> 详细原理机制、Props/Options 接口清单与生产边界，请参阅核心子包文档：[@atengk/echarts-vue README](../../packages/echarts-vue/README.md)。
