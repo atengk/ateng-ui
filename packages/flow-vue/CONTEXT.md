@@ -42,7 +42,11 @@ _Avoid_: Line, Transition, Connection, Link
 
 **ExecutionStatus**:
 节点或连线在运行态的审批与执行状态枚举（`completed` | `processing` | `rejected` | `pending` | `terminated`）。
-_Avoid_: NodeState, StepStatus, RunState
+_Avoid_: NodeState, StepStatus, RunState, running, success, failed, cancelled, active
+
+**ApprovalCardNode**:
+预设开箱即用的高颜值审批业务卡片节点，内置头像、操作人、进度条、状态胶囊与快捷审批操作按钮。
+_Avoid_: CustomNode, TaskCard, AuditCard
 
 **AuditRecord**:
 节点关联的历史审批或操作审计记录实体，包含操作人、审批结果、时间戳与处理意见。
@@ -73,6 +77,14 @@ _Avoid_: ValidationReport, CheckResult, VerifyOutcome
 **AutoLayoutEngine**:
 基于有向无环图（DAG）分层算法的自动整理排版引擎，支持水平（LR）与垂直（TB）流动重构。
 _Avoid_: DiagramFormatter, LayoutScheduler
+
+**LayoutDirection**:
+DAG 分层自动排版引擎支持的流向枚举（`LR` 水平从左至右 / `TB` 垂直从上至下）。
+_Avoid_: horizontal, vertical, direction, flowOrientation
+
+**BeforeConnectHook**:
+连线生成与拓扑校验的前置拦截守卫函数，用于实施图论约束（禁止自环、起止规则、重复连线防御与业务合法性校验）。
+_Avoid_: ConnectionFilter, EdgeValidator, LinkInterceptor
 
 **OrthogonalEdge**:
 默认采用的正交平滑折线路由连线，支持四向磁吸锚点与拓扑防呆约束。
