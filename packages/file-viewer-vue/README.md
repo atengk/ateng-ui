@@ -1279,22 +1279,1622 @@ const dynamicPresets = computed<FileViewerPreset[]>(() => {
 
 ## 7. 百兆内存防崩护栏 (SizeGuard) 与渐进传输指示
 
-> 待后续工单 #259 交付：包含 SizeGuard 堆内存护栏、下载进度/速率/ETA 算法等子小节的“三要素就近闭环”。
+超大型文档（数百页高保真 PDF、几十兆 CAD 矢量图纸、高分辨率卫星测绘图等）若毫无节制直接加载至浏览器 V8 堆内存，极易导致前端标签页陷入卡死甚至崩溃（Out of Memory, OOM）。`@atengk/file-viewer-vue` 构建了渐进传输监控与基于阈值拦截的 SizeGuard 防崩护栏体系。
+
+### 7.1 百兆内存防崩护栏与强行渲染 (`SizeGuard` / `forceRender`)
+
+针对大体积文件实施前置体积嗅探，超出阈值时自动拦截默认渲染并弹出警示卡片，同时提供调用方受控的 `forceRender` 豁免穿透机制。
+
+#### 1. 专属 TypeScript 契约与函数签名
+
+```ts
+/** 默认最大允许直接渲染的文件体积上限 (100MB) */
+export const DEFAULT_MAX_SIZE: number = 100 * 1024 * 1024;
+
+/** 解析用户配置的体积上限 (支持纯数字字节或 '20MB', '50M', '1GB' 等字符串) */
+export function parseSizeLimit(limit?: string | number): number;
+
+/** 校验指定文件字节大小是否超出阈值 */
+export function isFileSizeExceeded(size: number, limit?: string | number): boolean;
+
+/** 格式化文件字节数为易读字符串 (如 '120.0 MB') */
+export function formatFileSize(bytes?: number): string;
+```
+
+在组件层中，对应 `AtengFileViewer` 声明的阈值与拦截事件：
+
+```ts
+export interface AtengFileViewerProps {
+  /** 最大允许直接渲染的文件体积上限 (支持数字字节或 '100MB' 表达式，默认 100MB) */
+  maxSize?: number | string;
+}
+
+export interface AtengFileViewerEmits {
+  /** 当文件大小超过 maxSize 阈值被拦截时触发 */
+  (e: 'size-guard', payload: { size: number; maxSize: number }): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`SizeGuardScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/SizeGuardScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFileViewer,
+  useFileViewer,
+  type AtengFileViewerInstance,
+} from '@atengk/file-viewer-vue';
+
+const viewerRef = ref<AtengFileViewerInstance | null>(null);
+const currentUrl = ref<string>('/sample.pdf');
+const currentName = ref<string>('特大型城市地下管网综合规划图.pdf');
+const currentType = ref<string>('pdf');
+const selectedFile = ref<File | undefined>(undefined);
+const maxSizeLimit = ref<string>('50MB');
+const lastEventMsg = ref<string>('就绪');
+
+// 使用无头 Hook 获取拦截响应式状态与强行加载指令
+const { isSizeGuarded, forceRender } = useFileViewer({
+  viewerRef: () => viewerRef.value,
+  fileName: () => currentName.value,
+  fileType: () => currentType.value,
+  maxSize: () => maxSizeLimit.value,
+});
+
+// 模拟载入 120MB 超大虚拟文件
+function simulateLargeFile(): void {
+  const largeBlob = new Blob(['x'], { type: 'application/pdf' });
+  Object.defineProperty(largeBlob, 'size', { value: 120 * 1024 * 1024 });
+  selectedFile.value = largeBlob as File;
+  currentUrl.value = '';
+  currentName.value = '特大型城市地下管网综合规划图(120MB).pdf';
+  lastEventMsg.value = '已载入 120MB 超大虚拟文件，成功触发 SizeGuard 内存熔断拦截！';
+}
+
+function handleSizeGuard(payload: { size: number; maxSize: number }): void {
+  lastEventMsg.value = `SizeGuard 拦截触发: 当前文件 ${(payload.size / (1024 * 1024)).toFixed(1)} MB 超过安全阈值 ${(payload.maxSize / (1024 * 1024)).toFixed(0)} MB`;
+}
+</script>
+
+<template>
+  <div class="sizeguard-demo-container">
+    <div class="sizeguard-toolbar">
+      <span class="toolbar-label">🛑 防崩安全阈值 (SizeGuard):</span>
+      <select v-model="maxSizeLimit" class="threshold-select">
+        <option value="20MB">20 MB (严苛测试)</option>
+        <option value="50MB">50 MB (常用阈值)</option>
+        <option value="100MB">100 MB (标准基准)</option>
+        <option value="500MB">500 MB (超宽上限)</option>
+      </select>
+      <button type="button" class="btn btn--danger" @click="simulateLargeFile">
+        🛑 载入 120MB 超大虚拟文件
+      </button>
+      <button v-if="isSizeGuarded" type="button" class="btn btn--warning" @click="forceRender">
+        ⚡ 强行破除拦截并加载 (forceRender)
+      </button>
+    </div>
+
+    <div class="status-bar">
+      <span v-if="isSizeGuarded" class="warn-badge">⚠️ 拦截状态：文件超出安全阈值</span>
+      <span v-else class="ok-badge">✅ 大小在安全范围内</span>
+      <span class="status-msg">{{ lastEventMsg }}</span>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        ref="viewerRef"
+        :url="currentUrl"
+        :file="selectedFile"
+        :file-name="currentName"
+        :file-type="currentType"
+        :max-size="maxSizeLimit"
+        height="100%"
+        @size-guard="handleSizeGuard"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.sizeguard-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 620px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sizeguard-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.threshold-select {
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+}
+
+.btn--danger {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.btn--warning {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background-color: #f8fafc;
+  font-size: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.warn-badge {
+  background-color: #fef2f2;
+  color: #dc2626;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.ok-badge {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **多阶级前置体积探测**：
+   - 本地 File / Blob 场景：直接通过 `file.size` 获取精准物理字节数，0 毫秒完成探测并快速熔断；
+   - 远程网络 URL 场景：在流式下载前，网络层通过 HTTP HEAD / GET 响应头 `Content-Length` 获取总字节数；一旦超过 `maxSize` 阈值，立即中断连接，避免无谓消耗大量带宽；
+2. **单位正规化解析算法 (`parseSizeLimit`)**：
+   - 采用安全正则提取数值与单位，兼容 `KB`、`K`、`MB`、`M`、`GB`、`G`（大小写无关）及纯字节数字；若入参非法或小于等于 0，自动安全保底回退至 `DEFAULT_MAX_SIZE (100MB)`；
+3. **`forceRender` 豁免状态流转**：
+   - 当触发拦截后，内部状态机标记 `isSizeGuarded = true`，停止向底层渲染引擎挂载 DOM；
+   - 用户明确知晓风险并调用 `forceRender()` 后，状态机设置豁免标志位并触发重新加载，满足特殊专业人员的强行审阅需求。
+
+---
+
+### 7.2 渐进传输进度、瞬时速率与 ETA 计算 (`calculateProgress` / `formatSpeed`)
+
+针对大文档流式传输过程，提供精准的传输百分比、下载速率与人性化耗时预测。
+
+#### 1. 专属 TypeScript 契约与数据模型
+
+```ts
+export interface FileViewerDownloadProgress {
+  /** 已加载字节数 */
+  loaded: number;
+  /** 文件总字节数 (若未知则为 0 或 undefined) */
+  total?: number;
+  /** 下载进度百分比 (0 ~ 100) */
+  percent: number;
+  /** 瞬时下载网速 (bytes/s) */
+  speed: number;
+  /** 格式化后的下载网速 (如 '2.4 MB/s') */
+  formattedSpeed: string;
+  /** 格式化后的已下载体积 (如 '15.2 MB') */
+  formattedLoaded: string;
+  /** 格式化后的总大小 (如 '45.0 MB') */
+  formattedTotal: string;
+}
+
+export interface CalculateProgressInput {
+  loaded: number;
+  total?: number;
+  bytesPerSec?: number;
+}
+
+/** 依据加载字节数与速率平滑计算统一的进度指标对象 */
+export function calculateProgress(input: CalculateProgressInput): FileViewerDownloadProgress;
+
+/** 格式化瞬时网速为易读单位 (如 '5.8 MB/s', '350 KB/s') */
+export function formatSpeed(bytesPerSec?: number): string;
+```
+
+在组件层中，对应 `AtengFileViewer` 声明的进度事件：
+
+```ts
+export interface AtengFileViewerEmits {
+  /** 渐进传输进度更新回调 (提供 loaded、total、percent、speed 等) */
+  (e: 'progress', progress: FileViewerDownloadProgress): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`SizeGuardScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/SizeGuardScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer, type FileViewerDownloadProgress } from '@atengk/file-viewer-vue';
+
+const currentProgress = ref<FileViewerDownloadProgress | null>(null);
+
+function handleProgress(progress: FileViewerDownloadProgress): void {
+  currentProgress.value = progress;
+}
+</script>
+
+<template>
+  <div class="progress-demo-container">
+    <div v-if="currentProgress && currentProgress.percent < 100" class="progress-indicator">
+      <div class="progress-info">
+        <span>正在渐进式拉取文档流: {{ currentProgress.percent }}%</span>
+        <span>{{ currentProgress.formattedLoaded }} / {{ currentProgress.formattedTotal }}</span>
+        <span class="speed-badge">{{ currentProgress.formattedSpeed }}</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" :style="{ width: currentProgress.percent + '%' }"></div>
+      </div>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.pdf"
+        file-name="特大型城市地下管网综合规划图.pdf"
+        file-type="pdf"
+        height="100%"
+        @progress="handleProgress"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.progress-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.progress-indicator {
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #475569;
+}
+
+.speed-badge {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.progress-track {
+  height: 4px;
+  background-color: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #2563eb;
+  transition: width 0.2s ease;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **EWMA 指数加权移动平均速率算法**：
+   - 为避免短周期网络抖动导致的瞬时网速忽大忽小，计算引擎内置滑动时间窗口与指数衰减因子；
+   - 过滤网络毛刺，输出平稳平滑的 `formattedSpeed`；
+2. **Chunked 不定长传输优雅降级**：
+   - 当服务端采用 `Transfer-Encoding: chunked` 未输出 `Content-Length` 时，`total` 为 0，`percent` 处于未决状态；
+   - 引擎自动降级为呼吸态加载动画，同时准确展示 `formattedLoaded`（已下载体积）与瞬时网速，保障用户感知透明。
 
 ---
 
 ## 8. 结构化异常分类诊断与加密文档原地密码解密
 
-> 待后续工单 #259 交付：包含 6 大错误分类指引、受保护 PDF 原地解密等子小节的“三要素就近闭环”。
+现代文件在线预览涉及网络链路、权限鉴权、格式兼容、损坏以及密码保护等多维故障。`@atengk/file-viewer-vue` 提供工业级异常诊断器与原地无刷新解密状态机，告别冰冷生硬的通用报错。
+
+### 8.1 结构化异常分类诊断器 (`diagnoseFileViewerError`)
+
+针对各种底层异常与 HTTP 状态实施多阶特征推导，分类为 5 大高内聚错误类型，并输出友好排查建议与全链路 `traceId`。
+
+#### 1. 专属 TypeScript 契约与分类定义
+
+```ts
+/** 5 大结构化错误分类 */
+export type FileViewerErrorCategory =
+  | 'ENCRYPTED' // 受密码保护的加密文档 (PDF/Office 等)
+  | 'LEGACY_BINARY' // 早期二进制格式 (Office 97-2003 .doc/.xls/.ppt)
+  | 'NETWORK_CORS' // 网络连接失败、跨域 CORS 拦截或请求超时
+  | 'CORRUPTED' // 文件流损坏、未闭合或结构解析失败
+  | 'BUSINESS_ERROR'; // 业务系统鉴权异常 (401/403，携带全链路 traceId)
+
+export interface FileViewerDiagnostic {
+  /** 结构化错误分类 */
+  category: FileViewerErrorCategory;
+  /** 错误主标题 */
+  title: string;
+  /** 错误核心描述信息 */
+  message: string;
+  /** 详细技术信息 (原始报错、错误代码等) */
+  detail?: string;
+  /** 针对性排查与解决建议 */
+  suggestion: string;
+  /** 全链路追踪 traceId (若为业务系统异常时携带) */
+  traceId?: string;
+  /** 原始异常对象 */
+  rawError?: unknown;
+  /** 是否允许重试加载 */
+  canRetry: boolean;
+  /** 是否需要/允许输入密码原地解密 */
+  needsPassword: boolean;
+}
+
+export interface DiagnoseContext {
+  fileName?: string;
+  fileType?: string;
+  url?: string;
+}
+
+/** 统一异常诊断推导核心函数 */
+export function diagnoseFileViewerError(
+  error: unknown,
+  context?: DiagnoseContext,
+): FileViewerDiagnostic;
+```
+
+在组件层中，对应 `AtengFileViewer` 声明的诊断事件：
+
+```ts
+export interface AtengFileViewerEmits {
+  /** 捕获并推导出结构化诊断实体时触发 */
+  (e: 'diagnostic', diagnostic: FileViewerDiagnostic): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`DiagnosticPasswordScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/DiagnosticPasswordScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer, type FileViewerDiagnostic } from '@atengk/file-viewer-vue';
+
+const currentDiagnostic = ref<FileViewerDiagnostic | null>(null);
+
+function handleDiagnostic(diag: FileViewerDiagnostic): void {
+  currentDiagnostic.value = diag;
+  console.log(`[诊断拦截] ${diag.category}: ${diag.title} (traceId: ${diag.traceId || 'N/A'})`);
+}
+</script>
+
+<template>
+  <div class="diagnostic-demo-container">
+    <!-- 结构化诊断反馈卡片 -->
+    <div v-if="currentDiagnostic" class="diag-banner">
+      <div class="diag-header">
+        <span class="diag-badge">{{ currentDiagnostic.category }}</span>
+        <strong class="diag-title">{{ currentDiagnostic.title }}</strong>
+        <span v-if="currentDiagnostic.traceId" class="diag-trace">
+          traceId: {{ currentDiagnostic.traceId }}
+        </span>
+      </div>
+      <p class="diag-desc">{{ currentDiagnostic.message }}</p>
+      <div class="diag-suggestion">💡 建议指引: {{ currentDiagnostic.suggestion }}</div>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        url="/sample.docx"
+        file-name="企业采购框架协议.docx"
+        file-type="docx"
+        height="100%"
+        @diagnostic="handleDiagnostic"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.diagnostic-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diag-banner {
+  padding: 12px 16px;
+  background-color: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  font-size: 13px;
+}
+
+.diag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diag-badge {
+  background-color: #ef4444;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diag-title {
+  color: #991b1b;
+}
+
+.diag-trace {
+  margin-left: auto;
+  font-family: monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.diag-desc {
+  margin: 6px 0;
+  color: #7f1d1d;
+}
+
+.diag-suggestion {
+  font-size: 12px;
+  color: #b91c1c;
+  background-color: #fee2e2;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **ADR-0004 双态异常深度穿透**：
+   - 当调用方配置 `responseType: 'blob'` 遇到 HTTP 401/403 时，拦截器将 `application/json` 错误载荷异步解析提取后，转译为 `BUSINESS_ERROR` 分类；
+   - 完整挂载业务系统的 `code`、`msg` 与微服务分布式全链路 `traceId`，极大降低前后端联调排障成本；
+2. **早期二进制版本自动转译 (`LEGACY_BINARY`)**：
+   - 针对 `.doc`、`.xls`、`.ppt` 等历史 OLE2 二进制格式，诊断器明确告知用户现代 Web 原生仅支持 OpenXML（`.docx`、`.xlsx`、`.pptx`），并给出格式升级建议；
+3. **友好可操作性闭环**：
+   - 诊断实体明确输出 `canRetry`（是否支持网络重试）与 `needsPassword`（是否需要原地解密），驱动 UI 展示对应的操作按钮，避免死胡同式报错。
+
+---
+
+### 8.2 加密文档原地密码解密重试 (`password` / `submitPassword`)
+
+针对受保护的加密 PDF 或 Office 文档，提供无需刷新页面的原地密码输入状态机与一键解密重试机制。
+
+#### 1. 专属 TypeScript 契约与事件流
+
+```ts
+export interface AtengFileViewerProps {
+  /** 初始或外部受控解密密码 (针对受密码保护的 PDF / Office 文档) */
+  password?: string;
+}
+
+export interface AtengFileViewerEmits {
+  /** 用户在原地输入框提交密码时触发 */
+  (e: 'password-submit', password: string): void;
+  /** 密码验证成功、文档顺利解密渲染后触发 */
+  (e: 'password-success'): void;
+  /** 密码错误或解密失败时触发 */
+  (e: 'password-error', error: unknown): void;
+}
+
+export interface AtengFileViewerExpose {
+  /** 原地提交密码重试解密 */
+  submitPassword: (password: string) => Promise<boolean>;
+  /** 获取当前是否处于需要输入密码解密状态 */
+  isPasswordRequired: () => boolean;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`DiagnosticPasswordScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/DiagnosticPasswordScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFileViewer,
+  useFileViewer,
+  type AtengFileViewerInstance,
+} from '@atengk/file-viewer-vue';
+
+const viewerRef = ref<AtengFileViewerInstance | null>(null);
+const currentUrl = ref<string>('https://example.com/protected.pdf');
+const currentName = ref<string>('企业高管薪酬机密汇总(受保护).pdf');
+const currentPassword = ref<string>('');
+const lastStatusMsg = ref<string>('就绪');
+
+// 使用无头 Hook 获取解密状态机与提交方法
+const { isPasswordRequired, submitPassword } = useFileViewer({
+  viewerRef: () => viewerRef.value,
+  fileName: () => currentName.value,
+  fileType: () => 'pdf',
+  password: () => currentPassword.value,
+});
+
+async function handleFastUnlock(): Promise<void> {
+  lastStatusMsg.value = '正在提交解密密码 123456...';
+  const success = await submitPassword('123456');
+  if (success) {
+    lastStatusMsg.value = '解密成功！文档已正常渲染。';
+  } else {
+    lastStatusMsg.value = '密码错误，请重新输入。';
+  }
+}
+</script>
+
+<template>
+  <div class="password-demo-container">
+    <div class="password-toolbar">
+      <span class="toolbar-label">🔒 加密文档解密状态机:</span>
+      <span v-if="isPasswordRequired" class="status-badge status-badge--warn">
+        检测到加密受保护文档
+      </span>
+      <span v-else class="status-badge status-badge--ok">正常就绪</span>
+
+      <button v-if="isPasswordRequired" type="button" class="unlock-btn" @click="handleFastUnlock">
+        🔑 快捷解密代填 "123456"
+      </button>
+      <span class="feedback-text">{{ lastStatusMsg }}</span>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        ref="viewerRef"
+        :url="currentUrl"
+        :file-name="currentName"
+        file-type="pdf"
+        :password="currentPassword"
+        height="100%"
+        @password-success="lastStatusMsg = '密码验证成功！'"
+        @password-error="lastStatusMsg = '密码错误，请核对后重试'"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.password-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.password-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge--warn {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.status-badge--ok {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.unlock-btn {
+  padding: 4px 12px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.feedback-text {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **原地无刷新状态机**：
+   - 当底层 PDF.js 抛出 `PasswordResponses.NEED_PASSWORD` 或 Office 加密异常时，组件并不卸载外部 DOM，而是无缝将主视口切换为原地密码输入受控卡片；
+2. **二进制 Buffer 内存常驻保护**：
+   - 在多次重试输入密码过程中，组件牢固复用首次已下载完成的底层二进制 ArrayBuffer，严禁重新向后端发起全量 HTTP 请求，杜绝在用户连续输错密码时耗费企业服务器带宽；
+3. **解密成功自愈联动**：
+   - 密码验证通过后，自动触发展示并恢复此前保存的阅读状态（页码、缩放、目录树），整个体验如丝般顺滑。
 
 ---
 
 ## 9. 多模态表现容器与无头状态机编排
 
-> 待后续工单 #259 交付：包含全屏弹窗、命令式 preview、useFileViewer、WeakMap 状态记忆等子小节的“三要素就近闭环”。
+为了适应从常规业务内嵌、后台列表快速浮层预览、到高度定制化业务界面的多样化场景，`@atengk/file-viewer-vue` 提供了声明式弹窗、单行命令式预览、无头响应式状态机以及阅读状态记忆恢复四大多模态表现容器与核心调度套件。
+
+### 9.1 声明式全屏受控弹窗 (`<AtengFileViewerDialog />`)
+
+适用于后台管理系统或业务详情页，通过 `v-model` 响应式双向受控，提供自适应视口尺寸、原生 ESC 退出、遮罩点击关闭、全屏热切换与插槽定制。
+
+#### 1. 专属 TypeScript 契约与 Props
+
+```ts
+export interface AtengFileViewerDialogProps extends AtengFileViewerProps {
+  /** 弹窗是否可见 (支持 v-model 双向绑定) */
+  modelValue?: boolean;
+  /** 弹窗显隐受控属性 (与 modelValue 等价) */
+  visible?: boolean;
+  /** 弹窗标题 (默认自动提取 fileName 或底层文档名) */
+  title?: string;
+  /** 是否以全屏模式打开 (默认 false) */
+  fullscreen?: boolean;
+  /** 弹窗常规宽度 (默认 '85vw') */
+  dialogWidth?: string;
+  /** 弹窗常规高度 (默认 '85vh') */
+  dialogHeight?: string;
+  /** 点击遮罩层是否允许关闭 (默认 true) */
+  closeOnClickModal?: boolean;
+  /** 按下 ESC 快捷键是否允许关闭 (默认 true) */
+  closeOnPressEscape?: boolean;
+  /** 是否展示关闭按钮 (默认 true) */
+  showClose?: boolean;
+  /** 是否展示全屏切换按钮 (默认 true) */
+  showFullscreen?: boolean;
+  /** 关闭时是否彻底销毁内容 DOM (默认 true) */
+  destroyOnClose?: boolean;
+  /** 是否将弹窗挂载至 document.body (默认 true) */
+  appendToBody?: boolean;
+  /** 弹窗基础 z-index (默认 2000) */
+  zIndex?: number;
+}
+
+export interface AtengFileViewerDialogEmits extends AtengFileViewerEmits {
+  (e: 'update:modelValue', value: boolean): void;
+  (e: 'update:visible', value: boolean): void;
+  (e: 'update:fullscreen', fullscreen: boolean): void;
+  (e: 'open'): void;
+  (e: 'opened'): void;
+  (e: 'close'): void;
+  (e: 'closed'): void;
+}
+
+export interface AtengFileViewerDialogSlots extends AtengFileViewerSlots {
+  /** 自定义顶栏插槽 */
+  header?: (scope: {
+    title: string;
+    close: () => void;
+    toggleFullscreen: () => void;
+    isFullscreen: boolean;
+  }) => unknown;
+  /** 自定义底栏插槽 */
+  footer?: (scope: { close: () => void }) => unknown;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`ModalPreviewScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/ModalPreviewScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewerDialog } from '@atengk/file-viewer-vue';
+
+const isDialogVisible = ref<boolean>(false);
+</script>
+
+<template>
+  <div class="dialog-demo-container">
+    <button type="button" class="open-btn" @click="isDialogVisible = true">
+      🖥️ 打开声明式全屏受控弹窗 (&lt;AtengFileViewerDialog&gt;)
+    </button>
+
+    <AtengFileViewerDialog
+      v-model="isDialogVisible"
+      url="/sample.docx"
+      file-name="企业采购框架协议.docx"
+      file-type="docx"
+      :downloadable="true"
+      :printable="true"
+      watermark="企业合规预览"
+      dialog-width="90vw"
+      dialog-height="88vh"
+    >
+      <!-- 定制业务顶栏插槽 -->
+      <template #header="{ title, close, toggleFullscreen, isFullscreen }">
+        <div class="custom-header">
+          <span class="custom-title">📑 [业务定制顶栏] {{ title }}</span>
+          <div class="custom-actions">
+            <button type="button" class="mini-tool-btn" @click="toggleFullscreen">
+              {{ isFullscreen ? '🗗 还原' : '🗖 全屏' }}
+            </button>
+            <button type="button" class="mini-tool-btn mini-tool-btn--close" @click="close">
+              ✕ 关闭
+            </button>
+          </div>
+        </div>
+      </template>
+    </AtengFileViewerDialog>
+  </div>
+</template>
+
+<style scoped>
+.dialog-demo-container {
+  padding: 20px;
+}
+
+.open-btn {
+  padding: 8px 16px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.custom-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.custom-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-tool-btn {
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mini-tool-btn--close {
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **响应式自适应尺寸与全屏热切换**：
+   - 默认采用 `85vw` / `85vh` 兼顾超大视口与沉浸感；点击全屏按钮时无缝切换为 `100vw` / `100vh` 并保持内嵌引擎滚动与状态不丢失；
+2. **键盘 ESC 与遮罩事件安全捕获**：
+   - 监听 `keydown` 的 `Escape` 键，执行淡出动画后触发展示关闭；
+3. **`destroyOnClose` 资源确定性释放**：
+   - 开启后，在弹窗关闭动画结束后彻底销毁内部 DOM 与 Vue 子组件，触发底层 Web Worker、WASM 及 `URL.createObjectURL` 临时句柄确定性回收，杜绝多文档预览累积内存滞留。
+
+---
+
+### 9.2 全局命令式预览函数 (`FileViewer.preview` / `previewFile`)
+
+针对表格操作列、行内超链接等无常驻 DOM 场景，提供单行 JS 代码极速唤起弹窗的命令式门面。
+
+#### 1. 专属 TypeScript 契约与句柄接口
+
+```ts
+export interface FileViewerPreviewOptions extends Omit<
+  AtengFileViewerDialogProps,
+  'modelValue' | 'visible'
+> {
+  /** 弹窗打开前回调 */
+  onOpen?: () => void;
+  /** 弹窗打开且进入动画结束回调 */
+  onOpened?: () => void;
+  /** 弹窗关闭前回调 */
+  onClose?: () => void;
+  /** 弹窗完全关闭且宿主 DOM 确定性销毁后回调 */
+  onClosed?: () => void;
+}
+
+export interface FileViewerPreviewHandle {
+  /** 主动触发关闭并启动销毁流程 */
+  close: () => void;
+  /** 立即强制销毁 DOM 节点并卸载 Vue 实例 */
+  destroy: () => void;
+  /** 获取底层 AtengFileViewerDialog 实例引用 */
+  getDialogInstance: () => AtengFileViewerDialogInstance | null;
+}
+
+/** 全局命令式文档预览门面 */
+export const FileViewer: {
+  preview: (options: FileViewerPreviewOptions) => FileViewerPreviewHandle;
+};
+
+/** previewFile 函数等价别名 */
+export function previewFile(options: FileViewerPreviewOptions): FileViewerPreviewHandle;
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`ModalPreviewScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/ModalPreviewScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { FileViewer } from '@atengk/file-viewer-vue';
+
+function handleOpenPreview(): void {
+  const handle = FileViewer.preview({
+    url: '/sample.pdf',
+    fileName: '上市公司海外并购尽职调查报告.pdf',
+    fileType: 'pdf',
+    downloadable: false,
+    printable: false,
+    watermark: '法务审计专阅 2026-11-05',
+    onClose: () => {
+      console.log('命令式弹窗开始关闭...');
+    },
+    onClosed: () => {
+      console.log('宿主 DOM 已确定性完全移除，Vue 实例已销毁，0 字节内存残留');
+    },
+  });
+
+  // 支持在外部主动调用 handle.close() 进行逻辑关闭
+}
+</script>
+
+<template>
+  <button type="button" class="preview-btn" @click="handleOpenPreview">
+    ⚡ 一行 JS 命令式唤起预览 (FileViewer.preview)
+  </button>
+</template>
+
+<style scoped>
+.preview-btn {
+  padding: 8px 16px;
+  background-color: #d97706;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **瞬态 DOM 宿主沙箱**：
+   - 每次调用时自动在 `document.body` 下动态创建具有 `.at-file-viewer-preview-host` 专属类名的挂载容器；
+   - 通过 Vue 3 原生 `createApp` 创建轻量独立沙箱微实例并完成挂载；
+2. **生命周期确定性闭环 (`onClosed`)**：
+   - 弹窗触发关闭后，等待 280ms CSS 淡出过渡动画完毕；
+   - 确定性执行 `app.unmount()`，并在微任务后安全从父级 `removeChild(hostElement)`，彻底杜绝幽灵 DOM 泄漏；
+3. **SSR 环境无缝防卫**：
+   - 当在 Node.js 或服务端渲染环境被误调用时，底层安全拦截并返回空操作 Dummy 句柄，杜绝 `window/document is not defined` 异常崩溃。
+
+---
+
+### 9.3 纯无头状态机 Hook 深度编排 (`useFileViewer`)
+
+遵循洋葱模型 L1 无头响应式设计，完全解耦 UI 表现，为企业自定义操作工具栏、专属侧边栏或复杂交互场景提供统一的状态管理与指令调度。
+
+#### 1. 专属 TypeScript 契约与 Hook 签名
+
+```ts
+export interface UseFileViewerOptions {
+  url?: MaybeRefOrGetter<string | undefined>;
+  file?: MaybeRefOrGetter<File | Blob | undefined>;
+  fileName?: MaybeRefOrGetter<string | undefined>;
+  fileType?: MaybeRefOrGetter<string | undefined>;
+  page?: MaybeRefOrGetter<number | undefined>;
+  sheet?: MaybeRefOrGetter<number | string | undefined>;
+  viewerRef?: MaybeRefOrGetter<AtengFileViewerInstance | null | undefined>;
+  assetBaseUrl?: MaybeRefOrGetter<string | URL | null | undefined>;
+  preset?: MaybeRefOrGetter<FileViewerPreset | FileViewerPreset[] | undefined>;
+  downloadable?: MaybeRefOrGetter<boolean | undefined>;
+  printable?: MaybeRefOrGetter<boolean | undefined>;
+  maxSize?: MaybeRefOrGetter<string | number | undefined>;
+  password?: MaybeRefOrGetter<string | undefined>;
+}
+
+export interface UseFileViewerReturn {
+  // 只读响应式状态
+  isLoading: Readonly<Ref<boolean>>;
+  error: Readonly<Ref<unknown>>;
+  diagnostic: Readonly<Ref<FileViewerDiagnostic | null>>;
+  fileName: Readonly<Ref<string>>;
+  fileType: Readonly<Ref<string>>;
+  page: Readonly<Ref<number>>;
+  pageCount: Readonly<Ref<number>>;
+  sheet: Readonly<Ref<number | string>>;
+  sheets: Readonly<Ref<FileViewerSheet[]>>;
+  zoomScale: Readonly<Ref<number>>;
+  rotation: Readonly<Ref<number>>;
+  tocList: Readonly<Ref<FileViewerDocumentAnchor[]>>;
+  isTocOpen: Readonly<Ref<boolean>>;
+  downloadable: Readonly<Ref<boolean>>;
+  printable: Readonly<Ref<boolean>>;
+  isSizeGuarded: Readonly<Ref<boolean>>;
+  downloadProgress: Readonly<Ref<FileViewerDownloadProgress>>;
+  fileSize: Readonly<Ref<number>>;
+  isPasswordRequired: Readonly<Ref<boolean>>;
+
+  // 控制指令集
+  bindViewer: (instance: AtengFileViewerInstance | null) => void;
+  getViewerInstance: () => AtengFileViewerInstance | null;
+  getAssetBaseUrl: () => string;
+  getPresets: () => FileViewerPreset[];
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+  rotate: () => void;
+  setPage: (page: number) => Promise<boolean>;
+  prevPage: () => Promise<boolean>;
+  nextPage: () => Promise<boolean>;
+  setSheet: (sheet: number | string) => Promise<boolean>;
+  toggleToc: (open?: boolean) => void;
+  openToc: () => void;
+  closeToc: () => void;
+  scrollToAnchor: (anchor: FileViewerDocumentAnchor | string) => Promise<boolean>;
+  forceRender: () => void;
+  submitPassword: (password: string) => Promise<boolean>;
+  download: () => void;
+  print: () => void;
+  retry: () => void;
+  destroy: () => void;
+}
+
+/** 核心无头状态机编排 Hook */
+export function useFileViewer(options?: UseFileViewerOptions): UseFileViewerReturn;
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`HeadlessStateScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/HeadlessStateScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFileViewer,
+  useFileViewer,
+  type FileViewerSheet,
+  type AtengFileViewerInstance,
+} from '@atengk/file-viewer-vue';
+
+const viewerRef = ref<AtengFileViewerInstance | null>(null);
+const currentPage = ref<number>(1);
+const currentSheet = ref<number | string>(0);
+
+const sampleSheets: FileViewerSheet[] = [
+  { id: 0, name: '季度汇总资产表' },
+  { id: 1, name: '部门明细核算' },
+  { id: 2, name: '应收账款账龄分析' },
+];
+
+// 初始化无头状态机
+const headlessViewer = useFileViewer({
+  viewerRef: () => viewerRef.value,
+  fileName: () => '2026年第三季度集团财务对账明细.xlsx',
+  fileType: () => 'xlsx',
+  page: () => currentPage.value,
+  sheet: () => currentSheet.value,
+});
+</script>
+
+<template>
+  <div class="headless-demo-container">
+    <!-- 企业定制业务工具条 -->
+    <div class="custom-toolbar">
+      <div class="tool-group">
+        <span class="tool-label">📑 多页控制:</span>
+        <button type="button" class="mini-btn" @click="headlessViewer.prevPage">上一页</button>
+        <span class="page-indicator">第 {{ currentPage }} 页</span>
+        <button type="button" class="mini-btn" @click="headlessViewer.nextPage">下一页</button>
+        <button type="button" class="mini-btn" @click="headlessViewer.setPage(3)">
+          直达第 3 页
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <span class="tool-label">📊 工作表:</span>
+        <button
+          v-for="s in sampleSheets"
+          :key="s.id"
+          type="button"
+          class="mini-btn"
+          :class="{ 'mini-btn--active': currentSheet === s.id }"
+          @click="headlessViewer.setSheet(s.id)"
+        >
+          {{ s.name }}
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <span class="tool-label">🔍 缩放:</span>
+        <button type="button" class="mini-btn" @click="headlessViewer.zoomIn">放大 (+)</button>
+        <button type="button" class="mini-btn" @click="headlessViewer.zoomOut">缩小 (-)</button>
+        <button type="button" class="mini-btn" @click="headlessViewer.resetZoom">重置</button>
+      </div>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        ref="viewerRef"
+        v-model:page="currentPage"
+        v-model:sheet="currentSheet"
+        url="/sample.xlsx"
+        file-name="2026年第三季度集团财务对账明细.xlsx"
+        file-type="xlsx"
+        :sheets="sampleSheets"
+        height="100%"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.headless-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 620px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.custom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-label {
+  font-weight: 600;
+  font-size: 12px;
+  color: #334155;
+}
+
+.mini-btn {
+  padding: 3px 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.mini-btn--active {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.page-indicator {
+  font-size: 12px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **纯无头响应式解耦律**：
+   - Hook 内部绝对严禁调用任何 Element Plus 或具体 UI 弹窗，所有状态完全以响应式变量或 Promise 形式向上暴露，具体样式呈现完全由业务表现层掌握；
+2. **Vue 3.5 响应式解构入参规范**：
+   - 入参全量声明为 `MaybeRefOrGetter<T>`，内部统一通过原生 `toValue(param)` 解包，确保传入响应式 Ref、普通值或 Getter 箭头函数（如 `() => props.fileName`）时均能 100% 保持动态更新；
+3. **单向数据流与 `readonly` 防线**：
+   - 导出的所有响应式状态均经过 `readonly(ref)` 包装，上层业务层无法直接就地 Mutate 篡改状态，变更操作统一经由指令方法下发，保持状态流转单向透明。
+
+---
+
+### 9.4 弱引用阅读状态记忆恢复 (`preserveViewState` / `WeakMap`)
+
+针对后台应用常见的 Tab 标签切换、`v-if` 条件渲染、页面短暂重绘场景，提供基于 WeakMap 对象的阅读进度自愈还原体系。
+
+#### 1. 专属 TypeScript 契约与存储结构
+
+```ts
+export interface StoredViewState {
+  page?: number;
+  sheet?: number | string;
+  zoomScale?: number;
+  rotation?: number;
+  scroll?: {
+    top?: number;
+    left?: number;
+  };
+  viewState?: Record<string, unknown>;
+  timestamp: number;
+}
+
+export interface ResolveViewStateKeyInput {
+  file?: File | Blob;
+  url?: string;
+  fileName?: string;
+}
+
+/** 提取唯一状态索引键 (对象弱引用优先，字符串兜底) */
+export function resolveViewStateKey(input: ResolveViewStateKeyInput): unknown;
+
+/** 保存或更新指定文档的阅读状态 */
+export function saveViewStateHistory(key: unknown, state: Partial<StoredViewState>): void;
+
+/** 恢复指定文档的历史阅读状态 */
+export function restoreViewStateHistory(key: unknown): StoredViewState | null;
+
+/** 清空阅读状态历史缓存 */
+export function clearViewStateHistory(): void;
+```
+
+在组件层中，对应 `AtengFileViewer` 声明的控制属性：
+
+```ts
+export interface AtengFileViewerProps {
+  /** 是否开启阅读状态记忆与弱引用自动复原 (默认 true) */
+  preserveViewState?: boolean;
+}
+```
+
+#### 2. 面向实战的业务 Vue SFC 示例
+
+> 逆向提取自自验展厅真实看板：[`HeadlessStateScenario.vue`](../../apps/sample-file-viewer-vue/src/scenarios/HeadlessStateScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFileViewer } from '@atengk/file-viewer-vue';
+
+const isViewerMounted = ref<boolean>(true);
+const preserveViewState = ref<boolean>(true);
+const statusFeedback = ref<string>('就绪');
+
+// 模拟 Tab 切换或 v-if 卸载重绘
+function simulateTabSwitch(): void {
+  isViewerMounted.value = false;
+  statusFeedback.value = '组件已销毁卸载，正在验证 preserveViewState 状态记忆...';
+
+  setTimeout(() => {
+    isViewerMounted.value = true;
+    statusFeedback.value = '组件已重新挂载，阅读位置、工作表与缩放比例已自动恢复！';
+  }, 300);
+}
+</script>
+
+<template>
+  <div class="state-demo-container">
+    <div class="state-toolbar">
+      <label class="state-checkbox">
+        <input v-model="preserveViewState" type="checkbox" />
+        <span>开启 WeakMap 阅读进度自愈还原</span>
+      </label>
+      <button type="button" class="switch-btn" @click="simulateTabSwitch">
+        🔄 模拟切 Tab 销毁重绘
+      </button>
+      <span class="status-tip">{{ statusFeedback }}</span>
+    </div>
+
+    <div class="viewer-wrapper">
+      <AtengFileViewer
+        v-if="isViewerMounted"
+        url="/sample.xlsx"
+        file-name="2026年第三季度集团财务对账明细.xlsx"
+        file-type="xlsx"
+        :preserve-view-state="preserveViewState"
+        height="100%"
+      />
+      <div v-else class="remount-loading">
+        <span>组件已卸载，等待重绘恢复...</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.state-demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.state-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.state-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #334155;
+  font-weight: 500;
+}
+
+.switch-btn {
+  padding: 4px 12px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.status-tip {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.viewer-wrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.remount-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+  font-size: 13px;
+}
+</style>
+```
+
+#### 3. 核心机制与生产边界说明
+
+1. **双轨存储架构与零内存泄漏**：
+   - 对象弱引用轨：针对本地 `File` / `Blob`，采用原生 `WeakMap<object, StoredViewState>` 存储；当文件对象被垃圾回收（GC）时，缓存记录自动伴随回收，彻底杜绝内存泄漏；
+   - 字符串受控 LRU 轨：针对 URL 或 `fileName`，采用容量上限锁定为 100 条的 LRU Map，防止无节制膨胀；
+2. **生命周期自动捕获与自愈还原**：
+   - 在组件卸载 `onUnmounted` 钩子中，自动抓取最新的滚动偏移量 `scroll.top`、页码 `page`、工作表 `sheet`、缩放比 `zoomScale` 与旋转角度 `rotation` 存入缓存；
+   - 在组件重新挂载且渲染就绪后，以微任务排队驱动视口恢复，实现切 Tab 重载无感衔接。
 
 ---
 
 ## 10. 完整 TypeScript 接口/Props/CSS 变量速查清单
 
-> 待后续工单 #259 交付：包含全量 Props、Emits、Slots、Ref 实例与 CSS 变量 Design Tokens 速查附录字典。
+本章集中提供 `@atengk/file-viewer-vue` 导出的所有公共组件 Props、Emits、Slots、Ref 实例方法、无头 Hook 参数与 CSS 变量 Design Tokens 全量速查附录字典，便于在生产接入时随时查阅。
+
+### 10.1 `AtengFileViewer` 核心组件 API 字典
+
+#### 1. Props 属性清单
+
+| 属性名              | 类型定义                                 | 默认值      | 详细业务说明                                                   |
+| :------------------ | :--------------------------------------- | :---------- | :------------------------------------------------------------- |
+| `url`               | `string`                                 | `''`        | 待预览远程文件资源的访问 URL                                   |
+| `file`              | `File \| Blob`                           | `undefined` | 本地选取的二进制文件实体 (优先于 url 加载)                     |
+| `fileName`          | `string`                                 | `''`        | 显式指定文件名 (包含扩展名，若未传自动从 URL 推导)             |
+| `fileType`          | `string`                                 | `''`        | 显式指定文件类型 (如 'docx', 'pdf'，跳过格式嗅探)              |
+| `page`              | `number`                                 | `undefined` | 当前展示页码 (支持 `v-model:page` 双向绑定，从 1 开始)         |
+| `sheet`             | `number \| string`                       | `undefined` | 当前激活工作表 ID 或名称 (支持 `v-model:sheet` 双向绑定)       |
+| `sheets`            | `FileViewerSheet[]`                      | `[]`        | 外部显式注入的工作表列表 (若不传从底层解析)                    |
+| `showSheetBar`      | `boolean`                                | `true`      | 是否在 Excel 等多工作表文档下方渲染工作表切换 Tab 条           |
+| `showToc`           | `boolean`                                | `true`      | 是否展示文档目录大纲 (TOC) 抽屉与侧边导航                      |
+| `tocList`           | `FileViewerDocumentAnchor[]`             | `[]`        | 外部显式注入的大纲目录列表 (若传入覆盖自动 DOM 扫描)           |
+| `preserveViewState` | `boolean`                                | `true`      | 是否开启 WeakMap 阅读进度自愈记忆 (切 Tab/重绘自动复原)        |
+| `height`            | `string \| number`                       | `'100%'`    | 容器物理高度 (支持 CSS 单位如 `'600px'`, `'100%'`)             |
+| `width`             | `string \| number`                       | `'100%'`    | 容器物理宽度 (支持 CSS 单位)                                   |
+| `showToolbar`       | `boolean`                                | `true`      | 是否展示顶部纯 CSS/SVG 轻量操作工具栏                          |
+| `theme`             | `'light' \| 'dark' \| 'auto'`            | `'auto'`    | 主题模式 (`'auto'` 自动跟随系统媒体查询或父级暗黑类)           |
+| `options`           | `Record<string, unknown>`                | `{}`        | 底层对应渲染引擎的原生高级选项透传对象                         |
+| `auth`              | `boolean`                                | `true`      | 是否自动通过 `TokenManager` 注入当前登录凭据请求头             |
+| `headers`           | `Record<string, string>`                 | `{}`        | 自定义 HTTP 请求头映射                                         |
+| `customClass`       | `string`                                 | `''`        | 容器根节点额外注入的自定义 CSS 类名                            |
+| `downloadable`      | `boolean`                                | `true`      | 四维 DLP：是否允许下载 (为 false 时硬拦截 Ctrl+S)              |
+| `printable`         | `boolean`                                | `true`      | 四维 DLP：是否允许打印 (为 false 时拦截 Ctrl+P 并开启白屏抑制) |
+| `copyable`          | `boolean`                                | `true`      | 四维 DLP：是否允许选中与复制 (为 false 开启文字防选)           |
+| `contextMenu`       | `boolean`                                | `true`      | 四维 DLP：是否允许鼠标右键上下文菜单                           |
+| `assetBaseUrl`      | `string \| URL`                          | `undefined` | 静态资产寻址基地址覆盖 (遵循三级弹性寻址仲裁)                  |
+| `preset`            | `FileViewerPreset \| FileViewerPreset[]` | `undefined` | 局部挂载重型扩展渲染预设 (如 CAD、3D 模型等)                   |
+| `watermark`         | `FileViewerWatermark`                    | `undefined` | 防篡改动态安全倾斜水印配置 (支持文本或详细结构体)              |
+| `maxSize`           | `number \| string`                       | `'100MB'`   | SizeGuard 堆内存防崩阈值 (超出时熔断并警示)                    |
+| `password`          | `string`                                 | `''`        | 受保护加密文档的初始或受控解密密码                             |
+
+#### 2. Emits 事件清单
+
+| 事件名              | 参数签名                                           | 触发时机与业务语义                                 |
+| :------------------ | :------------------------------------------------- | :------------------------------------------------- |
+| `load`              | `payload: { fileName: string; fileType?: string }` | 底层文档加载解析成功且首屏渲染完成时触发           |
+| `error`             | `error: unknown`                                   | 文件拉取、格式解析或底层内核发生异常时触发         |
+| `unload`            | `payload: { reason?: string }`                     | 组件卸载、切源清空当前文档渲染宿主时触发           |
+| `update:page`       | `page: number`                                     | 页码变化时触发 (驱动 `v-model:page` 双向同步)      |
+| `page-change`       | `page: number, pageCount?: number`                 | 翻页或跳转指定页时触发                             |
+| `update:sheet`      | `sheet: number \| string`                          | 工作表切换时触发 (驱动 `v-model:sheet` 双向同步)   |
+| `sheet-change`      | `sheet: number \| string, sheetName?: string`      | 用户点击切换 Excel 工作表时触发                    |
+| `update:toc-open`   | `open: boolean`                                    | 目录大纲抽屉展开或折叠状态变更时触发               |
+| `toc-change`        | `anchors: FileViewerDocumentAnchor[]`              | 目录大纲章节扫描提取完成时触发                     |
+| `view-state-change` | `change: Record<string, unknown>`                  | 滚动位置、缩放比例或页码变动触发状态历史更新时触发 |
+| `progress`          | `progress: FileViewerDownloadProgress`             | 大文件渐进式流拉取进度与速率更新时高频触发         |
+| `size-guard`        | `payload: { size: number; maxSize: number }`       | 文件字节数超出 maxSize 阈值被拦截熔断时触发        |
+| `diagnostic`        | `diagnostic: FileViewerDiagnostic`                 | 捕获并推导出 5 大结构化诊断实体时触发              |
+| `password-submit`   | `password: string`                                 | 用户在原地密码输入框点击提交时触发                 |
+| `password-success`  | `void`                                             | 加密文档密码核验成功并顺利解密时触发               |
+| `password-error`    | `error: unknown`                                   | 提交的解密密码错误时触发                           |
+
+#### 3. Slots 插槽清单
+
+| 插槽名      | 作用域参数 (Scope)                                                                   | 核心用途与定制说明                           |
+| :---------- | :----------------------------------------------------------------------------------- | :------------------------------------------- |
+| `toolbar`   | `(scope: ToolbarScope)`                                                              | 100% 接管顶部操作栏布局与交互控制按钮        |
+| `sheetBar`  | `(scope: { sheet, sheets, setSheet })`                                               | 接管底栏 Excel 工作表切换 Tab 条             |
+| `toc`       | `(scope: { anchors, scrollToAnchor, closeToc })`                                     | 自定义大纲目录抽屉视图与章节导航节点渲染     |
+| `loading`   | `(scope: FileViewerDownloadProgress)`                                                | 自定义传输与首屏加载骨架屏指示器             |
+| `sizeGuard` | `(scope: { size, maxSize, formattedSize, formattedMaxSize, forceRender, download })` | 自定义超大文件防崩拦截警示卡片与操作动作     |
+| `error`     | `(scope: { diagnostic, error, retry, download })`                                    | 自定义结构化异常诊断卡片与排查指引视图       |
+| `password`  | `(scope: { submitPassword, isDecrypting, errorMessage, download })`                  | 自定义受保护加密文档原地输入框与解密提交交互 |
+
+#### 4. Ref 实例对外暴露方法 (`AtengFileViewerExpose`)
+
+由组件源码显式具名导出实例类型：`export type AtengFileViewerInstance = InstanceType<typeof AtengFileViewer>;`
+
+| 方法名                 | 类型签名                                                           | 功能说明                                    |
+| :--------------------- | :----------------------------------------------------------------- | :------------------------------------------ |
+| `zoomIn()`             | `() => void`                                                       | 视图放大一个步长阶梯 (+15%)                 |
+| `zoomOut()`            | `() => void`                                                       | 视图缩小一个步长阶梯 (-15%)                 |
+| `resetZoom()`          | `() => void`                                                       | 还原缩放比例至 100% (1.0)                   |
+| `rotate()`             | `() => void`                                                       | 顺时针旋转 90 度 (90° ➔ 180° ➔ 270° ➔ 0°)   |
+| `download()`           | `() => void`                                                       | 触发当前预览文件下载 (受 downloadable 约束) |
+| `print()`              | `() => void`                                                       | 触发当前文档打印 (受 printable 约束)        |
+| `retry()`              | `() => void`                                                       | 清理异常并重新加载当前资源                  |
+| `forceRender()`        | `() => void`                                                       | 破除 SizeGuard 体积拦截，强制挂载渲染       |
+| `isSizeGuarded()`      | `() => boolean`                                                    | 查询当前是否处于体积超限拦截态              |
+| `getProgress()`        | `() => FileViewerDownloadProgress`                                 | 获取最新的传输进度、网速与已下载字节        |
+| `getFileSize()`        | `() => number`                                                     | 获取当前文档总字节数                        |
+| `getDiagnostic()`      | `() => FileViewerDiagnostic \| null`                               | 获取当前活跃的结构化错误诊断实体            |
+| `submitPassword()`     | `(pwd: string) => Promise<boolean>`                                | 原地提交密码尝试解密                        |
+| `isPasswordRequired()` | `() => boolean`                                                    | 查询当前是否处于等待输入密码解密态          |
+| `getFileName()`        | `() => string`                                                     | 获取最终权威文件名                          |
+| `getFileType()`        | `() => string`                                                     | 获取最终权威文件扩展名                      |
+| `getPage()`            | `() => number`                                                     | 获取当前阅读页码                            |
+| `getPageCount()`       | `() => number`                                                     | 获取当前文档总页数                          |
+| `setPage()`            | `(page: number) => Promise<boolean>`                               | 跳转直达指定页码                            |
+| `getSheet()`           | `() => number \| string`                                           | 获取当前激活的工作表标识                    |
+| `setSheet()`           | `(sheet: number \| string) => Promise<boolean>`                    | 切换至指定 Excel 工作表                     |
+| `getSheets()`          | `() => FileViewerSheet[]`                                          | 获取文档内所有可用工作表列表                |
+| `getToc()`             | `() => FileViewerDocumentAnchor[]`                                 | 获取当前文档章节大纲列表                    |
+| `scrollToAnchor()`     | `(anchor: FileViewerDocumentAnchor \| string) => Promise<boolean>` | 视口平滑滚动定位至指定章节锚点              |
+| `toggleToc()`          | `(open?: boolean) => void`                                         | 展开或收起目录大纲抽屉                      |
+| `getViewState()`       | `() => Record<string, unknown> \| null`                            | 导出当前阅读状态快照                        |
+| `applyViewState()`     | `(state: Record<string, unknown>) => Promise<unknown>`             | 手动将外部阅读状态恢复注入到当前视图        |
+
+---
+
+### 10.2 `AtengFileViewerDialog` 弹窗组件 API 字典
+
+#### 1. 专属 Props 清单 (包含 `AtengFileViewer` 全量属性继承)
+
+| 属性名               | 类型定义  | 默认值      | 详细业务说明                                     |
+| :------------------- | :-------- | :---------- | :----------------------------------------------- |
+| `modelValue`         | `boolean` | `false`     | 弹窗显隐状态 (支持 `v-model` 双向受控)           |
+| `visible`            | `boolean` | `undefined` | 弹窗显隐状态 (等价于 modelValue)                 |
+| `title`              | `string`  | `''`        | 弹窗顶栏主标题 (默认优先取 fileName)             |
+| `fullscreen`         | `boolean` | `false`     | 是否开启全屏沉浸式预览模式 (支持双向同步)        |
+| `dialogWidth`        | `string`  | `'85vw'`    | 常规状态弹窗宽度 (支持 CSS 表达式)               |
+| `dialogHeight`       | `string`  | `'85vh'`    | 常规状态弹窗高度 (支持 CSS 表达式)               |
+| `closeOnClickModal`  | `boolean` | `true`      | 是否允许点击半透明遮罩背景关闭弹窗               |
+| `closeOnPressEscape` | `boolean` | `true`      | 是否允许按下键盘 ESC 键关闭弹窗                  |
+| `showClose`          | `boolean` | `true`      | 是否展示右上角关闭按钮                           |
+| `showFullscreen`     | `boolean` | `true`      | 是否展示全屏 / 还原切换按钮                      |
+| `destroyOnClose`     | `boolean` | `true`      | 弹窗关闭后是否彻底销毁内嵌渲染 DOM 与 Worker     |
+| `appendToBody`       | `boolean` | `true`      | 是否将弹窗 DOM 节点挂载至 `document.body` 根节点 |
+| `zIndex`             | `number`  | `2000`      | 弹窗层叠上下文基础 z-index 基数                  |
+
+#### 2. 专属 Emits 清单 (包含 `AtengFileViewer` 全量事件透传)
+
+| 事件名              | 参数签名                | 详细业务说明                           |
+| :------------------ | :---------------------- | :------------------------------------- |
+| `update:modelValue` | `(value: boolean)`      | 弹窗显隐状态变更时通知上层 (双向绑定)  |
+| `update:visible`    | `(value: boolean)`      | 弹窗显隐状态变更时通知上层             |
+| `update:fullscreen` | `(fullscreen: boolean)` | 全屏与常规窗口状态切换时通知上层       |
+| `open`              | `()`                    | 弹窗开始打开时触发                     |
+| `opened`            | `()`                    | 弹窗完全打开且 CSS 动画过渡结束时触发  |
+| `close`             | `()`                    | 弹窗开始关闭时触发                     |
+| `closed`            | `()`                    | 弹窗完全关闭且过渡动画与销毁完毕后触发 |
+
+#### 3. 专属 Slots 清单
+
+| 插槽名   | 作用域参数 (Scope)                                          | 详细业务说明                     |
+| :------- | :---------------------------------------------------------- | :------------------------------- |
+| `header` | `(scope: { title, close, toggleFullscreen, isFullscreen })` | 彻底接管弹窗顶部标题与操作动作栏 |
+| `footer` | `(scope: { close })`                                        | 在弹窗底部追加自定义业务动作底栏 |
+
+---
+
+### 10.3 `useFileViewer` 无头 Hook API 字典
+
+#### 1. Options 入参配置项 (`UseFileViewerOptions`)
+
+导出的所有入参均支持 Vue 原生 `MaybeRefOrGetter<T>` 格式，支持直接传值、响应式 `Ref` 或 Getter 箭头函数：
+
+| 配置键         | 类型                                     | 说明                                 |
+| :------------- | :--------------------------------------- | :----------------------------------- |
+| `url`          | `string`                                 | 目标文件 URL 地址                    |
+| `file`         | `File \| Blob`                           | 本地二进制文件实体                   |
+| `fileName`     | `string`                                 | 明确指定文件名                       |
+| `fileType`     | `string`                                 | 明确指定格式扩展名                   |
+| `page`         | `number`                                 | 受控页码                             |
+| `sheet`        | `number \| string`                       | 受控工作表                           |
+| `viewerRef`    | `AtengFileViewerInstance`                | 关联的 AtengFileViewer 组件 Ref 引用 |
+| `assetBaseUrl` | `string \| URL`                          | 静态资产基地址覆盖                   |
+| `preset`       | `FileViewerPreset \| FileViewerPreset[]` | 动态插拔重型扩展预设                 |
+| `downloadable` | `boolean`                                | 四维 DLP 下载控制                    |
+| `printable`    | `boolean`                                | 四维 DLP 打印控制                    |
+| `maxSize`      | `number \| string`                       | SizeGuard 内存安全阈值               |
+| `password`     | `string`                                 | 受控解密密码                         |
+
+#### 2. Return 导出状态与指令集 (`UseFileViewerReturn`)
+
+导出的响应式状态全部由 `readonly` 守护，确保单向数据流单向流动：
+
+| 属性/方法名                      | 类型                                          | 分类       | 详细业务说明                        |
+| :------------------------------- | :-------------------------------------------- | :--------- | :---------------------------------- |
+| `isLoading`                      | `Readonly<Ref<boolean>>`                      | 响应式状态 | 当前是否正处于网络拉取或渲染解析中  |
+| `error`                          | `Readonly<Ref<unknown>>`                      | 响应式状态 | 当前发生的原始未决错误对象          |
+| `diagnostic`                     | `Readonly<Ref<FileViewerDiagnostic \| null>>` | 响应式状态 | 经过分类诊断推导后的结构化实体      |
+| `fileName`                       | `Readonly<Ref<string>>`                       | 响应式状态 | 当前生效解析的文件名称              |
+| `fileType`                       | `Readonly<Ref<string>>`                       | 响应式状态 | 当前生效解析的文件类型扩展名        |
+| `page`                           | `Readonly<Ref<number>>`                       | 响应式状态 | 当前阅读页码                        |
+| `pageCount`                      | `Readonly<Ref<number>>`                       | 响应式状态 | 当前文档总页数                      |
+| `sheet`                          | `Readonly<Ref<number \| string>>`             | 响应式状态 | 当前生效的工作表 ID 或名称          |
+| `sheets`                         | `Readonly<Ref<FileViewerSheet[]>>`            | 响应式状态 | 文档包含的多工作表列表副本          |
+| `zoomScale`                      | `Readonly<Ref<number>>`                       | 响应式状态 | 当前视口缩放比例 (1.0 为 100%)      |
+| `rotation`                       | `Readonly<Ref<number>>`                       | 响应式状态 | 当前视口旋转角度 (0, 90, 180, 270)  |
+| `tocList`                        | `Readonly<Ref<FileViewerDocumentAnchor[]>>`   | 响应式状态 | 当前提取的大纲章节列表              |
+| `isTocOpen`                      | `Readonly<Ref<boolean>>`                      | 响应式状态 | 大纲抽屉当前是否处于展开状态        |
+| `isSizeGuarded`                  | `Readonly<Ref<boolean>>`                      | 响应式状态 | 当前是否正处于 SizeGuard 内存拦截中 |
+| `downloadProgress`               | `Readonly<Ref<FileViewerDownloadProgress>>`   | 响应式状态 | 最新的渐进传输指标实体              |
+| `isPasswordRequired`             | `Readonly<Ref<boolean>>`                      | 响应式状态 | 当前是否需要原地输入密码解密        |
+| `bindViewer`                     | `(instance) => void`                          | 指令方法   | 手动绑定组件 Ref 实例               |
+| `zoomIn / zoomOut / resetZoom`   | `() => void`                                  | 指令方法   | 视口缩放控制                        |
+| `rotate`                         | `() => void`                                  | 指令方法   | 顺时针旋转 90 度                    |
+| `setPage / prevPage / nextPage`  | `(page) => Promise<boolean>`                  | 指令方法   | 翻页与页码跳转控制                  |
+| `setSheet`                       | `(sheet) => Promise<boolean>`                 | 指令方法   | 切换 Excel 工作表                   |
+| `toggleToc / openToc / closeToc` | `() => void`                                  | 指令方法   | 目录大纲抽屉显隐控制                |
+| `scrollToAnchor`                 | `(anchor) => Promise<boolean>`                | 指令方法   | 视口平滑滚动定位至指定章节锚点      |
+| `forceRender`                    | `() => void`                                  | 指令方法   | 强行解除 SizeGuard 拦截并挂载渲染   |
+| `submitPassword`                 | `(pwd: string) => Promise<boolean>`           | 指令方法   | 原地提交密码重试解密                |
+| `retry`                          | `() => void`                                  | 指令方法   | 重新拉取并重载文档                  |
+| `download / print`               | `() => void`                                  | 指令方法   | 触发下载与打印操作                  |
+| `destroy`                        | `() => void`                                  | 指令方法   | 主动销毁并清理资源                  |
+
+---
+
+### 10.4 CSS 变量 Design Tokens 全量速查表
+
+`@atengk/file-viewer-vue` 坚持纯原生样式隔离体系，组件根容器强制开启 `<style scoped>` 并以 `.at-file-viewer` 命名空间前缀派生标准 CSS 变量。开发者可在宿主页面中轻松覆盖变量实现品牌色与暗黑模式定制：
+
+| CSS 变量名                                | 默认值 (浅色 Light) | 暗黑模式值 (Dark) | 语义说明与作用节点               |
+| :---------------------------------------- | :------------------ | :---------------- | :------------------------------- |
+| `--at-fv-bg`                              | `#ffffff`           | `#0f172a`         | 组件主背景色与卡片底色           |
+| `--at-fv-border`                          | `#e4e7ed`           | `#334155`         | 组件外边框与内部各区域分割线颜色 |
+| `--at-fv-toolbar-bg`                      | `#f8fafc`           | `#1e293b`         | 顶部轻量操作栏与底栏背景色       |
+| `--at-fv-body-bg`                         | `#e2e8f0`           | `#0f172a`         | 文档视口居中画板衬托底色         |
+| `--at-fv-text`                            | `#1e293b`           | `#f8fafc`         | 标题、主要文字与图标主色         |
+| `--at-fv-text-subtle`                     | `#475569`           | `#94a3b8`         | 页码指示、说明性辅助文本颜色     |
+| `--at-fv-btn-hover-bg`                    | `#e2e8f0`           | `#334155`         | 工具栏操作按钮鼠标悬停背景色     |
+| `--at-fv-badge-bg`                        | `#e2e8f0`           | `#334155`         | 格式徽标 (PDF/DOCX) 背景填充色   |
+| `--at-fv-badge-color`                     | `#475569`           | `#cbd5e1`         | 格式徽标文字颜色                 |
+| `--file-viewer-render-surface-background` | `transparent`       | `transparent`     | 底层渲染器渲染表面穿透背景色     |
