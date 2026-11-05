@@ -57,3 +57,11 @@ _Avoid_: securityPolicy, permissionGuard, readOnlyGuard
 **SizeGuard (内存防崩护栏)**:
 针对百兆级超大文件的浏览器 V8 堆内存熔断警示与降级分流保护机制。
 _Avoid_: fileLimit, memoryShield, sizeChecker
+
+**ViewStateHistory (弱引用状态记忆恢复)**:
+基于 WeakMap 与文档唯一指纹缓存阅读页码、多 Sheet 索引、缩放比率与旋转角度，在组件销毁重建时秒级自动复原阅读位置。
+_Avoid_: readProgressCache, pageMemory, scrollSaver
+
+**DiagnosticClassifier (结构化异常分类诊断器)**:
+精准归类 6 大文件预览异常（网络超时、403权限、加密保护、老旧格式、格式损坏、超大拦截），并提供可操作修复与解密指引的诊断分类器。
+_Avoid_: errorHandler, errorParser, issueGuesser
