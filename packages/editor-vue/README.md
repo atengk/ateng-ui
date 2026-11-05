@@ -1264,19 +1264,203 @@ export const productionAiStreamHandler: AiStreamHandler = async function* (paylo
 
 ---
 
-## 维度二：生产扩展接管 (Customization & Extensibility)
+## 7. 表格人体工学与媒体资产直传套件
 
-### 1. 自定义媒体资产直传 SPI (UploadHandler)
+富文本表格操控与媒体资产直传是企业级内容创作的核心高频场景。`@atengk/editor-vue` 提供开箱即用的就近气泡微菜单、动态列宽拖拽、结构无损清空与三物理管道文件上传拦截体系。
 
-通过传入 `uploadHandler`，拦截剪贴板截图粘贴与外部拖拽文件，接入业务私有 OSS / MinIO 直传管道。未决期间使用 ProseMirror 装饰器插入骨架加载占位块，上传成功后平滑置换为图片：
+### 7.1 表格操控微菜单与动态列宽拖拽 (AtengTableBubbleMenu / Table Extension)
+
+#### 1. 核心痛点与就近气泡消除折返跑设计
+
+常规富文本编辑器的表格排版操作，通常将插入行、删除列、合并单元格等按钮置于编辑器顶部静态大工具栏中。当表格行数较多或用户在下方单元格编辑时，每次调整表格结构视线与鼠标指针必须频繁在单元格与顶部大工具栏之间长距离“折返跑”，极易打断创作心流并引发视觉疲劳。
+
+`<AtengTableBubbleMenu />` 结合 TipTap `@tiptap/extension-table`，实现就近智能悬浮微浮层：
+
+- **光标进入自动就近激活**：仅当光标位于 `tableCell` 或 `tableHeader` 单元格内时，在光标正上方 8px 处毫秒级淡入呈现精简中文微菜单；
+- **动态列宽拖拽状态机 (resizable: true)**：底层表格扩展内置 `resizable: true`，鼠标悬停于单元格竖线边框时自动渲染列宽调整手柄（`column-resize-handle`），支持按住鼠标左键向左/向右自由拖拽，松开后实时将新宽度作为 `colwidth` 属性持久化写入 ProseMirror 文档树；
+- **表现层 100% 插槽反转**：提供 `#table-menu="{ editor }"` 具名插槽，允许调用方使用 Element Plus 控件完全反转接管气泡菜单渲染。
 
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue';
-import { AtengEditor, type UploadHandler } from '@atengk/editor-vue';
+import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
 
-const content = ref<string>('');
+// 初始带表格的富文本内容
+const tableHtml = ref<string>(`
+<h2>📊 研发里程碑交付一览表</h2>
+<table>
+  <thead>
+    <tr>
+      <th>模块名称</th>
+      <th>所属层级</th>
+      <th>当前状态</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>@atengk/core</td>
+      <td>L0 原生底座</td>
+      <td>生产就绪</td>
+    </tr>
+    <tr>
+      <td>@atengk/editor-vue</td>
+      <td>L2 专用扩展</td>
+      <td>工业级交付</td>
+    </tr>
+  </tbody>
+</table>
+`);
 
+const editorRef = ref<AtengEditorInstance | null>(null);
+
+// 实例门面快捷表格操作指令
+const insertTable = () => editorRef.value?.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
+const addRowAfter = () => editorRef.value?.addRowAfter();
+const addColAfter = () => editorRef.value?.addColumnAfter();
+const toggleHeader = () => editorRef.value?.toggleHeaderRow();
+const mergeCells = () => editorRef.value?.mergeCells();
+const splitCell = () => editorRef.value?.splitCell();
+const deleteRow = () => editorRef.value?.deleteRow();
+const deleteCol = () => editorRef.value?.deleteColumn();
+const deleteTable = () => editorRef.value?.deleteTable();
+</script>
+
+<template>
+  <div class="table-container">
+    <div class="table-actions">
+      <el-button-group size="small">
+        <el-button type="primary" plain @click="insertTable">➕ 插入表格</el-button>
+        <el-button @click="addRowAfter">⬇️ 追加行</el-button>
+        <el-button @click="addColAfter">➡️ 追加列</el-button>
+        <el-button @click="toggleHeader">📑 切换表头</el-button>
+        <el-button @click="mergeCells">🔲 合并单元格</el-button>
+        <el-button @click="splitCell">✂️ 拆分单元格</el-button>
+        <el-button type="danger" plain @click="deleteRow">🗑️ 删行</el-button>
+        <el-button type="danger" plain @click="deleteCol">🗑️ 删列</el-button>
+        <el-button type="danger" plain @click="deleteTable">❌ 删整表</el-button>
+      </el-button-group>
+    </div>
+
+    <!-- 默认开箱即用自带 AtengTableBubbleMenu 就近气泡微菜单 -->
+    <AtengEditor ref="editorRef" v-model="tableHtml" min-height="300px" />
+  </div>
+</template>
+```
+
+#### 2. 就近类型契约规范
+
+```typescript
+export interface AtengTableBubbleMenuProps {
+  /** TipTap 原生 Editor 实例引用 */
+  editor: Editor | null;
+  /** 是否禁用操作 */
+  disabled?: boolean;
+  /** 自定义 Tippy.js 浮层定位配置选项 */
+  tippyOptions?: Record<string, unknown>;
+  /** 自定义浮层显隐判定守卫函数 */
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    element: HTMLElement;
+    view: EditorView;
+    state: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+```
+
+#### 3. CSS 变量与设计令牌
+
+| CSS 变量名                        | 默认值（浅色）                        | 暗黑模式跟随值            | 作用说明                         |
+| :-------------------------------- | :------------------------------------ | :------------------------ | :------------------------------- |
+| `--at-editor-table-border`        | `var(--el-border-color, #dcdfe6)`     | `#414243`                 | 表格与单元格物理边框颜色         |
+| `--at-editor-table-header-bg`     | `var(--el-fill-color-light, #f5f7fa)` | `#242424`                 | 表头行（`<th>`）背景填充底色     |
+| `--at-editor-table-selected-bg`   | `rgba(64, 158, 255, 0.12)`            | `rgba(64, 158, 255, 0.2)` | 鼠标划选多个单元格时的高亮底色   |
+| `--at-editor-table-resize-handle` | `var(--el-color-primary, #409eff)`    | `#79bbff`                 | 悬停列竖线时的列宽拖拽指示线颜色 |
+
+---
+
+### 7.2 表格清空门面工具 (clearTableContent)
+
+#### 1. 核心痛点与无损版式不变量
+
+在业务数据录入或报表填写场景中，用户常需要“清空当前表格内所有填报数据”。
+若直接调用常规的 `editor.commands.clearContent()` 或删除选区，会将整张表格连同行列架构与表头彻底抹去，迫使用户必须从头重新绘制表格并手工调整列宽；若让用户在各个单元格内逐字退格，不仅繁琐低效，还容易误删结构。
+
+`clearTableContent(editor)` 门面工具恪守**结构无损与数据归零不变量**：
+
+- 采用 ProseMirror 事务深度遍历当前聚焦表格的全部子节点，定位每一个 `tableCell` 与 `tableHeader`；
+- 将每个单元格内部的文字与段落清空为空段落 `<p></p>`；
+- **100% 保全表格原有行数、列数、表头属性与 `colwidth` 列宽设定**；
+- `<AtengEditor />` 实例同步导出 `clearTable()` 门面方法，外部调用仅需一行代码。
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
+import { ElMessage } from 'element-plus';
+
+const content = ref<string>('<table><tr><td>待清空数据 A</td><td>待清空数据 B</td></tr></table>');
+const editorRef = ref<AtengEditorInstance | null>(null);
+
+const handleClearTable = () => {
+  // 调用实例清空表格门面（仅清空单元格内容，保全网格与列宽）
+  const success = editorRef.value?.clearTable();
+  if (success) {
+    ElMessage.success('已清空当前表格单元格数据，保留表格行列与列宽结构');
+  } else {
+    ElMessage.warning('光标未处于表格单元格内部');
+  }
+};
+</script>
+
+<template>
+  <el-button type="warning" plain size="small" @click="handleClearTable">
+    🧹 清空表格数据（保留结构）
+  </el-button>
+  <AtengEditor ref="editorRef" v-model="content" />
+</template>
+```
+
+#### 2. 就近函数契约
+
+```typescript
+/**
+ * 遍历清空当前选区所在表格的全部单元格内容，保留表格网格拓扑与 colwidth 列宽属性。
+ * @param editor TipTap Editor 实例
+ * @returns 是否成功执行清空操作（光标在表格内返回 true，否则返回 false）
+ */
+export function clearTableContent(editor: Editor): boolean;
+```
+
+---
+
+### 7.3 媒体资产上传拦截扩展与骨架占位 (FileUploadExtension / UploadHandler SPI)
+
+#### 1. 三输入管道统一拦截与骨架加载平滑置换机制
+
+工业级富文本编辑对图片输入有严苛要求，必须同时拦截三种物理管道：
+
+1. **剪贴板截图粘贴**：用户在微信、QQ 或系统截图工具截图后，直接在正文中按 `Ctrl + V` 粘贴；
+2. **本地文件外部拖拽**：从操作系统文件管理器中拖动任意 `.png` / `.jpg` / `.webp` 图片文件释放到编辑器内；
+3. **显式点击选取**：点击工具栏图片图标，或调用组件实例 `uploadImage(file)` 显式调起文件上传。
+
+`FileUploadExtension` 配合 `UploadHandler` SPI 建立完整生命周期闭环：
+
+- **骨架加载占位块 (Skeleton Placeholder)**：图片上传通常有 1~3 秒的网络延迟。发起上传瞬间，底层使用 ProseMirror 独立装饰器在光标处插入带波纹呼吸动画的骨架加载占位块，**杜绝富文本视口高度突变与剧烈跳动 (Layout Shift)**；
+- **异步决议与平滑置换**：上传 Promise 成功决议（Resolved）时，平滑将骨架占位块置换为真实 `<img>` 节点，并派发 `uploadSuccess` 事件；
+- **异常捕获与确定性清理**：上传 Promise 失败决议（Rejected）时，自动销毁骨架占位块并派发 `uploadError` 事件，杜绝脏 DOM 节点残留；
+- **开箱即用 Base64 优雅降级**：若调用方未配置 `uploadHandler`，扩展自动将本地文件转码为 Base64 Data URL 嵌入，保障原型自验与离线调试开箱可用。
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengEditor, type UploadHandler, type UploadSuccessPayload } from '@atengk/editor-vue';
+import { ElMessage } from 'element-plus';
+
+const content = ref<string>('<p>支持微信截图 Ctrl+V 粘贴、拖拽外部图片或点击工具栏上传图片。</p>');
+
+// 自定义媒体资产直传 SPI（对接业务私有 OSS / MinIO 直传接口）
 const customUploadHandler: UploadHandler = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -1285,120 +1469,600 @@ const customUploadHandler: UploadHandler = async (file: File) => {
     method: 'POST',
     body: formData,
     headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token') ?? ''}`,
     },
   });
 
-  const data = await res.json();
-  // 返回直传 URL 或对象
-  return data.url;
+  if (!res.ok) {
+    throw new Error(`文件 [${file.name}] 上传失败，服务端响应状态码 ${res.status}`);
+  }
+
+  const result = await res.json();
+  // 返回上传后的真实 CDN 地址与可选的 alt 描述
+  return {
+    url: result.data.url,
+    alt: file.name.replace(/\.[^/.]+$/, ''),
+  };
+};
+
+const handleUploadSuccess = (payload: UploadSuccessPayload) => {
+  ElMessage.success(`图片 [${payload.file.name}] 直传成功`);
+};
+
+const handleUploadError = (error: Error, file: File) => {
+  ElMessage.error(`图片 [${file.name}] 上传失败：${error.message}`);
 };
 </script>
 
 <template>
-  <AtengEditor v-model="content" :upload-handler="customUploadHandler" />
+  <AtengEditor
+    v-model="content"
+    :upload-handler="customUploadHandler"
+    @upload-success="handleUploadSuccess"
+    @upload-error="handleUploadError"
+  />
 </template>
 ```
 
-### 2. 全量表现层插槽反转定制 (#slots)
+#### 2. 就近类型契约规范
 
-所有内置微工具栏与动态微浮层均支持具名插槽反转，业务视图可自由接入 Element Plus 控件或私有设计系统：
+```typescript
+/** 上传拦截器返回类型：支持纯 URL 字符串或包含 alt 描述的对象 */
+export type UploadHandlerResult = string | { url: string; alt?: string };
+
+/** 媒体资产上传拦截器 SPI 函数契约 */
+export type UploadHandler = (file: File) => Promise<UploadHandlerResult>;
+
+/** 图片资产上传成功事件发射载荷 */
+export interface UploadSuccessPayload {
+  url: string;
+  alt?: string;
+  file: File;
+}
+```
+
+---
+
+### 7.4 图片与超链接上下文微浮层 (AtengImageBubbleMenu / AtengLinkBubbleMenu)
+
+#### 1. 媒体与超链接行内微操人体工学
+
+在长篇排版中，图片对齐与超链接维护同样面临传统顶部工具栏操作繁琐的痛点：
+
+- `<AtengImageBubbleMenu />`：点击正文内任意图片节点，就近弹出轻量浮层，支持**左对齐**、**居中对齐**、**右对齐**以及**一键删除图片**；
+- `<AtengLinkBubbleMenu />`：光标聚焦超链接标记时就近弹出微浮层，展示当前超链接完整目标地址，提供**新标签页安全打开**（强制挂载 `rel="noopener noreferrer"` 防御 `window.opener` 钓鱼与跨域攻击）、**行内编辑链接**（唤起就近输入框修改目标 URL）与**取消超链接**（保留文本仅解绑超链接标记）。
 
 ```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengEditor } from '@atengk/editor-vue';
+
+const content = ref<string>(`
+<p>访问官方仓库：<a href="https://github.com/atengk/ateng-ui" target="_blank" rel="noopener noreferrer">ateng-ui 官方 GitHub 仓库</a>（点击链接可唤起微浮层）。</p>
+<p style="text-align: center;"><img src="https://picsum.photos/400/200" alt="示例图片" /></p>
+`);
+</script>
+
 <template>
-  <AtengEditor v-model="content">
-    <!-- 自定义顶部工具栏 -->
-    <template #toolbar="{ editor }">
-      <div class="my-custom-toolbar">
-        <el-button size="small" @click="editor?.chain().focus().toggleBold().run()">
-          加粗
-        </el-button>
-      </div>
-    </template>
+  <!-- 默认 showImageMenu=true 与 showLinkMenu=true 开箱即用自动挂载 -->
+  <AtengEditor v-model="content" :show-image-menu="true" :show-link-menu="true" />
+</template>
+```
 
-    <!-- 自定义选区划词气泡 -->
-    <template #bubble-menu="{ editor }">
-      <div class="my-bubble-panel">
-        <el-tag size="small">选区高频工具</el-tag>
-      </div>
-    </template>
+#### 2. 就近类型契约规范
 
-    <!-- 自定义吸底状态栏 -->
-    <template #statusbar="{ editor, characters, maxLength }">
-      <div class="my-statusbar">
-        <span>当前字数：{{ characters }} / {{ maxLength ?? '无限制' }}</span>
-      </div>
+```typescript
+export interface AtengImageBubbleMenuProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  tippyOptions?: Record<string, unknown>;
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    state: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+
+export interface AtengLinkBubbleMenuProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  tippyOptions?: Record<string, unknown>;
+  shouldShow?: (props: {
+    editor: CoreEditor;
+    state: EditorState;
+    from: number;
+    to: number;
+  }) => boolean;
+}
+```
+
+---
+
+## 8. 视口自愈、字数硬拦截与底层无头状态机
+
+为保障在复杂企业级业务场景（表单提交、模态弹窗、纯净阅读、无头定制）下的工业级鲁棒性，`@atengk/editor-vue` 内置全套视口自愈与事务级防御体系。
+
+### 8.1 纯 Vue 3.5 无头状态机 (useEditor / useEditorDom)
+
+#### 1. 无头与表现彻底解耦架构
+
+当现有预设或 UI 容器无法满足私有业务设计系统时，开发者可直接使用纯 TypeScript / Vue 3.5 无头状态机实现完全自定义的富文本交互：
+
+- `useEditor(options)` 封装 TipTap Editor 核心生命周期，入参全面支持 `MaybeRefOrGetter<T>` 与 Vue 3.5 原生 `toValue()` 解包，在 `onBeforeUnmount` 中确定性执行 `editor.destroy()` 释放 DOM 与监听，杜绝内存泄漏；
+- `useEditorDom(options)` 承接 DOM 视口挂载、暗黑模式 `MutationObserver` 实时感知，以及多轨数据格式导出（HTML、Markdown、JSON、纯文本）。
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useEditor, useEditorDom } from '@atengk/editor-vue';
+
+const editorEl = ref<HTMLElement | null>(null);
+const initialContent = '<p>基于 Vue 3.5 无头状态机构建的自定义编辑器视图。</p>';
+
+// 1. 初始化无头 TipTap 状态机
+const { editor, isEmpty, characters } = useEditor({
+  content: initialContent,
+  placeholder: '请输入正文内容...',
+});
+
+// 2. 绑定 DOM 视口与多轨导出工具
+const { getHTML, getMarkdown, getJSON } = useEditorDom({
+  editor,
+  element: editorEl,
+});
+
+onMounted(() => {
+  // 视口完成绑定后，可在任意时刻导出三轨格式
+  console.log('当前字符数:', characters.value);
+});
+</script>
+
+<template>
+  <div class="headless-editor">
+    <div class="headless-toolbar">
+      <button @click="editor?.chain().focus().toggleBold().run()">加粗</button>
+      <button @click="editor?.chain().focus().toggleItalic().run()">斜体</button>
+      <span>字数：{{ characters }}</span>
+    </div>
+
+    <!-- 挂载底层 ProseMirror 真实渲染 DOM 视口 -->
+    <div ref="editorEl" class="headless-viewport" />
+  </div>
+</template>
+```
+
+#### 2. 就近类型契约规范
+
+```typescript
+export interface UseEditorOptions {
+  content?: MaybeRefOrGetter<string | Record<string, unknown> | undefined>;
+  placeholder?: MaybeRefOrGetter<string | undefined>;
+  editable?: MaybeRefOrGetter<boolean | undefined>;
+  autofocus?: MaybeRefOrGetter<boolean | 'start' | 'end' | 'all' | number | undefined>;
+  extensions?: AnyExtension[];
+  maxLength?: MaybeRefOrGetter<number | undefined>;
+  callout?: MaybeRefOrGetter<boolean | undefined>;
+  toggle?: MaybeRefOrGetter<boolean | undefined>;
+  aiStreaming?: MaybeRefOrGetter<boolean | undefined>;
+  uploadHandler?: UploadHandler;
+  onUploadSuccess?: (payload: UploadSuccessPayload) => void;
+  onUploadError?: (error: Error, file: File) => void;
+  onCreate?: (props: { editor: Editor }) => void;
+  onUpdate?: (props: { editor: Editor; transaction: Transaction }) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onSelectionUpdate?: () => void;
+}
+
+export interface UseEditorReturn {
+  editor: ShallowRef<Editor | null>;
+  isEmpty: ComputedRef<boolean>;
+  characters: ComputedRef<number>;
+  words: ComputedRef<number>;
+  paragraphs: ComputedRef<number>;
+}
+```
+
+---
+
+### 8.2 maxLength 字符硬拦截与吸底状态栏 (AtengStatusBar / CharacterCounter)
+
+#### 1. 纯文本标签过滤与事务级物理拦截防线
+
+在传统富文本表单中，若直接对 HTML 字符串执行 `val.slice(0, maxLength)` 进行字数截断，极易将未闭合的标签（如 `<div class="con...`）截断，导致整个页面的 DOM 树解析崩溃，引发严重白屏事故。
+
+`@atengk/editor-vue` 实施严格的**标签过滤与 ProseMirror 事务拦截双道防线**：
+
+1. **纯文本精准统计**：彻底过滤 HTML 标签、实体与排版标记，仅以真实纯文本字符作为字数统计基准；
+2. **底层事务硬拦截不变量**：当字数达到 `maxLength` 设定上限时，底层 ProseMirror Transaction 彻底拦截后续**物理键盘键入**与**外部剪贴板大段粘贴**，防范脏数据穿透；
+3. **状态栏警示红字联动**：吸底状态栏 `<AtengStatusBar />` 实时计算当前字数，在超出或达到上限时自动挂载 `.is-limit-reached` 类名切换为高危警告红字；
+4. **表单失焦验证联动**：在 `blur` 与 `change` 时精准触发 Element Plus `<el-form-item>` 校验上下文。
+
+```vue
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
+import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
+
+interface ArticleForm {
+  title: string;
+  content: string;
+}
+
+const formRef = ref<FormInstance | null>(null);
+const editorRef = ref<AtengEditorInstance | null>(null);
+
+const form = reactive<ArticleForm>({
+  title: '企业数字化转型白皮书',
+  content: '<p>欢迎体验基于 TipTap 的企业级表单内容编辑！</p>',
+});
+
+// 表单校验规则：结合失焦与纯文本字数硬限制
+const rules: FormRules<ArticleForm> = {
+  title: [{ required: true, message: '请输入文章主标题', trigger: 'blur' }],
+  content: [
+    {
+      required: true,
+      validator: (_rule, value, callback) => {
+        if (!value || value.trim() === '' || value === '<p></p>') {
+          callback(new Error('文章正文内容不能为空，请输入有效正文'));
+          return;
+        }
+        const plainText = editorRef.value
+          ? editorRef.value.getText()
+          : value.replace(/<[^>]+>/g, '');
+        if (plainText.trim().length < 5) {
+          callback(new Error('正文纯文本长度不能少于 5 个字符'));
+          return;
+        }
+        callback();
+      },
+      trigger: ['blur', 'change'],
+    },
+  ],
+};
+
+const handleSubmit = async () => {
+  if (!formRef.value) return;
+  try {
+    await formRef.value.validate();
+    ElMessage.success('🎉 表单验证全部通过！文章已成功提交保存。');
+  } catch {
+    ElMessage.error('❌ 表单存在校验未通过项，请检查表单提示信息。');
+  }
+};
+</script>
+
+<template>
+  <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+    <el-form-item label="文章标题" prop="title">
+      <el-input v-model="form.title" placeholder="请输入文章标题" />
+    </el-form-item>
+
+    <el-form-item label="文章正文（严格限制 100 纯文本字符）" prop="content">
+      <!-- 达到 100 字时，ProseMirror 事务直接硬拦截物理键盘与粘贴输入 -->
+      <AtengEditor
+        ref="editorRef"
+        v-model="form.content"
+        :max-length="100"
+        :show-status-bar="true"
+        placeholder="请输入正文（达到 100 字时将直接拦截后续输入）..."
+      />
+    </el-form-item>
+
+    <el-form-item>
+      <el-button type="primary" @click="handleSubmit">提交保存</el-button>
+    </el-form-item>
+  </el-form>
+</template>
+```
+
+#### 2. 就近类型契约规范
+
+```typescript
+export interface AtengStatusBarProps {
+  /** TipTap 原生 Editor 实例 */
+  editor: Editor | null;
+  /** 纯文本字符数硬限制上限（配置后达到上限呈现红色高危提示） */
+  maxLength?: number;
+  /** 是否展示词数统计，默认 true */
+  showWordCount?: boolean;
+  /** 是否展示段落数统计，默认 true */
+  showParagraphCount?: boolean;
+}
+```
+
+---
+
+### 8.3 0x0 隐藏几何自愈与脱壳全屏 (GeometricSelfHealing / TeleportFullscreen)
+
+#### 1. 0x0 隐藏几何感知与突破 Transform 裁剪
+
+企业级应用中，编辑器经常被置于初始处于 `display: none` 的弹窗（`<el-dialog>`）、抽屉（`<el-drawer>`）或非首屏 Tab 页签中：
+
+1. **0x0 隐藏几何自愈**：弹窗隐藏时容器初始尺寸为 0x0。传统编辑器在弹窗展开后会出现光标错位、表格列宽塌陷或斜杠面板无法定位的异常。本套件内置 `ResizeObserver` 弹性感知尺寸从 0 到可见高宽的跃迁，在弹窗唤醒展开的第一瞬间自动派发视口重绘事务，彻底消除几何计算畸变；
+2. **脱壳全屏突破 Transform 裁剪**：若父级弹窗配备了 CSS `transform` 或 `perspective` 渐变动画，普通的 `position: fixed; inset: 0` 会被局部容器的 CSS 坐标系劫持，导致全屏被硬裁剪在弹窗内部。本套件全屏机制基于动态脱壳提升，全屏时将编辑区 DOM 动态提升至 `document.body` 顶层（`z-index: 3000`），实现真正沉浸式全屏创作；按 `Esc` 键或点击全屏按钮平滑自愈回滚至原父节点。
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengEditor, type AtengEditorInstance } from '@atengk/editor-vue';
+import { ElMessage } from 'element-plus';
+
+const dialogVisible = ref<boolean>(false);
+const editorInDialogRef = ref<AtengEditorInstance | null>(null);
+const content = ref<string>('<p>在模态弹窗中编辑内容，测试 0x0 尺寸自愈与脱壳全屏穿透。</p>');
+
+const handleDialogFullscreen = () => {
+  editorInDialogRef.value?.toggleFullscreen();
+  ElMessage.info('已触发脱壳全屏，请按 Esc 键或点击全屏按钮退出');
+};
+</script>
+
+<template>
+  <el-button type="primary" @click="dialogVisible = true">
+    🪟 打开对话框中的富文本编辑器
+  </el-button>
+
+  <el-dialog
+    v-model="dialogVisible"
+    title="模态弹窗中的富文本编辑器"
+    width="800px"
+    destroy-on-close
+  >
+    <!-- 内部容器默认带有 CSS transform 动画，AtengEditor 自动实现 0x0 几何自愈 -->
+    <AtengEditor ref="editorInDialogRef" v-model="content" min-height="300px" />
+
+    <template #footer>
+      <el-button size="small" @click="handleDialogFullscreen">⛶ 弹窗内触发脱壳全屏</el-button>
+      <el-button type="primary" size="small" @click="dialogVisible = false">完成关闭</el-button>
     </template>
-  </AtengEditor>
+  </el-dialog>
 </template>
 ```
 
 ---
 
-## 维度三：核心生产边界与非功能语义 (Production Boundary & Failure Modes)
+### 8.4 表单置灰态与纯净阅读态双态解耦 (disabled vs readOnly)
 
-1. **maxLength 事务硬拦截边界 (Transaction Hard Limit Invariant)**：
-   - 过滤 HTML 标签与结构节点，严格基于纯文本字符计算 `characters()`；
-   - 达到 `maxLength` 设定值时，TipTap / ProseMirror 底层事务将**彻底拦截后续物理键盘输入与外部剪贴板大段粘贴**，防范脏数据穿透；
-   - 吸底状态栏 `<AtengStatusBar />` 实时变更为高危警告红字（`.is-limit-reached`）。
-2. **脱壳全屏突破 Transform 裁剪 (Teleport Fullscreen Boundary)**：
-   - 当编辑器被置于带有 CSS 缩放动画或 transform 的模态弹窗（如 `<el-dialog>` / `<el-drawer>`）时，常规 `position: fixed` 会被局部容器劫持裁剪；
-   - 本套件的全屏切换采用动态脱壳机制，全屏时将真实 DOM 提升至 `document.body` 顶层（`z-index: 3000`），彻底摆脱弹窗边界约束，按 `Esc` 键平滑自愈复位回原父节点。
-3. **0x0 隐藏几何自愈 (ResizeObserver Healing Boundary)**：
-   - 处于隐藏 Tab、折叠面板或未开启弹窗中时，容器初始尺寸为 0x0；
-   - 内置 `ResizeObserver` 弹性感知尺寸从 0 到可见宽高的跃迁，瞬间自动派发重绘事务，消除光标错位与表格列宽坍塌。
-4. **暗黑模式 0ms 无损热跟随 (MutationObserver Hot Follow Boundary)**：
-   - 内置 `MutationObserver` 监听宿主 `document.documentElement` 的 `dark` 类名变更；
-   - 设计令牌完全映射 Element Plus 原生 CSS 变量（`--el-*`），主题切换时 0ms 无缝响应，零刷新零重置。
-5. **双态解耦纪律 (Decoupled Disabled & ReadOnly Invariant)**：
-   - `disabled`: 表单禁用态，保留输入框边框与工具栏灰色禁用态，阻止聚焦编辑；
-   - `readOnly`: 纯净文章阅读态，移除边框与内外阴影，隐藏工具栏、全部上下文气泡浮层与状态栏，以优雅排版呈现阅读模式。
-6. **撤销历史栈零污染与单次原子事务保全 (Zero Undo Corruption Invariant)**：
-   - AI 流式打字生成过程中，基于 ProseMirror 独立 Decorations 渲染打字机光标与呼吸高亮光晕，不将中间百步吐字过程写入真实文档树，避免撤销栈（Undo Stack）被流式字符彻底冲垮；
-   - 在 `<AiDiffCard />` 确认采纳替换或外部数据同步时，统一采用单次原子事务（Transaction）写入，彻底保全光标位置并支持单步一键撤销（Ctrl+Z）。
-7. **100% 离线打字机仿真与零网络泄露 (Hermetic Offline AI Mock Invariant)**：
-   - 内置 `createMockAiStreamHandler`，通过异步生成器模拟渐进吐字与 AbortSignal 中断，保障单元测试与自验展厅 100% 离线自洽，绝对杜绝向外部物理网络泄露敏感数据。
-8. **A4 物理分页断页与确定性内存回收 (A4 Layout & ObjectURL Revocation Invariant)**：
-   - 基于 `ResizeObserver` 动态计算可用排版高度，视觉上动态插入虚拟分页槽而非硬切碎 ProseMirror 节点，长表格与长段落智能跨页流畅滚动；
-   - `@media print` 强制对齐真实 A4 物理纸张（`@page { size: A4; margin: 0; }`）；
-   - `saveDocxFile` 触发客户端下载后，通过延迟定时器确定性调用 `URL.revokeObjectURL(url)` 回收临时句柄，彻底消除内存泄漏。
+#### 1. 双态严格解耦纪律
+
+在企业级应用中，“不可编辑”存在截然不同的两种业务诉求：
+
+- **`disabled: true`（表单禁用态）**：面向数据录入流程。保留外边框与组件轮廓，顶部大工具栏置灰禁用，正文区不可获得焦点、阻止物理键盘键入，明确向用户传达“该表单控件处于禁用状态”；
+- **`readOnly: true`（纯净文章阅读态）**：面向文章发布与阅读查看场景。彻底剥离编辑器外边框、内阴影与聚焦轮廓，隐藏顶部工具栏、隐藏全部悬浮微浮层（划词气泡、表格气泡、图片气泡、链接浮层、斜杠命令面板等）与吸底状态栏，以无干扰排版呈现类似新闻/博客出版物级的纯粹阅读流。
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengEditor } from '@atengk/editor-vue';
+
+const isReadOnly = ref<boolean>(true);
+const content = ref<string>(`
+<h1>🏛️ 工业级前端基础设施架构白皮书</h1>
+<p>纯净文章阅读模式彻底剥离所有边框、阴影与浮层，呈现无干扰的高级排版视觉效果。</p>
+`);
+</script>
+
+<template>
+  <div class="mode-switch">
+    <span>阅读器模式：</span>
+    <el-switch v-model="isReadOnly" />
+  </div>
+
+  <!-- 动态切换 readOnly 纯净阅读态 -->
+  <AtengEditor v-model="content" :read-only="isReadOnly" min-height="300px" />
+</template>
+```
 
 ---
 
-## 维度四：物理排版与代码全真验证 (Evergreen & Zero-Glitch)
+## 9. 完整 TypeScript 接口/Props/CSS 变量速查清单
 
-本项目所有对外能力与用例均已在自验展厅与对抗单测中 100% 跑通闭环：
+为便于企业级开发者全面查阅，本章汇编 `@atengk/editor-vue` 对外开放的所有组件契约、无头 Hooks 与设计令牌。
 
-### 1. 本地单测全量回归 (15 套件 / 105 用例全绿)
+### 9.1 全量组件 Props / Emits / Slots / Expose 契约速查字典
 
-```bash
-pnpm --filter @atengk/editor-vue test
+#### 1. `<AtengEditor />` 核心表现容器与多态调度门面
+
+| 属性 / 暴露项                               | 类型定义                                                 | 默认值      | 语义与行为说明                                                       |
+| :------------------------------------------ | :------------------------------------------------------- | :---------- | :------------------------------------------------------------------- |
+| `v-model`                                   | `string`                                                 | `''`        | 默认输出标准 HTML 格式富文本字符串                                   |
+| `v-model:markdown`                          | `string`                                                 | `''`        | 双向同步 Markdown 格式内容                                           |
+| `v-model:json`                              | `Record<string, unknown>`                                | `{}`        | 双向同步 ProseMirror 结构化 JSON 语法树                              |
+| `mode`                                      | `'default' \| 'simple' \| 'notion' \| 'agent' \| 'docx'` | `'default'` | 多态预设模式：通用 / 经典轻量 / 无界白板 / AI 智能体 / DOCX 物理公文 |
+| `editable`                                  | `boolean`                                                | `true`      | 是否允许编辑                                                         |
+| `disabled`                                  | `boolean`                                                | `false`     | 表单禁用态：置灰边框、禁用工具栏、阻止物理聚焦                       |
+| `readOnly`                                  | `boolean`                                                | `false`     | 纯净文章阅读态：隐藏所有边框、阴影、微浮层与状态栏                   |
+| `autofocus`                                 | `boolean \| 'start' \| 'end' \| 'all' \| number`         | `false`     | 初始化是否自动聚焦光标                                               |
+| `maxLength`                                 | `number`                                                 | `undefined` | 纯文本字符数硬限制上限（事务硬拦截）                                 |
+| `uploadHandler`                             | `UploadHandler`                                          | `undefined` | 自定义媒体资产上传拦截器 SPI（未提供则自动 Base64 降级）             |
+| `height` / `minHeight` / `maxHeight`        | `number \| string`                                       | `undefined` | 容器尺寸限制，支持数字（像素）或 CSS 长度字符串                      |
+| `showToolbar`                               | `boolean`                                                | 自适应      | 是否展示顶部微工具栏（`notion` 模式缺省 `false`，其余缺省 `true`）   |
+| `showTableMenu`                             | `boolean`                                                | `true`      | 是否启用表格就近微气泡菜单                                           |
+| `showImageMenu`                             | `boolean`                                                | `true`      | 是否启用图片对齐与删除微浮层                                         |
+| `showLinkMenu`                              | `boolean`                                                | `true`      | 是否启用超链接安全打开与编辑微浮层                                   |
+| `showBubbleMenu`                            | `boolean`                                                | `true`      | 是否启用划选文本高频排版微浮层                                       |
+| `showSlashCommand`                          | `boolean`                                                | `true`      | 是否启用中文块级斜杠命令物料面板                                     |
+| `showDragHandle`                            | `boolean`                                                | 自适应      | 是否启用左侧六点悬浮手柄（`notion` 模式缺省 `true`）                 |
+| `showStatusBar`                             | `boolean`                                                | `true`      | 是否展示吸底字数/段落统计状态栏                                      |
+| `#toolbar` / `#statusbar`                   | `Slot({ editor })`                                       | -           | 表现层顶部工具栏与吸底状态栏具名插槽反转                             |
+| `#bubble-menu` / `#table-menu`              | `Slot({ editor })`                                       | -           | 划选气泡与表格微菜单具名插槽反转                                     |
+| `editor` (Expose)                           | `ShallowRef<Editor \| null>`                             | -           | 底层 TipTap Editor 原生受管实例                                      |
+| `getHTML()` / `getJSON()` / `getMarkdown()` | `() => string \| Record`                                 | -           | 多轨全量数据导出方法                                                 |
+| `getFullHTML()`                             | `(options?: FullHtmlOptions) => string`                  | -           | 导出含完整 `<!DOCTYPE>`、`<head>` 与内联样式的离线网页               |
+| `exportDocx()`                              | `(options?: DocxExportOptions) => Promise<Blob>`         | -           | 将当前内容转译为 OpenXML .docx 并自动触发下载                        |
+| `clearContent()` / `clearTable()`           | `() => void \| boolean`                                  | -           | 清空正文全部内容 / 清空当前表格单元格数据                            |
+| `toggleFullscreen()`                        | `() => void`                                             | -           | 切换脱壳全屏穿透模式与普通模式                                       |
+
+#### 2. 专用预设与子组件速查
+
+- **`<AtengSimpleEditor />`**：入参继承 `AtengEditorProps`，新增 `tools?: SimpleToolbarItem[]`（声明式裁剪工具集合）与 `dense?: boolean`（微型紧凑模式）；
+- **`<AtengNotionEditor />`**：入参继承 `AtengEditorProps`，新增 `maxWidth?: string`（默认 `860px` 知识库居中流式排版）、`callout?: boolean` 与 `toggle?: boolean`；
+- **`<AtengDocxEditor />`**：入参继承 `AtengEditorProps`，新增 `orientation?: PageOrientation`（`portrait \| landscape`）、`pageMargin?: PageMarginPreset \| PageMarginConfig`、`showRuler?: boolean`、`header?: string`、`footer?: string`、`showPageNumber?: boolean`；
+- **`<AtengAgentEditor />`**：入参继承 `AtengEditorProps`，新增 `aiStreamHandler?: AiStreamHandler`（自定义大模型流式通信 SPI）与 `promptActions?: AiPromptAction[]`；
+- **`<AtengTableBubbleMenu />`**：入参 `editor: Editor | null`、`disabled?: boolean`、`tippyOptions?: Record<string, unknown>`、`shouldShow?: Function`；
+- **`<AtengImageBubbleMenu />`**：入参 `editor: Editor | null`、`disabled?: boolean`；
+- **`<AtengLinkBubbleMenu />`**：入参 `editor: Editor | null`、`disabled?: boolean`；
+- **`<AtengStatusBar />`**：入参 `editor: Editor | null`、`maxLength?: number`、`showWordCount?: boolean`、`showParagraphCount?: boolean`；
+- **`<AtengAiDiffCard />`**：入参 `diffChunks: DiffChangeChunk[]`、`loading?: boolean`，发射 `@accept` 与 `@reject` 事件。
+
+---
+
+### 9.2 全量无头 Hooks Options 与返回类型字典
+
+#### 1. `useEditor(options: UseEditorOptions): UseEditorReturn`
+
+```typescript
+export interface UseEditorOptions {
+  content?: MaybeRefOrGetter<string | Record<string, unknown> | undefined>;
+  placeholder?: MaybeRefOrGetter<string | undefined>;
+  editable?: MaybeRefOrGetter<boolean | undefined>;
+  autofocus?: MaybeRefOrGetter<boolean | 'start' | 'end' | 'all' | number | undefined>;
+  extensions?: AnyExtension[];
+  maxLength?: MaybeRefOrGetter<number | undefined>;
+  callout?: MaybeRefOrGetter<boolean | undefined>;
+  toggle?: MaybeRefOrGetter<boolean | undefined>;
+  aiStreaming?: MaybeRefOrGetter<boolean | undefined>;
+  uploadHandler?: UploadHandler;
+  onUploadSuccess?: (payload: UploadSuccessPayload) => void;
+  onUploadError?: (error: Error, file: File) => void;
+  onCreate?: (props: { editor: Editor }) => void;
+  onUpdate?: (props: { editor: Editor; transaction: Transaction }) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onSelectionUpdate?: () => void;
+}
+
+export interface UseEditorReturn {
+  editor: ShallowRef<Editor | null>;
+  isEmpty: ComputedRef<boolean>;
+  characters: ComputedRef<number>;
+  words: ComputedRef<number>;
+  paragraphs: ComputedRef<number>;
+}
 ```
 
-### 2. 本地静态类型与代码规范检查
+#### 2. `useEditorDom(options: UseEditorDomOptions): UseEditorDomReturn`
+
+```typescript
+export interface UseEditorDomOptions {
+  editor: ShallowRef<Editor | null> | ComputedRef<Editor | null>;
+  element: Ref<HTMLElement | null>;
+  onThemeChange?: (isDark: boolean) => void;
+}
+
+export interface UseEditorDomReturn {
+  getHTML: () => string;
+  getFullHTML: (options?: FullHtmlOptions) => string;
+  getJSON: () => Record<string, unknown>;
+  getMarkdown: () => string;
+  getText: () => string;
+  isDark: ShallowRef<boolean>;
+}
+```
+
+#### 3. `useAiStream(options: UseAiStreamOptions): UseAiStreamReturn`
+
+```typescript
+export interface UseAiStreamOptions {
+  handler: AiStreamHandler;
+  onChunk?: (chunk: string) => void;
+  onFinish?: (fullText: string) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface UseAiStreamReturn {
+  state: ShallowRef<AiStreamingState>;
+  fullText: ShallowRef<string>;
+  start: (payload: { prompt: string; context?: string }) => Promise<string>;
+  abort: () => void;
+  reset: () => void;
+}
+```
+
+#### 4. 核心工具函数字典
+
+| 工具函数名                        | 入参签名             | 返回类型            | 核心职责说明                                                                |
+| :-------------------------------- | :------------------- | :------------------ | :-------------------------------------------------------------------------- |
+| `prosemirrorJsonToDocxBlob`       | `(json, options?)`   | `Promise<Blob>`     | 纯前端零后端依赖，将 ProseMirror JSON 转译为 OpenXML .docx 二进制           |
+| `saveDocxFile`                    | `(blob, fileName?)`  | `void`              | 调起浏览器下载并基于定时器执行 `URL.revokeObjectURL` 确定性回收内存         |
+| `clearTableContent`               | `(editor)`           | `boolean`           | 清空聚焦表格全部单元格文字段落，100% 保全表格行数、列数与列宽拓扑           |
+| `createDefaultExtensions`         | `(options?)`         | `AnyExtension[]`    | 装配开箱即用 TipTap 扩展集合（包含 StarterKit、Table、Image、Highlight 等） |
+| `computeTextDiff`                 | `(oldText, newText)` | `DiffChangeChunk[]` | 基于 LCS 最长公共子序列算法计算纯文本差异，产出增删改块数据结构             |
+| `createMockAiStreamHandler`       | `(options?)`         | `AiStreamHandler`   | 创建 100% 离线自洽的打字机流式模拟器（支持延迟、错误模拟与 AbortSignal）    |
+| `isContentEqual`                  | `(editor, content)`  | `boolean`           | 增量比对输入内容是否与当前编辑器状态等价，防范光标闪烁与重绘死循环          |
+| `applyContentPreservingSelection` | `(editor, content)`  | `void`              | 外部数据更新时通过 ProseMirror 单次原子事务写入，精确保全光标与撤销栈       |
+
+---
+
+### 9.3 16 项 `--at-editor-*` Design Tokens 规范表
+
+`@atengk/editor-vue` 所有组件严格收敛在 `.at-editor-*` 独立命名空间下，样式设计令牌完全映射 Element Plus 原生 CSS 变量（`--el-*`），支持暗黑模式 0ms 零刷新热跟随与宿主级覆盖：
+
+| 令牌变量名称                     | 浅色模式默认值                              | 深色模式跟随值 (html.dark) | 作用与样式定位                         |
+| :------------------------------- | :------------------------------------------ | :------------------------- | :------------------------------------- |
+| `--at-editor-bg-color`           | `var(--el-bg-color, #ffffff)`               | `#141414`                  | 编辑器主容器与正文背景色               |
+| `--at-editor-text-color`         | `var(--el-text-color-primary, #303133)`     | `#e5eaf3`                  | 正文文字主要颜色                       |
+| `--at-editor-border-color`       | `var(--el-border-color, #dcdfe6)`           | `#414243`                  | 编辑器常规外边框颜色                   |
+| `--at-editor-border-color-focus` | `var(--el-color-primary, #409eff)`          | `#409eff`                  | 编辑器聚集焦点时的激活高亮边框色       |
+| `--at-editor-border-radius`      | `var(--el-border-radius-base, 4px)`         | `4px`                      | 容器外边框圆角半径                     |
+| `--at-editor-toolbar-bg`         | `var(--el-fill-color-light, #f5f7fa)`       | `#1d1e1f`                  | 微工具栏背景填充底色                   |
+| `--at-editor-toolbar-border`     | `var(--el-border-color-lighter, #e4e7ed)`   | `#2b2b2c`                  | 工具栏与正文分割线颜色                 |
+| `--at-editor-btn-hover-bg`       | `var(--el-fill-color, #e9ecef)`             | `#262727`                  | 工具栏与气泡按钮悬浮背景底色           |
+| `--at-editor-btn-active-bg`      | `var(--el-color-primary-light-9, #ecf5ff)`  | `rgba(64, 158, 255, 0.2)`  | 激活按钮（如加粗/高亮状态）背景底色    |
+| `--at-editor-btn-active-color`   | `var(--el-color-primary, #409eff)`          | `#79bbff`                  | 激活按钮文本与图标强调色               |
+| `--at-editor-placeholder-color`  | `var(--el-text-color-placeholder, #a8abb2)` | `#6c6e72`                  | 空内容占位提示文案颜色                 |
+| `--at-editor-code-bg`            | `var(--el-fill-color-dark, #282c34)`        | `#1e1e1e`                  | 多行独立代码块（CodeBlock）背景底色    |
+| `--at-editor-code-text`          | `var(--el-text-color-regular, #abb2bf)`     | `#d4d4d4`                  | 多行代码块高亮文本颜色                 |
+| `--at-editor-highlight-bg`       | `var(--el-color-warning-light-8, #ffe58f)`  | `#ffe58f`                  | 划选高亮（Mark Highlight）黄色荧光底色 |
+| `--at-editor-table-border`       | `var(--el-border-color, #dcdfe6)`           | `#414243`                  | 表格行列网格分割线颜色                 |
+| `--at-editor-table-header-bg`    | `var(--el-fill-color-light, #f5f7fa)`       | `#242424`                  | 表格表头行（`<th>`）背景填充底色       |
+| `--at-editor-statusbar-bg`       | `var(--el-fill-color-lighter, #fafafa)`     | `#1d1e1f`                  | 吸底状态栏背景底色                     |
+| `--at-editor-statusbar-text`     | `var(--el-text-color-secondary, #909399)`   | `#8d9095`                  | 吸底状态栏统计数字与文字颜色           |
+| `--at-editor-docx-bg`            | `#eaedf1`                                   | `#18191b`                  | DOCX 仿真纸张外围工作台背景底色        |
+| `--at-editor-docx-ruler-bg`      | `#f3f4f6`                                   | `#232528`                  | DOCX 顶部与左侧双轨毫米标尺背景底色    |
+
+---
+
+## 10. 1:1 物理排版与全维测试守护 (Evergreen & Zero-Glitch)
+
+本项目所有对外公开的组件、Hooks、工具函数与极限边界场景，均已在自验展厅与对抗单元测试中 100% 跑通闭环守护：
+
+### 10.1 本地四道全真质量门禁验证
 
 ```bash
-pnpm --filter @atengk/editor-vue --filter sample-editor-vue typecheck && \
+# 1. 静态类型无报错检查（TS 5.6.0 强类型全覆盖）
+pnpm --filter @atengk/editor-vue --filter sample-editor-vue typecheck
+
+# 2. 代码规范与 ESLint 检查（零 any、零悬挂警告）
 pnpm --filter @atengk/editor-vue --filter sample-editor-vue lint
+
+# 3. 单元测试全量回归（15 套件 / 113 用例毫秒级全绿）
+pnpm --filter @atengk/editor-vue test
+
+# 4. 自验展厅生产构建验证（Vite 6 生产打包 0 错误）
+pnpm --filter sample-editor-vue build
 ```
 
-### 3. 运行 1:1 真实自验展厅
+### 10.2 运行 1:1 真实交互自验展厅
 
 ```bash
 pnpm --filter sample-editor-vue dev
 ```
 
-展厅包含顶级四大场景模板与二级工程自验抽屉：
+展厅启动于本地 `http://localhost:3009`，全面覆盖四大核心预设与六大极限自验抽屉：
 
-- **四大核心模板一级大导航**：
-  - **[Simple editor] 经典轻量自适应编辑器**：单行折叠微工具栏、紧凑模式、严格隔离斜杠与浮层干扰；
-  - **[Notion-like editor] 现代无界知识库白板**：原生六点悬浮手柄、Callout 4 态语义卡片、Toggle 折叠列表与斜杠面板；
-  - **[DOCX editor] A4 物理分页与公文排版预设**：物理纸张阴影、纵横向切换、厘米标尺、双击页眉页脚与纯前端 OpenXML 导出；
-  - **[Agent editor] AI 智能创作与行内审阅预设**：划词浮动气泡、空白行提示条、流式光标与 AiDiffCard 增删对比审阅卡片。
-- **右侧工程自验抽屉（6 大极限边缘场景）**：
-  - 表单联动校验与 maxLength 事务硬拦截；
-  - 模态弹窗 0x0 视口几何自愈与脱壳全屏穿透；
-  - 表格操控、列宽拖拽与单元格合并拆分；
-  - 媒体资产上传拦截 SPI 与骨架加载占位；
-  - 选区高频排版气泡与斜杠物料选择器；
-  - 纯净阅读模式与暗黑主题 0ms 热跟随。
+| 展厅场景导航             | 场景定位与核心验证要素      | 关键交互与边界不变量验证                                                 |
+| :----------------------- | :-------------------------- | :----------------------------------------------------------------------- |
+| **[Simple editor]**      | 经典轻量自适应编辑器        | 紧凑模式、单行折叠微工具栏、严格隔离斜杠与浮层干扰                       |
+| **[Notion-like editor]** | 现代无界知识库白板          | 原生六点悬浮拖拽手柄、Callout 4 态语义卡片、Toggle 折叠列表与斜杠面板    |
+| **[DOCX editor]**        | A4 物理分页排版与公文公文书 | 纸张仿真阴影、纵横向切换、厘米标尺、双击页眉页脚与纯前端 OpenXML 导出    |
+| **[Agent editor]**       | AI 智能创作与行内原位审阅   | 划词浮动气泡、空白行提示条、流式光标与 AiDiffCard 增删对比审阅卡片       |
+| **抽屉：表单联动校验**   | 表单深度联动与字符硬限制    | `maxLength` 纯文本事务拦截、状态栏警告红字、失焦校验与重置               |
+| **抽屉：弹窗自愈与全屏** | 模态弹窗视口与全屏沉浸      | `0x0` 几何尺寸自愈、`TeleportFullscreen` 穿透 Transform 裁剪、`Esc` 退出 |
+| **抽屉：表格人体工学**   | 表格操控与列宽自由拖拽      | 就近气泡微菜单、`resizable: true` 列宽拖拽、单元格合并拆分与结构无损清空 |
+| **抽屉：媒体资产直传**   | 媒体资产拦截与上下文微浮层  | 微信截图粘贴/拖拽拦截、骨架占位块与平滑置换、图片微浮层与超链接安全打开  |
+| **抽屉：划词气泡与斜杠** | 划词高频排版与块级物料选择  | 划选加粗/高亮/删除线、键盘上下箭头高亮与回车插入物料                     |
+| **抽屉：纯净阅读模式**   | 纯净阅读态与主题热跟随      | `readOnly` 剥离边框与浮层、`MutationObserver` 暗黑模式 0ms 热跟随        |
