@@ -680,46 +680,390 @@ const areaMetrics: TrendMetric[] = [
 
 ---
 
-## 维度二：生产扩展接管 (Customization & Extensibility)
+## 5. 业务占比与营销漏斗套件
 
-### 1. 深度逃生门 (`overrideOption`)
+### 5.1 AtengDonutChart 居中 KPI 汇总环形图 (自动求和/南丁格尔玫瑰)
 
-当内置的高频预设无法满足极其严苛的定制诉求时，无需退回手写原生配置，可通过 `overrideOption` 获得最终的 Option 对象并实施深度拦截：
+`AtengDonutChart` 是企业级中后台最常用的资产分布、成本结构与业务占比预设组件。专职处理绝对居中中心指标卡、自动求和与千分位换算、南丁格尔玫瑰图模式切换与扇区圆角高亮。
 
-```vue
-<template>
-  <AtengDonutChart
-    :data="categoryData"
-    name-key="dept"
-    value-key="budget"
-    :override-option="patchCustomOption"
-  />
-</template>
+#### 1. 本节专属 TypeScript 契约片段
 
-<script setup lang="ts">
-import type { EChartsOption } from '@atengk/echarts-vue';
+```ts
+export interface DonutCenterSummaryConfig {
+  /** 中心指标标题（如 '算力总支出'） */
+  title?: string;
+  /** 是否自动求和显示总数值 @default true */
+  showSum?: boolean;
+  /** 自定义求和数值格式化回调 */
+  formatter?: (total: number) => string;
+}
 
-const patchCustomOption = (base: EChartsOption): EChartsOption => {
-  return {
-    ...base,
-    graphic: [
-      {
-        type: 'text',
-        left: 'center',
-        top: 'bottom',
-        style: {
-          text: '注：统计截止至本月末 24:00',
-          fill: '#909399',
-          fontSize: 12,
-        },
-      },
-    ],
-  };
-};
-</script>
+export interface AtengDonutChartProps {
+  /** 扁平业务数据源列表 */
+  data: Record<string, unknown>[];
+  /** 类目名称字段名 @default 'name' */
+  nameKey?: string;
+  /** 数值字段名 @default 'value' */
+  valueKey?: string;
+  /** 环形内外半径 [内半径, 外半径] @default ['42%', '66%'] */
+  radius?: [number | string, number | string];
+  /** 饼图中心坐标 [横坐标, 纵坐标] @default ['50%', '45%'] */
+  center?: [number | string, number | string];
+  /** 南丁格尔玫瑰图模式，支持 'radius'（半径区分）或 'area'（面积区分） @default false */
+  roseType?: boolean | 'radius' | 'area';
+  /** 扇区圆角半径 @default 6 */
+  borderRadius?: number;
+  /** 扇区间距角度 (ECharts 5.5+) @default 2 */
+  padAngle?: number;
+  /** 数值度量单位后缀（如 '元'） */
+  unit?: string;
+  /** 数值小数位精度 */
+  precision?: number;
+  /** 是否开启千分位格式化 @default true */
+  formatThousands?: boolean;
+  /** 中心 KPI 统计指标卡配置或开启开关 */
+  centerSummary?: boolean | DonutCenterSummaryConfig;
+  /** 图例开关或配置 @default true */
+  legend?: boolean | LegendComponentOption;
+  /** 提示框开关或配置 @default true */
+  tooltip?: boolean | TooltipComponentOption;
+  /** 逃生通道：深度拦截与定制最终 Option */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
 ```
 
-### 2. 自定义浮动工具栏 (`#toolbar` 插槽)
+#### 2. 面向实战的业务代码示例 (企业多云算力费用占比与中心指标卡)
+
+_代码 100% 逆向提取自自验沙箱：[DonutFunnelScenario.vue](../../apps/sample-echarts-vue/src/scenarios/DonutFunnelScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengDonutChart, type AtengDonutChartInstance } from '@atengk/echarts-vue';
+
+const donutChartRef = ref<AtengDonutChartInstance | null>(null);
+
+// 真实多云基础设施算力支出数据集
+const donutData = ref([
+  { name: '云原生容器底座', value: 3480000 },
+  { name: '数据安全与鉴权中台', value: 2560000 },
+  { name: 'AI 智能交互代理', value: 2190000 },
+  { name: '微服务网关集群', value: 1650000 },
+  { name: '音视频流媒体引擎', value: 1120000 },
+]);
+
+const isDonutRose = ref(false);
+const isDonutSummary = ref(true);
+</script>
+
+<template>
+  <div style="height: 380px; padding: 16px; background: #fff; border-radius: 8px;">
+    <AtengDonutChart
+      ref="donutChartRef"
+      :data="donutData"
+      name-key="name"
+      value-key="value"
+      unit="元"
+      :rose-type="isDonutRose ? 'radius' : false"
+      :center-summary="isDonutSummary ? { title: '算力总支出' } : false"
+      theme="auto"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **绝对居中指标卡与千分位动态求和**：`createDonutOption` 内部自动遍历 `data` 数据集计算总和 `totalSum`，并协同 `formatChartValue` 执行千分位与精度换算（如 `10,900,000 元`）。标题组件 `title` 采用 `textAlign: 'center'`、`textVerticalAlign: 'middle'`，其坐标动态绑定图表中心 `resolvedCenter`，当图例在底部水平居中时自动上移至 `45%`，彻底杜绝指标卡文字与图表不同心、偏心碰撞；
+- **南丁格尔玫瑰与圆角美学防线**：支持 `:rose-type="'radius'"` 将数值大小同时映射为半径长度与角度；扇区默认内置 `borderRadius: 6` 与 `padAngle: 2`（ECharts 5.5+ 特性），高亮时通过 `emphasis.itemStyle` 强化投影与放大，告别生硬直角拼合。
+
+---
+
+### 5.2 AtengFunnelChart 全链路转化漏斗 (环节转化率与总体转化率双轨推导)
+
+`AtengFunnelChart` 专用于电商下单转化链路、B2B SaaS 客户生命周期旅程与销售漏斗。独创双轨转化率流向推导算法，并集成最小宽度保底与文本溢出截断防线。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface AtengFunnelChartProps {
+  /** 扁平数据源列表 */
+  data: Record<string, unknown>[];
+  /** 阶段名称字段名 @default 'name' */
+  nameKey?: string;
+  /** 阶段数值字段名 @default 'value' */
+  valueKey?: string;
+  /** 漏斗排序方式：'descending'（降序，默认）、'ascending'（升序）、'none'（原始顺序） */
+  sort?: 'descending' | 'ascending' | 'none';
+  /** 阶段数据块垂直间距（像素） @default 2 */
+  gap?: number;
+  /** 漏斗最小截面宽度（保底宽度防文字折叠） @default '16%' */
+  minSize?: string;
+  /** 漏斗最大截面宽度 @default '80%' */
+  maxSize?: string;
+  /** 数值单位后缀（如 '次'、'人'） */
+  unit?: string;
+  /** 数值小数位精度 */
+  precision?: number;
+  /** 是否开启千分位格式化 @default true */
+  formatThousands?: boolean;
+  /** 图例开关或配置 @default true */
+  legend?: boolean | LegendComponentOption;
+  /** 提示框开关或配置 @default true */
+  tooltip?: boolean | TooltipComponentOption;
+  /** 逃生通道：深度拦截与定制最终 Option */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (B2B SaaS 客户全生命周期转化链路)
+
+_代码 100% 逆向提取自自验沙箱：[DonutFunnelScenario.vue](../../apps/sample-echarts-vue/src/scenarios/DonutFunnelScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFunnelChart, type AtengFunnelChartInstance } from '@atengk/echarts-vue';
+
+const funnelChartRef = ref<AtengFunnelChartInstance | null>(null);
+
+// 真实 B2B SaaS 客户全生命周期转化链路数据集
+const funnelData = ref([
+  { stage: '1. 展厅页面曝光', count: 120000 },
+  { stage: '2. 组件源码浏览', count: 68000 },
+  { stage: '3. 点击复制代码', count: 35000 },
+  { stage: '4. pnpm 安装引入', count: 18000 },
+  { stage: '5. 生产工程落地', count: 9600 },
+]);
+
+const funnelSort = ref<'descending' | 'ascending'>('descending');
+const funnelGap = ref<number>(3);
+</script>
+
+<template>
+  <div style="height: 380px; padding: 16px; background: #fff; border-radius: 8px;">
+    <AtengFunnelChart
+      ref="funnelChartRef"
+      :data="funnelData"
+      name-key="stage"
+      value-key="count"
+      unit="次"
+      :sort="funnelSort"
+      :gap="funnelGap"
+      theme="auto"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **双轨转化率流向推导算法**：`createFunnelOption` 在生成 Tooltip 时，首先根据 `sort` 模式将数据映射为视觉拓扑序列 `displaySequence`。对于任一阶段：
+  - **环节转化率 (Step Rate)**：`((当前阶段数值 / 上一阶段数值) * 100).toFixed(1)%`；
+  - **总体转化率 (Total Rate)**：`((当前阶段数值 / 首阶段数值) * 100).toFixed(1)%`；
+    无论升序还是降序排列，转化率计算均严格贴合用户认知流向，首阶段恒定保底为 `100.0%`，彻底消除原生仅显示绝对数值的缺陷；
+- **末端截面坍塌与标签截断防线**：原生漏斗图在底部极小数值时（如末端转化量仅为首端 5%），末端宽度会收缩为 0px 导致尖角无法点击且内部标签文字重叠错乱；`AtengFunnelChart` 将 `minSize` 默认保底设定为 `16%`，并对内部文本标签开启 `overflow: 'truncate'`，确保极端长文字或微小数值时依然具备工业级可视性与交互容错。
+
+---
+
+## 6. 目标达成与多维画像套件
+
+### 6.1 AtengGaugeChart KPI 达成率仪表盘 (多段阈值色阶/指针与环形进度双模)
+
+`AtengGaugeChart` 是生产级 SLA 达成率、年金 KPI 完成度与系统健康度的监控大盘组件。支持多段绝对阈值色阶自动归一化、经典指针与现代环形圆角进度条双模空间自适应编排。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export interface GaugeThreshold {
+  /** 阈值上限绝对数值（如 99.0、99.9、100.0） */
+  value: number;
+  /** 对应区间的颜色（Hex 或 RGBA） */
+  color: string;
+}
+
+export interface AtengGaugeChartProps {
+  /** 仪表盘核心数值 */
+  value: number;
+  /** 指标标题名称（如 'SLA 可用性达成率'） */
+  name?: string;
+  /** 仪表盘刻度最小值 @default 0 */
+  min?: number;
+  /** 仪表盘刻度最大值 @default 100 */
+  max?: number;
+  /** 数值单位后缀 @default '%' */
+  unit?: string;
+  /** 多段阈值色阶配置 */
+  thresholds?: GaugeThreshold[];
+  /** 现代环形进度条显示开关或细化配置 @default false */
+  progress?: boolean | { width?: number; roundCap?: boolean };
+  /** 仪表盘指针显示开关或细化配置 @default true */
+  pointer?: boolean | { width?: number; length?: string };
+  /** 是否显示两端极值刻度标注 (Min/Max) @default true */
+  showExtremities?: boolean;
+  /** 起始圆弧角度（顺时针，正右方为 0 度） @default 210 */
+  startAngle?: number;
+  /** 结束圆弧角度 @default -30 */
+  endAngle?: number;
+  /** 数值小数位精度 */
+  precision?: number;
+  /** 是否开启千分位格式化 @default true */
+  formatThousands?: boolean;
+  /** 逃生通道：深度拦截与定制最终 Option */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (云服务 SLA 99.96% 可用性达成看板)
+
+_代码 100% 逆向提取自自验沙箱：[GaugeRadarScenario.vue](../../apps/sample-echarts-vue/src/scenarios/GaugeRadarScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengGaugeChart, type AtengGaugeChartInstance } from '@atengk/echarts-vue';
+
+const gaugeChartRef = ref<AtengGaugeChartInstance | null>(null);
+
+// 云服务 SLA 可用性达成率指标
+const gaugeValue = ref(99.96);
+const isGaugeProgress = ref(true);
+
+// 业务健康度三色阈值色阶：红色警戒 (<99.0%)、橙色观察 (99.0%-99.9%)、绿色达标 (99.9%-100%)
+const gaugeThresholds = [
+  { value: 99.0, color: '#F56C6C' },
+  { value: 99.9, color: '#E6A23C' },
+  { value: 100.0, color: '#67C23A' },
+];
+</script>
+
+<template>
+  <div style="height: 380px; padding: 16px; background: #fff; border-radius: 8px;">
+    <AtengGaugeChart
+      ref="gaugeChartRef"
+      :value="gaugeValue"
+      name="SLA 可用性达成率"
+      :min="98.0"
+      :max="100.0"
+      :thresholds="gaugeThresholds"
+      :progress="isGaugeProgress"
+      :pointer="!isGaugeProgress"
+      unit="%"
+      theme="auto"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **动态多段色阶区间归一化**：`thresholds` 支持直接声明业务绝对数值（例如 SLA 的 `99.0`、`99.9`、`100.0`），组件内部基于公式 `ratio = (value - min) / (max - min)` 自动归一化为 `[0, 1]` 比例色带，免除业务层手工推算百分比；
+- **指针与环形进度条双模空间编排**：
+  - **经典指针模式 (`pointer: true`, `progress: false`)**：指针在上半弧物理旋转，中心大数值与指标标题自动沉降至转轴底座下方（`offsetCenter: [0, '42%']` 与 `[0, '68%']`），彻底消除指针与文字穿模重叠；
+  - **现代环形圆角进度条模式 (`progress: true`, `pointer: false`)**：中心弧面无指针遮挡，大数值自动归位至黄金腹心（`offsetCenter: [0, '-5%']`），两端圆弧开启 `roundCap: true` 呈现现代圆角流体质感。
+
+---
+
+### 6.2 AtengRadarChart 多维能力画像雷达图 (自适应指示器/渐变半透明填充)
+
+`AtengRadarChart` 专用于研发团队效能度量、代码安全成熟度画像与候选人多维能力评估。内置指示器极值自适应计算、黄金比例空间下移与渐变半透明填充。
+
+#### 1. 本节专属 TypeScript 契约片段
+
+```ts
+export type RadarIndicator = string | { name: string; max?: number; min?: number };
+
+export interface RadarSeriesItem {
+  /** 数据集名称（如 '本团队综合指标', '行业标杆参考线'） */
+  name: string;
+  /** 对应各维度的数值数组 */
+  value: number[];
+  /** 自定义线条与图例色彩 */
+  color?: string;
+  /** 自定义区域填充样式 */
+  areaStyle?: Record<string, unknown>;
+}
+
+export interface AtengRadarChartProps {
+  /** 各维度声明列表（支持字符串数组或带极值的对象数组） */
+  indicators: RadarIndicator[];
+  /** 对比数据集列表 */
+  data: RadarSeriesItem[];
+  /** 是否启用半透明区域填充或细化配置 @default true */
+  area?: boolean | { opacity?: number; gradient?: boolean };
+  /** 坐标系网格形状：'polygon'（多边形，默认）或 'circle'（圆形网状） @default 'polygon' */
+  shape?: 'polygon' | 'circle';
+  /** 坐标轴网格分割段数 @default 5 */
+  splitNumber?: number;
+  /** 雷达图中心坐标位置 @default ['50%', '56%'] */
+  center?: [string | number, string | number];
+  /** 雷达图半径大小 @default '60%' */
+  radius?: string | number;
+  /** 图例开关或配置 @default true */
+  legend?: boolean | LegendComponentOption;
+  /** 提示框开关或配置 @default true */
+  tooltip?: boolean | TooltipComponentOption;
+  /** 逃生通道：深度拦截与定制最终 Option */
+  overrideOption?: (base: EChartsOption) => EChartsOption;
+}
+```
+
+#### 2. 面向实战的业务代码示例 (研发团队效能与安全成熟度画像)
+
+_代码 100% 逆向提取自自验沙箱：[GaugeRadarScenario.vue](../../apps/sample-echarts-vue/src/scenarios/GaugeRadarScenario.vue)_
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengRadarChart, type AtengRadarChartInstance } from '@atengk/echarts-vue';
+
+const radarChartRef = ref<AtengRadarChartInstance | null>(null);
+
+// 研发团队效能与安全成熟度多维评估指标
+const radarIndicators = [
+  '代码规范与质量',
+  '系统架构解耦',
+  '全维自动化单测',
+  'DevOps 交付效能',
+  '安全合规与审计',
+];
+
+// 对比数据集：本团队当前水准 vs 行业标杆参考线
+const radarData = ref([
+  { name: '本团队综合指标', value: [92, 95, 90, 85, 96], color: '#409EFF' },
+  { name: '行业标杆参考线', value: [95, 95, 92, 90, 92], color: '#67C23A' },
+]);
+
+const isRadarArea = ref(true);
+</script>
+
+<template>
+  <div style="height: 380px; padding: 16px; background: #fff; border-radius: 8px;">
+    <AtengRadarChart
+      ref="radarChartRef"
+      :indicators="radarIndicators"
+      :data="radarData"
+      :area="isRadarArea"
+      theme="auto"
+      height="380px"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界说明
+
+- **指示器极值自适应计算**：当 `indicators` 传入简写字符串数组（如 `['代码规范', '系统架构']`）时，`createRadarOption` 自动遍历各系列对应维度的最大数值，并设置 `computedMax = Math.ceil(maxVal * 1.1)` 自动预留 10% 视距缓冲，彻底杜绝数据触顶贴壁导致线条被坐标系外缘裁切；
+- **黄金比例下移与渐变填充**：默认中心设定为 `['50%', '56%']` 并将半径收敛为 `60%`，为顶部横向图例留出充足展示净距，彻底消除图例文案与雷达顶角指示器文字重叠；内置 `LinearGradient` 垂直方向色彩渐变与 `opacity: 0.3` 弱半透明度，保证多个数据集层叠时背景网格与交叠轮廓依旧清晰可辨。
+
+---
+
+## 7. 生产扩展与高级特性 (待工单 #246 深度重构)
+
+### 7.1 自定义浮动工具栏 (`#toolbar` 插槽)
 
 通过 `#toolbar` 作用域插槽接收当前全屏状态与操作函数，完全接管或扩展操作按钮：
 
@@ -738,7 +1082,7 @@ const patchCustomOption = (base: EChartsOption): EChartsOption => {
 </template>
 ```
 
-### 3. 三级行政区划地图下钻与 GeoJSON SPI 接管
+### 7.2 三级行政区划地图下钻与 GeoJSON SPI 接管
 
 无需在前端静态打包臃肿的 GeoJSON 文件，通过 `GeoDataProvider` SPI 实现动态按需拉取与自动注册：
 
