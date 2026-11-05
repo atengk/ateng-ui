@@ -1,6 +1,6 @@
 {
   "name": "@atengk/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "面向现代 Web 应用与企业级系统的无框架纯 TypeScript 契约与工业级网络请求底座",
   "type": "module",
   "main": "./dist/index.cjs",

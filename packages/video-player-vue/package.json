@@ -1,6 +1,6 @@
 {
   "name": "@atengk/video-player-vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "面向现代 Web 应用与企业级安防物联网的工业级流媒体与多路视频播放扩展套件",
   "type": "module",
   "main": "./dist/index.cjs",

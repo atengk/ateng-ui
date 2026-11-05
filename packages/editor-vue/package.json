@@ -1,6 +1,6 @@
 {
   "name": "@atengk/editor-vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作响应式扩展基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

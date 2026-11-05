@@ -1,6 +1,6 @@
 {
   "name": "@atengk/echarts-vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "面向现代 Web 应用与企业级看板的工业级 ECharts 5 响应式数据可视化套件",
   "type": "module",
   "main": "./dist/index.cjs",
