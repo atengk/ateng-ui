@@ -1665,25 +1665,1074 @@ const zoom = useDigitalZoom({
 
 ## 7. 防录屏动态安全水印与审查防篡改套件
 
-_(待工单 #273 系统交付：7.1 矢量平铺水印容器、7.2 动态微位移随机浮动机制、7.3 容器级全屏穿越、7.4 MutationObserver 审查防篡改与毫秒级自愈)_
+在涉密培训视频、企业内网机密资料、金融征信与敏感安防监控录像场景中，防止屏幕录制、手机拍照泄密以及终端用户的 F12 恶意篡改是数据泄露防护（DLP, Data Loss Prevention）的核心要求。`@atengk/video-player-vue` 提供了工业级 `<AtengVideoWatermark />` 防录屏安全组件，兼具 Canvas/SVG 矢量高清动态平铺、动态微位移随机浮动反去水印算法、容器级全屏穿越不变量，以及基于双重 `MutationObserver` 的 DOM 审查防篡改与毫秒级自愈防线。
+
+```mermaid
+flowchart TD
+    subgraph WatermarkPipeline["防录屏安全水印流水线 (AtengVideoWatermark)"]
+        Source["用户信息 (工号/姓名/IP/时间戳)"] --> CanvasGen["Canvas / SVG 矢量动态图案生成 (generateWatermarkPattern)"]
+        CanvasGen --> Tile["CSS background-repeat: repeat 矢量平铺"]
+        Tile --> Layer["独立 DOM 浮层 (pointer-events: none, z-index: 30)"]
+        Layer --> FloatTimer["微位移浮动时钟 (floatInterval: 3000ms)"]
+        FloatTimer --> RandomVec["随机位移向量 (dx, dy) ∈ [-floatDistance, floatDistance]"]
+        RandomVec --> Translate["GPU 硬件加速 translate3d(dx, dy, 0)"]
+        Layer --> Observer["双重 MutationObserver 守护 (nodeObserver + parentObserver)"]
+        Observer --> TamperDetect{"恶意篡改检测 (display/opacity/remove)"}
+        TamperDetect -- "是" --> TamperEvent["派发 @watermark-tampered 告警"]
+        TamperEvent --> SelfHeal["毫秒级自愈克隆重建 (isSelfHealing 锁)"]
+        Layer --> FullscreenPortal["外层容器全屏穿越 (Container Fullscreen Invariant)"]
+    end
+```
+
+---
+
+### 7.1 矢量平铺防录屏安全水印容器 (`<AtengVideoWatermark />`, `VideoWatermarkProps`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { ComponentPublicInstance } from 'vue';
+
+/**
+ * AtengVideoWatermark 组件 Props 契约。
+ */
+export interface VideoWatermarkProps {
+  content?: string | string[]; // 水印文本内容 (数组按多行渲染)
+  fontSize?: number; // 水印字体大小 (px，默认 16)
+  fontFamily?: string; // 水印字体族 (默认 'sans-serif')
+  color?: string; // 水印字体颜色 (默认 '#ffffff')
+  opacity?: number; // 整体透明度 (0.0 ~ 1.0，默认 0.15)
+  rotate?: number; // 水印倾斜旋转角度 (度，默认 -22)
+  gapX?: number; // 水印单元水平间距 (px，默认 160)
+  gapY?: number; // 水印单元垂直间距 (px，默认 120)
+  tamperProof?: boolean; // 是否开启 DOM 审查防篡改自愈 (默认 true)
+  floating?: boolean; // 是否开启动态微位移随机浮动 (默认 true)
+  floatInterval?: number; // 浮动刷新周期 (ms，默认 3000)
+  floatDistance?: number; // 随机漂移幅度 (px，默认 15)
+  zIndex?: number; // 水印层级 (默认 30)
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/WatermarkDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoPlayer,
+  AtengVideoWatermark,
+  type WatermarkTamperDetail,
+} from '@atengk/video-player-vue';
+
+const userName = ref('张三 (工号: SEC-9527)');
+const userIp = ref('192.168.1.108');
+
+const onTamperAlert = (detail: WatermarkTamperDetail) => {
+  console.warn(`🚨 水印遭受恶意篡改！类型: ${detail.type}，已就地毫秒级自愈复活`);
+};
+</script>
+
+<template>
+  <div style="width: 100%; aspect-ratio: 16 / 9; background: #000;">
+    <AtengVideoPlayer
+      url="https://artplayer.org/assets/sample/video.mp4"
+      title="企业机密内训视频 (DLP 安全水印保护中)"
+    >
+      <!-- 安全防录屏水印专用插槽 -->
+      <template #watermark>
+        <AtengVideoWatermark
+          :content="[userName, userIp, '内部涉密 截屏追责']"
+          :opacity="0.18"
+          :rotate="-22"
+          :floating="true"
+          :tamper-proof="true"
+          @watermark-tampered="onTamperAlert"
+        />
+      </template>
+    </AtengVideoPlayer>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **Canvas 与 Base64 矢量双模平铺引擎**：组件优先通过离屏 Canvas 测算文本总尺寸并生成单切片图案，随后转换为 Base64 DataURL，赋给容器的 `background-image` 并结合 `background-repeat: repeat` 实现全屏平铺；在无 Canvas 宿主（如 SSR 或测试环境）下自动优雅降级为纯矢量 Base64 SVG DataURL，零 DOM 节点开销渲染成千上万个水印单元；
+  - **零交互阻断穿透 (`pointer-events: none`)**：水印层外层全屏浮动容器强制声明 `pointer-events: none !important;`，所有鼠标点击、拖拽平移、进度条 Seek 与快捷键操作 100% 透传至底层播放器，保障交互零阻碍。
+
+---
+
+### 7.2 动态微位移随机浮动机制 (`floating: true`, 对抗录屏去水印算法)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+// 组件 Props 配置：
+// floating?: boolean; // 是否开启动态微位移浮动 (默认 true)
+// floatInterval?: number; // 随机位移刷新间隔毫秒数 (默认 3000ms)
+// floatDistance?: number; // 随机位移漂移最大像素幅度 (默认 15px)
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/WatermarkDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoWatermark } from '@atengk/video-player-vue';
+
+const isFloating = ref(true);
+const floatInterval = ref(2500); // 2.5 秒微移一次
+const floatDistance = ref(18); // 最大偏移 18px
+</script>
+
+<template>
+  <AtengVideoWatermark
+    :content="['涉密资产 严禁外传', '用户: SEC-OPERATOR']"
+    :floating="isFloating"
+    :float-interval="floatInterval"
+    :float-distance="floatDistance"
+  />
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **对抗多帧均值差分去水印算法**：静态水印在视频录制后，黑客可利用 AI 算法或“多帧画面背景差分估算（Temporal Frame Difference Estimation）”将固定像素位置的水印精准识别并擦除。动态微位移机制通过单例时钟定时生成二维随机偏移动态向量：
+    $$dx = \text{round}\big((\text{Math.random()} - 0.5) \times 2 \times floatDistance\big), \quad dy = \text{round}\big((\text{Math.random()} - 0.5) \times 2 \times floatDistance\big)$$
+    通过 `translate3d(dx, dy, 0)` 硬件加速微调浮动，彻底打乱水印在时间轴上的固定空间特征，迫使帧差分去水印算法失效崩溃；
+  - **确定性时钟注销**：在 `onBeforeUnmount` 与参数变更时，100% 确定性执行 `clearInterval(floatTimer)`，杜绝离线后台定时器泄露。
+
+---
+
+### 7.3 容器级全屏穿越不变量 (外层容器全屏)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+// AtengVideoPlayer 全屏方法：
+// enterFullscreen(): void; // 原生全屏 (穿透挂载在外层容器)
+// enterWebFullscreen(): void; // 网页全屏 (视口 100% 独占)
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/WatermarkDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengVideoPlayer,
+  AtengVideoWatermark,
+  type AtengVideoPlayerInstance,
+} from '@atengk/video-player-vue';
+
+const playerRef = ref<AtengVideoPlayerInstance | null>(null);
+
+// 触发容器级全屏：验证全屏下水印浮层是否 100% 牢固覆盖
+const triggerFullscreen = () => {
+  playerRef.value?.enterFullscreen();
+};
+</script>
+
+<template>
+  <div>
+    <button @click="triggerFullscreen">🖥️ 测试容器级全屏穿越</button>
+    <AtengVideoPlayer ref="playerRef" url="https://artplayer.org/assets/sample/video.mp4">
+      <template #watermark>
+        <AtengVideoWatermark :content="['全屏防录屏保护', 'UID: 10086']" />
+      </template>
+    </AtengVideoPlayer>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **原生 `<video>` requestFullscreen 缺陷防御**：若直接调用底层 `<video>` 元素的 `requestFullscreen()`，浏览器将仅把视频解码表面提升至顶层全屏，脱离了常规 Web DOM 树渲染管道，导致上层挂载的所有水印、弹幕和自定义控制栏全部被剔除丢失，泄密风险极高；
+  - **容器级全屏穿越不变量 (Container Fullscreen Invariant)**：`<AtengVideoPlayer />` 将全屏请求严格绑定在包含视频、字幕、弹幕与水印的外层根容器（Container Element）上。全屏发生时，水印层与视频作为一个整体视口放大，水印 `z-index: 30` 始终牢固压制在视频表面之上，全屏录屏依然无法逃避追责标记。
+
+---
+
+### 7.4 MutationObserver 审查防篡改与毫秒级自愈 (`@watermark-tampered`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 水印篡改告警事件详情契约。
+ */
+export interface WatermarkTamperDetail {
+  type: 'style' | 'removal'; // 'style' (样式被篡改) 或 'removal' (节点被移出 DOM)
+  timestamp: number; // 篡改发生的时间戳
+}
+
+/**
+ * AtengVideoWatermark 组件 Emits 事件契约。
+ */
+export interface VideoWatermarkEmits {
+  (e: 'watermark-tampered', details: WatermarkTamperDetail): void;
+  (e: 'watermarkTampered', details: WatermarkTamperDetail): void;
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/WatermarkDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoWatermark, type WatermarkTamperDetail } from '@atengk/video-player-vue';
+
+const healCount = ref(0);
+
+// 捕获恶意篡改事件并上报企业安全审计中枢
+const onWatermarkTampered = (detail: WatermarkTamperDetail) => {
+  healCount.value++;
+  console.error(
+    `🚨 [安全审计] 终端用户试图篡改防录屏水印！类型: ${detail.type}，时间: ${detail.timestamp}`,
+  );
+  // 可调用业务 API 进行风控打标或终止播放会话
+};
+
+// 模拟攻防测试：用户在 F12 控制台强行注入 display: none 或删除节点
+const attackStyle = () => {
+  const el = document.querySelector<HTMLElement>('.at-video-watermark');
+  if (el) el.style.display = 'none';
+};
+const attackRemove = () => {
+  const el = document.querySelector<HTMLElement>('.at-video-watermark');
+  if (el) el.remove();
+};
+</script>
+
+<template>
+  <div>
+    <button @click="attackStyle">模拟 F12: 注入 display: none</button>
+    <button @click="attackRemove">模拟 F12: 删除水印 DOM 节点</button>
+    <p>自愈次数: {{ healCount }}</p>
+
+    <AtengVideoWatermark
+      :content="['涉密监控', '严禁外传']"
+      :tamper-proof="true"
+      @watermark-tampered="onWatermarkTampered"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **双重 MutationObserver 守护架构**：
+    1. **自身样式守卫 (`nodeObserver`)**：深度监听自身 `attributes` 与 `style` 属性变动。一旦检测到被注入 `display: none`、`visibility: hidden` 或 `opacity <= 0.05`，立即触发警报并毫秒级强行复原样式；
+    2. **父级节点守卫 (`parentObserver`)**：深度监听父容器的 `childList`。一旦用户在 Elements 面板按下 `Delete` 键将水印节点移出 DOM，守卫在下一微任务刻度内捕获 `removal` 动作，派发 `@watermark-tampered` 告警；
+  - **互斥锁与毫秒级克隆重建机制 (`isSelfHealing`)**：为防止在自愈修复修改 DOM 时再次触发自身 Observer 产生死循环调用风暴，内部引入 `isSelfHealing = true` 临时互斥锁，在微任务结束确认完成 DOM 重建挂载后再解除锁定，自愈全程小于 5 毫秒，肉眼完全无法察觉。
 
 ---
 
 ## 8. 外挂多轨双语字幕与高性能 Canvas 弹幕套件
 
-_(待工单 #273 系统交付：8.1 WebVTT/SRT 双格式容错解析、8.2 多轨字幕状态机与插槽定制、8.3 极致 Tree-Shaking 弹幕独立 Subpath 导出、8.4 Canvas 通道池防碰撞与防追尾算法)_
+在国际化多语言视频点播、影视教学、游戏直播与弹幕互动场景中，高质量的字幕解析渲染与高并发弹幕系统是增强用户交互粘性的核心支柱。`@atengk/video-player-vue` 提供了纯原生轻量字幕引擎与基于 Canvas 硬件加速渲染的独立弹幕插件套件。
+
+```mermaid
+flowchart TD
+    subgraph DanmakuSubtitlePipeline["字幕与弹幕套件架构"]
+        subgraph SubtitleModule["外挂字幕引擎 (SubtitleParser & useVideoSubtitles)"]
+            SubRaw["WebVTT / SRT 文本或 URL"] --> SubParser["容错解析器 (parseSubtitle)"]
+            SubParser --> SubCues["时序分段片元 (VideoSubtitleCue[])"]
+            TimeUpdate["播放器 timeupdate 信号"] --> SubMatcher["二分查找/时间窗口检索 (findActiveCue)"]
+            SubMatcher --> SubRender["自适应字幕渲染层 / #subtitle 插槽"]
+        end
+
+        subgraph DanmakuModule["高性能 Canvas 弹幕系统 (createDanmakuPlugin)"]
+            DanmakuIn["弹幕数据流 (DanmakuItem[])"] --> Engine["DanmakuEngine (RAF 渲染驱动)"]
+            Engine --> Pool["轨道通道池 (DanmakuTrackPool)"]
+            Pool --> CollisionCheck{"防碰撞与追尾预测"}
+            CollisionCheck -- "无碰撞" --> Alloc["分配最佳空闲轨道 (max margin)"]
+            CollisionCheck -- "冲突" --> Fallback["丢弃或降级延后"]
+            Alloc --> CanvasDraw["Canvas 硬件加速绘制 (strokeText + fillText)"]
+        end
+    end
+```
+
+---
+
+### 8.1 WebVTT / SRT 文本双协议容错解析 (`parseSubtitle`, `parseTimestamp`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 字幕片元契约。
+ */
+export interface VideoSubtitleCue {
+  id?: string; // 片元编号标识
+  startTime: number; // 开始时间 (秒，浮点数)
+  endTime: number; // 结束时间 (秒，浮点数)
+  text: string; // 字幕显示正文内容
+}
+
+/**
+ * 解析 WebVTT 或 SRT 格式字幕文本为片元列表。
+ *
+ * 恪守空安全保底律：输入 null、undefined 或损坏文本时，统一保底返回空数组 []。
+ *
+ * @param content 原始字幕文本字符串
+ * @returns 解析得到的字幕片元列表
+ */
+export function parseSubtitle(content: string): VideoSubtitleCue[];
+
+/**
+ * 将时间戳字符串转换为秒数（浮点数）。
+ * 支持格式：00:01:23,456 (SRT) / 00:01:23.456 (WebVTT) / 01:23.456 (短格式)。
+ */
+export function parseTimestamp(timeStr: string): number;
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DanmakuSubtitleDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { parseSubtitle, type VideoSubtitleCue } from '@atengk/video-player-vue';
+
+// 标准 WebVTT 格式字幕文本
+const vttText = `WEBVTT
+
+1
+00:00:00.500 --> 00:00:03.500
+欢迎来到 Ateng UI 视频基础设施套件
+Welcome to Ateng UI Video Infrastructure Suite
+
+2
+00:00:04.000 --> 00:00:07.500
+纯前端工业级流媒体播放、多路协同与安全防护
+Industrial streaming, grid sync and security defense
+`;
+
+const cues = ref<VideoSubtitleCue[]>(parseSubtitle(vttText));
+console.log(`成功解析 ${cues.value.length} 个字幕片元`);
+</script>
+
+<template>
+  <div class="subtitle-preview">
+    <ul>
+      <li v-for="cue in cues" :key="cue.startTime">
+        [{{ cue.startTime }}s ~ {{ cue.endTime }}s]: {{ cue.text }}
+      </li>
+    </ul>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **纯原生双协议自适应归一化**：零第三方正则表达式库依赖，纯原生 TypeScript 实现。统一将 SRT 逗号毫秒分割符 `,` 归一化为标准的浮点数点号 `.`，兼容两段式 `mm:ss.ms` 与三段式 `hh:mm:ss.ms` 格式；
+  - **空安全保底律 (Null Safety Defensive Return)**：当网络请求错误、字幕文件损坏或传入空字符串时，函数一律保底返回空数组 `[]`，严禁返回 `null` 或抛出未捕获异常，彻底杜绝调用方模板在遍历字幕时出现白屏崩溃。
+
+---
+
+### 8.2 多轨双语字幕状态机与插槽定制 (`useVideoSubtitles`, `#subtitle` 插槽)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+/**
+ * 外挂字幕项目定义。
+ */
+export interface VideoSubtitleItem {
+  id: string; // 轨道唯一标识 (如 'zh', 'en', 'bilingual')
+  label: string; // 界面显示文案 (如 '中英双语', '简体中文')
+  lang?: string; // 语言代码 (如 'zh-CN', 'en-US')
+  url?: string; // 远程字幕文件 URL 地址
+  content?: string; // 内联字幕文本内容
+  default?: boolean; // 是否作为默认选中的字幕轨道
+}
+
+/**
+ * useVideoSubtitles 状态机返回值门面。
+ */
+export interface UseVideoSubtitlesReturn {
+  subtitles: Ref<VideoSubtitleItem[]>; // 可选字幕轨道列表
+  activeSubtitleId: Ref<string | null>; // 当前激活的轨道 ID (null 表示关闭字幕)
+  activeSubtitle: ComputedRef<VideoSubtitleItem | null>; // 当前激活的轨道实体
+  cues: Ref<VideoSubtitleCue[]>; // 当前激活轨道的全量片元
+  currentCue: ComputedRef<VideoSubtitleCue | null>; // 当前播放时间命中的片元
+  currentText: ComputedRef<string>; // 当前展示的字幕文本内容
+  visible: Ref<boolean>; // 字幕显隐开关
+  switchSubtitle(id: string | null): Promise<void>; // 切换字幕轨道
+  toggleVisible(visible?: boolean): void; // 切换显隐
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DanmakuSubtitleDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, type VideoSubtitleItem } from '@atengk/video-player-vue';
+
+const subtitles: VideoSubtitleItem[] = [
+  {
+    id: 'bilingual',
+    label: '中英双语',
+    lang: 'zh-en',
+    default: true,
+    content: `WEBVTT\n\n1\n00:00:01.000 --> 00:00:05.000\n企业级高清播放基础设施\nEnterprise Video Suite`,
+  },
+  {
+    id: 'zh',
+    label: '简体中文',
+    lang: 'zh-CN',
+    content: `WEBVTT\n\n1\n00:00:01.000 --> 00:00:05.000\n企业级高清播放基础设施`,
+  },
+];
+</script>
+
+<template>
+  <AtengVideoPlayer
+    url="https://artplayer.org/assets/sample/video.mp4"
+    :subtitles="subtitles"
+    default-subtitle="bilingual"
+  >
+    <!-- 自定义高级双语字幕渲染插槽 -->
+    <template #subtitle="{ currentText }">
+      <div v-if="currentText" class="custom-subtitle-box">
+        <span class="subtitle-text">{{ currentText }}</span>
+      </div>
+    </template>
+  </AtengVideoPlayer>
+</template>
+
+<style scoped>
+.custom-subtitle-box {
+  position: absolute;
+  bottom: 40px;
+  width: 100%;
+  text-align: center;
+  pointer-events: none;
+  z-index: 25;
+}
+.subtitle-text {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 18px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: pre-line;
+}
+</style>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **二分查找毫秒级时间检索**：字幕片元数组在解析完成后默认按 `startTime` 严格升序排序。播放器高频派发 `timeupdate` 时，状态机基于二分查找算法在 $O(\log N)$ 时间复杂度内秒级定位当前时间戳对应的字幕片元，杜绝全量线性循环匹配对主线程的消耗；
+  - **网络异步拉取与内联文本双轨支持**：若配置提供的是远程 `url`，状态机内置具备取消令牌与凭据透传的异步加载管道；若直接传入 `content` 字符串，则零网络延迟即刻解析生效；
+  - **表现层插槽完全解耦**：默认提供高对比度自适应字幕浮层，同时提供 `#subtitle` 作用域插槽供开发者随心接入毛玻璃背景、多语言对照排版与字体大小缩放。
+
+---
+
+### 8.3 极致 Tree-Shaking 弹幕独立 Subpath 分包 (`./plugins/danmaku`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+// 独立子路径导入，未引用的工程 0 字节体积残留：
+import {
+  createDanmakuPlugin,
+  type DanmakuItem,
+  type DanmakuMode,
+  type DanmakuPluginInstance,
+  type DanmakuPluginOptions,
+} from '@atengk/video-player-vue/plugins/danmaku';
+
+/**
+ * 弹幕发射载荷契约。
+ */
+export interface DanmakuItem {
+  id?: string | number; // 弹幕唯一 ID
+  text: string; // 弹幕文本
+  time?: number; // 触发时间戳 (秒)
+  color?: string; // 弹幕文本颜色 (十六进制，默认 '#ffffff')
+  mode?: DanmakuMode; // 展现模式 ('scroll' | 'top' | 'bottom'，默认 'scroll')
+  fontSize?: number; // 字号 (px，默认 22)
+  isMe?: boolean; // 是否为当前用户发射 (高亮外边框)
+  border?: string; // 发送者高亮边框色
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DanmakuSubtitleDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, type IVideoPlayerEngine } from '@atengk/video-player-vue';
+// 独立按需引入弹幕分包
+import {
+  createDanmakuPlugin,
+  type DanmakuPluginInstance,
+} from '@atengk/video-player-vue/plugins/danmaku';
+
+let danmakuHandle: DanmakuPluginInstance | null = null;
+
+// 初始化弹幕插件
+const danmakuPlugin = createDanmakuPlugin({
+  items: [
+    { text: '🎬 欢迎来到 Ateng UI 视频实测！', time: 1.0, color: '#409EFF', mode: 'top' },
+    { text: '芜湖起飞！🚀', time: 2.0, color: '#67C23A', mode: 'scroll' },
+    { text: '前方高能预警！！！⚡', time: 3.0, color: '#F56C6C', mode: 'scroll' },
+  ],
+  speed: 1.0,
+  fontSize: 22,
+  area: 0.75, // 弹幕屏占比 75%
+  filterKeywords: ['广告', '买茶叶'], // 关键词敏感过滤
+});
+
+const onReady = (engine: IVideoPlayerEngine) => {
+  const rawArt = engine.rawInstance as { plugins?: { danmaku?: DanmakuPluginInstance } };
+  danmakuHandle = rawArt?.plugins?.danmaku || null;
+};
+
+// 即时发射单条弹幕
+const sendDanmaku = () => {
+  danmakuHandle?.emit({
+    text: '纯前端工业级架构，太强了！👍',
+    color: '#38bdf8',
+    mode: 'scroll',
+    isMe: true,
+  });
+};
+</script>
+
+<template>
+  <div>
+    <button @click="sendDanmaku">🚀 发送一条弹幕</button>
+    <AtengVideoPlayer
+      url="https://artplayer.org/assets/sample/video.mp4"
+      :plugins="[danmakuPlugin]"
+      @ready="onReady"
+    />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **极致 Tree-Shaking 独立 Subpath 架构**：`package.json` 显式声明子路径导出 `"./plugins/danmaku"`。在绝大多数不需要弹幕的企业后台与物联监控项目中，弹幕相关的 Canvas 引擎、通道池与碰撞算法完全不会被打入最终上线包（**0 字节残留**）；
+  - **松耦合标准扩展插件模型**：`createDanmakuPlugin` 返回符合底层播放引擎规范的纯中立插件函数，遵循“配置注入-初始化挂载-销毁同步注销”的标准生命周期，实现表现层与引擎的纯净解耦。
+
+---
+
+### 8.4 Canvas 弹幕通道池防碰撞与相对速度追尾预测算法 (`DanmakuTrackPool`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import type { DanmakuItem, DanmakuRenderObject } from './types';
+
+export interface TrackPoolOptions {
+  canvasWidth: number; // 画布宽度
+  canvasHeight: number; // 画布高度
+  fontSize: number; // 基准字号
+  area: number; // 屏占比 (0.1 ~ 1.0)
+}
+
+/**
+ * 弹幕轨道通道池与防碰撞/防追尾调度算法核心类。
+ */
+export class DanmakuTrackPool {
+  readonly trackHeight: number; // 单轨道行高 (fontSize * 1.4)
+  readonly totalTracks: number; // 可用总轨道数
+  allocateTrack(candidate: {
+    id: string | number;
+    text: string;
+    time: number;
+    width: number;
+    speed: number;
+  }): number;
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/DanmakuSubtitleDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { createDanmakuPlugin } from '@atengk/video-player-vue/plugins/danmaku';
+
+// 配置弹幕防重叠与高密度弹幕屏占比
+const plugin = createDanmakuPlugin({
+  items: [],
+  area: 0.5, // 仅占用屏幕上半区 50%，不遮挡人脸与字幕
+  fontSize: 20,
+  speed: 1.2,
+});
+</script>
+
+<template>
+  <div class="danmaku-container">
+    <p>弹幕已配置为半屏防碰撞模式</p>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **轨道高度与容量严谨计算**：
+    $$trackHeight = fontSize \times 1.4, \quad totalTracks = \max\left(1, \left\lfloor \frac{canvasHeight \times area}{trackHeight} \right\rfloor\right)$$
+  - **防碰撞核心双条件判定定理**：
+    1. **条件 A：进屏防重叠约束**。同轨道前一条弹幕 $prev$ 的尾部必须已完全进入屏幕视口：
+       $$prevTail = prev.x + prev.width < canvasWidth$$
+       若 $prevTail \ge canvasWidth$，说明前一条弹幕头部还在屏幕外或尾部卡在边界，强行发射会导致首尾文字重叠；
+    2. **条件 B：相对速度追尾预测约束**。当候选新弹幕速度更快时（$v_{candidate} > v_{prev}$），计算其追上前一条弹幕尾部所需的时间：
+       $$margin = canvasWidth - prevTail, \quad timeToCatch = \frac{margin}{v_{candidate} - v_{prev}}$$
+       计算前一条弹幕移出屏幕左边界所需的剩余时间：
+       $$prevRemainingTime = \frac{prevTail}{v_{prev}}$$
+       **若 $timeToCatch < prevRemainingTime$，则在视口范围内必定发生追尾“撞车”！** 算法立即将该轨道标记为冲突不可用；
+  - **广播级负载均衡与静止锁定**：在所有满足条件的可用轨道中，优先挑选空闲间隙 $\max(margin)$ 最大的轨道发射新弹幕；对于顶部居中与底部静止弹幕，自动计算其停留生命周期（通常 3 秒）并在时间段内锁定该轨道排他占用，到期自动解锁。
 
 ---
 
 ## 9. 企业鉴权双轨凭据透传与异常防线套件
 
-_(待工单 #273 系统交付：9.1 全链路对接 AuthManager 双轨 Token 注入、9.2 ADR-0004 Blob-JSON 双态异常识别防白屏死锁、9.3 确定性销毁六步防线与 GPU 缓冲释放)_
+企业级 Web 系统往往部署在微服务网关、高防 CDN 或零信任鉴权代理之后，视频切片（HLS TS / FLV Chunk）的拉取必须严格携带认证凭据；同时，媒体流鉴权失败或资源被下架时，网关返回的是 JSON 报错文本而非流媒体二进制，若无前置拦截会导致底层解码器白屏死锁；组件在频繁切换机位或页面销毁时若未深度释放 GPU 缓冲，会引发严重的内存泄露。`@atengk/video-player-vue` 为此构建了坚不可摧的三道工业级安全防线。
+
+```mermaid
+flowchart TD
+    subgraph SecurityPipeline["企业鉴权与异常防线套件"]
+        subgraph AuthSub["全链路双轨凭据注入 (TokenInjector)"]
+            AuthMgr["@atengk/core AuthManager"] --> Injector["TokenInjector"]
+            Injector --> Hdr["双轨请求头: token + Authorization: Bearer"]
+            Injector --> URLParam["防盗链 URL 查询参: ?token=..."]
+            Hdr --> HlsReq["hls.js xhrSetup 拦截"]
+            Hdr --> FlvReq["mpegts.js headers 拦截"]
+        end
+
+        subgraph BlobGuard["ADR-0004 Blob-JSON 双态拦截 (BlobJsonGuard)"]
+            StreamFetch["媒体流前置嗅探 / 响应拦截"] --> MimeCheck{"Content-Type 是否为 JSON / 状态码非 2xx?"}
+            MimeCheck -- "是 (异常双态)" --> ParseJSON["异步提取文本并解析 Result 实体"]
+            ParseJSON --> ErrObj["包装为 BusinessException(code, msg, traceId)"]
+            ErrObj --> FallbackUI["触发 @error 并渲染 #error 插槽"]
+            MimeCheck -- "否 (合法二进制流)" --> Demux["交予二进制解复用器播放"]
+        end
+
+        subgraph TeardownSub["确定性销毁六步防线 (ArtplayerEngine.destroy)"]
+            Step1["1. 中断正在执行的所有网络请求 (AbortController)"] --> Step2["2. 触发解复用器卸载钩子 (teardownHooks)"]
+            Step2 --> Step3["3. 释放并清空 video.src 与 video.srcObject"]
+            Step3 --> Step4["4. 调用 video.load() 强制回收 GPU 显存缓冲"]
+            Step4 --> Step5["5. 清除所有已注册的重试与轮询定时器 (timers)"]
+            Step5 --> Step6["6. 销毁 Artplayer 实例并清空 DOM 容器"]
+        end
+    end
+```
+
+---
+
+### 9.1 全链路对接 AuthManager 双轨 Token 注入 (`TokenInjector`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import { AuthManager } from '@atengk/core';
+
+export interface TokenInjectorOptions {
+  authManager?: AuthManager; // 绑定的 AuthManager 实例 (默认使用核心全局单例)
+  tokenGetter?: () => string | null; // 自定义 Token 提取逃生门
+  urlParamName?: string; // URL 查询参数名 (默认 'token')
+}
+
+/**
+ * 企业级双轨鉴权凭据注入器。
+ */
+export class TokenInjector {
+  getToken(): string | null;
+  getHeaders(): Record<string, string>; // 返回 { token, 'Authorization': 'Bearer ...' }
+  injectHeaders(headers?: Record<string, string>): Record<string, string>;
+  injectUrl(url: string): string; // 自动为防盗链媒体 URL 追加 ?token=...
+  injectXhr(xhr: XMLHttpRequest): void; // 为原生 XHR 设置 Header
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/AuthSecurityDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { authManager } from '@atengk/core';
+import { AtengVideoPlayer, TokenInjector } from '@atengk/video-player-vue';
+
+const inputToken = ref('ateng-sec-token-2026');
+const currentToken = ref(authManager.getToken());
+
+// 模拟用户登录：设置全局 Token 凭据
+const handleLogin = () => {
+  authManager.setToken(inputToken.value);
+  currentToken.value = authManager.getToken();
+};
+
+// 预览注入的双轨请求头
+const headersPreview = computed(() => TokenInjector.injectHeaders());
+</script>
+
+<template>
+  <div class="auth-demo">
+    <div class="token-bar">
+      <input v-model="inputToken" placeholder="输入凭据" />
+      <button @click="handleLogin">更新全局 Token</button>
+      <span>当前注入请求头: {{ JSON.stringify(headersPreview) }}</span>
+    </div>
+
+    <!-- 播放器默认 auth: true，全链路自动携带 Token -->
+    <AtengVideoPlayer url="https://live.example.com/secure-stream.m3u8" :auth="true" />
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **双轨凭据注入标准**：对接 `@atengk/core` 的 `AuthManager`，同时在请求中标准化注入私有请求头 `token: <val>` 与行业标准头 `Authorization: Bearer <val>`，兼容微服务网关、传统单体服务与第三方 CDN 鉴权模式；
+  - **解复用器全链路深层穿透**：通过配置 `hls.js` 的 `xhrSetup` 与 `mpegts.js` 的 `headers`，确保不仅首个索引文件（`.m3u8` / `.flv`）带有凭据，后续动态拉取的每一个二级码率分片（`.ts`）均由底层安全拦截器 100% 自动注入，杜绝分片鉴权 401 失败问题；
+  - **防盗链 URL 安全拼接**：对于不支持自定义请求头的裸 `<video src>`（如部分移动端原生播放），`injectUrl` 会通过 URL 对象安全解析并在 QueryString 中自动补齐 `token` 参数，自动识别已有 `?` 或 `&` 锚点，杜绝 URL 拼装格式损坏。
+
+---
+
+### 9.2 ADR-0004 Blob-JSON 双态异常识别防线 (`BlobJsonGuard`, `#error` 插槽)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+import { BusinessException } from '@atengk/core';
+
+/**
+ * BlobJsonGuard 双态异常拦截工具。
+ */
+export class BlobJsonGuard {
+  /**
+   * 从报错响应文本中解析业务异常 JSON 实体并构造 BusinessException。
+   */
+  static parseJsonError(text: string, status?: number): BusinessException | null;
+
+  /**
+   * 前置探测流媒体地址，识别 401/403/500 JSON 报错。
+   */
+  static probeMediaStream(url: string, options?: MediaProbeOptions): Promise<MediaProbeResult>;
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/AuthSecurityDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import type { BusinessException } from '@atengk/core';
+import { AtengVideoPlayer } from '@atengk/video-player-vue';
+
+const videoUrl = ref('https://artplayer.org/assets/sample/video.mp4');
+
+// 捕获 BusinessException 异常并展示业务提示
+const onPlayerError = (err: BusinessException) => {
+  console.error(`捕获到双态业务异常: [Code ${err.code}] ${err.msg} (TraceId: ${err.traceId})`);
+};
+</script>
+
+<template>
+  <AtengVideoPlayer :url="videoUrl" :probe-stream="true" @error="onPlayerError">
+    <!-- 自定义业务异常全屏友好占位插槽 -->
+    <template #error="{ error, retry }">
+      <div class="custom-error-panel">
+        <h3>🔒 视频点播鉴权未通过</h3>
+        <p>{{ (error as BusinessException)?.msg || '访问受限，请联系管理员' }}</p>
+        <span class="trace-id">Trace ID: {{ (error as BusinessException)?.traceId }}</span>
+        <button @click="retry">重试加载</button>
+      </div>
+    </template>
+  </AtengVideoPlayer>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **遵循 ADR-0004 规范之双态异常识别**：当视频鉴权过期（401）或越权（403）时，后端网关通常返回 `application/json` 结构的报错实体（如 `{"code": 40101, "msg": "Token expired", "traceId": "..."}`）。若前端未经识别直接交付二进制解复用器，解复用器会将 JSON 文本误当作音视频编码帧进行二进制反序列化，导致抛出难以排查的“Invalid NAL unit”或“Bad Demux Data”底层错误，画面永久黑屏；
+  - **双态熔断与透传转译**：`BlobJsonGuard` 前置嗅探响应头并实施双态拦截，一旦探测到 JSON 载荷，立即阻断媒体投喂，提取后端的 `code`、`msg` 与 `traceId`，转译为强类型 `BusinessException` 向外派发，并通过 `#error` 插槽渲染清晰的人性化提示卡片，彻底消灭黑屏死锁。
+
+---
+
+### 9.3 确定性销毁六步防线与 GPU 缓冲释放 (`ArtplayerEngine.destroy`)
+
+- **专属 TypeScript 契约/配置片段**：
+
+```ts
+export interface IVideoPlayerEngine {
+  /**
+   * 确定性销毁播放器并释放所有硬件与网络资源。
+   */
+  destroy(): void;
+}
+```
+
+- **面向实战的业务 Vue 代码示例**（逆向提取自 `sample-video-player-vue/AuthSecurityDemo.vue`）：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengVideoPlayer, type AtengVideoPlayerInstance } from '@atengk/video-player-vue';
+
+const playerRef = ref<AtengVideoPlayerInstance | null>(null);
+const isMounted = ref(true);
+
+// 模拟组件快速卸载与销毁
+const toggleMount = () => {
+  if (isMounted.value) {
+    // 组件卸载时内部会自动触发确定的 destroy 六步防线
+    console.log(
+      '🛑 主动触发销毁流程：执行 Abort、解绑 video.src、调用 video.load() 强制回收 GPU 缓冲区',
+    );
+  }
+  isMounted.value = !isMounted.value;
+};
+</script>
+
+<template>
+  <div>
+    <button @click="toggleMount">{{ isMounted ? '销毁播放器' : '重新挂载' }}</button>
+    <div v-if="isMounted" style="width: 100%; aspect-ratio: 16 / 9;">
+      <AtengVideoPlayer ref="playerRef" url="https://artplayer.org/assets/sample/video.mp4" />
+    </div>
+  </div>
+</template>
+```
+
+- **核心机制与生产边界防御说明**：
+  - **确定性销毁六步防线 (Deterministic 6-Step Teardown Invariant)**：
+    1. **第一步：中断飞行中请求**。触发 `abortController.abort()`，毫秒级取消正在进行的所有分片拉取与嗅探 Fetch 连接；
+    2. **第二步：触发解封装器卸载钩子**。顺序执行 `teardownHooks`，安全调用 `hls.destroy()` 或 `mpegts.destroy()`；
+    3. **第三步：释放并解绑流源**。暂停视频并执行 `video.removeAttribute('src'); video.src = '';`；
+    4. **第四步：强制回收 GPU 显存缓冲**。显式调用 `video.load()`。在 Chromium/WebKit 渲染内核中，仅清空 `src` 无法立即通知硬件驱动释放解码缓冲区，调用 `load()` 会强制使底层 GPU 解码器将解码帧缓存、环形缓冲区与显存句柄立即释放归还操作系统，**彻底消除 24 小时监控大屏因频繁换台导致的浏览器显存爆炸闪退（OOM）**；
+    5. **第五步：注销所有受管定时器**。清空重连退避、防抖存储与轮询定时器；
+    6. **第六步：彻底销毁播放器实例**。调用 `artInstance.destroy(true)`，清空 DOM 容器现场，阻断闭包残留。
 
 ---
 
 ## 10. 完整 TypeScript 接口/Props/CSS 变量速查清单 (全量速查附录字典)
 
-_(待工单 #273 系统交付：全量集中收录 Props、Emits、Slots、Ref 实例与 CSS Design Tokens 字典)_
+为便于开发者在生产开发中进行高频精确检索，本章集中梳理导出本包内 4 大公共组件的 Props、Emits、Slots、Ref 实例接口，以及 CSS Design Tokens 设计令牌规范。
+
+---
+
+### 10.1 组件 Props 完整参数字典
+
+#### 1. `<AtengVideoPlayer />` Props 字典
+
+| 参数名                     | 类型                                     | 默认值                             | 是否必填 | 业务描述与边界说明                                                             |
+| :------------------------- | :--------------------------------------- | :--------------------------------- | :------- | :----------------------------------------------------------------------------- |
+| `url`                      | `string`                                 | -                                  | **是**   | 媒体流播放地址（支持 MP4, WebM, HLS `.m3u8`, FLV 等）                          |
+| `type`                     | `VideoPlayerType`                        | `'auto'`                           | 否       | 媒体类型协议：`'auto' \| 'mp4' \| 'webm' \| 'ogg' \| 'hls' \| 'flv' \| 'm3u8'` |
+| `poster`                   | `string`                                 | -                                  | 否       | 视频封面海报图地址                                                             |
+| `title`                    | `string`                                 | -                                  | 否       | 视频顶部标题文案                                                               |
+| `autoplay`                 | `boolean`                                | `false`                            | 否       | 是否自动播放（若遇浏览器自动播放策略限制会自动静音启动）                       |
+| `muted`                    | `boolean`                                | `false`                            | 否       | 是否静音播放                                                                   |
+| `loop`                     | `boolean`                                | `false`                            | 否       | 是否循环播放                                                                   |
+| `volume`                   | `number`                                 | `0.7`                              | 否       | 初始音量档位（`0.0 ~ 1.0`）                                                    |
+| `playbackRates`            | `number[]`                               | `[0.5, 0.75, 1.0, 1.25, 1.5, 2.0]` | 否       | 可选倍速播放档位列表                                                           |
+| `pip`                      | `boolean`                                | `true`                             | 否       | 是否开启画中画 (Picture-in-Picture) 控制入口                                   |
+| `fullscreen`               | `boolean`                                | `true`                             | 否       | 是否开启原生全屏按钮（采用外层容器全屏穿透）                                   |
+| `fullscreenWeb`            | `boolean`                                | `true`                             | 否       | 是否开启网页全屏按钮                                                           |
+| `miniProgressBar`          | `boolean`                                | `true`                             | 否       | 是否在控制栏自动隐藏时常驻底部极简微型进度条                                   |
+| `theme`                    | `string`                                 | `'#409EFF'`                        | 否       | 播放器主题高亮颜色（进度条、音量条高亮色）                                     |
+| `hotkey`                   | `boolean`                                | `true`                             | 否       | 是否启用键盘全局快捷键（空格、方向键、F、M、`[`、`]` 等）                      |
+| `screenshot`               | `boolean`                                | `true`                             | 否       | 是否展示截图抓拍按钮（输出 Base64 数据）                                       |
+| `isLive`                   | `boolean`                                | `false`                            | 否       | 是否为直播流（直播态自动隐藏点播进度条并显示实时直播标记）                     |
+| `liveBufferLatencyChasing` | `boolean`                                | `true`                             | 否       | 是否开启直播低延迟追帧（缓冲堆积超阈值时平滑加速追赶）                         |
+| `chaseThreshold`           | `number`                                 | `3`                                | 否       | 直播追帧触发阈值（秒）                                                         |
+| `reconnect`                | `boolean \| StreamReconnectOptions`      | `true`                             | 否       | 断流自动重连配置（支持指数退避与 $\pm 20\%$ Jitter 随机抖动）                  |
+| `auth`                     | `boolean`                                | `true`                             | 否       | 是否通过 `TokenInjector` 自动注入当前系统的鉴权凭据                            |
+| `probeStream`              | `boolean`                                | `false`                            | 否       | 是否在播放前进行 ADR-0004 Blob-JSON 双态安全嗅探                               |
+| `quality`                  | `VideoQualityItem[]`                     | `[]`                               | 否       | 多清晰度画质列表（支持 1080P/720P/480P 无缝切换）                              |
+| `markers`                  | `VideoMarkerItem[]`                      | `[]`                               | 否       | 时间轴事件打点与关键帧标记列表                                                 |
+| `thumbnails`               | `VideoThumbnailOptions`                  | -                                  | 否       | 进度条 Hover 缩略图悬浮预览配置（雪碧图切片）                                  |
+| `autoResume`               | `boolean \| VideoPlaybackHistoryOptions` | `false`                            | 否       | 本地播放历史记忆续播配置（带防抖存储与首尾防误恢复）                           |
+| `autoPlayResume`           | `boolean`                                | `false`                            | 否       | 恢复历史进度后是否自动开始播放                                                 |
+| `subtitles`                | `VideoSubtitleItem[]`                    | `[]`                               | 否       | 多轨外挂字幕列表（支持 WebVTT 与 SRT）                                         |
+| `defaultSubtitle`          | `string`                                 | -                                  | 否       | 默认选中的字幕轨道 ID 或语言代码                                               |
+| `subtitleStyle`            | `VideoSubtitleStyle`                     | -                                  | 否       | 外挂字幕样式配置（字号、颜色、背景、边框）                                     |
+| `plugins`                  | `Array<(art: unknown) => unknown>`       | `[]`                               | 否       | 注入的扩展插件函数列表（如弹幕插件 `createDanmakuPlugin`）                     |
+
+#### 2. `<AtengVideoGrid />` Props 字典
+
+| 参数名           | 类型                       | 默认值      | 是否必填 | 业务描述与边界说明                                                 |
+| :--------------- | :------------------------- | :---------- | :------- | :----------------------------------------------------------------- |
+| `channels`       | `VideoGridChannel[]`       | `[]`        | **是**   | 监控机位通道列表（包含主码流 `url` 与次码流 `subUrl`）             |
+| `layout`         | `VideoGridLayout`          | `'2x2'`     | 否       | 分屏布局模式：`'1x1' \| '2x2' \| '3x3' \| '4x4' \| '1+5' \| '1+7'` |
+| `activeId`       | `string \| number \| null` | `null`      | 否       | 当前聚焦选中的通道 ID（支持高亮外光晕与音频独占）                  |
+| `autoSubStream`  | `boolean`                  | `true`      | 否       | 是否开启主次码流自适应（多路宫格拉次码流，独占放大拉主码流）       |
+| `audioExclusive` | `boolean`                  | `true`      | 否       | 是否开启多路音频互斥发声（仅当前选中路出声，其余强制静音）         |
+| `themeColor`     | `string`                   | `'#38bdf8'` | 否       | 选路聚焦时的高亮主题颜色                                           |
+| `gap`            | `number`                   | `4`         | 否       | 网格单元间隙尺寸（像素）                                           |
+| `autoplay`       | `boolean`                  | `true`      | 否       | 是否在通道初始化时静音自动播放（符合安防物联规范）                 |
+
+#### 3. `<AtengPtzControl />` Props 字典
+
+| 参数名        | 类型              | 默认值      | 是否必填 | 业务描述与边界说明                                       |
+| :------------ | :---------------- | :---------- | :------- | :------------------------------------------------------- |
+| `speed`       | `number`          | `5`         | 否       | 当前云台调速档位（支持 `v-model:speed` 双向绑定）        |
+| `minSpeed`    | `number`          | `1`         | 否       | 最小调速档位                                             |
+| `maxSpeed`    | `number`          | `10`        | 否       | 最大调速档位                                             |
+| `presets`     | `PtzPresetItem[]` | `[]`        | 否       | 预置位列表清单（编号与标题名称）                         |
+| `disabled`    | `boolean`         | `false`     | 否       | 是否整体禁用云台控制盘                                   |
+| `showPresets` | `boolean`         | `true`      | 否       | 是否展示预置位管理与快捷调用面板                         |
+| `showSpeed`   | `boolean`         | `true`      | 否       | 是否展示调速滑块控制行                                   |
+| `showOptical` | `boolean`         | `true`      | 否       | 是否展示光学控制按键（变焦 Zoom、聚焦 Focus、光圈 Iris） |
+| `themeColor`  | `string`          | `'#38bdf8'` | 否       | 控制罗盘核心与高亮主题色                                 |
+
+#### 4. `<AtengVideoWatermark />` Props 字典
+
+| 参数名          | 类型                 | 默认值                     | 是否必填 | 业务描述与边界说明                           |
+| :-------------- | :------------------- | :------------------------- | :------- | :------------------------------------------- |
+| `content`       | `string \| string[]` | `['涉密视频', '严禁录屏']` | 否       | 水印文本内容（传入数组按多行垂直居中排布）   |
+| `fontSize`      | `number`             | `16`                       | 否       | 水印字体字号大小（像素）                     |
+| `fontFamily`    | `string`             | `'sans-serif'`             | 否       | 水印字体族名称                               |
+| `color`         | `string`             | `'#ffffff'`                | 否       | 水印文字颜色（十六进制或 CSS 颜色表达式）    |
+| `opacity`       | `number`             | `0.15`                     | 否       | 水印整体透明度（`0.0 ~ 1.0`）                |
+| `rotate`        | `number`             | `-22`                      | 否       | 水印倾斜旋转角度（度）                       |
+| `gapX`          | `number`             | `160`                      | 否       | 水印切片单元之间的水平间距（像素）           |
+| `gapY`          | `number`             | `120`                      | 否       | 水印切片单元之间的垂直间距（像素）           |
+| `tamperProof`   | `boolean`            | `true`                     | 否       | 是否开启 MutationObserver DOM 审查防篡改自愈 |
+| `floating`      | `boolean`            | `true`                     | 否       | 是否开启动态微位移随机浮动（对抗录屏反算法） |
+| `floatInterval` | `number`             | `3000`                     | 否       | 动态微位移刷新周期（毫秒）                   |
+| `floatDistance` | `number`             | `15`                       | 否       | 动态微位移随机漂移最大幅度（像素）           |
+| `zIndex`        | `number`             | `30`                       | 否       | 水印浮层的 CSS `z-index` 层级                |
+
+---
+
+### 10.2 组件 Emits 事件完整字典
+
+| 组件名                    | 事件名 (Kebab / Camel)                     | 回调载荷参数                            | 触发时机与业务含义                                 |
+| :------------------------ | :----------------------------------------- | :-------------------------------------- | :------------------------------------------------- |
+| `<AtengVideoPlayer />`    | `ready`                                    | `(engine: IVideoPlayerEngine)`          | 底层播放引擎初始化就绪                             |
+|                           | `play`                                     | -                                       | 视频开始播放                                       |
+|                           | `pause`                                    | -                                       | 视频暂停播放                                       |
+|                           | `timeupdate`                               | `(currentTime: number)`                 | 播放时间进度更新（秒）                             |
+|                           | `ended`                                    | -                                       | 视频播放到达末尾                                   |
+|                           | `error`                                    | `(error: unknown)`                      | 发生流媒体播放或鉴权异常                           |
+|                           | `fullscreen`                               | `(isFullscreen: boolean)`               | 原生全屏状态变化                                   |
+|                           | `fullscreenWeb`                            | `(isFullscreenWeb: boolean)`            | 网页全屏状态变化                                   |
+|                           | `resume`                                   | `(time: number)`                        | 成功从本地历史记忆进度续播                         |
+|                           | `marker-click` / `markerClick`             | `(marker: VideoMarkerItem)`             | 点击时间轴事件打点标记跳帧                         |
+|                           | `subtitle-change` / `subtitleChange`       | `(subtitle: VideoSubtitleItem \| null)` | 切换外挂字幕轨道                                   |
+| `<AtengVideoGrid />`      | `select` / `channel-select`                | `(channel: VideoGridChannel)`           | 单击某机位进行选路聚焦高亮                         |
+|                           | `channel-dblclick` / `channel-maximize`    | `(channel: VideoGridChannel)`           | 双击某机位切换平滑独占单画面放大                   |
+|                           | `restore` / `channel-restore`              | -                                       | 退出独占放大平滑恢复原有宫格                       |
+|                           | `layout-change` / `layoutChange`           | `(layout: VideoGridLayout)`             | 分屏网格布局模式发生切换                           |
+|                           | `tour-change`                              | `(isTouring: boolean)`                  | 自动轮巡调度器启停状态切换                         |
+| `<AtengPtzControl />`     | `command`                                  | `(cmd: PtzCommand)`                     | 派发语义化云台动作指令（转动、缩放、聚焦、预置位） |
+|                           | `speed-change` / `update:speed`            | `(speed: number)`                       | 云台步进调速档位变更                               |
+|                           | `preset-add`                               | `(preset: PtzPresetItem)`               | 新增保存当前机位为预置位                           |
+|                           | `preset-delete`                            | `(index: number)`                       | 删除指定编号的预置位                               |
+| `<AtengVideoWatermark />` | `watermark-tampered` / `watermarkTampered` | `(detail: WatermarkTamperDetail)`       | 捕获到 F12 恶意篡改样式或强行删除节点              |
+
+---
+
+### 10.3 组件 Slots 作用域插槽完整字典
+
+| 组件名                 | 插槽名称            | 插槽作用域参数 (`SlotProps`)                 | 业务定制场景与说明                                                           |
+| :--------------------- | :------------------ | :------------------------------------------- | :--------------------------------------------------------------------------- |
+| `<AtengVideoPlayer />` | `#watermark`        | -                                            | 安全防录屏水印专用挂载插槽（放置 `<AtengVideoWatermark />`）                 |
+|                        | `#subtitle`         | `{ activeSubtitle, activeCue, currentText }` | 自定义外挂字幕渲染浮层（接管双语对照与文字阴影样式）                         |
+|                        | `#reconnect-failed` | `{ retry }`                                  | 断流重试超过最大限制后的硬失败提示插槽（提供手动重连按钮）                   |
+|                        | `#error`            | `{ error, retry }`                           | ADR-0004 鉴权失效或流异常占位插槽（展示 `BusinessException` 错误与 traceId） |
+|                        | `#controls`         | `{ engine }`                                 | 自定义底部控制栏插槽（深度定制操作按键）                                     |
+| `<AtengVideoGrid />`   | `#channel-header`   | `{ channel, isActive, isMaximized }`         | 自定义每个分屏通道的顶部信息标头（如机位状态圆点、码流标签）                 |
+|                        | `#channel-overlay`  | `{ channel, isActive, isMaximized }`         | 通道画面上方的全功能覆盖层插槽                                               |
+|                        | `#channel-empty`    | `{ index }`                                  | 宫格容量大于通道池数量时的空画面占位插槽                                     |
+
+---
+
+### 10.4 组件 Ref 实例方法完整字典
+
+#### 1. `AtengVideoPlayerInstance` 实例方法
+
+```ts
+export type AtengVideoPlayerInstance = ComponentPublicInstance<
+  AtengVideoPlayerProps,
+  {
+    engine: IVideoPlayerEngine | null; // 底层引擎抽象句柄
+    play(): Promise<void>; // 开始播放
+    pause(): void; // 暂停播放
+    toggle(): void; // 切换播放/暂停
+    seek(time: number): void; // 精准快进/快退至指定时间秒数
+    step(seconds: number): void; // 相对步进（正数快进，负数快退）
+    stepFrame(frames?: number, fps?: number): void; // 逐帧精确微调步进（默认 1 帧，30 fps）
+    setVolume(vol: number): void; // 调节音量 (0.0 ~ 1.0)
+    setMuted(muted: boolean): void; // 设置静音状态
+    setPlaybackRate(rate: number): void; // 设置播放倍速
+    screenshot(): Promise<string>; // 截取当前帧画面并返回 Base64 图片
+    enterFullscreen(): void; // 容器穿透进入原生全屏
+    exitFullscreen(): void; // 退出原生全屏
+    toggleFullscreen(): void; // 切换原生全屏
+    enterWebFullscreen(): void; // 进入网页全屏
+    exitWebFullscreen(): void; // 退出网页全屏
+    toggleWebFullscreen(): void; // 切换网页全屏
+    destroy(): void; // 执行确定性六步销毁并回收 GPU 缓冲
+    retry(): void; // 重新加载当前流
+    clearPlaybackHistory(): void; // 清除当前视频本地播放历史
+    replay(): Promise<void>; // 从第 0 秒从头重新播放
+    switchSubtitle(id: string | null): Promise<void>; // 切换字幕轨道
+    toggleSubtitle(vis?: boolean): void; // 切换字幕显隐
+    setSubtitleStyle(st: Partial<VideoSubtitleStyle>): void; // 动态更新字幕样式
+    readonly activeSubtitle: VideoSubtitleItem | null; // 当前激活的字幕轨道
+    readonly currentSubtitleText: string; // 当前正在展示的字幕文本
+  }
+>;
+```
+
+#### 2. `AtengVideoGridInstance` 实例方法
+
+```ts
+export type AtengVideoGridInstance = ComponentPublicInstance<
+  VideoGridProps,
+  {
+    gridState: UseVideoGridReturn; // 内部响应式状态机门面
+    selectChannel(id: string | number): void; // 聚焦选中指定机位通道
+    toggleMaximize(id?: string | number): void; // 切换指定机位的平滑独占放大与还原
+    restoreGrid(): void; // 退出独占，平滑恢复原有分屏宫格视图
+    setLayout(layout: VideoGridLayout): void; // 切换分屏布局模式
+    startTour(options?: VideoGridTourOptions): void; // 启动大通道池自动轮巡调度器
+    stopTour(): void; // 停止自动轮巡调度器
+    nextTourPage(): void; // 手动切至下一批轮巡通道
+    prevTourPage(): void; // 手动切至上一批轮巡通道
+  }
+>;
+```
+
+#### 3. `AtengPtzControlInstance` 实例方法
+
+```ts
+export type AtengPtzControlInstance = ComponentPublicInstance<
+  PtzControlProps,
+  {
+    sendCommand(action: PtzAction, extra?: Partial<PtzCommand>): void; // 手动派发指定云台动作指令
+    setSpeed(speed: number): void; // 手动设定云台调速档位
+  }
+>;
+```
+
+#### 4. `AtengVideoWatermarkInstance` 实例方法
+
+```ts
+export type AtengVideoWatermarkInstance = ComponentPublicInstance<
+  VideoWatermarkProps,
+  {
+    refresh(): void; // 手动触发水印 Canvas/SVG 重新矢量绘制与平铺
+    destroy(): void; // 手动注销防篡改 MutationObserver 与微位移浮动时钟
+  }
+>;
+```
+
+---
+
+### 10.5 CSS Design Tokens 变量规范字典
+
+组件库基于统一的设计令牌体系进行样式隔离与主题定制，所有变量均提供默认保底值，业务系统可通过重写根变量实现风格统一：
+
+| CSS 变量名                | 默认值             | 作用域与适用组件      | 业务功能说明                                       |
+| :------------------------ | :----------------- | :-------------------- | :------------------------------------------------- |
+| `--at-video-player-bg`    | `#000000`          | `.at-video-player`    | 播放器底层视口背景底色                             |
+| `--at-video-player-theme` | `#409EFF`          | `.at-video-player`    | 播放器主色调（进度条高亮、音量滑块色）             |
+| `--at-grid-theme-color`   | `#38bdf8`          | `.at-video-grid`      | 分屏矩阵选中机位通道的高亮外光晕边框颜色           |
+| `--at-grid-gap`           | `4px`              | `.at-video-grid`      | 宫格单元间隙尺寸                                   |
+| `--at-ptz-theme`          | `#38bdf8`          | `.at-ptz-control`     | 云台八方向罗盘核心方向键与调速条主色调             |
+| `--at-watermark-z-index`  | `30`               | `.at-video-watermark` | 防录屏安全水印的层级（确保压在视频与普通浮层之上） |
+| `--at-subtitle-color`     | `#ffffff`          | `.at-video-subtitle`  | 外挂字幕默认文字颜色                               |
+| `--at-subtitle-bg`        | `rgba(0,0,0,0.65)` | `.at-video-subtitle`  | 外挂字幕背景半透明遮罩色                           |
+| `--at-subtitle-font-size` | `18px`             | `.at-video-subtitle`  | 外挂字幕基础字体大小                               |
 
 ---
 
