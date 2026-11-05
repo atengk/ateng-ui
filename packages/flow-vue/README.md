@@ -1036,13 +1036,675 @@ const handleFitAll = () => {
 
 ## 5. 元素属性配置抽屉与业务表单插槽接管 (AtengFlowPropertyPanel)
 
-_(待工单 #265 系统交付：通用元数据原生表单、#panel 具名插槽反转与 Element Plus 深度接管)_
+`AtengFlowPropertyPanel` 是专为流程设计器中图元（节点与连线）的属性查看与编辑打造的抽屉面板组件。在架构上，它遵循 L2 级专用套件纯原生、零第三方 UI 依赖原则（提供默认开箱即用的原生 HTML5 表单）；同时采用 100% 插槽控制反转（Slot Inversion）架构，通过 `#panel` 具名插槽支持业务层无缝使用 Element Plus 表单组件完整接管，支持审批人模式、会签规则、时效与流转条件表达式原地双向安全回写。
+
+---
+
+### 5.1 通用元数据原生配置面板与双向属性回写
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowElementData, FlowNode, FlowEdge } from '@atengk/flow-vue';
+
+/**
+ * 当前选中的图元（节点或连线）聚合数据契约。
+ */
+export interface FlowElementData {
+  /** 图元唯一标识 ID */
+  id: string;
+  /** 图元类型（如 'flow:user-task' 或 'polyline'） */
+  type: string;
+  /** 图元大类：'node' 为节点，'edge' 为连线 */
+  elementType: 'node' | 'edge';
+  /** 是否为节点图元 */
+  isNode: boolean;
+  /** 是否为连线图元 */
+  isEdge: boolean;
+  /** 文本标签显示内容 */
+  text?: string;
+  /** 业务扩展属性字典（审批人、会签、条件表达式等） */
+  properties: Record<string, unknown>;
+  /** 原始底层图元数据引用 */
+  raw?: FlowNode | FlowEdge;
+}
+
+/**
+ * AtengFlowPropertyPanel Props 契约。
+ */
+export interface AtengFlowPropertyPanelProps {
+  /** 当前选中的图元数据（为 null 时抽屉隐藏或展示空状态） */
+  element: FlowElementData | null;
+  /** 是否处于只读禁用状态 */
+  disabled?: boolean;
+  /** 自定义面板标题（未提供时按节点/连线自适应） */
+  title?: string;
+  /** 抽屉面板宽度（默认 '320px'） */
+  width?: string | number;
+}
+
+/**
+ * AtengFlowPropertyPanel Emits 契约。
+ */
+export interface AtengFlowPropertyPanelEmits {
+  /** 单个属性回写事件 */
+  (e: 'update:property', key: string, value: unknown): void;
+  /** 批量属性回写事件 */
+  (e: 'update:properties', patch: Record<string, unknown>): void;
+  /** 面板关闭事件 */
+  (e: 'close'): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码演示开箱即用的原生属性抽屉面板，与设计器选区联动并接收 `@element:update` 原地回写事件：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  DEFAULT_STENCIL_GROUPS,
+  type FlowGraph,
+  type FlowElementData,
+} from '@atengk/flow-vue';
+
+const graphData = ref<FlowGraph>({
+  nodes: [
+    {
+      id: 'task-leader',
+      type: 'flow:user-task',
+      x: 200,
+      y: 180,
+      text: '部门主管审批',
+      properties: { assignee: 'zhang_leader', dueHours: 24 },
+    },
+  ],
+  edges: [],
+});
+
+const currentSelected = ref<FlowElementData | null>(null);
+
+// 选区变更感知：点击图元自动唤起抽屉，点击空白区自动收起
+const handleSelectionChange = (element: FlowElementData | null) => {
+  currentSelected.value = element;
+};
+
+// 属性更新通知：监听抽屉内部回写的属性最新值
+const handleElementUpdate = (element: FlowElementData) => {
+  console.log(`图元 [${element.id}] 属性已原地同步:`, element.properties);
+};
+</script>
+
+<template>
+  <div class="designer-box" style="height: 560px;">
+    <!-- 内置原生 AtengFlowPropertyPanel，默认开启 show-panel -->
+    <AtengFlowDesigner
+      v-model="graphData"
+      :stencil-groups="DEFAULT_STENCIL_GROUPS"
+      :show-panel="true"
+      :panel-width="340"
+      @selection:change="handleSelectionChange"
+      @element:update="handleElementUpdate"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **纯原生无第三方依赖隔离机制**：
+  - 默认的原生属性抽屉完全使用标准 HTML5 表单元素（`<input>`, `<select>`, `<textarea>`）构建，无需安装或打包任何重型 UI 库；
+  - 样式全量收敛在 `.at-flow-property-panel` 独立命名空间下，严格使用 `--at-flow-*` CSS 变量（如 `--at-flow-panel-bg: #ffffff`），既保证极小体积，又保证开箱即用的规整质感。
+- **属性原地双向回写与历史栈协同**：
+  - 用户在输入框修改名称或业务字段时，内部触发 `updateProperty(key, val)`；
+  - 该方法直通底层 LogicFlow 模型的 `model.setProperties()` 与 `model.updateText()`，不仅在内存图谱中实现毫秒级原地同步，还会自动推入命令栈记录，支持通过 `Ctrl+Z` 随时撤销误修改。
+- **空白区域选区自动清理防御**：
+  - 用户点击画布空白处时派发 `@blank:click`，设计器内部自动置空 `currentSelected` 并收起右侧抽屉面板，杜绝因残留脏选中指针导致的表单数据篡改隐患。
+
+---
+
+### 5.2 #panel 具名插槽反转与 Element Plus 深度接管
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { LogicFlow, FlowGraph, FlowElementData } from '@atengk/flow-vue';
+
+/**
+ * 属性配置面板 #panel 插槽参数契约（控制反转 IoC 接口）。
+ */
+export interface FlowPanelSlotProps {
+  /** 当前选中的元素聚合数据 */
+  element: FlowElementData;
+  /** LogicFlow 画布底座实例 */
+  lf: LogicFlow | null;
+  /** 安全回写单个属性（自动同步模型并记录撤销历史） */
+  updateProperty: (key: string, value: unknown) => void;
+  /** 批量安全回写属性字典 */
+  updateProperties: (patch: Record<string, unknown>) => void;
+  /** 关闭当前抽屉面板方法 */
+  close: () => void;
+  /** 获取当前画布全量数据 */
+  getGraphData: () => FlowGraph;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`PropertyPanelSlotScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/PropertyPanelSlotScenario.vue)，演示**利用 Element Plus 表单组件完整接管属性抽屉**的工业级范式：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFlowDesigner, DEFAULT_STENCIL_GROUPS, type FlowGraph } from '@atengk/flow-vue';
+
+const graphData = ref<FlowGraph>({
+  nodes: [
+    {
+      id: 'task-leader',
+      type: 'flow:user-task',
+      x: 220,
+      y: 180,
+      text: '部门主管审批',
+      properties: {
+        assigneeType: 'user',
+        assignee: 'zhang_leader',
+        approvalMode: 'single',
+        dueHours: 24,
+      },
+    },
+    {
+      id: 'gateway-audit',
+      type: 'flow:exclusive-gateway',
+      x: 460,
+      y: 180,
+      text: '金额网关',
+      properties: { description: '超过限额分流' },
+    },
+  ],
+  edges: [
+    {
+      id: 'edge-1',
+      type: 'polyline',
+      sourceNodeId: 'task-leader',
+      targetNodeId: 'gateway-audit',
+      text: '金额 > 2万元',
+      properties: { condition: '${amount > 20000}', priority: 1 },
+    },
+  ],
+});
+</script>
+
+<template>
+  <div class="designer-wrapper" style="height: 600px;">
+    <AtengFlowDesigner
+      v-model="graphData"
+      :stencil-groups="DEFAULT_STENCIL_GROUPS"
+      :panel-width="360"
+    >
+      <!-- #panel 具名插槽反转：业务层使用 Element Plus 高级表单完全定制 -->
+      <template #panel="{ element, updateProperty, close }">
+        <div class="custom-panel-wrapper">
+          <div class="custom-panel-header">
+            <h4>{{ element.isNode ? '节点业务属性' : '连线流转条件' }}</h4>
+            <el-button link type="primary" size="small" @click="close">关闭</el-button>
+          </div>
+
+          <el-form label-position="top" size="small" class="custom-panel-form">
+            <el-form-item label="图元 ID">
+              <el-input :model-value="element.id" disabled />
+            </el-form-item>
+
+            <el-form-item label="显示名称">
+              <el-input
+                :model-value="element.text || ''"
+                placeholder="请输入图元显示名称"
+                @update:model-value="val => updateProperty('text', val)"
+              />
+            </el-form-item>
+
+            <!-- 节点专属属性：审批模式、办理人、会签机制与时效 -->
+            <template v-if="element.isNode">
+              <el-form-item label="审批人类型">
+                <el-select
+                  :model-value="element.properties?.assigneeType || 'user'"
+                  style="width: 100%"
+                  @update:model-value="val => updateProperty('assigneeType', val)"
+                >
+                  <el-option label="指定具体用户" value="user" />
+                  <el-option label="指定业务角色" value="role" />
+                  <el-option label="部门负责人" value="dept_head" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="审批办理人标识">
+                <el-input
+                  :model-value="element.properties?.assignee || ''"
+                  placeholder="如: zhang_leader 或 role:finance"
+                  @update:model-value="val => updateProperty('assignee', val)"
+                />
+              </el-form-item>
+
+              <el-form-item label="会签决策机制">
+                <el-radio-group
+                  :model-value="element.properties?.approvalMode || 'single'"
+                  @update:model-value="val => updateProperty('approvalMode', val)"
+                >
+                  <el-radio value="single">单人同意即通过</el-radio>
+                  <el-radio value="and">全员会签一致同意</el-radio>
+                </el-radio-group>
+              </el-form-item>
+
+              <el-form-item label="审批超时时效 (小时)">
+                <el-input-number
+                  :model-value="element.properties?.dueHours || 24"
+                  :min="1"
+                  :max="720"
+                  style="width: 100%"
+                  @update:model-value="val => updateProperty('dueHours', val)"
+                />
+              </el-form-item>
+            </template>
+
+            <!-- 连线专属属性：UEL / SpEL 条件表达式与分支优先级 -->
+            <template v-else>
+              <el-form-item label="流转条件表达式">
+                <el-input
+                  :model-value="element.properties?.condition || ''"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="如: ${amount > 20000}"
+                  @update:model-value="val => updateProperty('condition', val)"
+                />
+              </el-form-item>
+
+              <el-form-item label="分支计算优先级">
+                <el-input-number
+                  :model-value="element.properties?.priority || 1"
+                  :min="1"
+                  :max="99"
+                  style="width: 100%"
+                  @update:model-value="val => updateProperty('priority', val)"
+                />
+              </el-form-item>
+            </template>
+          </el-form>
+        </div>
+      </template>
+    </AtengFlowDesigner>
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **100% 插槽控制反转 (Inversion of Control)**：
+  - 设计器底层只负责提供抽屉外壳、宽度动画、响应式选区捕获与安全的属性回写函数，完全不写死任何具体业务字段；
+  - 业务层通过作用域插槽接收 `{ element, updateProperty, close }`，可在几分钟内组装出与企业业务系统 100% 契合的专属属性配置表单（如用户人员选择器、规则表达式构建器等）。
+- **无须保存按钮的即时回写体验**：
+  - 表单通过 `@update:model-value="val => updateProperty('field', val)"` 监听输入事件，无需用户每次修改都点击底部的“确定/保存”按钮，实现真正的“所改即所得”；
+  - 避免了用户切换选中节点时因忘记保存表单而导致属性丢失的常见交互陷阱。
 
 ---
 
 ## 6. 静态拓扑图论校验与 DAG 自动分层排版套件
 
-_(待工单 #265 系统交付：FlowValidator 5大图论规则、结构化诊断错误实体、AutoLayoutEngine 分层排版动画)_
+流程图在持久化入库、流转发布与运行执行前，必须经过严密的图论拓扑静态分析，防止出现悬空孤岛、网关条件缺失或无出口死循环；同时复杂流程在频繁手工拖拽后容易产生线条交织混乱，亟需确定性的 DAG 分层自动规整算法。`@atengk/flow-vue` 提供纯原生 TypeScript 实现的 `FlowValidator` 校验引擎与 `AutoLayoutEngine` 分层排版引擎。
+
+---
+
+### 6.1 FlowValidator 5 大图论规则校验与红色脉冲呼吸动效
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * 拓扑校验规则代号常量字典。
+ */
+export const FlowValidationRuleCode = {
+  /** 缺少开始节点 */
+  START_NODE_MISSING: 'START_NODE_MISSING',
+  /** 存在多个开始节点 */
+  START_NODE_MULTIPLE: 'START_NODE_MULTIPLE',
+  /** 缺少结束节点 */
+  END_NODE_MISSING: 'END_NODE_MISSING',
+  /** 开始节点存在非法入度连线 */
+  START_NODE_HAS_INCOMING: 'START_NODE_HAS_INCOMING',
+  /** 结束节点存在非法出度连线 */
+  END_NODE_HAS_OUTGOING: 'END_NODE_HAS_OUTGOING',
+  /** 节点缺少前驱入度 */
+  NODE_NO_INCOMING: 'NODE_NO_INCOMING',
+  /** 节点缺少后继出度 */
+  NODE_NO_OUTGOING: 'NODE_NO_OUTGOING',
+  /** 从开始节点不可达的孤岛节点 */
+  NODE_UNREACHABLE_FROM_START: 'NODE_UNREACHABLE_FROM_START',
+  /** 排他网关分支数不足（< 2） */
+  GATEWAY_BRANCH_INSUFFICIENT: 'GATEWAY_BRANCH_INSUFFICIENT',
+  /** 排他网关分支未配置条件且未标记为默认流 */
+  GATEWAY_BRANCH_NO_CONDITION: 'GATEWAY_BRANCH_NO_CONDITION',
+  /** 无出口死循环闭环死锁 */
+  DEADLOCK_CYCLE: 'DEADLOCK_CYCLE',
+  /** 悬空连线（源或目标节点不存在） */
+  DANGLING_EDGE: 'DANGLING_EDGE',
+  /** 自环连线（源与目标节点相同） */
+  SELF_LOOP_EDGE: 'SELF_LOOP_EDGE',
+} as const;
+
+/**
+ * 红色脉冲呼吸发光动效 CSS 规则（内置于 @atengk/flow-vue 样式中）。
+ */
+/*
+@keyframes at-flow-pulse-error {
+  0% {
+    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.9));
+  }
+  100% {
+    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
+  }
+}
+.at-flow-node--error {
+  animation: at-flow-pulse-error 1.5s infinite ease-in-out;
+}
+*/
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`ValidatorLayoutScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/ValidatorLayoutScenario.vue)，演示**一键静态拓扑校验与异常图元红色脉冲高亮**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  FlowValidator,
+  type FlowGraph,
+  type FlowValidationResult,
+  type AtengFlowDesignerInstance,
+} from '@atengk/flow-vue';
+
+const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+
+// 异常图谱示例：包含孤岛无前驱节点与未配置条件的排他网关
+const graphData = ref<FlowGraph>({
+  nodes: [
+    { id: 'start-1', type: 'flow:start', x: 100, y: 180, text: '开始' },
+    { id: 'gateway-1', type: 'flow:exclusive-gateway', x: 280, y: 180, text: '决策网关' },
+    { id: 'task-a', type: 'flow:user-task', x: 460, y: 100, text: '分支 A' },
+    { id: 'task-b', type: 'flow:user-task', x: 460, y: 260, text: '分支 B' },
+    { id: 'task-ghost', type: 'flow:user-task', x: 280, y: 340, text: '孤岛悬浮节点' },
+  ],
+  edges: [
+    { id: 'e1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'gateway-1' },
+    { id: 'e2', type: 'polyline', sourceNodeId: 'gateway-1', targetNodeId: 'task-a' }, // 缺少条件
+    { id: 'e3', type: 'polyline', sourceNodeId: 'gateway-1', targetNodeId: 'task-b' }, // 缺少条件
+  ],
+});
+
+const validationResult = ref<FlowValidationResult | null>(null);
+
+// 运行拓扑静态校验
+const handleRunValidate = () => {
+  // 1. 调用设计器内置方法清除所有旧的错误高亮
+  designerRef.value?.clearValidationHighlight();
+
+  // 2. 调用 FlowValidator 纯原生校验器
+  const res = FlowValidator.validate(graphData.value);
+  validationResult.value = res;
+
+  // 3. 校验未通过时，为涉事节点自动挂载红色脉冲呼吸动效
+  if (!res.valid && designerRef.value) {
+    designerRef.value.highlightErrors(res.errors);
+  }
+};
+</script>
+
+<template>
+  <div class="validator-box">
+    <div class="toolbar">
+      <el-button type="danger" size="small" @click="handleRunValidate">
+        🛡️ 执行图论静态校验
+      </el-button>
+      <span v-if="validationResult" class="stat">
+        {{
+          validationResult.valid
+            ? '✅ 流程拓扑完全合规'
+            : `⚠️ 发现 ${validationResult.errors.length} 项图论缺陷`
+        }}
+      </span>
+    </div>
+
+    <AtengFlowDesigner ref="designerRef" v-model="graphData" />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **5 大刚性图论规则算法体系**：
+  1. **起止节点存在性与唯一性**：强制校验全图有且仅有 1 个开始节点，至少有 1 个结束节点，且开始节点禁止有入度（`START_NODE_HAS_INCOMING`）、结束节点禁止有出度（`END_NODE_HAS_OUTGOING`）；
+  2. **节点度数与连通孤岛检测**：利用 BFS/DFS 构建从开始节点出发的图连通集合，任何未被遍历到的孤立节点精准捕获为 `NODE_UNREACHABLE_FROM_START`，非起止节点的悬空图元捕获为 `NODE_NO_INCOMING` 或 `NODE_NO_OUTGOING`；
+  3. **排他网关分支与条件完整性**：排他网关的出度连线必须 $\ge 2$ 条分支（`GATEWAY_BRANCH_INSUFFICIENT`），且分支连线必须显式绑定 `properties.condition` 表达式或声明为默认流（`GATEWAY_BRANCH_NO_CONDITION`），防止工作流引擎运行时产生“路由悬空崩溃”；
+  4. **无出口死循环检测 (Deadlock Cycle)**：采用逆向反向图（Reverse Graph）可达性检测算法，准确识别由条件环路构成、但整个环路内没有任何一条通往结束节点的出口死循环；
+  5. **连线图元防呆**：捕获悬空边（`DANGLING_EDGE`）与自环连线（`SELF_LOOP_EDGE`）。
+- **视觉自愈与红色脉冲动效机制**：
+  - 发生图论违规时，涉事节点的 SVG 外层容器自动追加 `.at-flow-node--error` 类名；
+  - CSS `@keyframes at-flow-pulse-error` 驱动 SVG `filter: drop-shadow` 发光半径在 2px 至 10px 之间平滑呼吸，形成刺眼且明确的告警视觉反馈，让用户一秒锁定问题所在。
+
+---
+
+### 6.2 结构化诊断错误实体与异常图元视口居中聚焦
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+/**
+ * 校验诊断错误项实体契约。
+ */
+export interface FlowValidationError {
+  /** 错误级别：'error' 阻断发布/保存；'warning' 预警建议 */
+  level: 'error' | 'warning';
+  /** 规则代号（如 'NODE_UNREACHABLE_FROM_START'） */
+  code: string;
+  /** 人类可读的详细中文诊断描述 */
+  message: string;
+  /** 产生该校验异常的关联节点 ID 列表（用于画布联动高亮与定位） */
+  nodeIds?: string[];
+  /** 产生该校验异常的关联连线 ID 列表 */
+  edgeIds?: string[];
+}
+
+/**
+ * 拓扑校验结果实体契约。
+ */
+export interface FlowValidationResult {
+  /** 拓扑是否完全合法（当且仅当无 level: 'error' 时为 true） */
+  valid: boolean;
+  /** 错误与警告总清单 */
+  errors: FlowValidationError[];
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  type FlowGraph,
+  type FlowValidationError,
+  type AtengFlowDesignerInstance,
+} from '@atengk/flow-vue';
+
+const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+const graphData = ref<FlowGraph>({ nodes: [], edges: [] });
+const errorList = ref<FlowValidationError[]>([]);
+const isDrawerVisible = ref<boolean>(false);
+
+// 点击诊断报告中的错误项，视口平滑聚焦居中至错误节点
+const handleFocusError = (err: FlowValidationError) => {
+  if (err.nodeIds && err.nodeIds.length > 0) {
+    const targetNodeId = err.nodeIds[0];
+    designerRef.value?.focusElement(targetNodeId);
+  }
+};
+</script>
+
+<template>
+  <div class="validator-layout">
+    <AtengFlowDesigner ref="designerRef" v-model="graphData" />
+
+    <!-- 结构化诊断报告抽屉 -->
+    <el-drawer v-model="isDrawerVisible" title="流程拓扑诊断报告" size="380px">
+      <div v-for="(err, index) in errorList" :key="index" class="error-item">
+        <el-alert
+          :title="err.code"
+          :description="err.message"
+          :type="err.level === 'error' ? 'error' : 'warning'"
+          :closable="false"
+          show-icon
+        />
+        <div v-if="err.nodeIds?.length" class="btn-wrap">
+          <el-button size="small" type="primary" plain @click="handleFocusError(err)">
+            🎯 定位至涉事节点 [{{ err.nodeIds[0] }}]
+          </el-button>
+        </div>
+      </div>
+    </el-drawer>
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **结构化严重级别与发布阻断**：
+  - 错误分为 `level: 'error'`（硬性阻断）与 `level: 'warning'`（非致命建议，如网关仅配置 1 条连线）；
+  - `valid` 布尔属性仅在 `errors` 中不存在任何 `error` 级别条目时才为 `true`，业务系统可直接在“保存/发布”按钮前置守卫中调用 `if (!res.valid) return`，阻止脏流程发布入库。
+- **关联节点多主键穿透与视口居中**：
+  - 每个诊断实体包含精确的 `nodeIds` 与 `edgeIds` 数组；例如死循环闭环会同时携带环内的所有涉事节点 ID；
+  - 配合 `designerRef.value?.focusElement(nodeId)`，视口通过平移动画自动将摄像机镜头对准出错节点，在大型复杂流程中免去业务人员大海捞针的痛苦。
+
+---
+
+### 6.3 AutoLayoutEngine DAG 自动分层排版与缓动动画
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type LogicFlow from '@logicflow/core';
+import type { FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * 自动排版流动方向：'LR' 为从左到右水平流动，'TB' 为从上到下垂直流动。
+ */
+export type LayoutDirection = 'LR' | 'TB';
+
+/**
+ * AutoLayoutEngine 排版配置选项。
+ */
+export interface AutoLayoutOptions {
+  /** 排版流动方向（默认 'LR'） */
+  direction?: LayoutDirection;
+  /** 同层级（兄弟节点）之间的间距像素（默认 110） */
+  nodeSep?: number;
+  /** 跨层级（父子节点）之间的间距像素（默认 200） */
+  rankSep?: number;
+  /** 根节点的起始 X 坐标（默认 120） */
+  startX?: number;
+  /** 根节点的起始 Y 坐标（默认 200） */
+  startY?: number;
+}
+
+/**
+ * AutoLayoutEngine 核心静态门面。
+ */
+export declare class AutoLayoutEngine {
+  /**
+   * 纯函数：对 FlowGraph 执行 DAG 分层排版，返回规整后的全新 FlowGraph 副本。
+   */
+  static layout(graph: FlowGraph, options?: AutoLayoutOptions): FlowGraph;
+  /**
+   * 动画门面：驱动 LogicFlow 画布中的节点平滑缓动平移至排版目标坐标。
+   */
+  static animateLayout(
+    lf: LogicFlow,
+    graph: FlowGraph,
+    options?: AutoLayoutOptions & { duration?: number; onComplete?: () => void },
+  ): void;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  type FlowGraph,
+  type LayoutDirection,
+  type AtengFlowDesignerInstance,
+} from '@atengk/flow-vue';
+
+const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+const graphData = ref<FlowGraph>({ nodes: [], edges: [] });
+
+// 触发水平分层排版（从左向右流转）
+const handleLayoutLR = () => {
+  designerRef.value?.autoLayout('LR');
+};
+
+// 触发垂直分层排版（从上向下流转）
+const handleLayoutTB = () => {
+  designerRef.value?.autoLayout('TB');
+};
+
+// 排版完成通知
+const handleLayoutComplete = (data: { direction: LayoutDirection; graph: FlowGraph }) => {
+  console.log(`DAG 自动排版完成：流向 [${data.direction}], 节点数 ${data.graph.nodes.length}`);
+};
+</script>
+
+<template>
+  <div class="layout-container">
+    <div class="layout-actions">
+      <el-button type="primary" size="small" @click="handleLayoutLR">
+        ⚡ DAG 水平排版 (LR)
+      </el-button>
+      <el-button type="primary" plain size="small" @click="handleLayoutTB">
+        ⚡ DAG 垂直排版 (TB)
+      </el-button>
+    </div>
+
+    <AtengFlowDesigner
+      ref="designerRef"
+      v-model="graphData"
+      @layout:complete="handleLayoutComplete"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **DAG 分层拓扑排版算法机制**：
+  1. **邻接表构建与 DFS 破环**：基于深度优先搜索进行染色标记（0 未访问、1 访问中、2 已完成），在遇到反馈回边时临时破环，将含环图降级为严格的 DAG（有向无环图）；
+  2. **最长路径拓扑分层 (Rank Depth)**：从根节点（开始事件）出发，按照拓扑距离计算所有后继节点的最长路径深度，确保父子关系严格处于相邻层级；
+  3. **同层节点几何去重与居中**：在同一 Rank 内，根据节点初始坐标进行二次排序以减少交叉线，随后基于 `(index - (count - 1) / 2) * nodeSep` 进行对称居中偏移赋值；
+  4. **连线正交自适应重算**：排版过程中将所有边旧的折点与中间控制点（`pointsList`）清空，交由 LogicFlow 底座的正交避障算法重新计算曼哈顿路径，彻底消除线条相互穿插。
+- **纯函数与动画平滑过渡双模支持**：
+  - `AutoLayoutEngine.layout()` 为 100% 纯函数，入参深拷贝，绝不直接突变传入的图谱对象，适合在 Node.js 服务端、Web Worker 或无界面单元测试中纯计算；
+  - 设计器内部集成 `animateLayout()`，利用 `requestAnimationFrame` 在 250ms 内驱动所有图元平滑位移至目标点，杜绝生硬的画面闪变，带来极具质感的交互体验。
+
+---
 
 ---
 
