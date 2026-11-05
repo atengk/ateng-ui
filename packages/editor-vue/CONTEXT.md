@@ -71,3 +71,11 @@ _Avoid_: AiReviewModal, DiffViewer, ChangeConfirm
 **DocxPageLayout**:
 纳管 A4 物理纸张尺寸、纵横向方向、页边距、页眉页脚与动态页码的几何排版模型。
 _Avoid_: PageConfig, PrintLayout, PaperSetting
+
+**PageRuler**:
+贴合 A4 仿真纸张顶部的毫米级排版刻度标尺组件（`<AtengPageRuler />`），纯 SVG/CSS 绘制 cm/mm 刻度并标示左右页边距游标滑块。
+_Avoid_: ScaleBar, RulerWidget, MarginRuler, GridRuler
+
+**DocxExport**:
+纯前端将 ProseMirror JSON 文档树转译为标准 OpenXML Word (.docx) 二进制 Blob 并触发安全下载的导出驱动引擎。
+_Avoid_: WordConverter, DocxService, ExportHelper, FileSaver
