@@ -1710,34 +1710,1012 @@ const handleLayoutComplete = (data: { direction: LayoutDirection; graph: FlowGra
 
 ## 7. BPMN 2.0 工业标准协议双向转译套件 (BpmnAdapter)
 
-_(待工单 #266 系统交付：FlowGraph 导出标准 BPMN 2.0 XML、Flowable/Camunda 兼容、几何坐标保真还原)_
+在企业流程中心建设中，前端可视化编排所生成的图谱往往需要无缝接入成熟的开源工作流引擎（如 Flowable、Camunda 7/8、Activiti 等）执行物理运转。`BpmnAdapter` 纯原生 TypeScript 实现，提供 `FlowGraph` 内存图谱与工业级标准 **BPMN 2.0 XML** 规范的双向保真转译，保留图元类型映射、办理人 (`flowable:assignee` / `camunda:assignee`)、会签模式、UEL/SpEL 条件表达式与 `bpmndi:BPMNDiagram` 几何坐标体系。
+
+---
+
+### 7.1 FlowGraph 序列化为标准 BPMN 2.0 XML
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * BPMN 2.0 导出配置选项契约。
+ */
+export interface BpmnExportOptions {
+  /** 流程定义唯一标识 ID（默认 'Process_1'） */
+  processId?: string;
+  /** 流程定义可读中文名称（默认 '业务审批流程'） */
+  processName?: string;
+  /** 目标命名空间（默认 'http://bpmn.io/schema/bpmn'） */
+  targetNamespace?: string;
+}
+
+/**
+ * BpmnAdapter 协议转译门面。
+ */
+export declare class BpmnAdapter {
+  /**
+   * 将内存 FlowGraph 图谱序列化为符合 Flowable / Camunda 工业标准的 BPMN 2.0 XML 字符串。
+   */
+  static toBpmnXml(graph: FlowGraph, options?: BpmnExportOptions): string;
+  /**
+   * 解析标准 BPMN 2.0 XML 字符串，无损还原为 FlowGraph 内存数据模型。
+   */
+  static fromBpmnXml(xml: string): FlowGraph;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`BpmnAdapterScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/BpmnAdapterScenario.vue)，演示**企业差旅费用报销审批流程一键导出标准 BPMN 2.0 XML 并触发浏览器下载**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  FlowNodeType,
+  BpmnAdapter,
+  DEFAULT_STENCIL_GROUPS,
+  type FlowGraph,
+} from '@atengk/flow-vue';
+
+const processName = ref<string>('企业差旅费用报销标准审批流');
+
+// 真实业务模型：差旅费审批（开始 ➔ 部门审批 ➔ 金额网关 ➔ 总监终审 ➔ 结束）
+const graphData = ref<FlowGraph>({
+  nodes: [
+    {
+      id: 'start-1',
+      type: FlowNodeType.START,
+      x: 120,
+      y: 200,
+      text: '员工提交差旅申请',
+      properties: { initiator: 'apply_user' },
+    },
+    {
+      id: 'task-leader',
+      type: FlowNodeType.USER_TASK,
+      x: 320,
+      y: 200,
+      text: '直属领导审批',
+      properties: { assigneeType: 'user', assignee: 'leader_chen', approvalMode: 'single' },
+    },
+    {
+      id: 'gateway-budget',
+      type: FlowNodeType.EXCLUSIVE_GATEWAY,
+      x: 520,
+      y: 200,
+      text: '预算额度网关',
+    },
+    {
+      id: 'task-cfo',
+      type: FlowNodeType.USER_TASK,
+      x: 720,
+      y: 120,
+      text: '财务总监终审',
+      properties: { assigneeType: 'role', assignee: 'role:cfo', approvalMode: 'single' },
+    },
+    { id: 'end-1', type: FlowNodeType.END, x: 920, y: 200, text: '流程办结归档' },
+  ],
+  edges: [
+    {
+      id: 'flow-1',
+      type: 'polyline',
+      sourceNodeId: 'start-1',
+      targetNodeId: 'task-leader',
+      text: '提交',
+    },
+    {
+      id: 'flow-2',
+      type: 'polyline',
+      sourceNodeId: 'task-leader',
+      targetNodeId: 'gateway-budget',
+      text: '领导同意',
+    },
+    {
+      id: 'flow-3',
+      type: 'polyline',
+      sourceNodeId: 'gateway-budget',
+      targetNodeId: 'task-cfo',
+      text: '差旅费 ≥ 5,000 元',
+      properties: { condition: '${amount >= 5000}' },
+    },
+    {
+      id: 'flow-4',
+      type: 'polyline',
+      sourceNodeId: 'gateway-budget',
+      targetNodeId: 'end-1',
+      text: '差旅费 < 5,000 元',
+      properties: { condition: '${amount < 5000}' },
+    },
+    {
+      id: 'flow-5',
+      type: 'polyline',
+      sourceNodeId: 'task-cfo',
+      targetNodeId: 'end-1',
+      text: '总监批复通过',
+    },
+  ],
+});
+
+// 导出 BPMN 2.0 XML 并触发原生下载
+const handleDownloadBpmnXml = () => {
+  const xmlContent = BpmnAdapter.toBpmnXml(graphData.value, {
+    processId: 'Process_Expense_Reimbursement',
+    processName: processName.value,
+  });
+
+  const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${processName.value}.bpmn20.xml`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+
+<template>
+  <div class="bpmn-container">
+    <div class="toolbar">
+      <el-button type="primary" size="small" @click="handleDownloadBpmnXml">
+        📥 导出标准 BPMN 2.0 XML 文件
+      </el-button>
+    </div>
+    <AtengFlowDesigner v-model="graphData" :stencil-groups="DEFAULT_STENCIL_GROUPS" />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **工业级标准 XML 结构与命名空间对齐**：
+  - 导出产物完整包含标准 BPMN 2.0 根声明：
+    ```xml
+    <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                      xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                      xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                      xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                      xmlns:flowable="http://flowable.org/bpmn"
+                      targetNamespace="http://bpmn.io/schema/bpmn">
+    ```
+  - 严格映射标准图元标签：
+    - `FlowNodeType.START` (`flow:start`) ➔ `<bpmn:startEvent id="..." name="..." />`
+    - `FlowNodeType.USER_TASK` (`flow:user-task`) ➔ `<bpmn:userTask id="..." name="..." flowable:assignee="..." />`
+    - `FlowNodeType.SERVICE_TASK` (`flow:service-task`) ➔ `<bpmn:serviceTask id="..." name="..." />`
+    - `FlowNodeType.EXCLUSIVE_GATEWAY` (`flow:exclusive-gateway`) ➔ `<bpmn:exclusiveGateway id="..." name="..." />`
+    - `FlowNodeType.PARALLEL_GATEWAY` (`flow:parallel-gateway`) ➔ `<bpmn:parallelGateway id="..." name="..." />`
+    - `FlowNodeType.END` (`flow:end`) ➔ `<bpmn:endEvent id="..." name="..." />`
+- **连线条件表达式与 CDATA 安全封装**：
+  - 针对连线绑定的 UEL / SpEL 表达式（如 `${amount >= 5000}`），自动封装为标准 `<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[${amount >= 5000}]]></bpmn:conditionExpression>`；
+  - 彻底规避 XML 特殊字符（`&`, `<`, `>`, `"`, `'`）造成的语法解析崩溃与注入风险。
+- **BPMNDiagram 图元几何位置保真**：
+  - 自动在 `<bpmndi:BPMNDiagram>` 节点下为所有节点生成 `bpmndi:BPMNShape`，将 LogicFlow 中心坐标 $(x, y)$ 转换为 BPMN 标准左上角原点坐标：
+    $$\text{Bounds.x} = x - \frac{\text{width}}{2}, \quad \text{Bounds.y} = y - \frac{\text{height}}{2}$$
+  - 为所有连线生成 `bpmndi:BPMNEdge` 及由全部折点组成的 `di:waypoint` 坐标清单，确保导入主流工作流管理平台时图形位置 100% 精确对齐。
+
+---
+
+### 7.2 BPMN 2.0 XML 反序列化无损还原至画布
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * BpmnAdapter 反序列化方法签名。
+ *
+ * @param xml 符合 BPMN 2.0 标准规范的 XML 字符串
+ * @returns 还原后的内存全景图数据模型
+ */
+export function fromBpmnXml(xml: string): FlowGraph;
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengFlowDesigner, BpmnAdapter, type FlowGraph } from '@atengk/flow-vue';
+
+const graphData = ref<FlowGraph>({ nodes: [], edges: [] });
+const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// 触发本地文件上传选择框
+const handleSelectFile = () => {
+  fileInputRef.value?.click();
+};
+
+// 读取并解析外部 BPMN 2.0 XML 文件
+const handleFileChanged = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const xml = ev.target?.result as string;
+    if (xml) {
+      try {
+        // 反序列化导入：无损还原节点位置、连线拓扑与业务属性
+        const restoredGraph = BpmnAdapter.fromBpmnXml(xml);
+        graphData.value = restoredGraph;
+      } catch (err) {
+        alert(`BPMN 2.0 XML 文件解析失败: ${String(err)}`);
+      }
+    }
+  };
+  reader.readAsText(file);
+  target.value = '';
+};
+</script>
+
+<template>
+  <div class="import-wrapper">
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept=".xml,.bpmn,.bpmn20.xml"
+      style="display: none;"
+      @change="handleFileChanged"
+    />
+    <el-button size="small" @click="handleSelectFile">📂 导入本地 BPMN 2.0 文件</el-button>
+
+    <AtengFlowDesigner v-model="graphData" />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **DOMParser 原生极速解析机制**：
+  - 核心采用浏览器原生 `window.DOMParser` 解析 XML DOM，零依赖体积开销；
+  - 自动识别兼容标准前缀（`bpmn:`, `flowable:`, `camunda:`, 或无前缀原生标签），即使面对不同厂商工具导出的非标准方言亦具备卓越的鲁棒性。
+- **坐标自适应逆算与容错保底**：
+  - 扫描 `<bpmndi:BPMNPlane>` 中的 `<bpmndi:BPMNShape>`，将左上角坐标逆算回画布中心点坐标；
+  - 若外部 XML 缺少图形坐标信息（纯逻辑流程描述），内置容错保底机制自动赋予递增式阶梯坐标，并可通过一键调用 `autoLayout('LR')` 自动排版规整，绝不发生白屏崩溃。
 
 ---
 
 ## 8. 全景高清防虚快照与安全水印导出套件 (FlowSnapshot)
 
-_(待工单 #266 系统交付：最小外接边界自适应、2x/3x DPR 视网膜抗锯齿、矢量 SVG 与文本矩阵安全水印)_
+在企业业务场景中，设计完成的流程图经常需要打印归档、嵌入立项报批 PDF、在看板中预览或对外汇报；同时在银行、金融与安全涉密系统中，**防止敏感业务流程被截屏泄密**是刚性合规要求。`FlowSnapshot` 提供基于矢量 SVG 与离屏 Canvas 的工业级快照与安全水印导出能力。
+
+---
+
+### 8.1 最小外接边界自适应与 2x/3x DPR 视网膜抗锯齿
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * 最小外接边界盒契约。
+ */
+export interface FlowBoundingBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * FlowSnapshot 全景快照导出配置选项。
+ */
+export interface FlowSnapshotOptions {
+  /** 导出格式（默认 'png'） */
+  format?: 'png' | 'jpeg' | 'webp' | 'svg';
+  /** 设备像素比高清放大倍数（默认 2，支持 2x / 3x 视网膜清晰度） */
+  dpr?: number;
+  /** 图像四周留白边距（默认 40px） */
+  padding?: number;
+  /** 背景填充颜色（默认 '#ffffff'） */
+  background?: string;
+  /** 防泄密文本水印配置 */
+  watermark?: FlowWatermarkOptions;
+  /** 导出文件名（默认 'flow-snapshot'） */
+  filename?: string;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`SnapshotWatermarkScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/SnapshotWatermarkScenario.vue)，演示**全景高清快照生成与 Data URL 原位预览**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  FlowSnapshot,
+  type FlowGraph,
+  type AtengFlowDesignerInstance,
+} from '@atengk/flow-vue';
+
+const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+const graphData = ref<FlowGraph>({
+  nodes: [
+    { id: 'start-1', type: 'flow:start', x: 120, y: 180, text: '立项申报' },
+    { id: 'task-review', type: 'flow:user-task', x: 340, y: 180, text: '技术委员会评审' },
+    { id: 'end-1', type: 'flow:end', x: 560, y: 180, text: '立项办结' },
+  ],
+  edges: [
+    { id: 'e1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'task-review' },
+    { id: 'e2', type: 'polyline', sourceNodeId: 'task-review', targetNodeId: 'end-1' },
+  ],
+});
+
+const previewUrl = ref<string>('');
+
+// 生成 2x DPR 视网膜高清快照预览
+const handleGenerateSnapshot = async () => {
+  const lf = designerRef.value?.lf;
+  if (!lf) return;
+
+  const dataUrl = await FlowSnapshot.getSnapshot(lf, graphData.value, {
+    format: 'png',
+    dpr: 2, // 2倍物理视网膜采样，消除模糊发虚
+    padding: 40, // 四周留白 40px
+    background: '#ffffff',
+  });
+
+  previewUrl.value = dataUrl;
+};
+</script>
+
+<template>
+  <div class="snapshot-demo">
+    <div class="actions">
+      <el-button type="primary" size="small" @click="handleGenerateSnapshot">
+        📷 生成 2x 高清快照
+      </el-button>
+    </div>
+
+    <AtengFlowDesigner ref="designerRef" v-model="graphData" />
+
+    <div v-if="previewUrl" class="preview-box">
+      <h4>高清快照预览:</h4>
+      <img :src="previewUrl" alt="流程快照" style="max-width: 100%; border: 1px solid #e2e8f0;" />
+    </div>
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **最小外接矩形边界算法 (Bounding Box)**：
+  - 传统快照常常以当前视口尺寸截屏，导致流程图仅占视口一角且残留大量白边；
+  - `FlowSnapshot.computeBoundingBox` 递归扫描图谱所有节点的几何尺寸 $(x, y, w, h)$ 以及连线的所有中间折点坐标，计算极值：
+    $$\text{minX} = \min(x_i - w_i/2), \quad \text{maxX} = \max(x_i + w_i/2)$$
+  - 仅围绕真实图元构建带有内边距的紧凑视口，导出的图像规整自洽。
+- **离屏 Canvas 2x/3x DPR 栅格化抗锯齿**：
+  - 普通 Canvas `toDataURL` 在高清显示器或打印时会出现明显的毛刺和发虚；
+  - `FlowSnapshot` 在离屏 Canvas 中按照物理设备像素比放大绘图缓冲区（`canvas.width = box.width * dpr`），通过 Context 缩放与双线性插值采样，将 SVG 矢量栅格化为高解析度位图，文字边框如刀刻般锐利。
+
+---
+
+### 8.2 矢量 SVG 导出与倾斜防泄密文本矩阵水印
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+/**
+ * 防泄密安全文本水印配置契约。
+ */
+export interface FlowWatermarkOptions {
+  /** 水印文本内容（如 '内部机密 @张三 2026-11-05'） */
+  text: string;
+  /** 字体大小（默认 16px） */
+  fontSize?: number;
+  /** 水印颜色（默认 '#000000'） */
+  color?: string;
+  /** 水印透明度（0~1，默认 0.15） */
+  opacity?: number;
+  /** 旋转角度（默认 -25 度） */
+  rotate?: number;
+  /** 水平矩阵间距（默认 240px） */
+  gapX?: number;
+  /** 垂直矩阵间距（默认 160px） */
+  gapY?: number;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  FlowSnapshot,
+  type FlowGraph,
+  type AtengFlowDesignerInstance,
+} from '@atengk/flow-vue';
+
+const designerRef = ref<AtengFlowDesignerInstance | null>(null);
+const graphData = ref<FlowGraph>({ nodes: [], edges: [] });
+
+// 导出带倾斜防泄密安全水印的高清快照并自动下载
+const handleDownloadWithWatermark = async () => {
+  const lf = designerRef.value?.lf;
+  if (!lf) return;
+
+  await FlowSnapshot.download(lf, graphData.value, {
+    format: 'png',
+    dpr: 2,
+    filename: '审批流程合规归档图',
+    watermark: {
+      text: '内部机密流转 @张三 2026-11-05',
+      fontSize: 15,
+      color: 'rgba(150, 150, 150, 0.25)',
+      rotate: -25, // 倾斜 -25 度
+      gapX: 200, // 水平重复步长
+      gapY: 120, // 垂直重复步长
+    },
+  });
+};
+</script>
+
+<template>
+  <div class="watermark-demo">
+    <el-button type="success" size="small" @click="handleDownloadWithWatermark">
+      🛡️ 导出带防泄密矩阵水印快照
+    </el-button>
+    <AtengFlowDesigner ref="designerRef" v-model="graphData" />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **倾斜安全水印矩阵平铺算法**：
+  - 水印模块采用双层循环矩阵网格算法，从边界外扩 $\pm 100\text{px}$ 区域开始平铺；
+  - 通过 `ctx.save()`、`ctx.translate(x, y)`、`ctx.rotate(angle)`、`ctx.fillText(text)` 与 `ctx.restore()` 将带有旋转角度的水印文字无缝压印至像素底层；
+  - 即使使用者在外部通过截图工具局部截取，任意截图中均注定包含操作人姓名与时间戳，形成高压震慑。
+- **纯前端零服务端免依赖极速下载**：
+  - 全过程在浏览器端微秒级完成，不向服务端上传任何流程图结构或发起任何网络请求；
+  - 自动创建不可见的 `<a>` 标签并赋予临时 Object URL，下载触发后立即调用 `URL.revokeObjectURL` 确定性回收内存。
 
 ---
 
 ## 9. Vue 3 SFC 自定义卡片节点与业务扩展套件 (VueNodeRegistry)
 
-_(待工单 #266 系统交付：声明式注册 Vue SFC 节点、ApprovalCardNode 预设卡片、双向属性回写与动作回传)_
+在传统工作流设计器中，节点多为简陋的矩形或圆形，无法容纳复杂现代企业 UI（如办理人头像、角色徽标、审批进度百分比进度条、快捷操作按钮等）。`VueNodeRegistry` 打破底层引擎限制，让开发者能够**直接使用标准的 Vue 3 SFC 单文件组件注册为画布富图元**。
+
+---
+
+### 9.1 Vue 3 SFC 声明式桥接注册与生命周期闭环
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { Component, AppContext } from 'vue';
+import type LogicFlow from '@logicflow/core';
+import type { FlowNode, FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * 传递给自定义 Vue SFC 节点的 Props 契约。
+ */
+export interface FlowVueNodeProps {
+  /** 当前节点基础元数据（id, type, x, y, text, properties 等） */
+  node: FlowNode;
+  /** LogicFlow 画布底座实例 */
+  lf: LogicFlow;
+  /** 节点底层数据模型 */
+  model: unknown;
+  /** 全量图数据 */
+  graph?: FlowGraph;
+  /** 原地安全回写单个属性（自动同步并推入撤销重做栈） */
+  updateProperty: (key: string, value: unknown) => void;
+  /** 原地安全批量回写属性 */
+  updateProperties: (patch: Record<string, unknown>) => void;
+  /** 是否只读禁用 */
+  disabled?: boolean;
+}
+
+/**
+ * 声明式自定义 Vue 节点配置项。
+ */
+export interface CustomVueNodeConfig {
+  /** 图元类型唯一标识（如 'approval-card'） */
+  type: string;
+  /** Vue 3 SFC 组件定义 */
+  component: Component;
+  /** 节点选项配置（默认宽度、高度、锚点） */
+  options?: {
+    width?: number;
+    height?: number;
+    appContext?: AppContext;
+  };
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`VueNodeCustomScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/VueNodeCustomScenario.vue)，演示**在设计器中声明式配置注册自定义 Vue 3 SFC 卡片节点**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  ApprovalCardNode,
+  DEFAULT_STENCIL_GROUPS,
+  type FlowGraph,
+  type CustomVueNodeConfig,
+  type StencilGroup,
+} from '@atengk/flow-vue';
+
+// 1. 声明式注册自定义 Vue 3 SFC 节点
+const customVueNodes: CustomVueNodeConfig[] = [
+  {
+    type: 'approval-card',
+    component: ApprovalCardNode,
+    options: {
+      width: 220,
+      height: 126,
+    },
+  },
+];
+
+// 2. 将自定义卡片图元扩展至左侧物料面板
+const customStencilGroups: StencilGroup[] = [
+  ...DEFAULT_STENCIL_GROUPS,
+  {
+    id: 'custom-cards',
+    title: '⭐ 自定义业务卡片',
+    items: [
+      {
+        type: 'approval-card',
+        label: '审批业务卡片',
+        description: '带头像、状态胶囊、进度条与快捷动作的 Vue 3 SFC 卡片',
+        nodeConfig: {
+          text: '新审批任务',
+          properties: { assignee: '待分配人员', status: 'processing', progress: 30 },
+        },
+      },
+    ],
+  },
+];
+
+const graphData = ref<FlowGraph>({ nodes: [], edges: [] });
+</script>
+
+<template>
+  <div class="designer-box" style="height: 600px;">
+    <AtengFlowDesigner
+      v-model="graphData"
+      :custom-vue-nodes="customVueNodes"
+      :stencil-groups="customStencilGroups"
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **Vue 3 `createVNode` 与 `render` 虚拟树受管挂载**：
+  - 底层基于 LogicFlow 原生 `HtmlNode` 派生，重写 `setHtml(rootEl)` 钩子；
+  - 通过 Vue 3 原生 `createVNode(component, props)` 创建虚拟节点，并直接交付 `render(vnode, rootEl)` 挂载到图形引擎的 DOM 节点内；
+  - 享受 Vue 3 完整的响应性追踪、Scoped 样式隔离与模板编译优化，零运行时代价。
+- **确定性四步生命周期销毁与内存零泄漏不变量**：
+  - 传统 Vue 节点扩展最危险的缺陷是图元在被删除或画布被销毁时，Vue 内部实例未注销导致严重的内存悬挂；
+  - `VueNodeRegistry` 注册内部的清理钩子，在节点 `onDestroy` 以及设计器 `onUnmounted` 时，100% 执行 `render(null, rootEl)` 并清空 DOM 容器，杜绝任何幽灵组件与内存泄漏。
+
+---
+
+### 9.2 预设高颜值审批卡片图元与物料面板扩展
+
+#### 1. 契约与配置片段 (TypeScript Contracts)
+
+```typescript
+import type { FlowNode, LogicFlow, FlowGraph } from '@atengk/flow-vue';
+
+/**
+ * 预设高颜值审批卡片节点组件 Props 契约。
+ */
+export interface ApprovalCardNodeProps {
+  /** 节点元数据 */
+  node: FlowNode;
+  /** LogicFlow 画布底座实例 */
+  lf?: LogicFlow;
+  /** 节点底层数据模型 */
+  model?: unknown;
+  /** 全量图数据 */
+  graph?: FlowGraph;
+  /** 原地安全回写单个属性 */
+  updateProperty?: (key: string, value: unknown) => void;
+  /** 原地安全批量回写属性 */
+  updateProperties?: (patch: Record<string, unknown>) => void;
+  /** 是否只读禁用 */
+  disabled?: boolean;
+}
+```
+
+#### 2. 面向实战的业务 Vue 代码示例 (Business Practice)
+
+以下代码逆向提取自场景看板 [`VueNodeCustomScenario.vue`](file:///d:/My/dev/ateng-ui/apps/sample-flow-vue/src/scenarios/VueNodeCustomScenario.vue)，演示**法务合同联合会签流程实战（带卡片进度与快捷审批动作）**：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  AtengFlowDesigner,
+  ApprovalCardNode,
+  FlowNodeType,
+  type FlowGraph,
+  type CustomVueNodeConfig,
+} from '@atengk/flow-vue';
+
+const customVueNodes: CustomVueNodeConfig[] = [
+  { type: 'approval-card', component: ApprovalCardNode },
+];
+
+// 法务合同联合会签真实业务图谱
+const graphData = ref<FlowGraph>({
+  nodes: [
+    { id: 'start-1', type: FlowNodeType.START, x: 100, y: 200, text: '起草合同' },
+    {
+      id: 'card-tech',
+      type: 'approval-card',
+      x: 300,
+      y: 200,
+      text: '技术负责人审批',
+      properties: { assignee: '王经理 (研发部)', status: 'completed', progress: 100 },
+    },
+    {
+      id: 'card-legal',
+      type: 'approval-card',
+      x: 560,
+      y: 120,
+      text: '法务合规会签',
+      properties: { assignee: '李法务 (法务部)', status: 'processing', progress: 65 },
+    },
+    {
+      id: 'card-finance',
+      type: 'approval-card',
+      x: 560,
+      y: 280,
+      text: '财务预算复核',
+      properties: { assignee: '张会计 (财务部)', status: 'pending', progress: 0 },
+    },
+    { id: 'end-1', type: FlowNodeType.END, x: 820, y: 200, text: '签章归档' },
+  ],
+  edges: [
+    { id: 'e1', type: 'polyline', sourceNodeId: 'start-1', targetNodeId: 'card-tech' },
+    { id: 'e2', type: 'polyline', sourceNodeId: 'card-tech', targetNodeId: 'card-legal' },
+    { id: 'e3', type: 'polyline', sourceNodeId: 'card-tech', targetNodeId: 'card-finance' },
+    { id: 'e4', type: 'polyline', sourceNodeId: 'card-legal', targetNodeId: 'end-1' },
+    { id: 'e5', type: 'polyline', sourceNodeId: 'card-finance', targetNodeId: 'end-1' },
+  ],
+});
+</script>
+
+<template>
+  <div class="card-flow-demo" style="height: 600px;">
+    <AtengFlowDesigner v-model="graphData" :custom-vue-nodes="customVueNodes" />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与生产边界防御说明 (Mechanism & Production Guard)
+
+- **卡片内快捷操作与属性原地双向回写**：
+  - `ApprovalCardNode` 内置头像缩写提取、四态指示胶囊（已通过 / 审批中 / 待处理 / 已驳回）与进度条（0~100%）；
+  - 卡片内部按钮调用 `updateProperty('status', 'approved')` 与 `updateProperty('progress', 100)`，数据原地同步至设计器响应式状态，同时自动推入 LogicFlow 历史撤销栈，实现极佳交互体验。
+- **独立命名空间与样式隔离防线**：
+  - 卡片样式全部收敛在 `.at-flow-approval-card` 独立命名空间下，并严格开启 `<style scoped>`；
+  - 零外部第三方 UI 组件库强依赖，确保即使在极简无 UI 库应用中引入亦能完美渲染。
 
 ---
 
 ## 10. 完整 TypeScript 接口/Props/CSS 变量速查清单 (全量速查附录字典)
 
-_(待工单 #266 系统交付：全量集中速查字典与 --at-flow-_ Design Tokens 规范)*
+本附录作为全量子包公开导出的类型、接口、配置契约与 CSS 变量的权威字典，供研发人员集中检索。
+
+---
+
+### 10.1 核心组件 Props / Emits / Slots / Expose 字典
+
+#### 1. `<AtengFlowDesigner />` 流程编排设计器
+
+- **Props 契约**：
+
+  | 属性名           | 类型定义                | 默认值                   | 说明                                                             |
+  | :--------------- | :---------------------- | :----------------------- | :--------------------------------------------------------------- |
+  | `modelValue`     | `FlowGraph`             | `undefined`              | 流程图全景双向绑定数据模型（包含 nodes 与 edges）                |
+  | `options`        | `FlowOptions`           | `undefined`              | LogicFlow 底层原始配置参数                                       |
+  | `stencilGroups`  | `StencilGroup[]`        | `DEFAULT_STENCIL_GROUPS` | 物料侧边栏分组图元配置列表                                       |
+  | `beforeConnect`  | `BeforeConnectHook`     | `undefined`              | 连线前置守卫拦截钩子函数（返回 false 阻断连线）                  |
+  | `width`          | `string \| number`      | `'100%'`                 | 容器物理宽度                                                     |
+  | `height`         | `string \| number`      | `'100%'`                 | 容器物理高度                                                     |
+  | `disabled`       | `boolean`               | `false`                  | 是否处于设计禁用（只读）状态                                     |
+  | `customVueNodes` | `CustomVueNodeConfig[]` | `undefined`              | 声明式自定义 Vue 3 SFC 节点配置列表                              |
+  | `showToolbar`    | `boolean`               | `true`                   | 是否启用顶部控制工具栏                                           |
+  | `enableKeyboard` | `boolean`               | `true`                   | 是否启用全局键盘快捷键体系（Delete/Ctrl+Z/Ctrl+Y/Ctrl+C/Ctrl+V） |
+  | `showPanel`      | `boolean`               | `true`                   | 是否启用右侧图元属性配置抽屉                                     |
+  | `panelWidth`     | `string \| number`      | `'320px'`                | 右侧属性配置抽屉宽度                                             |
+
+- **Emits 契约**：
+
+  | 事件名                   | 载荷参数                                                   | 触发时机                                      |
+  | :----------------------- | :--------------------------------------------------------- | :-------------------------------------------- |
+  | `update:modelValue`      | `(value: FlowGraph)`                                       | 流程图数据模型发生变化时双向同步              |
+  | `change`                 | `(value: FlowGraph)`                                       | 画布图元发生移动、添加、删除或修改时派发      |
+  | `ready`                  | `(lf: LogicFlow)`                                          | LogicFlow 引擎实例完成初始化加载时派发        |
+  | `node:click`             | `(node: FlowNode, event: MouseEvent)`                      | 单击节点图元时派发                            |
+  | `edge:click`             | `(edge: FlowEdge, event: MouseEvent)`                      | 单击连线图元时派发                            |
+  | `blank:click`            | `(event: MouseEvent)`                                      | 单击画布空白背景区域时派发（默认清除选中态）  |
+  | `connection:not-allowed` | `(data: unknown)`                                          | 连线被 beforeConnect 守卫或图论规则拦截时派发 |
+  | `selection:change`       | `(element: FlowElementData \| null)`                       | 选区发生变化时派发，取消选中时为 null         |
+  | `element:update`         | `(element: FlowElementData)`                               | 图元业务属性被原地安全回写后派发              |
+  | `layout:complete`        | `(data: { direction: LayoutDirection; graph: FlowGraph })` | DAG 自动分层排版完成时派发                    |
+  | `validate`               | `(result: FlowValidationResult)`                           | 执行拓扑静态校验完成时派发                    |
+
+- **Slots 契约**：
+
+  | 插槽名     | 作用域参数                                                                                                                               | 说明                                                  |
+  | :--------- | :--------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+  | `#toolbar` | `{ lf, canUndo, canRedo, zoomIn, zoomOut, resetZoom, fitView, undo, redo, clear, autoLayout, toggleGrid, toggleMiniMap, validate, ... }` | 顶部控制工具栏具名插槽反转                            |
+  | `#stencil` | `{ lf, groups, startDrag }`                                                                                                              | 左侧物料面板具名插槽反转                              |
+  | `#panel`   | `FlowPanelSlotProps` (`{ element, lf, updateProperty, updateProperties, close, getGraphData }`)                                          | 右侧属性配置抽屉具名插槽反转（Element Plus 深度接管） |
+
+- **Expose 门面方法**：
+  | 方法名                     | 签名                                               | 说明                                      |
+  | :------------------------- | :------------------------------------------------- | :---------------------------------------- |
+  | `getLf`                    | `() => LogicFlow \| null`                          | 获取底层 LogicFlow 引擎原生实例引用       |
+  | `getGraphData`             | `() => FlowGraph`                                  | 获取当前画布全量数据快照                  |
+  | `render`                   | `(graph?: FlowGraph) => void`                      | 强制重新渲染指定的图谱数据                |
+  | `clear`                    | `() => void`                                       | 清空画布上所有节点与连线                  |
+  | `zoomIn` / `zoomOut`       | `() => void`                                       | 视口放大 / 缩小                           |
+  | `resetZoom`                | `() => void`                                       | 还原 1:1 视口缩放比例                     |
+  | `fitView`                  | `(vPad?: number, hPad?: number) => void`           | 视口自适应居中对齐                        |
+  | `undo` / `redo`            | `() => void`                                       | 撤销 / 重做上一步操作                     |
+  | `autoLayout`               | `(direction?: LayoutDirection) => void`            | 执行 DAG 自动分层规整排版（'LR' \| 'TB'） |
+  | `toggleGrid`               | `(visible?: boolean) => void`                      | 切换背景辅助网格显隐                      |
+  | `toggleMiniMap`            | `(visible?: boolean) => void`                      | 切换鹰眼小地图显隐                        |
+  | `validate`                 | `() => FlowValidationResult`                       | 运行静态图论校验并自动高亮违规节点        |
+  | `clearValidationHighlight` | `() => void`                                       | 清除画布中所有红色脉冲错误高亮状态        |
+  | `focusElement`             | `(id: string) => void`                             | 平移视口并居中高亮选中指定图元            |
+  | `exportBpmnXml`            | `(options?: BpmnExportOptions) => string`          | 将当前画布导出为标准 BPMN 2.0 XML 字符串  |
+  | `importBpmnXml`            | `(xml: string) => FlowGraph`                       | 解析 BPMN 2.0 XML 并载入画布              |
+  | `downloadSnapshot`         | `(options?: FlowSnapshotOptions) => Promise<void>` | 触发高清全景快照下载                      |
+
+---
+
+#### 2. `<AtengFlowViewer />` 运行态流转追踪器
+
+- **Props 契约**：
+
+  | 属性名             | 类型定义           | 默认值      | 说明                                                          |
+  | :----------------- | :----------------- | :---------- | :------------------------------------------------------------ |
+  | `modelValue`       | `FlowGraph`        | `undefined` | 流程图全景数据模型                                            |
+  | `statusMap`        | `FlowStatusMap`    | `undefined` | 运行态五态执行状态与审计记录映射字典                          |
+  | `focusActiveNode`  | `boolean`          | `false`     | 初始化完成后是否自动平滑居中聚焦流转中节点 (SmartFocus)       |
+  | `focusNodeId`      | `string`           | `undefined` | 显式指定要平滑聚焦居中的图元 ID（优先级高于 focusActiveNode） |
+  | `wheelZoomGuard`   | `boolean`          | `false`     | 是否开启页面滚轮防冲突守卫（普通滚动穿透，按 Ctrl 缩放画布）  |
+  | `showMiniToolbar`  | `boolean`          | `false`     | 是否在视口右下角展示悬浮微型控制条                            |
+  | `width` / `height` | `string \| number` | `'100%'`    | 容器尺寸                                                      |
+  | `options`          | `FlowOptions`      | `undefined` | 底层 LogicFlow 原始配置项（强制锁定只读模式）                 |
+
+- **Emits 契约**：
+
+  | 事件名          | 载荷参数                                                              | 触发时机                     |
+  | :-------------- | :-------------------------------------------------------------------- | :--------------------------- |
+  | `ready`         | `(lf: LogicFlow)`                                                     | 运行态引擎初始化完成时派发   |
+  | `node:click`    | `(node: FlowNode, event: MouseEvent)`                                 | 单击节点时派发               |
+  | `edge:click`    | `(edge: FlowEdge, event: MouseEvent)`                                 | 单击连线时派发               |
+  | `blank:click`   | `(event: MouseEvent)`                                                 | 单击空白区时派发             |
+  | `node:hover`    | `(node: FlowNode \| null, audit?: AuditRecord[], event?: MouseEvent)` | 鼠标悬停移入/移出节点时派发  |
+  | `status:change` | `(statusMap: FlowStatusMap)`                                          | 状态映射表发生动态变更时派发 |
+
+- **Slots 契约**：
+
+  | 插槽名           | 作用域参数                                             | 说明                                                        |
+  | :--------------- | :----------------------------------------------------- | :---------------------------------------------------------- |
+  | `#audit-popover` | `{ node, status, auditList, close }`                   | 悬停审批审计履历卡片插槽反转（Element Plus 时间轴深度定制） |
+  | `#mini-toolbar`  | `{ zoomIn, zoomOut, fitView, resetZoom, focusActive }` | 右下角微型控制条具名插槽反转                                |
+
+- **Expose 门面方法**：
+  | 方法名            | 签名                                                 | 说明                               |
+  | :---------------- | :--------------------------------------------------- | :--------------------------------- |
+  | `fitView`         | `(vPad?: number, hPad?: number) => void`             | 全图自适应视口居中                 |
+  | `focusNode`       | `(nodeId: string) => void`                           | 平移视口聚焦指定 ID 节点           |
+  | `focusActiveNode` | `() => void`                                         | 智能定位首个 PROCESSING 流转中节点 |
+  | `setStatusMap`    | `(statusMap: FlowStatusMap) => void`                 | 动态热更新全图五态执行状态         |
+  | `exportSnapshot`  | `(options?: FlowSnapshotOptions) => Promise<string>` | 导出高清快照 Data URL              |
+
+---
+
+### 10.2 数据模型与配置核心接口字典
+
+```typescript
+// 1. 内存图谱核心实体
+export interface FlowGraph {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+export interface FlowNode {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  text?: string | { value: string; [key: string]: unknown };
+  properties?: Record<string, unknown>;
+  width?: number;
+  height?: number;
+}
+
+export interface FlowEdge {
+  id: string;
+  type: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  sourceAnchorId?: string;
+  targetAnchorId?: string;
+  text?: string | { value: string; [key: string]: unknown };
+  properties?: {
+    condition?: string;
+    priority?: number;
+    [key: string]: unknown;
+  };
+}
+
+// 2. 运行态五态模型
+export type ExecutionStatus = 'completed' | 'processing' | 'rejected' | 'pending' | 'terminated';
+
+export interface AuditRecord {
+  id?: string;
+  operator: string;
+  avatar?: string;
+  status: ExecutionStatus;
+  statusText?: string;
+  time?: string;
+  duration?: string;
+  comment?: string;
+  extra?: Record<string, unknown>;
+}
+
+export type FlowStatusMap = Record<
+  string,
+  ExecutionStatus | { status: ExecutionStatus; audit?: AuditRecord[] }
+>;
+
+// 3. 静态图论校验模型
+export interface FlowValidationError {
+  level: 'error' | 'warning';
+  code: string;
+  message: string;
+  nodeIds?: string[];
+  edgeIds?: string[];
+}
+
+export interface FlowValidationResult {
+  valid: boolean;
+  errors: FlowValidationError[];
+}
+
+// 4. DAG 排版与快照模型
+export interface AutoLayoutOptions {
+  direction?: 'LR' | 'TB';
+  nodeSep?: number;
+  rankSep?: number;
+  startX?: number;
+  startY?: number;
+}
+
+export interface BpmnExportOptions {
+  processId?: string;
+  processName?: string;
+  targetNamespace?: string;
+}
+
+export interface FlowSnapshotOptions {
+  format?: 'png' | 'jpeg' | 'webp' | 'svg';
+  dpr?: number;
+  padding?: number;
+  background?: string;
+  watermark?: FlowWatermarkOptions;
+  filename?: string;
+}
+
+export interface FlowWatermarkOptions {
+  text: string;
+  fontSize?: number;
+  color?: string;
+  opacity?: number;
+  rotate?: number;
+  gapX?: number;
+  gapY?: number;
+}
+```
+
+---
+
+### 10.3 `--at-flow-*` CSS 变量 Design Tokens 规范表
+
+`@atengk/flow-vue` 所有组件内部样式均严格基于 CSS 自定义属性构建，支持业务系统通过覆盖根样式无缝换肤：
+
+| CSS 变量名               | 默认值                        | 用途说明                                  |
+| :----------------------- | :---------------------------- | :---------------------------------------- |
+| `--at-flow-bg`           | `#ffffff`                     | 画布外层容器背景色                        |
+| `--at-flow-grid-color`   | `#e2e8f0`                     | 背景辅助点阵网格线颜色                    |
+| `--at-flow-border-color` | `#e2e8f0`                     | 工具栏、面板、卡片的基础边框颜色          |
+| `--at-flow-text-main`    | `#1e293b`                     | 核心图元文案与标题主文本颜色              |
+| `--at-flow-text-muted`   | `#64748b`                     | 次要描述、时效与次级说明文字颜色          |
+| `--at-flow-primary`      | `#3b82f6`                     | 核心主色调（流转中、选中高亮、操作按钮）  |
+| `--at-flow-success`      | `#10b981`                     | 成功色（已通过、已办结、合规状态）        |
+| `--at-flow-danger`       | `#ef4444`                     | 危险/错误色（审批驳回、拓扑校验违规发光） |
+| `--at-flow-warning`      | `#f59e0b`                     | 警告色（待处理待办、校验警示）            |
+| `--at-flow-panel-bg`     | `#ffffff`                     | 物料面板与属性配置抽屉背景色              |
+| `--at-flow-panel-width`  | `320px`                       | 属性配置抽屉默认展开宽度                  |
+| `--at-flow-shadow`       | `0 4px 12px rgba(0,0,0,0.08)` | 悬浮浮层与卡片通用投影深度                |
 
 ---
 
 ## 11. 1:1 物理排版与全维测试守护 (Evergreen & Zero-Glitch)
 
-- 本包所有公开组件与方法均具备 100% 离线自洽的单元测试覆盖；
-- 真实端到端场景在自验展厅 [`apps/sample-flow-vue`](../../apps/sample-flow-vue/README.md)（固定端口 `3007`）8 大解耦看板中完整呈现；
-- 运行测试与自验工程全真构建：
-  ```bash
-  pnpm --filter @atengk/flow-vue test && \
-  pnpm --filter sample-flow-vue build
-  ```
+`@atengk/flow-vue` 作为企业流程基础设施核心套件，全面接入现代化自动化测试与沙箱自验流水线，严格恪守 **“DOM 现场严格还原”、“响应式零污染”** 与 **“100% 离线自洽”** 单测三项铁律。
+
+### 11.1 12 大测试套件与 87 项单测全景覆盖
+
+子包所有算法、模型、转译器与 SFC 组件均具备 100% 离线自洽的自动化单测守护：
+
+| 测试套件文件                     | 守护模块              | 测试用例数 | 关键边界守护范围                                                |
+| :------------------------------- | :-------------------- | :--------: | :-------------------------------------------------------------- |
+| `AutoLayoutEngine.test.ts`       | DAG 自动排版引擎      |    5 项    | LR/TB 水平垂直分层、DFS 染色破环、深拷贝纯函数无副作用          |
+| `FlowValidator.test.ts`          | 静态图论校验引擎      |   16 项    | 起止唯一性、连通孤岛、排他网关分支/条件、死循环闭环、自环连线   |
+| `BpmnAdapter.test.ts`            | BPMN 2.0 XML 协议转译 |    7 项    | 标准 XML 序列化、Flowable 办理人、Bounds 几何还原、反序列化容错 |
+| `FlowSnapshot.test.ts`           | 全景快照导出引擎      |    7 项    | 最小外接边界计算、2x/3x DPR 离屏渲染、文本矩阵水印计算          |
+| `VueNodeRegistry.test.ts`        | Vue SFC 节点机制      |    5 项    | createVNode 受管挂载、Props 双向回写、render(null) 确定性销毁   |
+| `presets.test.ts`                | 预设图元与防呆连线    |   10 项    | 事件/任务/网关图元注册、五态样式映射、beforeConnect 拦截        |
+| `useFlow.test.ts`                | 无头画布状态机        |    6 项    | 画布初始化、DOM 销毁、视口缩放控制、Undo/Redo 命令栈感知        |
+| `AtengFlowToolbar.test.ts`       | 顶部控制工具栏        |    7 项    | 按钮渲染、命令历史联动、网格/小地图切换、二次确认防误触         |
+| `AtengFlowPropertyPanel.test.ts` | 属性配置抽屉面板      |    5 项    | 原生表单属性原地回写、空白收起、标题类型映射                    |
+| `AtengFlowDesigner.test.ts`      | 流程编排设计器组件    |    8 项    | 物料拖拽 DND、选区联动、属性回写、快捷键删除与撤销重做          |
+| `AtengFlowViewer.test.ts`        | 运行态流转追踪器      |    9 项    | 物理严格只读模式、五态高亮与流动动画、SmartFocus、悬停浮层      |
+| `AtengFlowCanvas.test.ts`        | 画布底座核心容器      |    2 项    | 容器挂载与 ResizeObserver 尺寸监听响应                          |
+
+---
+
+### 11.2 8 大 1:1 解耦场景看板镜像自验展厅
+
+子包所有功能与交互在配套场景工程 [`apps/sample-flow-vue`](../../apps/sample-flow-vue/README.md)（固定本地端口 `3007`）中构建了 1:1 镜像解耦看板：
+
+1. **基础流程编排设计器看板** ([`DesignerBasicScenario.vue`](../../apps/sample-flow-vue/src/scenarios/DesignerBasicScenario.vue))：验证企业费用报销审批流、Toolbar 控制矩阵、快捷键体系与 DND 物料拖拽；
+2. **属性配置与表单插槽接管看板** ([`PropertyPanelSlotScenario.vue`](../../apps/sample-flow-vue/src/scenarios/PropertyPanelSlotScenario.vue))：验证原生表单 vs Element Plus `#panel` 具名插槽反转双模热切换；
+3. **工单运行态流转追踪展厅看板** ([`ViewerAuditScenario.vue`](../../apps/sample-flow-vue/src/scenarios/ViewerAuditScenario.vue))：验证五态高亮流动虚线、`#audit-popover` 审批时间轴浮层、SmartFocus 与 WheelZoomGuard；
+4. **Vue 3 SFC 自定义卡片节点看板** ([`VueNodeCustomScenario.vue`](../../apps/sample-flow-vue/src/scenarios/VueNodeCustomScenario.vue))：验证合同会签流程、`ApprovalCardNode` 高颜值卡片与物料面板扩展；
+5. **静态图论校验与 DAG 分层排版看板** ([`ValidatorLayoutScenario.vue`](../../apps/sample-flow-vue/src/scenarios/ValidatorLayoutScenario.vue))：验证 5 大规则异常注入、红色脉冲呼吸动效与 LR/TB 分层排版动画；
+6. **BPMN 2.0 工业协议双向转译看板** ([`BpmnAdapterScenario.vue`](../../apps/sample-flow-vue/src/scenarios/BpmnAdapterScenario.vue))：验证 Flowable/Camunda 标准 XML 双向导入导出与几何保真；
+7. **全景高清快照与防泄密安全水印看板** ([`SnapshotWatermarkScenario.vue`](../../apps/sample-flow-vue/src/scenarios/SnapshotWatermarkScenario.vue))：验证 2x/3x DPR 视网膜抗锯齿栅格化与倾斜防泄密文本矩阵水印；
+8. **规则引擎与复杂 DAG 拓扑看板** ([`RulesEngineDagScenario.vue`](../../apps/sample-flow-vue/src/scenarios/RulesEngineDagScenario.vue))：验证风控规则引擎复杂网状拓扑编排、拓扑鉴权守卫与动态执行模拟。
+
+---
+
+### 11.3 本地全真质量准出四道命令
+
+在提交与发版前，执行以下四道命令进行全维质量门禁检验，确保 0 报错、0 警告、100% 绿灯准出：
+
+```bash
+# 1. TypeScript 静态类型编译强校验
+pnpm --filter @atengk/flow-vue typecheck
+
+# 2. ESLint 工业级静态代码规范扫描
+pnpm --filter @atengk/flow-vue lint
+
+# 3. Vitest 单元测试套件全量离线自洽回归（12 套件 / 87 项单测）
+pnpm --filter @atengk/flow-vue test
+
+# 4. 自验工程全真构建验证
+pnpm --filter sample-flow-vue build
+```
