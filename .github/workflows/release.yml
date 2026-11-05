@@ -1,34 +1,130 @@
 # ==============================================================================
-# 工作流：Changesets 自动化多包锁步发版流水线 (Release Pipeline)
-# 适用场景：ateng-ui 核心包与组件库统一聚合发版 (npm + 唯一全局 Tag / GitHub Releases)
+# 工作流：前端工业级统合发版流水线 (Frontend Suite Release & Publishing)
+# 适用场景：ateng-ui 核心套件与扩展库标准化发版 (npm + git-cliff + GitHub Releases)
 # 触发条件：
-#   - push: 主干分支 (main) 代码推送
+#   - push tags: 推送符合语义化版本格式的 Git 标签 (v*.*.*)
+#   - workflow_dispatch: GitHub 网页端手动输入版本号一键触发
+# 核心特性：
+#   - 动态安全调度：支持网页端零终端依赖发版，自动自检分支与冲突并回推 Git Tag
+#   - 主干谱系合法性安全熔断：发版 Tag 必须严格源自 main 主干，严禁分支发版
+#   - 自动化 npm 多包统一发布：一键发布全部 packages/* 至官方 npm
+#   - 自动化精美发布日志：基于 git-cliff 与 .cliff.toml 按类别分组生成 Release 说明
 # ==============================================================================
 
 name: Release
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号 (例如 v1.0.0 或 v1.0.0-beta.1)'
+        required: true
+        type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
-  pull-requests: write
   id-token: write
 
 jobs:
-  release:
-    name: Changesets 版本管理与发布
+  # ----------------------------------------------------------------------------
+  # Job 1: 网页调度前置防呆与 Tag 回写
+  # ----------------------------------------------------------------------------
+  prepare-tag:
+    name: 调度自检与准备 Tag
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 5
+    outputs:
+      tag_name: ${{ steps.check.outputs.tag_name }}
     steps:
       - name: 检出源码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: 校验版本号格式与触发分支自检
+        id: check
+        run: |
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "::error::安全熔断！当前触发分支为 [${{ github.ref_name }}]，发版必须且只能在 main 主干分支调度！"
+            exit 1
+          fi
+
+          INPUT_VERSION="${{ inputs.version }}"
+          if [[ ! "$INPUT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::版本号格式不合规！必须符合 vX.Y.Z 语义化版本规范。"
+            exit 1
+          fi
+
+          if git rev-parse "$INPUT_VERSION" >/dev/null 2>&1; then
+            echo "::error::标签 $INPUT_VERSION 在远端仓库已存在，禁止重复覆盖！"
+            exit 1
+          fi
+
+          echo "tag_name=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 创建并回推 Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.check.outputs.tag_name }}" -m "Release ${{ steps.check.outputs.tag_name }}"
+          git push origin "${{ steps.check.outputs.tag_name }}"
+
+  # ----------------------------------------------------------------------------
+  # Job 2: 构建多包产物与发布 npm
+  # ----------------------------------------------------------------------------
+  build-and-publish:
+    name: 产物编译与 npm 多包统一发布
+    runs-on: ubuntu-latest
+    needs: [prepare-tag]
+    if: always() && (github.event_name == 'push' || needs.prepare-tag.result == 'success')
+    timeout-minutes: 20
+    outputs:
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      raw_version: ${{ steps.meta.outputs.raw_version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验发版 Tag 谱系合法性 (必须源自主干 main)
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin main
+          TAG_COMMIT=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "::error::安全熔断！发版标签 $GITHUB_REF 指向的提交 [$TAG_COMMIT] 未合入 main 主干！"
+            echo "::error::ateng-ui 遵循严格的主干发版铁律，严禁从任何未经合入的特性分支发版。"
+            exit 1
+          fi
+          echo "发版 Tag 谱系校验通过: 确认源自 main 主干。"
+
+      - name: 解析版本元数据
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ needs.prepare-tag.outputs.tag_name }}"
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+
+          RAW_VERSION="${TAG_NAME#v}"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "raw_version=$RAW_VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG_NAME" =~ - ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
@@ -40,39 +136,86 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: 安装 Monorepo 依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 确保各子包与根工程版本号对齐发版标签
+        run: |
+          RAW_VER="${{ steps.meta.outputs.raw_version }}"
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const newVer = process.env.RAW_VER;
+
+            const rootPkgPath = path.resolve('package.json');
+            if (fs.existsSync(rootPkgPath)) {
+              const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
+              rootPkg.version = newVer;
+              fs.writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n', 'utf8');
+            }
+
+            const pkgsDir = path.resolve('packages');
+            if (fs.existsSync(pkgsDir)) {
+              for (const dir of fs.readdirSync(pkgsDir)) {
+                const pkgJsonPath = path.join(pkgsDir, dir, 'package.json');
+                if (fs.existsSync(pkgJsonPath)) {
+                  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+                  pkg.version = newVer;
+                  fs.writeFileSync(pkgJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+                }
+              }
+            }
+          "
+        env:
+          RAW_VER: ${{ steps.meta.outputs.raw_version }}
+
       - name: 产物编译与类型构建
         run: pnpm run build
 
-      - name: 提取当前发版版本号
-        id: pkg_version
-        run: echo "version=$(node -p "require('./packages/core/package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: 运行 Changesets Action (版本聚合 PR 或发布 npm)
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          publish: pnpm changeset publish --no-git-tag
-          version: pnpm changeset version
-          commit: 'chore(release): version packages'
-          title: 'chore(release): version packages'
-          createGithubReleases: false
+      - name: 发布全部包至 npm 官方注册表
+        run: pnpm publish -r --access public --no-git-checks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: 创建单一聚合全局 GitHub Release 与 Git Tag
-        if: steps.changesets.outputs.published == 'true'
-        run: |
-          VERSION="${{ steps.pkg_version.outputs.version }}"
-          TAG_NAME="v$VERSION"
-          echo "正在为套件创建全局唯一 Git Tag 与 GitHub Release: $TAG_NAME"
-          gh release create "$TAG_NAME" \
-            --title "$TAG_NAME" \
-            --generate-notes \
-            --target main
+  # ----------------------------------------------------------------------------
+  # Job 3: 发布 GitHub Release 与挂载 git-cliff 日志
+  # ----------------------------------------------------------------------------
+  publish-release:
+    name: 发布 GitHub Release (git-cliff)
+    runs-on: ubuntu-latest
+    needs: [build-and-publish]
+    if: always() && needs.build-and-publish.result == 'success'
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: 检出源码 (全量历史供日志生成)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.build-and-publish.outputs.tag_name }}
+
+      - name: 生成发布日志 (git-cliff)
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        continue-on-error: true
+        with:
+          config: ${{ hashFiles('.cliff.toml') != '' && '.cliff.toml' || '' }}
+          args: --tag ${{ needs.build-and-publish.outputs.tag_name }} --latest --strip header --github-repo ${{ github.repository }}
+        env:
+          OUTPUT: CHANGELOG_RELEASE.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 创建 GitHub Release 并挂载日志
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.build-and-publish.outputs.tag_name }}
+          name: ${{ needs.build-and-publish.outputs.tag_name }}
+          body: ${{ steps.git-cliff.outputs.content }}
+          generate_release_notes: false
+          draft: false
+          prerelease: ${{ needs.build-and-publish.outputs.is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
