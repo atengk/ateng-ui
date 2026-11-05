@@ -201,57 +201,467 @@ stateDiagram-v2
 
 ---
 
-## 维度一：最小起步体验 (Happy Path)
+## 3. 经典轻量编辑器与响应式微工具栏套件
 
-### 3. 多态门面与高阶场景预设秒级分发
+经典轻量预设（Simple Editor）专为**常规中后台业务表单**、**审批流补充备注**、**工单沟通记录**与**博客内容发布**设计。核心追求“单行自适应工具栏防折行、隔离斜杠浮层防打扰、紧凑模式适配抽屉栅格”。
 
-依据业务诉求，直接使用多态主门面 `<AtengEditor mode="..." />`，或引入四大开箱即用场景独立预设：
+### 3.1 经典轻量自适应预设 (AtengSimpleEditor)
+
+`<AtengSimpleEditor />` 是针对轻量表单场景分化的独立高阶组件，默认装配单行自适应响应式微操作栏，彻底屏蔽选区划词气泡与斜杠命令面板，确保传统表单录入零视觉干扰。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { AtengEditorProps, AtengEditorExpose, SimpleToolbarItem } from '@atengk/editor-vue';
+
+/**
+ * <AtengSimpleEditor /> 组件专属入参 Props 契约。
+ */
+export interface SimpleEditorProps extends AtengEditorProps {
+  /**
+   * 自定义声明的工具栏项集合。
+   * 缺省时展示全套预设工具；可按需精简为高频精简集合。
+   */
+  tools?: SimpleToolbarItem[];
+
+  /**
+   * 紧凑模式。开启后工具栏按钮尺寸更小、内外边距更紧凑，适配嵌入表单栅格与抽屉。
+   * @default false
+   */
+  dense?: boolean;
+}
+
+/**
+ * <AtengSimpleEditor /> 实例收敛暴露类型。
+ */
+export type AtengSimpleEditorInstance = AtengEditorExpose;
+```
+
+#### 2. 面向实战的业务 Vue 3 代码示例 (逆向自 SimpleEditorScenario.vue)
 
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue';
 import {
-  AtengEditor,
   AtengSimpleEditor,
-  AtengNotionEditor,
-  AtengAgentEditor,
-  AtengDocxEditor,
-  createMockAiStreamHandler,
+  type AtengSimpleEditorInstance,
+  type SimpleToolbarItem,
 } from '@atengk/editor-vue';
 
-const content = ref<string>('<p>欢迎体验现代富文本创作套件！</p>');
-const currentMode = ref<'simple' | 'notion' | 'docx' | 'agent'>('simple');
-const mockHandler = createMockAiStreamHandler();
+const editorRef = ref<AtengSimpleEditorInstance | null>(null);
+
+// 真实业务初始富文本内容（支持 HTML、Markdown 与 JSON 多轨绑定）
+const content = ref<string>(`<h2>审批流程补充说明</h2>
+<p>本期项目预算调整方案已通过法务与合规初步审核，关键条目说明如下：</p>
+<ul>
+  <li><strong>硬软件采购支出</strong>：服务器集群与多云算力费用占比受控在 25% 以内；</li>
+  <li><strong>外部交付周期</strong>：预计交付里程碑前移至 Q3 末。</li>
+</ul>
+<blockquote>请各节点审批人严格把关技术方案可行性。</blockquote>`);
+
+// 声明式挑选高频精简工具集（排除不必要的格式干扰）
+const customTools = ref<SimpleToolbarItem[]>([
+  'undo',
+  'redo',
+  'heading',
+  'bold',
+  'italic',
+  'underline',
+  'list',
+  'link',
+  'clear',
+  'fullscreen',
+]);
+
+const isDense = ref<boolean>(true);
+
+const handleGetHtml = () => {
+  const currentHtml = editorRef.value?.getHTML();
+  console.log('提交的审批内容：', currentHtml);
+};
 </script>
 
 <template>
-  <!-- 方式一：多态主门面动态切换 -->
-  <AtengEditor v-model="content" :mode="currentMode" :dense="true" />
-
-  <!-- 方式二：经典轻量预设（单行自适应折叠工具栏、紧凑模式、隔离斜杠浮层） -->
-  <AtengSimpleEditor
-    v-model="content"
-    :dense="true"
-    :tools="['bold', 'italic', 'heading', 'bulletList', 'undo', 'redo']"
-  />
-
-  <!-- 方式三：知识库无界白板预设（纯净无顶栏、六点悬浮手柄、Callout 卡片、Toggle 列表与斜杠面板） -->
-  <AtengNotionEditor v-model="content" max-width="860px" />
-
-  <!-- 方式四：AI 智能创作预设（双通道唤起、打字机流式光标、行内 Diff 审阅卡片与原子事务保全） -->
-  <AtengAgentEditor v-model="content" :ai-stream-handler="mockHandler" />
-
-  <!-- 方式五：DOCX 物理排版预设（A4 仿真纸张、动态断页槽、刻度标尺、双击页眉页脚与 OpenXML 导出） -->
-  <AtengDocxEditor
-    v-model="content"
-    orientation="portrait"
-    page-margin="standard"
-    :show-ruler="true"
-    header="数字化转型指导意见"
-    footer="绝密 · 内部流通"
-  />
+  <div class="approval-form-item">
+    <!-- 经典轻量编辑器：单行折叠微操作栏 + 紧凑模式 + 声明式 tools 筛选 -->
+    <AtengSimpleEditor
+      ref="editorRef"
+      v-model="content"
+      :dense="isDense"
+      :tools="customTools"
+      placeholder="请输入审批补充意见（支持基础排版）..."
+      :max-length="2000"
+    />
+  </div>
 </template>
 ```
+
+#### 3. 核心机制与生产边界防御说明
+
+- **防打扰隔离纪律**：`AtengSimpleEditor` 内部将 `slashCommand`、`bubbleMenu`、`tableMenu` 默认锁定为 `false`，彻底消除了键入 `/` 或鼠标划选文本时意外弹出浮层的打扰，完全契合传统表单录入习惯；
+- **多态门面等价映射**：业务层若使用统一主门面，通过 `<AtengEditor mode="simple" :dense="true" :tools="customTools" />` 即可获得完全一致的行为与实例代理；
+- **实例透明代理**：通过 `createEditorExpose` 工具纳管内部 TipTap 实例，暴露 `getHTML()`、`setContent()`、`clearContent()` 等 20 余项命令方法，保全响应性与类型提示。
+
+---
+
+### 3.2 响应式折叠工具栏 (AtengSimpleToolbar) 与插槽 100% 反转
+
+`<AtengSimpleToolbar />` 封装了自适应单行折叠算法，无论视口被压缩至何等尺寸，均能保证工具栏**绝不折行成双行**导致界面跳动。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { Editor } from '@tiptap/vue-3';
+
+/**
+ * 可用微工具栏项联合类型。
+ */
+export type SimpleToolbarItem =
+  | 'undo'
+  | 'redo'
+  | 'heading'
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'highlight'
+  | 'align'
+  | 'list'
+  | 'taskList'
+  | 'blockquote'
+  | 'code'
+  | 'codeBlock'
+  | 'link'
+  | 'image'
+  | 'table'
+  | 'clear'
+  | 'fullscreen';
+
+/**
+ * <AtengSimpleToolbar /> 组件入参 Props 契约。
+ */
+export interface AtengSimpleToolbarProps {
+  /** TipTap 原生 Editor 实例 */
+  editor: Editor | null;
+  /** 声明式挑选的工具项清单 */
+  tools?: SimpleToolbarItem[];
+  /** 是否启用紧凑模式（按钮尺寸缩减至 24px） */
+  dense?: boolean;
+  /** 是否整栏禁用 */
+  disabled?: boolean;
+  /** 当前是否处于脱壳全屏状态 */
+  isFullscreen?: boolean;
+}
+```
+
+#### 2. 全量表现层插槽反转定制示例
+
+若内置原生按钮风格与企业级组件库（如 Element Plus）不匹配，可通过 `#toolbar` 插槽实现 100% 结构与样式反转：
+
+```vue
+<template>
+  <AtengSimpleEditor v-model="content">
+    <!-- 100% 反转微工具栏：接入 Element Plus 按钮与下拉菜单 -->
+    <template #toolbar="{ editor }">
+      <div class="custom-element-toolbar">
+        <el-button-group size="small">
+          <el-button
+            :disabled="!editor?.can().undo()"
+            @click="editor?.chain().focus().undo().run()"
+          >
+            撤销
+          </el-button>
+          <el-button
+            :disabled="!editor?.can().redo()"
+            @click="editor?.chain().focus().redo().run()"
+          >
+            重做
+          </el-button>
+        </el-button-group>
+
+        <el-divider direction="vertical" />
+
+        <el-button
+          size="small"
+          :type="editor?.isActive('bold') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleBold().run()"
+        >
+          粗体
+        </el-button>
+      </div>
+    </template>
+  </AtengSimpleEditor>
+</template>
+```
+
+#### 3. 核心机制与算法说明
+
+- **自适应单行折叠算法**：基于原生 CSS Flex 弹性伸缩与折叠权重。高频排版工具（标题、加粗、撤销重做）优先留在外栏视口中；当容器可用宽度不足时，低频次要操作（高亮、引用、分割线）自动收敛至尾部的“更多 (•••)”下拉弹出层中；
+- **微物理交互与无障碍**：所有按钮标配 `title` 与 `aria-label` 辅助说明，悬浮态使用 CSS 变量 `--at-editor-toolbar-btn-hover`，激活态使用 `--at-editor-toolbar-btn-active`，0 外部样式污染。
+
+---
+
+## 4. 知识库无界白板与块级物料套件
+
+知识库预设（Notion-like Editor）面向**团队 Wiki 协同**、**产品需求规范 (PRD)**、**技术方案架构文档**打造。遵循现代内容创作哲学：**隐藏传统大顶栏，将正文视口极致释放，完全依托悬浮六点手柄、块级上下文与键盘斜杠命令驱动交互**。
+
+### 4.1 现代无界知识库白板 (AtengNotionEditor)
+
+`<AtengNotionEditor />` 提供极简无界画布，正文宽度受管居中展示（默认 `860px`），标配块级悬浮拖拽手柄、选区文本气泡与块级物料面板。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { EditorBaseProps, AtengEditorExpose } from '@atengk/editor-vue';
+
+/**
+ * <AtengNotionEditor /> 预设组件 Props 契约声明。
+ */
+export interface NotionEditorProps extends EditorBaseProps {
+  /** 是否启用六点悬浮拖拽手柄，默认 true */
+  dragHandle?: boolean;
+  /** 是否启用斜杠快速命令面板，默认 true */
+  slashCommand?: boolean;
+  /** 是否启用重点高亮卡片扩展 (CalloutBlock)，默认 true */
+  callout?: boolean;
+  /** 是否启用交互式折叠列表扩展 (ToggleList)，默认 true */
+  toggle?: boolean;
+  /** 是否启用划词浮动气泡菜单，默认 true */
+  bubbleMenu?: boolean;
+  /** 是否启用表格浮动气泡菜单，默认 true */
+  tableMenu?: boolean;
+  /** 是否展示吸底状态栏，默认 false */
+  showStatusBar?: boolean;
+  /** 预设画布最大宽度，用于知识库流式排版（如 '860px'），默认 '860px' */
+  maxWidth?: string;
+}
+
+/**
+ * <AtengNotionEditor /> 实例收敛暴露类型。
+ */
+export type AtengNotionEditorInstance = AtengEditorExpose;
+```
+
+#### 2. 面向实战的业务 Vue 3 代码示例 (逆向自 NotionEditorScenario.vue)
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AtengNotionEditor, type AtengNotionEditorInstance } from '@atengk/editor-vue';
+
+const editorRef = ref<AtengNotionEditorInstance | null>(null);
+
+// 真实产品知识库 PRD 内容模型
+const prdContent = ref<string>(`<h1>🚀 智能风控微服务架构演进方案</h1>
+<div class="at-editor-callout at-editor-callout--info" data-callout-type="info" data-callout-icon="💡">
+  <div class="at-editor-callout__content">
+    <p><strong>核心原则</strong>：纯原生 TypeScript + Vue 3 驱动，严禁引入重型第三方全量库，保持跨框架中立。</p>
+  </div>
+</div>
+
+<div class="at-editor-toggle is-open" data-open="true">
+  <div class="at-editor-toggle__content">
+    <p><strong>📌 点击左侧三角折叠/展开：系统核心架构收益</strong></p>
+    <p>1. <strong>全链路 TraceId 透传</strong>：覆盖 Axios 与 WebSocket 全双工通道；</p>
+    <p>2. <strong>雪花 ID 防失真</strong>：纳秒级正则匹配加双引号，杜绝 64 位整型截断；</p>
+    <p>3. <strong>Blob 双态识别</strong>：拦截下载失败伪文件，保障用户体验一致性。</p>
+  </div>
+</div>`);
+
+// 编排外部快捷操作（例如外部工具栏或侧边栏点击插入特定物料）
+const handleInsertCallout = (type: 'info' | 'warning' | 'error' | 'success') => {
+  const icons = { info: '💡', warning: '⚠️', error: '🚫', success: '✅' };
+  editorRef.value?.editor?.chain().focus().toggleCalloutBlock({ type, icon: icons[type] }).run();
+};
+</script>
+
+<template>
+  <div class="wiki-editor-container">
+    <!-- 知识库白板：纯净无顶栏 + 六点拖拽手柄 + Callout/Toggle 扩展 + 860px 舒适排版宽 -->
+    <AtengNotionEditor
+      ref="editorRef"
+      v-model="prdContent"
+      max-width="860px"
+      placeholder="输入正文，或键入 '/' 插入丰富块级物料..."
+    />
+  </div>
+</template>
+```
+
+#### 3. 核心机制与设计说明
+
+- **流式排版几何模型**：知识库白板将外部容器样式约束为 `--at-editor-content-max-width: 860px; margin: 0 auto;`，彻底摆脱传统紧贴左侧的拥挤感，大屏阅读眼球横向跳跃距离最优；
+- **全套物料开箱即用**：初始化时自动装配 `CalloutBlock`、`ToggleList`、`TaskList`、`CodeBlockLowlight`、`AtengDragHandle` 与 `AtengSlashCommand`，开发者零配置即可具备 Notion 级创作体验。
+
+---
+
+### 4.2 六点悬浮拖拽手柄 (AtengDragHandle)
+
+`<AtengDragHandle />` 通过原生 DOM 事件委托感知鼠标所在的块级节点，悬停时在块左侧边槽平滑浮出六点手柄图标，支持直接上下拖拽重排与点击弹出块级上下文菜单。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { Editor } from '@tiptap/vue-3';
+
+/**
+ * 块级上下文菜单可用动作集合。
+ */
+export interface DragHandleBlockActions {
+  /** 复制当前块并在下方插入副本 */
+  duplicate: () => void;
+  /** 删除当前块节点 */
+  delete: () => void;
+  /** 清空当前块内的文本内容 */
+  clear: () => void;
+  /** 将当前块转换为目标块级类型 */
+  transformTo: (
+    type:
+      | 'paragraph'
+      | 'h1'
+      | 'h2'
+      | 'h3'
+      | 'bulletList'
+      | 'orderedList'
+      | 'taskList'
+      | 'blockquote'
+      | 'codeBlock',
+  ) => void;
+}
+
+/**
+ * <AtengDragHandle /> 组件入参 Props 契约。
+ */
+export interface AtengDragHandleProps {
+  /** TipTap 原生 Editor 实例 */
+  editor: Editor | null;
+  /** 是否禁用手柄与上下文菜单 */
+  disabled?: boolean;
+  /** 手柄相对于当前块左侧的水平偏移量（像素），默认 -28 */
+  offsetX?: number;
+}
+```
+
+#### 2. 插槽倒置与块级动作接管代码示例
+
+```vue
+<template>
+  <AtengNotionEditor v-model="content">
+    <!-- 自定义左侧六点悬浮手柄与操作菜单 -->
+    <template #drag-handle="{ blockNode, actions }">
+      <div class="custom-drag-pill" title="拖拽调序，点击配置">
+        <span class="icon">⠿</span>
+      </div>
+    </template>
+  </AtengNotionEditor>
+</template>
+```
+
+#### 3. 核心机制与防御说明
+
+- **原生 DOM 贴合跟随算法**：通过监听编辑器内部 `mousemove` 与 `mouseover`，以 16ms 防抖捕获顶层一级块级元素（段落、标题、表格、列表、卡片），计算 `getBoundingClientRect()` 并将手柄定位至目标节点水平左侧；
+- **ProseMirror 节点切片重排 Transaction**：拖拽重排通过 HTML5 Drag & Drop 传输选区位置，落盘时通过单次原子事务执行 `tr.delete()` 与 `tr.insert()`，保全内部撤销历史栈，按 `Ctrl + Z` 可单步撤销调序动作。
+
+---
+
+### 4.3 块级重点强调卡片与交互折叠物料 (CalloutBlock / ToggleList)
+
+企业级知识库排版不仅需要正文，更需要语义鲜明的警示块与结构化折叠项。套件纯原生内置两大核心物料扩展：
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+export type CalloutType = 'info' | 'warning' | 'error' | 'success';
+
+/**
+ * CalloutBlock 高亮卡片扩展选项契约。
+ */
+export interface CalloutBlockOptions {
+  HTMLAttributes: Record<string, unknown>;
+  defaultType: CalloutType;
+  defaultIcons: Record<CalloutType, string>;
+}
+
+/**
+ * ToggleList 折叠列表扩展选项契约。
+ */
+export interface ToggleListOptions {
+  HTMLAttributes: Record<string, unknown>;
+  /** 新建节点时的默认展开状态，默认 true */
+  defaultOpen: boolean;
+}
+```
+
+#### 2. 命令调用与 Markdown 快捷输入语法
+
+| 扩展物料         | 快捷输入语法 (InputRule)                 | TipTap 命令调用范式                                                                | 生产渲染表现                                                                                     |
+| :--------------- | :--------------------------------------- | :--------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
+| **CalloutBlock** | 在空行输入 `>! ` 或 `>! [图标]` 并按空格 | `editor.chain().focus().toggleCalloutBlock({ type: 'warning', icon: '⚠️' }).run()` | 内置 4 态语义色彩边框与背景，支持自定义 Emoji，按 `Enter` 换行仍位于卡片内，连续两次回车跳出卡片 |
+| **ToggleList**   | 在空行输入 `>> ` 并按空格                | `editor.chain().focus().toggleToggleList({ open: true }).run()`                    | 首行包含可点击交互式小三角，点击 0ms 展开/收起下属所有段落或嵌套列表；按 `Ctrl + Z` 安全撤销     |
+
+#### 3. 核心机制与防御说明
+
+- **纯原生 Node 建模**：扩展基于 TipTap `Node.create` 规范实现，分别生成标准 DOM 结构 `<div class="at-editor-callout at-editor-callout--info" data-callout-type="info">` 与 `<div class="at-editor-toggle" data-open="true">`，保证多轨输出至 HTML 与 Markdown 时具备完全解析一致性；
+- **撤销栈零污染**：折叠三角的交互状态（展开/收起）通过局部 DOM 自定义属性驱动，不触发文档内容脏变动，彻底杜绝折叠操作意外触发表单 `change` 事件。
+
+---
+
+### 4.4 纯中文块级斜杠命令面板 (AtengSlashCommand)
+
+在正文任意空白处键入 `/`，即可毫秒级激活纯中文块级物料面板，支持拼音与关键字即时模糊检索，全键盘无缝插入 11 种高频物料。
+
+#### 1. 本节专属 TypeScript 契约声明
+
+```ts
+import type { Editor } from '@tiptap/vue-3';
+
+/**
+ * 斜杠物料项契约接口。
+ */
+export interface SlashCommandItem {
+  /** 物料唯一标识 */
+  id: string;
+  /** 物料展示中文标题 */
+  title: string;
+  /** 辅助说明文案 */
+  description?: string;
+  /** 呈现图标（Emoji、SVG 或 CSS Class） */
+  icon: string;
+  /** 检索关键字（支持汉字、拼音与简拼） */
+  keywords?: string[];
+  /** 选中该物料时执行的 ProseMirror 命令闭包 */
+  command: (props: { editor: Editor; range: { from: number; to: number } }) => void;
+}
+
+/**
+ * <AtengSlashCommand /> 组件入参 Props 契约。
+ */
+export interface AtengSlashCommandProps {
+  editor: Editor | null;
+  disabled?: boolean;
+  /** 是否在空白行聚焦时自动激活提示，默认 false */
+  triggerOnEmpty?: boolean;
+  /** 自定义扩展或替换的物料项清单（缺省使用内置 11 种标准物料） */
+  items?: SlashCommandItem[];
+}
+```
+
+#### 2. 内置 11 种标准中文物料清单与键盘交互
+
+内置标准物料矩阵包含：
+
+1. **一级标题 (H1)**、**二级标题 (H2)**、**三级标题 (H3)**；
+2. **正文段落 (Text)**；
+3. **无序项目列表 (Bullet List)**、**有序编号列表 (Ordered List)**、**交互任务待办 (Task List)**；
+4. **引用块 (Blockquote)**、**高保真代码块 (Code Block)**；
+5. **重点高亮卡片 (Callout)**、**交互折叠列表 (Toggle List)**、**3×3 标准数据表格 (Table)**、**分割线 (Divider)**。
+
+#### 3. 键盘驱动与时序防御
+
+- **斜杠字符自动清除**：用户键入 `/title` 并按下 `Enter` 确认时，状态机自动定位当前输入的光标区间 `range: { from, to }`，执行 `tr.delete(range.from, range.to)` 精准抹除触发字符，随后原位插入目标块级节点；
+- **全键盘流畅流转**：支持按 `↑` / `↓` 上下循环切换高亮项，按 `Enter` 立即执行插入，按 `Esc` 或向后退格删除 `/` 时自动静默注销浮层，杜绝浮层悬挂残留。
+
+---
 
 ---
 
