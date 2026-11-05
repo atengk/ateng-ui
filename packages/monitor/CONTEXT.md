@@ -34,6 +34,10 @@ _Avoid_: ErrorHash, Signature, DedupeKey
 基于 3×3 视口点阵采样与 DOM 命中分析的白屏感知机制，支持骨架屏白名单与两阶段防抖复验。
 _Avoid_: BlankCheck, EmptyScreenDetector, DomProbe
 
+**TwoPhaseVerification**:
+白屏感知双阶段防抖复验协议，在 T1 初检疑似白屏后启动 T2 延迟复核，消除异步组件渲染过程中的假阳性告警。
+_Avoid_: DoubleCheck, DelayDetect, RecheckBlank
+
 **BreadcrumbTimeline**:
 记录用户最近关键行为轨迹（DOM 点击、路由跳转、控制台调用、网络请求）的环形缓冲区时间轴快照。
 _Avoid_: ActionHistory, UserTrail, ClickLog, OperationRecord
@@ -65,6 +69,14 @@ _Avoid_: BufferQueue, LogQueue, SendQueue
 **EmergencyFlush**:
 在宿主页面触发 `visibilitychange`（`hidden`）或 `pagehide` 时强制立即同步冲刷未决队列的应急协议。
 _Avoid_: ForceSend, UnloadSend, CleanUpFlush
+
+**AntiLoopProtocol**:
+防套娃死循环调用协议，通过注入 X-Ateng-Monitor-Skip 请求头与 reportUrl 前置豁免，彻底阻断监控自身网络上报引发的递归雪崩。
+_Avoid_: NoLoopHeader, PreventRecursion, SkipRule
+
+**CustomReporter**:
+物理上报通道扩展 SPI，允许业务端在默认 sendBeacon/fetch 之外接管事件发送链路以支持私有鉴权签名与自定义网关。
+_Avoid_: SendAdapter, TransportHandler, CustomSender
 
 **TraceSynergy**:
 通过 Axios 拦截器适配器将后端 MDC `traceId` 自动提取并透传绑定至前端监控事件的全链路追踪协议。

@@ -105,8 +105,10 @@
 Sample 严禁出现白屏或仅靠浏览器控制台 `console.log` 敷衍！必须根据四层拓扑架构弹性适配多场景可视化呈现：
 
 1. **分层弹性场景形态**：
-   - **L0 纯 TS 原生工程 (`sample-core`, `sample-monitor`)**：
-     保持纯 TypeScript 原生环境，严禁引入 Vue/UI 库；在 `src/scenarios/*` 或独立脚本中编写真实场景逻辑，页面挂载原生 DOM 协议触发器（触发模拟请求、雪花大数对比、Token 注入、故障模拟等），高亮展示执行前后数据契约；
+   - **L0 纯 TS 原生工程 (`sample-core`)**：
+     保持纯 TypeScript 原生环境，严禁引入 Vue/UI 库；在 `src/scenarios/*` 或独立脚本中编写真实场景逻辑，页面挂载原生 DOM 协议触发器（触发模拟请求、雪花大数对比、Token 注入、网络重试等），高亮展示执行前后数据契约；
+   - **L0 监控专用 APM 交互展厅 (`sample-monitor`)**：
+     纯 TS 底座的配套可视化演练沙箱。由于需真机检验 Vue 3 全局未捕获异常适配器（`createVueErrorHandler`）、3×3 视口点阵白屏采样与骨架屏/Loading 白名单豁免、DOM 点击与输入框敏感属性掩码（`[data-monitor-mask]`）及 SPA 虚拟路由流转耗时，采用 Vue 3.5 + Element Plus 搭建 5 大真实交互看板与本地 APM 接收终端，实现高保真可视化自验；
    - **L1 无头响应式 / L2 扩展工程 (`sample-vue`, `sample-file-viewer-vue`, `sample-echarts-vue` 等)**：
      在 `src/components/*Scenario.vue`（或 `*Demo.vue`）按业务领域拆分为多个自洽的场景看板组件；页面通过 Tab 或折叠卡片形式挂载，直观监视状态机的 `loading`、`data`、`error`、并发竞态与销毁注销状态；
    - **L3 UI 表现层工程 (`sample-element-plus`)**：
