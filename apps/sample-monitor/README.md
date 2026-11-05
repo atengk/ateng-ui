@@ -1,54 +1,65 @@
-# sample-monitor
+# sample-monitor 全链路可观测性与异常监控自验展厅
 
-`@atengk/monitor` 1:1 全链路可观测性与异常监控基础设施交互沙箱与自验展厅。
-
----
-
-## 模块定位与运行方式
-
-本工程基于 Vue 3.5 + Element Plus 2.14 + Vite 6 构建，用于真实交互自验 `@atengk/monitor` 导出的全部插件与核心能力（异常捕获、白屏采样、Web Vitals、用户行为面包屑、网络嗅探、防死循环与 TraceId 串联），并作为端到端构建与质量把关沙箱。
-
-### 启动本地开发服务
-
-```bash
-pnpm --filter sample-monitor dev
-```
-
-默认在 `http://localhost:3010/` 启动，支持热更新（HMR）。
-
-### 质量自验命令
-
-```bash
-pnpm --filter sample-monitor test       # Vitest 端到端自洽单元测试
-pnpm --filter sample-monitor typecheck  # TypeScript 严格类型检查
-pnpm --filter sample-monitor lint       # ESLint 静态代码检查
-pnpm --filter sample-monitor build      # Vite 生产构建打包
-```
+> 专注于演示与自验 `@atengk/monitor` 核心特性（微内核调度、运行时异常收集、Promise 拒付、静态资源 404、Vue 错误桥接、3×3 视口点阵白屏采样、骨架屏/Loading 白名单豁免、双阶段防抖复验、Google Core Web Vitals 官方评级、主线程长任务卡顿告警、行为轨迹时间轴、敏感数据三级脱敏、SPA 虚拟路由流转耗时、Axios TraceId 串联、错误指纹 FNV-1a 防抖聚合、单会话熔断断路器、三阶高可用传输管道、页面卸载紧急冲刷与防死循环调用协议）在真实业务场景下的开箱使用与交互自验。
 
 ---
 
-## 包含的 5 大交互自验面板
+## 1. 快速启动与服务端口
 
-1. **故障注入与异常熔断控制台 (Fault Injection & Circuit Breaker)**：
-   - 交互式模拟触发 JS 同步抛错、Promise 异步拒付、静态资源 404 加载崩溃；
-   - 模拟 Vue 组件渲染异常，验证 `createVueErrorHandler` 纯 TS 无损错误桥接；
-   - 模拟连续 15 次高频异常抛出，验证 5s 指纹防抖聚合与单会话熔断断路器（休眠保护）。
+- **默认固定端口**：`3010` (严格遵守 ADR-0001 / ADR-0009 / CONTEXT-MAP 端口契约)
+- **启动方式**：
+  ```bash
+  pnpm --filter sample-monitor dev
+  ```
+- 启动后浏览器访问：`http://localhost:3010`
 
-2. **白屏感知与容器白名单自愈视窗 (White Screen & Skeleton Whitelist)**：
-   - 模拟清空视窗触发 3×3 点阵采样，自动判定白屏并生成 `white_screen` 诊断告警；
-   - 切换骨架屏（`.skeleton-box`），验证白名单祖先追溯与免报机制；
-   - 自愈恢复正常业务内容。
+---
 
-3. **性能指标动态大盘与卡顿感知 (Web Vitals & Long Task)**：
-   - 实时读取并渲染 Core Web Vitals 指标卡（FCP, LCP, CLS, TTFB），对齐 Google 官方体验评级；
-   - 模拟执行 120ms 阻塞长任务，验证 >50ms Long Task 监听与 Jank 性能告警。
+## 2. 运行环境与 Mock 双模切换
 
-4. **用户行为面包屑轨迹与三级脱敏时间轴 (Breadcrumbs & PII Sanitizer)**：
-   - 交互测试普通输入框、密码输入框与 `[data-monitor-mask]` 容器，验证三级脱敏管道自动 `******` 掩码；
-   - 模拟 SPA 虚拟路由流转（`history.pushState` 与 Hash 路由），展示下一帧渲染稳定耗时与自动派发 `PAGE_VIEW`；
-   - 实时回放最近 30 条行为面包屑时间轴。
+- **默认/CI 模式**：内置离线自洽 Mock 遥测终端与故障模拟机制，上报事件由自定义 `reporter` 拦截并在页面底部的 Mock APM 终端中瀑布流实时回显，无需启动任何外部 APM 服务端即可在浏览器中体验完整交互与跑通自动化测试；
+- **Local 真实网关模式**：若需对接企业级真实 APM 日志收集网关，在工程根目录复制 `.env.example` 为 `.env.local` 并配置 `VITE_REPORT_URL`（如 `https://apm-collector.company.com/report`），重启开发服务即可直连真实上报通道（该环境配置文件已被 Git 严格忽略，CI 零风险）。
 
-5. **本地 Mock APM 实时事件接收终端 (Live APM Terminal)**：
-   - 实时捕获并展示所有上报的遥测事件（折叠查看完整 JSON 载荷与 Context 快照）；
-   - 支持按分类筛选（异常、网络、性能、白屏、自定义）与一键清空；
-   - 模拟 `@atengk/core` Axios 协同拦截器，自动从响应体 `Result<T>` 或 Header 提取后端分布式 MDC `traceId` 并完成端到端串联回显。
+---
+
+## 3. 核心场景看板与交互索引表
+
+应用启动后，可通过顶部导航 Tab 快速切换体验 4 大业务自验面板，底部常驻本地 Mock APM 实时事件接收终端：
+
+| 场景分类                 | 场景看板组件                                   | 核心可视化交互操作                                                                                                              | 验证重点                                                                                                                                         |
+| :----------------------- | :--------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **故障注入与异常熔断**   | `src/components/FaultPanel.vue` (Tab: 1)       | 点击触发 JS 同步抛错、Promise 异步未决拒付、静态图片/脚本 404 加载失败、Vue 渲染报错；点击“高频连续抛错 15 次”                  | 验证全局异常拦截、`createVueErrorHandler` 纯 TS 无损组件名与生命周期阶段提取、5s FNV-1a 指纹防抖去重聚合与单会话熔断断路器（休眠保护）           |
+| **白屏感知与容器白名单** | `src/components/WhiteScreenPanel.vue` (Tab: 2) | 点击“模拟白屏崩溃”（清空视口）、点击“切换骨架屏加载态”、点击“自愈恢复正常渲染”                                                  | 验证 3×3 视口几何点阵九点穿透采样、骨架屏 (`.skeleton-box`) 与 Loading 白名单祖先追溯豁免、两阶段延迟防抖复验与误报消除机制                      |
+| **性能大盘与卡顿感知**   | `src/components/PerformancePanel.vue` (Tab: 3) | 实时查看 Core Web Vitals 指标卡、点击“执行 120ms 阻塞长任务”、点击“触发大量 DOM 变更”                                           | 验证 FCP/LCP/CLS/TTFB 官方三态（Good/Needs Improvement/Poor）评级计算、NavigationTiming 关键耗时分解与 >50ms Long Task 卡顿与 Jank 告警          |
+| **行为轨迹与敏感脱敏**   | `src/components/BreadcrumbPanel.vue` (Tab: 4)  | 输入普通文本、输入密码、在 `[data-monitor-mask]` 区域输入；点击“模拟 SPA 虚拟路由跳转”、点击控制台模拟按钮                      | 验证三级脱敏防线（`type="password"` 与掩码容器星号脱敏）、SPA 虚拟路由 (`pushState`/`hashchange`) 下一帧稳定渲染耗时感知与行为时间轴 (FIFO) 回放 |
+| **本地 APM 实时终端**    | `src/components/ApmTerminal.vue` (底部常驻)    | 按事件类型（异常/性能/白屏/网络/自定义）多选筛选、展开查看完整 JSON 载荷与 Context 快照、点击“模拟触发网络请求”、点击“清空日志” | 验证全类型遥测事件结构规范、`@atengk/core` Axios 拦截器提取后端 MDC `traceId` 自动绑定与回显、防死循环标头过滤                                   |
+
+---
+
+### 💡 高频特色交互与自验速查卡
+
+在展厅自验过程中，可通过以下交互秒级体验可观测性套件的工业级防线：
+
+| 特色交互场景           | 触发方式与操作口诀                                   | 预期交互反馈                                                                                |
+| :--------------------- | :--------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+| **Vue 错误无损桥接**   | 在故障面板点击“触发 Vue 组件渲染异常”                | 监控终端捕获报错，精确解析出组件名 `<FaultPanel>` 与生命周期阶段 `render`，宿主应用零侵入   |
+| **5s 指纹防抖去重**    | 在故障面板连续高频点击 10 次“JS 同步抛错”            | 仅第 1 次物理生成异常上报，后续 9 次静默去重聚合，事件载荷中累加 `repeatCount: 10`          |
+| **会话熔断休眠保护**   | 在故障面板点击“连续触发 15 次异常”                   | 累计达到单会话阈值 (默认 10/50) 时，触发 `CIRCUIT_BREAKER_TRIGGERED` 告警，随后进入静默休眠 |
+| **骨架屏白名单豁免**   | 在白屏面板清空视口并切换为骨架屏状态                 | 3×3 点阵虽命中根容器，但因向上追溯命中 `.skeleton-box` 白名单，直接判定为加载态，豁免报警   |
+| **三级数据安全脱敏**   | 在轨迹面板密码框中输入内容并在脱敏区域输入个人身份证 | 面包屑时间轴中记录的操作值 100% 自动被掩码为 `******`，内存明文绝不外泄                     |
+| **TraceId 端到端串联** | 在 APM 终端点击“模拟带有 TraceId 的业务请求”         | Axios 拦截器从响应体提取 `traceId: "req-xxx"`，自动绑定至后续所有监控事件的上下文环境中     |
+
+---
+
+## 4. 全真自动化回归命令
+
+在自验展厅与核心子包交付前，必须在本地依次执行并通过以下四道全真质量门禁：
+
+```bash
+pnpm --filter @atengk/monitor --filter sample-monitor typecheck && \
+pnpm --filter @atengk/monitor --filter sample-monitor lint && \
+pnpm --filter @atengk/monitor --filter sample-monitor test && \
+pnpm --filter sample-monitor build
+```
+
+> 详细原理机制、Props/Options 强类型契约清单与生产防御边界，请参阅核心子包权威真理源文档：[@atengk/monitor README](../../packages/monitor/README.md)。
