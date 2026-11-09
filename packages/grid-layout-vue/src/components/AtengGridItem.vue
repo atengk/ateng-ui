@@ -282,7 +282,7 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   box-sizing: border-box;
 }
 </style>

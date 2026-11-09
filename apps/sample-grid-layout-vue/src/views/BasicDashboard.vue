@@ -155,40 +155,42 @@ const handleReset = () => {
           :column="column"
           :editable="editable"
           :show-grid-lines="showGridLines"
-          cell-height="80px"
+          cell-height="85px"
         >
           <AtengGridItem v-for="item in layout" :key="item.id" :item="item">
             <template #default="{ item: current }">
-              <el-card class="dashboard-card" shadow="hover">
-                <template #header>
-                  <div class="card-header at-grid-item__header">
-                    <span class="card-title">{{ current.data?.title }}</span>
-                    <el-space>
-                      <el-tag size="small" :type="current.data?.type || 'info'">{{
-                        current.data?.tag
-                      }}</el-tag>
-                      <el-button
-                        v-if="!current.locked && editable"
-                        link
-                        type="danger"
-                        size="small"
-                        @click.stop="handleRemoveCard(current.id)"
-                      >
-                        删除
-                      </el-button>
-                    </el-space>
+              <div class="dashboard-card" :class="{ 'dashboard-card--locked': current.locked }">
+                <div class="dashboard-card__header at-grid-item__header">
+                  <span class="card-title">{{ current.data?.title }}</span>
+                  <div class="card-actions">
+                    <el-tag size="small" :type="current.data?.type || 'info'">{{
+                      current.data?.tag
+                    }}</el-tag>
+                    <el-button
+                      v-if="!current.locked && editable"
+                      link
+                      type="danger"
+                      size="small"
+                      @click.stop="handleRemoveCard(current.id)"
+                    >
+                      删除
+                    </el-button>
                   </div>
-                </template>
-                <div class="card-body">
-                  <p class="card-meta">
-                    坐标: <code>(x: {{ current.x }}, y: {{ current.y }})</code>
-                  </p>
-                  <p class="card-meta">
-                    尺寸: <code>{{ current.w }} × {{ current.h }}</code>
-                  </p>
-                  <p v-if="current.locked" class="card-locked-tip">🔒 静态锁控项 (禁止拖动/缩放)</p>
                 </div>
-              </el-card>
+                <div class="dashboard-card__body">
+                  <div class="card-meta-list">
+                    <p class="card-meta">
+                      坐标: <code>(x: {{ current.x }}, y: {{ current.y }})</code>
+                    </p>
+                    <p class="card-meta">
+                      尺寸: <code>{{ current.w }} × {{ current.h }}</code>
+                    </p>
+                    <p v-if="current.locked" class="card-locked-tip">
+                      🔒 静态锁控项 (禁止拖动/缩放)
+                    </p>
+                  </div>
+                </div>
+              </div>
             </template>
           </AtengGridItem>
         </AtengGridLayout>
@@ -248,37 +250,83 @@ const handleReset = () => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--at-grid-border-radius, 8px);
+  box-shadow: var(--el-box-shadow-lighter);
+  overflow: hidden;
+  box-sizing: border-box;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
-:deep(.dashboard-card .el-card__body) {
-  flex: 1;
-  overflow: auto;
+.dashboard-card:hover {
+  box-shadow: var(--el-box-shadow-light);
 }
 
-.card-header {
+.dashboard-card--locked {
+  border-style: dashed;
+}
+
+.dashboard-card__header {
+  padding: 10px 14px;
+  background-color: var(--el-fill-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  user-select: none;
 }
 
 .card-title {
   font-weight: 600;
   font-size: 14px;
+  color: var(--el-text-color-primary);
 }
 
-.card-body {
-  font-size: 13px;
-  color: var(--el-text-color-regular);
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-card__body {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.card-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .card-meta {
-  margin: 4px 0;
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-meta code {
+  background-color: var(--el-fill-color-light);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .card-locked-tip {
   color: var(--el-color-danger);
   font-size: 12px;
-  margin-top: 8px;
+  margin: 2px 0 0 0;
 }
 
 .basic-dashboard__sidebar {

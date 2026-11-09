@@ -151,20 +151,18 @@ const handleReset = () => {
         :float="float"
         :editable="editable"
         :show-grid-lines="showGridLines"
-        cell-height="85px"
+        cell-height="95px"
       >
         <AtengGridItem v-for="item in layout" :key="item.id" :item="item">
           <template #default="{ item: current }">
-            <el-card class="physics-card" shadow="hover">
-              <template #header>
-                <div class="card-header at-grid-item__header">
-                  <span class="card-title">{{ current.data?.title }}</span>
-                  <el-tag size="small" :type="current.data?.type || 'info'">
-                    {{ current.data?.tag }}
-                  </el-tag>
-                </div>
-              </template>
-              <div class="card-content">
+            <div class="physics-card" :class="{ 'physics-card--locked': current.locked }">
+              <div class="physics-card__header at-grid-item__header">
+                <span class="card-title">{{ current.data?.title }}</span>
+                <el-tag size="small" :type="current.data?.type || 'info'">
+                  {{ current.data?.tag }}
+                </el-tag>
+              </div>
+              <div class="physics-card__body">
                 <p class="card-desc">{{ current.data?.description }}</p>
                 <div class="card-coordinates">
                   <code>X: {{ current.x }}</code>
@@ -173,7 +171,7 @@ const handleReset = () => {
                   <code>H: {{ current.h }}</code>
                 </div>
               </div>
-            </el-card>
+            </div>
           </template>
         </AtengGridItem>
       </AtengGridLayout>
@@ -211,35 +209,62 @@ const handleReset = () => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--at-grid-border-radius, 8px);
+  box-shadow: var(--el-box-shadow-lighter);
+  overflow: hidden;
+  box-sizing: border-box;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
-:deep(.physics-card .el-card__body) {
-  flex: 1;
-  overflow: auto;
-  padding: 12px;
+.physics-card:hover {
+  box-shadow: var(--el-box-shadow-light);
 }
 
-.card-header {
+.physics-card--locked {
+  border-style: dashed;
+}
+
+.physics-card__header {
+  padding: 10px 14px;
+  background-color: var(--el-fill-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  user-select: none;
 }
 
 .card-title {
   font-weight: 600;
   font-size: 14px;
+  color: var(--el-text-color-primary);
+}
+
+.physics-card__body {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .card-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
   line-height: 1.5;
-  margin: 0 0 8px 0;
+  margin: 0;
 }
 
 .card-coordinates {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 8px;
 }
 

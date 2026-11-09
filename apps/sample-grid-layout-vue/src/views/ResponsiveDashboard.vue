@@ -278,10 +278,10 @@ const resetLayout = () => {
         <div class="control-group">
           <span class="control-label">动态行高 (cellHeight):</span>
           <el-radio-group v-model="cellHeight" size="small">
-            <el-radio-button label="60px">60px (紧凑)</el-radio-button>
-            <el-radio-button label="80px">80px (标准)</el-radio-button>
-            <el-radio-button label="100px">100px (舒展)</el-radio-button>
-            <el-radio-button label="120px">120px (巨幅)</el-radio-button>
+            <el-radio-button value="60px">60px (紧凑)</el-radio-button>
+            <el-radio-button value="80px">80px (标准)</el-radio-button>
+            <el-radio-button value="100px">100px (舒展)</el-radio-button>
+            <el-radio-button value="120px">120px (巨幅)</el-radio-button>
           </el-radio-group>
         </div>
 

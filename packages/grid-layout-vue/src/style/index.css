@@ -59,13 +59,15 @@ html.dark {
   z-index: 1000 !important;
 }
 
+.grid-stack > .grid-stack-item > .grid-stack-item-content,
+.grid-stack > .grid-stack-item > .at-grid-item__content,
 .at-grid-item__content {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   box-sizing: border-box;
   border-radius: var(--at-grid-border-radius);
 }
