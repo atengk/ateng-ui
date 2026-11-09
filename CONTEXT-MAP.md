@@ -36,6 +36,8 @@
   面向现代 Web 应用、SQL 审计与发布配置中心的工业级 Monaco Editor 代码编辑与高保真 Diff 差异比对基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 Monaco Editor，严格中立并与具体 UI 库解耦。提供 `<AtengCodeEditor />` 高保真单体编辑器、`<AtengCodeDiffEditor />` 双栏/内联差异比对容器与 `useCodeEditor()` / `useCodeDiff()` 无头状态机；以 `.at-code-editor-*` 隔离原生微工具栏并 100% 暴露插槽反转；内置三级弹性 WorkerProvider SPI 与离线单线程静默降级防线；确立 `shallowRef` 零深层代理与 `executeEdits` 增量光标防丢失契约；提供暗黑模式 `theme: 'auto'` 响应式热跟随、`ResizeObserver` 弹窗/标签页 `0x0` 几何自愈、受管补全 SPI 与 JSON Schema 语法校验。
 - **[EditorVue 企业级现代富文本与内容创作扩展](./packages/editor-vue/CONTEXT.md)**（`@atengk/editor-vue`，当前已立项入驻）：
   面向现代 Web 应用、知识库与发布系统的工业级 TipTap / ProseMirror 现代富文本与内容创作基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 TipTap 2.x，严格中立并与具体 UI 库解耦。提供 `<AtengEditor />` 现代富文本高阶表现容器与 `useEditor()` 无头状态机；以 `.at-editor-*` 隔离原生全中文微工具栏并 100% 暴露插槽反转；内置排名前 90% 的企业核心排版扩展预设（StarterKit、Table家族与拖拽列宽、TaskList、Image、Link、CodeBlockLowlight 等）；支持 `v-model` (HTML)、`v-model:markdown` 与 `v-model:json` 多轨数据双向绑定与增量事务同步；提供 `UploadHandler` SPI 拦截拖拽/粘贴截图直传并内置骨架占位与 Base64 降级；内置全中文表格浮动上下文菜单（`TableBubbleMenu`）、块级斜杠命令（`SlashCommand`）、过滤标签的纯文本字数统计与硬拦截（`CharacterCounter`）、暗黑模式无损热跟随、`0x0` 几何自愈、脱壳真全屏（`TeleportFullscreen`）与阅读器双态模式。
+- **[AiChatVue 企业级AI智能体会话与Artifacts扩展](./packages/ai-chat-vue/CONTEXT.md)**（`@atengk/ai-chat-vue`，当前孵化中）：
+  面向现代 Web 应用与大语言模型交互的企业级 AI 智能体对话、思考链折叠与 Artifacts 产物协同响应式扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`)、`markdown-it`、`katex` 与可选 `mermaid`，严格中立并与具体 UI 库解耦。提供 `<AtengAiChat />` 统领容器、`<AtengChatMessage />`、`<AtengReasoningBlock />`、`<AtengToolCallCard />`、`<AtengArtifactSidebar />`、`<AtengChatInput />` 表现容器与 `useAiChat()` 无头状态机；内置 `ReasoningDemuxer` 实现 DeepSeek R1 `<think>` 与 OpenAI `reasoning_content` 双模流式多路解复用与计时折叠；内置 Markdown/KaTeX 解析与动态 `mermaid` 懒加载；提供 Artifacts 全局产物总线与 Monaco 代码编辑器插槽反转。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -57,6 +59,7 @@
 - **[Sample CodeEditorVue 代码与Diff比对自验展厅](./apps/sample-code-editor-vue/README.md)**（`sample-code-editor-vue`）：代码与比对沙箱，1:1 对标 `@atengk/code-editor-vue`，固定端口 3008，验证代码高亮、SQL 美化、JSON Schema 校验、Diff 双模比对、审计行高亮与弹窗生命周期自愈清理。
 - **[Sample EditorVue 现代富文本与内容创作自验展厅](./apps/sample-editor-vue/README.md)**（`sample-editor-vue`）：富文本沙箱，1:1 对标 `@atengk/editor-vue`，固定端口 3009，验证基础排版、表格上下文操控与列宽拖拽、拖拽粘贴截图直传、划词气泡与斜杠命令、表单联动与字数硬限制、弹窗挂载自愈与阅读器模式。
 - **[Sample Monitor 原生监控与APM自验展厅](./apps/sample-monitor/README.md)**（`sample-monitor`）：监控沙箱，1:1 对标 `@atengk/monitor`，固定端口 3010，验证故障模拟（JS/Promise/资源 404）、白屏自愈、Web Vitals 实时打点、脱敏面包屑时间轴与本地 APM 接收器。
+- **[Sample AiChatVue 智能体会话与Artifacts自验展厅](./apps/sample-ai-chat-vue/README.md)**（`sample-ai-chat-vue`）：AI 对话沙箱，1:1 对标 `@atengk/ai-chat-vue`，固定端口 3011，验证流式打字机、DeepSeek R1 思考链折叠、Tool Call 工具卡片、Artifacts 侧边栏与 Monaco 代码插槽。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---

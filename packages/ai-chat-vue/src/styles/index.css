@@ -1,0 +1,277 @@
+/**
+ * @atengk/ai-chat-vue 核心样式与 CSS 变量系统。
+ *
+ * 遵循 BEM 命名规范（.at-ai-chat-*），纯原生 CSS 驱动，支持暗黑模式自适应。
+ *
+ * @author Ateng
+ * @since 2026-11-09
+ */
+
+:root {
+  --at-chat-primary: #2563eb;
+  --at-chat-primary-hover: #1d4ed8;
+  --at-chat-primary-active: #1e40af;
+  --at-chat-danger: #ef4444;
+  --at-chat-danger-hover: #dc2626;
+
+  --at-chat-bg: #ffffff;
+  --at-chat-surface: #f8fafc;
+  --at-chat-border: #e2e8f0;
+  --at-chat-border-hover: #cbd5e1;
+
+  --at-chat-text: #0f172a;
+  --at-chat-text-secondary: #475569;
+  --at-chat-text-muted: #94a3b8;
+
+  --at-chat-message-bg-user: #2563eb;
+  --at-chat-message-text-user: #ffffff;
+  --at-chat-message-bg-assistant: #f1f5f9;
+  --at-chat-message-text-assistant: #0f172a;
+
+  --at-chat-radius-sm: 4px;
+  --at-chat-radius-md: 8px;
+  --at-chat-radius-lg: 12px;
+  --at-chat-radius-full: 9999px;
+
+  --at-chat-font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+html.dark,
+.dark,
+[data-theme='dark'] {
+  --at-chat-primary: #3b82f6;
+  --at-chat-primary-hover: #60a5fa;
+  --at-chat-primary-active: #2563eb;
+  --at-chat-danger: #f87171;
+  --at-chat-danger-hover: #ef4444;
+
+  --at-chat-bg: #0f172a;
+  --at-chat-surface: #1e293b;
+  --at-chat-border: #334155;
+  --at-chat-border-hover: #475569;
+
+  --at-chat-text: #f8fafc;
+  --at-chat-text-secondary: #cbd5e1;
+  --at-chat-text-muted: #64748b;
+
+  --at-chat-message-bg-user: #3b82f6;
+  --at-chat-message-text-user: #ffffff;
+  --at-chat-message-bg-assistant: #1e293b;
+  --at-chat-message-text-assistant: #f8fafc;
+}
+
+/* 统领容器 */
+.at-ai-chat {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--at-chat-bg);
+  border: 1px solid var(--at-chat-border);
+  border-radius: var(--at-chat-radius-md);
+  font-family: var(--at-chat-font-family);
+  color: var(--at-chat-text);
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.at-ai-chat *,
+.at-ai-chat *::before,
+.at-ai-chat *::after {
+  box-sizing: border-box;
+}
+
+/* 顶部栏 */
+.at-ai-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--at-chat-border);
+  background-color: var(--at-chat-surface);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* 消息滚动流视口 */
+.at-ai-chat__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+/* 单条消息包装器 */
+.at-ai-chat__message-wrapper {
+  display: flex;
+  gap: 12px;
+  max-width: 85%;
+  align-items: flex-start;
+}
+
+.at-ai-chat__message-wrapper--user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.at-ai-chat__message-wrapper--assistant {
+  align-self: flex-start;
+  flex-direction: row;
+}
+
+/* 头像 */
+.at-ai-chat__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--at-chat-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.at-ai-chat__message-wrapper--user .at-ai-chat__avatar {
+  background-color: var(--at-chat-primary);
+  color: #ffffff;
+}
+
+.at-ai-chat__message-wrapper--assistant .at-ai-chat__avatar {
+  background-color: var(--at-chat-surface);
+  color: var(--at-chat-text-secondary);
+  border: 1px solid var(--at-chat-border);
+}
+
+/* 消息气泡主体 */
+.at-ai-chat__message-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.at-ai-chat__bubble {
+  padding: 10px 14px;
+  border-radius: var(--at-chat-radius-md);
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.at-ai-chat__message-wrapper--user .at-ai-chat__bubble {
+  background-color: var(--at-chat-message-bg-user);
+  color: var(--at-chat-message-text-user);
+  border-bottom-right-radius: var(--at-chat-radius-sm);
+}
+
+.at-ai-chat__message-wrapper--assistant .at-ai-chat__bubble {
+  background-color: var(--at-chat-message-bg-assistant);
+  color: var(--at-chat-message-text-assistant);
+  border: 1px solid var(--at-chat-border);
+  border-bottom-left-radius: var(--at-chat-radius-sm);
+}
+
+/* 流式打字中光标动画 */
+.at-ai-chat__cursor {
+  display: inline-block;
+  width: 6px;
+  height: 15px;
+  background-color: currentColor;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: at-chat-blink 1s step-start infinite;
+}
+
+@keyframes at-chat-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 底部输入区 */
+.at-ai-chat__input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--at-chat-border);
+  background-color: var(--at-chat-bg);
+}
+
+.at-ai-chat__input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background-color: var(--at-chat-surface);
+  border: 1px solid var(--at-chat-border);
+  border-radius: var(--at-chat-radius-md);
+  padding: 8px 12px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.at-ai-chat__input-box:focus-within {
+  border-color: var(--at-chat-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.at-ai-chat__textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--at-chat-text);
+  line-height: 1.5;
+  min-height: 24px;
+  max-height: 160px;
+  resize: none;
+  padding: 0;
+}
+
+.at-ai-chat__textarea::placeholder {
+  color: var(--at-chat-text-muted);
+}
+
+.at-ai-chat__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--at-chat-radius-full);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 0.2s,
+    transform 0.1s;
+}
+
+.at-ai-chat__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.at-ai-chat__btn--send {
+  background-color: var(--at-chat-primary);
+  color: #ffffff;
+}
+
+.at-ai-chat__btn--send:hover:not(:disabled) {
+  background-color: var(--at-chat-primary-hover);
+}
+
+.at-ai-chat__btn--stop {
+  background-color: var(--at-chat-danger);
+  color: #ffffff;
+}
+
+.at-ai-chat__btn--stop:hover:not(:disabled) {
+  background-color: var(--at-chat-danger-hover);
+}

@@ -5,6 +5,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/vue" },
     { "path": "./packages/element-plus" },
-    { "path": "./packages/flow-vue" }
+    { "path": "./packages/flow-vue" },
+    { "path": "./packages/ai-chat-vue" }
   ]
 }

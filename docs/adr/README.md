@@ -46,6 +46,7 @@
 | [ADR-0040](./0040-modern-loading-and-anti-flicker-architecture.md)                                 | 现代加载与防闪烁交互架构规约                                          | Accepted | 确立 AtengLoadingBar 2px 顶栏流光线与零遮罩局部加载，配合 150ms 静默延迟保护与 300ms 最小展示时长消除瞬闪                                                                          |
 | [ADR-0041](./0041-file-viewer-network-fetch-transport-and-asset-offline-strategy.md)               | 文件预览流式传输层 Fetch API 重构与生产级离线资产同步策略             | Accepted | 采用原生 Fetch API 替代 XHR 规避三方插件 `responseType='blob'` 篡改崩溃，修复 PPTX/DOCX 离线 Worker 资产同步与 Markdown 原生支持                                                   |
 | [ADR-0042](./0042-file-viewer-document-toc-heading-semantic-extraction.md)                         | 文档目录大纲 (TOC) 专有标题语义提取与层级渲染契约                     | Accepted | 建立独立的 `extractDocumentHeadings` 标题语义提取器，剥离全文检索锚点污染，支持 H1~H6 树状层级缩进与无标题空状态保底                                                               |
+| [ADR-0043](./0043-ai-chat-vue-l2-architecture-and-artifacts-governance.md)                         | AiChatVue L2 扩展层架构、思考链流式多路解复用与 Artifacts 治理规范    | Accepted | 确立 @atengk/ai-chat-vue L2 定位与零 UI 依赖，ReasoningDemuxer 双模思考链分离，动态 Mermaid 懒加载，Artifacts 不可变版本链与 Monaco 双模 Diff，RAF 节流与全双工 HITL 工具审批闭环  |
 
 ---
 
