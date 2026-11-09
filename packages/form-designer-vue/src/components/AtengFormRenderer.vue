@@ -66,6 +66,8 @@ const renderer = useFormRenderer({
 
 const {
   errors,
+  validating,
+  validatingFields,
   getFieldValue,
   setFieldValue,
   getFormData,
@@ -122,6 +124,8 @@ defineExpose({
   setFormData,
   getFieldValue,
   setFieldValue,
+  validating,
+  validatingFields,
 });
 </script>
 
@@ -142,6 +146,7 @@ defineExpose({
           class="at-form-item"
           :class="{
             'has-error': widget.modelKey && errors[widget.modelKey],
+            'is-validating': widget.modelKey && validatingFields[widget.modelKey],
             'is-required': isFieldRequired(widget),
             'is-readonly': isFieldReadonly(widget),
           }"
@@ -170,15 +175,34 @@ defineExpose({
               :readonly="isFieldReadonly(widget)"
               :size="effectiveSize"
               @update:model-value="
-                (val: unknown) => widget.modelKey && setFieldValue(widget.modelKey, val)
+                (val: unknown) => {
+                  if (widget.modelKey) {
+                    setFieldValue(widget.modelKey, val);
+                    validateField(widget.modelKey, 'change');
+                  }
+                }
               "
-              @blur="() => widget.modelKey && validateField(widget.modelKey)"
+              @blur="() => widget.modelKey && validateField(widget.modelKey, 'blur')"
             />
             <div v-else class="at-widget-missing-fallback">未注册的控件类型: {{ widget.type }}</div>
 
+            <!-- 异步校验中提示 -->
+            <div
+              v-if="widget.modelKey && validatingFields[widget.modelKey]"
+              class="at-form-item-validating"
+            >
+              <span class="at-validating-dot"></span>
+              <span>正在校验中...</span>
+            </div>
+
             <!-- 错误校验提示 -->
             <transition name="at-fade">
-              <div v-if="widget.modelKey && errors[widget.modelKey]" class="at-form-item-error">
+              <div
+                v-if="
+                  widget.modelKey && errors[widget.modelKey] && !validatingFields[widget.modelKey]
+                "
+                class="at-form-item-error"
+              >
                 {{ errors[widget.modelKey] }}
               </div>
             </transition>
@@ -189,7 +213,7 @@ defineExpose({
 
     <!-- 底部操作插槽 -->
     <div v-if="$slots.footer" class="at-form-footer">
-      <slot name="footer" :submit="handleSubmit" :reset="resetFields" :validating="false" />
+      <slot name="footer" :submit="handleSubmit" :reset="resetFields" :validating="validating" />
     </div>
   </form>
 </template>
@@ -269,6 +293,35 @@ defineExpose({
   font-size: 12px;
   line-height: 1.4;
   margin-top: 4px;
+}
+
+.at-form-item-validating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--at-form-info-color, #3b82f6);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.at-validating-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--at-form-info-color, #3b82f6);
+  animation: at-pulse 1s infinite alternate;
+}
+
+@keyframes at-pulse {
+  from {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 .at-widget-missing-fallback {

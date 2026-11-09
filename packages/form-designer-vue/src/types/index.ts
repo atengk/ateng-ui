@@ -60,13 +60,26 @@ export interface FormRule {
   /** 最大长度或最大值 */
   max?: number;
   /** 目标数据类型 */
-  type?: string;
-  /** 自定义同步/异步校验函数 */
+  type?:
+    'string' | 'number' | 'boolean' | 'array' | 'object' | 'email' | 'url' | 'integer' | string;
+  /** 固定精确长度 */
+  len?: number;
+  /** 异步校验防抖延迟（毫秒），默认 300ms */
+  debounceMs?: number;
+  /** 自定义同步校验函数 */
   validator?: (
     rule: FormRule,
     value: unknown,
     callback: (error?: string | Error) => void,
     source?: Record<string, unknown>,
+  ) => void | Promise<void>;
+  /** 自定义异步校验函数（注入专属 AbortSignal 支持时序取消） */
+  asyncValidator?: (
+    rule: FormRule,
+    value: unknown,
+    callback: (error?: string | Error) => void,
+    source?: Record<string, unknown>,
+    signal?: AbortSignal,
   ) => void | Promise<void>;
 }
 
@@ -248,4 +261,8 @@ export interface FormRendererInstance {
   clearValidate: (path?: string) => void;
   /** 重置表单所有字段至初始默认值并清除校验状态 */
   resetFields: () => void;
+  /** 是否存在正在进行中的异步校验 */
+  validating?: boolean;
+  /** 正在进行异步校验的字段映射 */
+  validatingFields?: Record<string, boolean>;
 }

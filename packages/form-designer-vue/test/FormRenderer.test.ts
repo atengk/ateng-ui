@@ -196,4 +196,26 @@ describe('AtengFormRenderer', () => {
 
     expect(wrapper.find('.at-form-item-error').exists()).toBe(false);
   });
+
+  it('应该支持单字段校验 validateField 与清除错误 clearValidate', async () => {
+    wrapper = mount(AtengFormRenderer, {
+      props: {
+        schema: sampleSchema,
+        formData: { username: '' },
+      },
+    });
+
+    const instance = wrapper.vm as unknown as FormRendererInstance;
+    const res = await instance.validateField('username');
+    expect(res.valid).toBe(false);
+    expect(res.error).toBe('用户名不能为空');
+
+    await nextTick();
+    expect(wrapper.find('.at-form-item-error').text()).toBe('用户名不能为空');
+
+    // 清除校验
+    instance.clearValidate('username');
+    await nextTick();
+    expect(wrapper.find('.at-form-item-error').exists()).toBe(false);
+  });
 });

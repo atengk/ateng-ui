@@ -17,6 +17,10 @@ export { AtengFormRenderer };
 export { useFormRenderer } from './composables/useFormRenderer';
 export type { UseFormRendererOptions } from './composables/useFormRenderer';
 
+// 导出异步校验引擎
+export { AsyncValidatorEngine } from './validator/AsyncValidatorEngine';
+export type { ValidationResult } from './validator/AsyncValidatorEngine';
+
 // 导出控件注册中心与原生适配器
 export { FormWidgetRegistry, defaultWidgetRegistry } from './registry';
 export {

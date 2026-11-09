@@ -14,6 +14,7 @@
 
 import { ref } from 'vue';
 import MinimalRendererScenario from './scenarios/MinimalRendererScenario.vue';
+import AsyncValidationScenario from './scenarios/AsyncValidationScenario.vue';
 
 const activeTab = ref<string>('minimal');
 const isDark = ref<boolean>(false);
@@ -51,6 +52,9 @@ const toggleDarkMode = (val: boolean): void => {
       <el-tabs v-model="activeTab" type="border-card">
         <el-tab-pane label="场景一：运行态三段式 AST 渲染 (MinimalRenderer)" name="minimal">
           <MinimalRendererScenario />
+        </el-tab-pane>
+        <el-tab-pane label="场景二：异步网络校验与抗竞态 (AsyncValidation)" name="validation">
+          <AsyncValidationScenario />
         </el-tab-pane>
       </el-tabs>
     </main>

@@ -2,13 +2,13 @@
  * @atengk/form-designer-vue 无头表单运行态响应式状态机。
  *
  * 遵循 ADR-0002 (Vue 3.5 toValue 解包)、ADR-0013 与 ADR-0044 规约，
- * 纯状态机编排，负责数据双向流、路径存取、流程权限仲裁与基础校验生命周期。
+ * 纯状态机编排，负责数据双向流、路径存取、流程权限仲裁与 AsyncValidatorEngine 校验生命周期。
  *
  * @author Ateng
  * @since 2026-11-09
  */
 
-import { ref, toValue, watch, toRaw } from 'vue';
+import { ref, computed, toValue, watch, toRaw, getCurrentScope, onScopeDispose } from 'vue';
 import type { MaybeRefOrGetter } from 'vue';
 import type {
   FormSchema,
@@ -16,8 +16,10 @@ import type {
   FieldPermission,
   FieldPermissionMatrix,
   FormValidationErrors,
+  FormRule,
 } from '../types';
 import { getByPath, setByPath } from '../utils/path';
+import { AsyncValidatorEngine } from '../validator/AsyncValidatorEngine';
 
 /**
  * 安全深度克隆工具（解包 Vue Proxy，防御 DataCloneError）。
@@ -60,8 +62,25 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   const internalFormData = ref<Record<string, unknown>>({});
   // 校验错误字典
   const errors = ref<FormValidationErrors>({});
+  // 正在进行异步校验的字段映射
+  const validatingFields = ref<Record<string, boolean>>({});
+  // 校验引擎实例
+  const validatorEngine = new AsyncValidatorEngine();
+
+  // 是否存在任何正在进行中的异步校验
+  const isValidating = computed(() => {
+    return Object.values(validatingFields.value).some(Boolean);
+  });
+
   // 初始默认数据快照（用于 resetFields）
   let initialDataSnapshot: Record<string, unknown> = {};
+
+  // 作用域销毁时清理所有在途定时器与请求
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      validatorEngine.clearAll();
+    });
+  }
 
   // 递归收集 Schema 中所有字段的默认值
   const extractDefaultValues = (widgets: FormWidget[]): Record<string, unknown> => {
@@ -122,7 +141,7 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     options.onUpdateFormData?.(updatedSnapshot);
     options.onFieldChange?.(path, value, updatedSnapshot);
 
-    // 若该字段存在校验错误，清理错误状态
+    // 若该字段存在校验错误，清理错误状态并取消在途校验
     if (errors.value[path]) {
       const nextErrors = { ...errors.value };
       delete nextErrors[path];
@@ -233,9 +252,31 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   };
 
   /**
+   * 构建字段最终执行的有效规则集合。
+   */
+  const getEffectiveRules = (widget: FormWidget): FormRule[] => {
+    const rules: FormRule[] = Array.isArray(widget.rules) ? [...widget.rules] : [];
+    const isRequired = isFieldRequired(widget);
+
+    // 确保必填规则处于前置位
+    const hasRequiredRule = rules.some(r => Boolean(r.required));
+    if (isRequired && !hasRequiredRule) {
+      rules.unshift({
+        required: true,
+        message: `${widget.label || widget.modelKey || '字段'}为必填项`,
+      });
+    }
+
+    return rules;
+  };
+
+  /**
    * 触发单字段校验。
    */
-  const validateField = async (path: string): Promise<{ valid: boolean; error?: string }> => {
+  const validateField = async (
+    path: string,
+    trigger?: 'blur' | 'change',
+  ): Promise<{ valid: boolean; error?: string }> => {
     const currentSchema = toValue(options.schema);
     if (!currentSchema) {
       return { valid: true };
@@ -249,66 +290,41 @@ export function useFormRenderer(options: UseFormRendererOptions) {
 
     // 若只读或隐藏，直接跳过校验
     if (isFieldReadonly(targetWidget) || !isFieldVisible(targetWidget)) {
+      clearValidate(path);
+      return { valid: true };
+    }
+
+    const allRules = getEffectiveRules(targetWidget);
+    // 过滤符合 trigger 触发时机的规则
+    const activeRules = trigger
+      ? allRules.filter(r => {
+          if (!r.trigger) return true;
+          if (Array.isArray(r.trigger)) return r.trigger.includes(trigger);
+          return r.trigger === trigger;
+        })
+      : allRules;
+
+    if (activeRules.length === 0) {
       return { valid: true };
     }
 
     const value = getFieldValue(path);
-    const isRequired = isFieldRequired(targetWidget);
+    const res = await validatorEngine.validateField(
+      path,
+      activeRules,
+      value,
+      internalFormData.value,
+      isValidating => {
+        validatingFields.value = {
+          ...validatingFields.value,
+          [path]: isValidating,
+        };
+      },
+    );
 
-    // 必填项空安全前置检查
-    if (isRequired) {
-      const isEmpty = value == null || value === '' || (Array.isArray(value) && value.length === 0);
-      if (isEmpty) {
-        const errorMsg =
-          targetWidget.rules?.find(r => r.required)?.message ||
-          `${targetWidget.label || path} 为必填项`;
-        errors.value = { ...errors.value, [path]: errorMsg };
-        return { valid: false, error: errorMsg };
-      }
-    }
-
-    // 规则列表逐项校验
-    if (Array.isArray(targetWidget.rules)) {
-      for (const rule of targetWidget.rules) {
-        if (rule.pattern) {
-          const regex = typeof rule.pattern === 'string' ? new RegExp(rule.pattern) : rule.pattern;
-          if (value && !regex.test(String(value))) {
-            const errorMsg = rule.message || `${targetWidget.label || path} 格式不正确`;
-            errors.value = { ...errors.value, [path]: errorMsg };
-            return { valid: false, error: errorMsg };
-          }
-        }
-
-        if (rule.min != null && typeof value === 'string' && value.length < rule.min) {
-          const errorMsg = rule.message || `最少输入 ${rule.min} 个字符`;
-          errors.value = { ...errors.value, [path]: errorMsg };
-          return { valid: false, error: errorMsg };
-        }
-
-        if (rule.max != null && typeof value === 'string' && value.length > rule.max) {
-          const errorMsg = rule.message || `最多输入 ${rule.max} 个字符`;
-          errors.value = { ...errors.value, [path]: errorMsg };
-          return { valid: false, error: errorMsg };
-        }
-
-        if (typeof rule.validator === 'function') {
-          let customErr: string | undefined;
-          await rule.validator(
-            rule,
-            value,
-            err => {
-              if (err) {
-                customErr = typeof err === 'string' ? err : err.message;
-              }
-            },
-            internalFormData.value,
-          );
-          if (customErr) {
-            errors.value = { ...errors.value, [path]: customErr };
-            return { valid: false, error: customErr };
-          }
-        }
-      }
+    if (!res.valid && res.error) {
+      errors.value = { ...errors.value, [path]: res.error };
+      return { valid: false, error: res.error };
     }
 
     // 校验通过，清理错误
@@ -336,14 +352,17 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     const allWidgets = collectActiveWidgets(currentSchema.widgetList);
     const newErrors: FormValidationErrors = {};
 
-    for (const widget of allWidgets) {
-      if (widget.modelKey) {
-        const res = await validateField(widget.modelKey);
+    const validationPromises = allWidgets
+      .filter(w => Boolean(w.modelKey) && !isFieldReadonly(w) && isFieldVisible(w))
+      .map(async widget => {
+        const path = widget.modelKey!;
+        const res = await validateField(path);
         if (!res.valid && res.error) {
-          newErrors[widget.modelKey] = res.error;
+          newErrors[path] = res.error;
         }
-      }
-    }
+      });
+
+    await Promise.all(validationPromises);
 
     errors.value = newErrors;
     const isValid = Object.keys(newErrors).length === 0;
@@ -355,15 +374,22 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   };
 
   /**
-   * 清除指定或全部字段的校验错误状态。
+   * 清除指定或全部字段的校验错误状态与在途校验。
    */
   const clearValidate = (path?: string): void => {
     if (path) {
-      const next = { ...errors.value };
-      delete next[path];
-      errors.value = next;
+      validatorEngine.cancelField(path);
+      const nextErrors = { ...errors.value };
+      delete nextErrors[path];
+      errors.value = nextErrors;
+
+      const nextValidating = { ...validatingFields.value };
+      delete nextValidating[path];
+      validatingFields.value = nextValidating;
     } else {
+      validatorEngine.clearAll();
       errors.value = {};
+      validatingFields.value = {};
     }
   };
 
@@ -379,6 +405,8 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   return {
     formData: internalFormData,
     errors,
+    validating: isValidating,
+    validatingFields,
     getFieldValue,
     setFieldValue,
     getFormData,
