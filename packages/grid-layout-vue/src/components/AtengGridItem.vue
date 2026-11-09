@@ -42,6 +42,44 @@ const isResizing = computed(() =>
   ),
 );
 
+const isMaximized = computed(() =>
+  Boolean(
+    gridLayoutContext?.maximizedId.value &&
+    String(gridLayoutContext.maximizedId.value) === String(props.item.id),
+  ),
+);
+
+const isCollapsed = computed(() =>
+  Boolean(
+    gridLayoutContext?.collapsedIds.value &&
+    gridLayoutContext.collapsedIds.value.has(String(props.item.id)),
+  ),
+);
+
+const toggleMaximize = (): void => {
+  gridLayoutContext?.toggleMaximize(props.item.id);
+};
+
+const maximize = (): void => {
+  gridLayoutContext?.maximize(props.item.id);
+};
+
+const restore = (): void => {
+  gridLayoutContext?.restore(props.item.id);
+};
+
+const toggleCollapse = (): void => {
+  gridLayoutContext?.toggleCollapse(props.item.id);
+};
+
+const collapse = (): void => {
+  gridLayoutContext?.collapse(props.item.id);
+};
+
+const expand = (): void => {
+  gridLayoutContext?.expand(props.item.id);
+};
+
 const pixelWidth = ref(0);
 const pixelHeight = ref(0);
 const resizeCallbacks = new Set<(size: { width: number; height: number }) => void>();
@@ -151,9 +189,17 @@ provide(GRID_ITEM_KEY, {
   isDragging,
   isResizing,
   isLocked,
+  isMaximized,
+  isCollapsed,
   pixelWidth,
   pixelHeight,
   onResize,
+  toggleMaximize,
+  toggleCollapse,
+  maximize,
+  restore,
+  collapse,
+  expand,
 } as unknown as GridItemContext<Record<string, unknown>>);
 
 defineExpose({
@@ -162,9 +208,17 @@ defineExpose({
   isDragging,
   isResizing,
   isLocked,
+  isMaximized,
+  isCollapsed,
   pixelWidth,
   pixelHeight,
   onResize,
+  toggleMaximize,
+  toggleCollapse,
+  maximize,
+  restore,
+  collapse,
+  expand,
 });
 </script>
 
@@ -172,6 +226,10 @@ defineExpose({
   <div
     ref="elRef"
     class="grid-stack-item at-grid-item"
+    :class="{
+      'at-grid-item--maximized': isMaximized,
+      'at-grid-item--collapsed': isCollapsed,
+    }"
     :gs-id="String(item.id)"
     :gs-x="item.x"
     :gs-y="item.y"
@@ -192,6 +250,14 @@ defineExpose({
         :is-dragging="isDragging"
         :is-resizing="isResizing"
         :is-locked="isLocked"
+        :is-maximized="isMaximized"
+        :is-collapsed="isCollapsed"
+        :toggle-maximize="toggleMaximize"
+        :toggle-collapse="toggleCollapse"
+        :maximize="maximize"
+        :restore="restore"
+        :collapse="collapse"
+        :expand="expand"
       />
     </div>
   </div>
@@ -200,6 +266,14 @@ defineExpose({
 <style scoped>
 .at-grid-item {
   box-sizing: border-box;
+}
+
+.at-grid-item--maximized {
+  z-index: 10;
+}
+
+.at-grid-item--collapsed .at-grid-item__content {
+  overflow: hidden;
 }
 
 .at-grid-item__content {

@@ -110,6 +110,26 @@ export interface UseGridLayoutReturn<T = Record<string, unknown>> {
   currentColumn: Ref<number>;
   /** 当前行高配置 */
   cellHeight: Ref<number | string>;
+  /** 当前处于全视口聚焦最大化的卡片 ID (若无则为 null) */
+  maximizedId: Ref<string | number | null>;
+  /** 当前处于高度折叠态的卡片 ID 集合 */
+  collapsedIds: Ref<Set<string | number>>;
+  /** 单卡片聚焦全视口最大化 */
+  maximize: (id: string | number) => void;
+  /** 还原最大化卡片至原始几何坐标与跨度 */
+  restore: (id?: string | number) => void;
+  /** 往返切换卡片最大化聚焦状态 */
+  toggleMaximize: (id: string | number) => void;
+  /** 手风琴收缩卡片跨度至 1 行 (垂直吸附下方卡片) */
+  collapse: (id: string | number) => void;
+  /** 手风琴展开卡片恢复原始高度 */
+  expand: (id: string | number) => void;
+  /** 往返切换手风琴高度折叠状态 */
+  toggleCollapse: (id: string | number) => void;
+  /** 检查卡片是否处于最大化状态 */
+  isMaximized: (id: string | number) => boolean;
+  /** 检查卡片是否处于折叠状态 */
+  isCollapsed: (id: string | number) => boolean;
   /** 动态切换浮动模式 */
   setFloat: (val: boolean) => void;
   /** 动态切换编辑态 */
@@ -146,10 +166,26 @@ export interface GridItemContext<T = Record<string, unknown>> {
   isResizing: Ref<boolean>;
   /** 是否处于锁定态 */
   isLocked: Ref<boolean>;
+  /** 是否处于全视口最大化聚焦状态 */
+  isMaximized: Ref<boolean>;
+  /** 是否处于手风琴折叠状态 */
+  isCollapsed: Ref<boolean>;
   /** 像素宽度 */
   pixelWidth: Ref<number>;
   /** 像素高度 */
   pixelHeight: Ref<number>;
   /** 尺寸变动防抖订阅回调 (返回注销函数) */
   onResize: (cb: (size: { width: number; height: number }) => void) => () => void;
+  /** 往返切换当前卡片最大化聚焦 */
+  toggleMaximize: () => void;
+  /** 往返切换当前卡片手风琴折叠 */
+  toggleCollapse: () => void;
+  /** 最大化聚焦当前卡片 */
+  maximize: () => void;
+  /** 还原当前卡片至原始尺寸 */
+  restore: () => void;
+  /** 折叠当前卡片 */
+  collapse: () => void;
+  /** 展开当前卡片 */
+  expand: () => void;
 }

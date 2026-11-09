@@ -41,6 +41,30 @@ export function useGridLayout<T = Record<string, unknown>>(
   const activeDraggingId = ref<string | number | null>(null);
   const activeResizingId = ref<string | number | null>(null);
 
+  // 5. 最大化与手风琴折叠状态机
+  const maximizedId = ref<string | number | null>(null);
+  const collapsedIds = ref<Set<string | number>>(new Set());
+
+  // 原始快照缓存 (保留原始几何属性与缩放控制)
+  const originalRects = new Map<
+    string,
+    {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      noResize?: boolean;
+      noMove?: boolean;
+    }
+  >();
+  const originalHeights = new Map<
+    string,
+    {
+      h: number;
+      noResize?: boolean;
+    }
+  >();
+
   /**
    * 批量替换布局数据。
    */
@@ -77,9 +101,218 @@ export function useGridLayout<T = Record<string, unknown>>(
    * 依据 ID 移除网格项。
    */
   const removeItem = (id: string | number): void => {
-    const index = layout.value.findIndex(item => String(item.id) === String(id));
+    const strId = String(id);
+    if (maximizedId.value !== null && String(maximizedId.value) === strId) {
+      maximizedId.value = null;
+    }
+    originalRects.delete(strId);
+    if (collapsedIds.value.has(strId)) {
+      const nextSet = new Set(collapsedIds.value);
+      nextSet.delete(strId);
+      collapsedIds.value = nextSet;
+    }
+    originalHeights.delete(strId);
+
+    const index = layout.value.findIndex(item => String(item.id) === strId);
     if (index !== -1) {
       layout.value.splice(index, 1);
+    }
+  };
+
+  /**
+   * 检查指定卡片是否处于全视口最大化聚焦态。
+   */
+  const isMaximized = (id: string | number): boolean => {
+    return maximizedId.value !== null && String(maximizedId.value) === String(id);
+  };
+
+  /**
+   * 检查指定卡片是否处于手风琴折叠态。
+   */
+  const isCollapsed = (id: string | number): boolean => {
+    return collapsedIds.value.has(String(id));
+  };
+
+  /**
+   * 单卡片全视口聚焦最大化。
+   */
+  const maximize = (id: string | number): void => {
+    const strId = String(id);
+    const target = layout.value.find(item => String(item.id) === strId);
+    if (!target) {
+      return;
+    }
+
+    // 若当前已有其他卡片处于最大化，先将其还原
+    if (maximizedId.value !== null && String(maximizedId.value) !== strId) {
+      restore(maximizedId.value);
+    }
+
+    // 保存原始几何快照
+    if (!originalRects.has(strId)) {
+      originalRects.set(strId, {
+        x: target.x,
+        y: target.y,
+        w: target.w,
+        h: target.h,
+        noResize: target.noResize,
+        noMove: target.noMove,
+      });
+    }
+
+    // 设置最大化全视口尺寸与坐标
+    target.x = 0;
+    target.y = 0;
+    target.w = currentColumn.value;
+    target.h = Math.max(target.h ?? 1, 8);
+
+    maximizedId.value = id;
+
+    // 若底层 GridStack 驱动实例存在，同步底层 DOM 节点
+    if (gridInstance.value?.el) {
+      const el = gridInstance.value.el.querySelector(`[gs-id="${strId}"]`) as HTMLElement | null;
+      if (el) {
+        gridInstance.value.update(el, {
+          x: 0,
+          y: 0,
+          w: currentColumn.value,
+          h: target.h,
+        });
+        tidyLayout();
+      }
+    }
+  };
+
+  /**
+   * 还原最大化卡片至原始几何坐标与尺寸。
+   */
+  const restore = (id?: string | number): void => {
+    const targetId = id ?? maximizedId.value;
+    if (targetId === null || targetId === undefined) {
+      return;
+    }
+
+    const strId = String(targetId);
+    const target = layout.value.find(item => String(item.id) === strId);
+    const snap = originalRects.get(strId);
+
+    if (target && snap) {
+      target.x = snap.x;
+      target.y = snap.y;
+      target.w = snap.w;
+      target.h = snap.h;
+      target.noResize = snap.noResize;
+      target.noMove = snap.noMove;
+
+      if (gridInstance.value?.el) {
+        const el = gridInstance.value.el.querySelector(`[gs-id="${strId}"]`) as HTMLElement | null;
+        if (el) {
+          gridInstance.value.update(el, {
+            x: snap.x,
+            y: snap.y,
+            w: snap.w,
+            h: snap.h,
+            noResize: snap.noResize,
+            noMove: snap.noMove,
+          });
+          tidyLayout();
+        }
+      }
+    }
+
+    originalRects.delete(strId);
+    if (String(maximizedId.value) === strId) {
+      maximizedId.value = null;
+    }
+  };
+
+  /**
+   * 往返切换指定卡片最大化聚焦。
+   */
+  const toggleMaximize = (id: string | number): void => {
+    if (isMaximized(id)) {
+      restore(id);
+    } else {
+      maximize(id);
+    }
+  };
+
+  /**
+   * 手风琴收缩卡片跨度至 1 行 (并锁定 noResize，触发垂直紧凑排版)。
+   */
+  const collapse = (id: string | number): void => {
+    const strId = String(id);
+    const target = layout.value.find(item => String(item.id) === strId);
+    if (!target || isCollapsed(id)) {
+      return;
+    }
+
+    // 记录原始高度与缩放锁控快照
+    originalHeights.set(strId, {
+      h: target.h ?? 1,
+      noResize: target.noResize,
+    });
+
+    target.h = 1;
+    target.noResize = true;
+
+    const nextSet = new Set(collapsedIds.value);
+    nextSet.add(strId);
+    collapsedIds.value = nextSet;
+
+    if (gridInstance.value?.el) {
+      const el = gridInstance.value.el.querySelector(`[gs-id="${strId}"]`) as HTMLElement | null;
+      if (el) {
+        gridInstance.value.update(el, {
+          h: 1,
+          noResize: true,
+        });
+        tidyLayout();
+      }
+    }
+  };
+
+  /**
+   * 手风琴展开卡片恢复原始高度。
+   */
+  const expand = (id: string | number): void => {
+    const strId = String(id);
+    const target = layout.value.find(item => String(item.id) === strId);
+    if (!target || !isCollapsed(id)) {
+      return;
+    }
+
+    const snap = originalHeights.get(strId);
+    if (snap) {
+      target.h = snap.h;
+      target.noResize = snap.noResize;
+    }
+    originalHeights.delete(strId);
+
+    const nextSet = new Set(collapsedIds.value);
+    nextSet.delete(strId);
+    collapsedIds.value = nextSet;
+
+    if (gridInstance.value?.el) {
+      const el = gridInstance.value.el.querySelector(`[gs-id="${strId}"]`) as HTMLElement | null;
+      if (el) {
+        gridInstance.value.update(el, {
+          h: target.h,
+          noResize: target.noResize,
+        });
+        tidyLayout();
+      }
+    }
+  };
+
+  /**
+   * 往返切换手风琴折叠状态。
+   */
+  const toggleCollapse = (id: string | number): void => {
+    if (isCollapsed(id)) {
+      expand(id);
+    } else {
+      collapse(id);
     }
   };
 
@@ -184,6 +417,10 @@ export function useGridLayout<T = Record<string, unknown>>(
       gridInstance.value.destroy(false);
       gridInstance.value = null;
     }
+    maximizedId.value = null;
+    collapsedIds.value = new Set();
+    originalRects.clear();
+    originalHeights.clear();
   };
 
   return {
@@ -197,6 +434,16 @@ export function useGridLayout<T = Record<string, unknown>>(
     activeResizingId,
     currentColumn,
     cellHeight,
+    maximizedId,
+    collapsedIds,
+    maximize,
+    restore,
+    toggleMaximize,
+    collapse,
+    expand,
+    toggleCollapse,
+    isMaximized,
+    isCollapsed,
     setFloat,
     setEditable,
     setShowGridLines,

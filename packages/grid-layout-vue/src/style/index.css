@@ -45,6 +45,14 @@ html.dark {
     height 0.2s ease;
 }
 
+.at-grid-item.at-grid-item--maximized {
+  z-index: 20;
+}
+
+.at-grid-item.at-grid-item--collapsed .at-grid-item__content {
+  overflow: hidden;
+}
+
 .at-grid-item.ui-draggable-dragging,
 .at-grid-item.ui-resizable-resizing {
   transition: none !important;

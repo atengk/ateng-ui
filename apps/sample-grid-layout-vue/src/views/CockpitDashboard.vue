@@ -134,6 +134,7 @@ const layout = ref<GridLayoutItem<CockpitCardPayload>[]>(JSON.parse(JSON.stringi
 
 const showGridLines = ref(true);
 const editable = ref(true);
+const gridRef = ref<InstanceType<typeof AtengGridLayout> | null>(null);
 
 const randomizeData = () => {
   // 随机刷新趋势图
@@ -171,6 +172,9 @@ const resetLayout = () => {
         </p>
       </div>
       <div class="header-metrics">
+        <el-tag v-if="gridRef?.maximizedId" type="warning" size="large">
+          🔍 聚焦审查中: ID {{ gridRef.maximizedId }}
+        </el-tag>
         <el-tag type="success" size="large">协同引擎: @atengk/echarts-vue 5.x</el-tag>
         <el-tag type="info" size="large">驾驶舱卡片: {{ layout.length }} 项</el-tag>
       </div>
@@ -201,18 +205,30 @@ const resetLayout = () => {
     <!-- 网格画布大盘 -->
     <div class="cockpit-canvas-wrapper">
       <AtengGridLayout
+        ref="gridRef"
         v-model:layout="layout"
         :cell-height="'80px'"
         :show-grid-lines="showGridLines"
         :editable="editable"
       >
         <AtengGridItem v-for="item in layout" :key="item.id" :item="item">
-          <template #default="{ isDragging, isResizing }">
+          <template
+            #default="{
+              isDragging,
+              isResizing,
+              isMaximized,
+              isCollapsed,
+              toggleMaximize,
+              toggleCollapse,
+            }"
+          >
             <div
               class="cockpit-card"
               :class="{
                 'cockpit-card--dragging': isDragging,
                 'cockpit-card--resizing': isResizing,
+                'cockpit-card--maximized': isMaximized,
+                'cockpit-card--collapsed': isCollapsed,
               }"
             >
               <!-- 卡片头部手柄 -->
@@ -228,11 +244,31 @@ const resetLayout = () => {
                   <el-tag size="small" type="info">
                     {{ item.data?.category }}
                   </el-tag>
+                  <div class="card-action-btn-group" @pointerdown.stop @mousedown.stop>
+                    <el-button
+                      size="small"
+                      link
+                      :type="isCollapsed ? 'warning' : 'info'"
+                      :title="isCollapsed ? '展开卡片' : '折叠卡片'"
+                      @click="toggleCollapse"
+                    >
+                      {{ isCollapsed ? '🔽 展开' : '🔼 折叠' }}
+                    </el-button>
+                    <el-button
+                      size="small"
+                      link
+                      :type="isMaximized ? 'primary' : 'info'"
+                      :title="isMaximized ? '还原卡片' : '全屏最大化聚焦'"
+                      @click="toggleMaximize"
+                    >
+                      {{ isMaximized ? '🗗 还原' : '⛶ 聚焦' }}
+                    </el-button>
+                  </div>
                 </div>
               </div>
 
               <!-- 卡片内容主体：真实嵌入专业图表 -->
-              <div class="cockpit-card-body">
+              <div v-show="!isCollapsed" class="cockpit-card-body">
                 <!-- 1. 营业收入趋势柱线混合图 -->
                 <div v-if="item.data?.type === 'trend'" class="chart-container">
                   <AtengTrendChart
@@ -296,6 +332,11 @@ const resetLayout = () => {
                   </div>
                   <pre class="json-code"><code>{{ JSON.stringify(item, null, 2) }}</code></pre>
                 </div>
+              </div>
+
+              <!-- 卡片折叠态占位提示 -->
+              <div v-if="isCollapsed" class="cockpit-card-collapsed-tip">
+                <span>⚡ 卡片已收缩折叠为 1 行（点击右上角展开恢复）</span>
               </div>
             </div>
           </template>
@@ -403,6 +444,33 @@ const resetLayout = () => {
 .cockpit-card--resizing {
   border-color: var(--el-color-primary);
   box-shadow: var(--el-box-shadow);
+}
+
+.cockpit-card--maximized {
+  border-color: var(--el-color-primary);
+  box-shadow: var(--el-box-shadow-dark);
+}
+
+.cockpit-card--collapsed {
+  border-style: dashed;
+}
+
+.card-action-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.cockpit-card-collapsed-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-lighter);
 }
 
 .cockpit-card-header {

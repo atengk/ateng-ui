@@ -79,6 +79,10 @@ const emit = defineEmits<{
   (e: 'resizestop', id: string | number): void;
   (e: 'breakpointChange', payload: { width: number; column: number }): void;
   (e: 'dropItem', item: GridLayoutItem<T>): void;
+  (e: 'maximize', id: string | number): void;
+  (e: 'restore', id: string | number): void;
+  (e: 'collapse', id: string | number): void;
+  (e: 'expand', id: string | number): void;
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -348,6 +352,18 @@ watch(
   },
 );
 
+// 监听最大化卡片状态变更并触发事件
+watch(
+  () => internalController.maximizedId.value,
+  (newId, oldId) => {
+    if (newId !== null) {
+      emit('maximize', newId);
+    } else if (oldId !== null) {
+      emit('restore', oldId);
+    }
+  },
+);
+
 const gridStyle = computed(() => {
   const heightVal =
     typeof currentCellHeight.value === 'number'
@@ -367,6 +383,16 @@ defineExpose({
   container: containerRef,
   currentColumn,
   cellHeight: currentCellHeight,
+  maximizedId: internalController.maximizedId,
+  collapsedIds: internalController.collapsedIds,
+  maximize: internalController.maximize,
+  restore: internalController.restore,
+  toggleMaximize: internalController.toggleMaximize,
+  collapse: internalController.collapse,
+  expand: internalController.expand,
+  toggleCollapse: internalController.toggleCollapse,
+  isMaximized: internalController.isMaximized,
+  isCollapsed: internalController.isCollapsed,
   setColumn: internalController.setColumn,
   setCellHeight: internalController.setCellHeight,
   setFloat: internalController.setFloat,
