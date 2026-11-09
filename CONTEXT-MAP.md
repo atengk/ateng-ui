@@ -89,6 +89,7 @@ flowchart TD
         FLOW["@atengk/flow-vue<br/>(企业级流程与审批流转扩展)"]
         CODE["@atengk/code-editor-vue<br/>(代码编辑与Diff比对扩展)"]
         EDIT["@atengk/editor-vue<br/>(现代富文本与内容创作扩展)"]
+        AIC["@atengk/ai-chat-vue<br/>(AI智能体会话与Artifacts扩展)"]
         EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -111,6 +112,7 @@ flowchart TD
         S_FLOW["apps/sample-flow-vue"]
         S_CODE["apps/sample-code-editor-vue"]
         S_EDIT["apps/sample-editor-vue"]
+        S_AIC["apps/sample-ai-chat-vue"]
         S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
@@ -132,6 +134,7 @@ flowchart TD
     FLOW --> S_FLOW
     CODE --> S_CODE
     EDIT --> S_EDIT
+    AIC --> S_AIC
     EP --> S_EP
 ```
 
