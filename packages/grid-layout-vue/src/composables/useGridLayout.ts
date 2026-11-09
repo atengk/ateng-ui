@@ -10,6 +10,7 @@
 import { ref, shallowRef } from 'vue';
 import type { GridStack } from 'gridstack';
 import type { GridLayoutItem, UseGridLayoutOptions, UseGridLayoutReturn } from '../types';
+import { findFirstAvailableSlot } from '../utils/autoPosition';
 
 /**
  * 网格布局核心无头状态机。
@@ -54,7 +55,19 @@ export function useGridLayout<T = Record<string, unknown>>(
     }
     const exists = layout.value.some(existing => String(existing.id) === String(item.id));
     if (!exists) {
-      layout.value.push({ ...item });
+      const cloned = { ...item };
+      if (cloned.x === undefined || cloned.y === undefined || cloned.autoPosition) {
+        const slot = findFirstAvailableSlot(
+          layout.value,
+          cloned.w ?? 1,
+          cloned.h ?? 1,
+          currentColumn.value,
+        );
+        cloned.x = slot.x;
+        cloned.y = slot.y;
+        cloned.autoPosition = false;
+      }
+      layout.value.push(cloned);
     }
   };
 

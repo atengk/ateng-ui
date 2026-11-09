@@ -10,12 +10,20 @@
 import type { App, Plugin } from 'vue';
 import AtengGridLayout from './components/AtengGridLayout.vue';
 import AtengGridItem from './components/AtengGridItem.vue';
+import AtengGridPaletteItem from './components/AtengGridPaletteItem.vue';
+import { vGridDragIn } from './directives/vGridDragIn';
 
 // 样式引入
 import './style/index.css';
 
 // 导出组件
-export { AtengGridLayout, AtengGridItem };
+export { AtengGridLayout, AtengGridItem, AtengGridPaletteItem };
+
+// 导出指令
+export { vGridDragIn };
+
+// 导出算法工具函数
+export { findFirstAvailableSlot } from './utils/autoPosition';
 
 // 导出无头状态机
 export { useGridLayout } from './composables/useGridLayout';
@@ -47,6 +55,9 @@ export const AtengGridLayoutPlugin: Plugin = {
   install(app: App): void {
     app.component('AtengGridLayout', AtengGridLayout);
     app.component('AtengGridItem', AtengGridItem);
+    app.component('AtengGridPaletteItem', AtengGridPaletteItem);
+    app.directive('grid-drag-in', vGridDragIn);
+    app.directive('gridDragIn', vGridDragIn);
   },
 };
 

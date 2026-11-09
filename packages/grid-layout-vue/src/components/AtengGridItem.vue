@@ -8,7 +8,7 @@
  * @since 2026-11-09
  */
 
-import { computed, inject, provide, ref, toRef, watch } from 'vue';
+import { computed, inject, onMounted, onUnmounted, provide, ref, toRef, watch } from 'vue';
 import { GRID_ITEM_KEY, GRID_LAYOUT_KEY } from '../constants';
 import type { GridItemContext, GridLayoutItem } from '../types';
 
@@ -43,6 +43,26 @@ watch(
     }
   },
 );
+
+onMounted(() => {
+  if (gridLayoutContext?.gridInstance.value && elRef.value) {
+    const grid = gridLayoutContext.gridInstance.value;
+    const node = (elRef.value as unknown as { gridstackNode?: unknown }).gridstackNode;
+    if (!node) {
+      grid.makeWidget(elRef.value);
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (gridLayoutContext?.gridInstance.value && elRef.value) {
+    const grid = gridLayoutContext.gridInstance.value;
+    const node = (elRef.value as unknown as { gridstackNode?: unknown }).gridstackNode;
+    if (node) {
+      grid.removeWidget(elRef.value, false, false);
+    }
+  }
+});
 
 // 向上向子树提供 GridItemContext 契约
 provide(GRID_ITEM_KEY, {

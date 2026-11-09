@@ -63,13 +63,17 @@ html.dark {
 }
 
 .at-grid-drag-handle,
-.at-grid-item__header {
+.at-grid-item__header,
+.at-grid-palette-item,
+.at-grid-drag-in-source {
   cursor: grab;
   user-select: none;
 }
 
 .at-grid-drag-handle:active,
-.at-grid-item__header:active {
+.at-grid-item__header:active,
+.at-grid-palette-item:active,
+.at-grid-drag-in-source:active {
   cursor: grabbing;
 }
 

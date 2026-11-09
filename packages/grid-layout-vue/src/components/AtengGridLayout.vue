@@ -9,7 +9,7 @@
  */
 
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
-import { GridStack, type GridStackNode, type GridStackOptions } from 'gridstack';
+import { GridStack, type DDDragInOpt, type GridStackNode, type GridStackOptions } from 'gridstack';
 import { GRID_LAYOUT_KEY, resolveResponsiveColumns } from '../constants';
 import { useGridLayout } from '../composables/useGridLayout';
 import type { GridLayoutItem, GridResponsiveBreakpoints, UseGridLayoutReturn } from '../types';
@@ -36,6 +36,12 @@ const props = withDefaults(
     responsive?: boolean;
     /** 响应式断点映射配置 */
     breakpoints?: GridResponsiveBreakpoints;
+    /** 外部可拖入网格的元素选择器 (默认 '.at-grid-palette-item, .at-grid-drag-in-source, [data-drag-in]') */
+    dragIn?: string;
+    /** 外部拖入选项配置 */
+    dragInOptions?: DDDragInOpt;
+    /** 是否允许整张卡片任意位置拖拽 (默认 false，即必须通过 handle 手柄拖拽，保护卡片内部点击与文本选中) */
+    draggableEntireItem?: boolean;
     /** 外部自定义控制器 (可选，双向驱动) */
     controller?: UseGridLayoutReturn<T>;
     /** 底层透传的原生 GridStack 选项 */
@@ -52,6 +58,13 @@ const props = withDefaults(
     handle: '.at-grid-drag-handle, .at-grid-item__header',
     responsive: false,
     breakpoints: undefined,
+    dragIn: '.at-grid-palette-item, .at-grid-drag-in-source, [data-drag-in]',
+    dragInOptions: () => ({
+      handle: '.at-grid-palette-item__content, .at-grid-palette-item, .at-grid-drag-in-source',
+      helper: 'clone',
+      appendTo: 'body',
+    }),
+    draggableEntireItem: false,
     controller: undefined,
     gridOptions: () => ({}),
   },
@@ -63,6 +76,7 @@ const emit = defineEmits<{
   (e: 'dragstop', id: string | number): void;
   (e: 'resizestop', id: string | number): void;
   (e: 'breakpointChange', payload: { width: number; column: number }): void;
+  (e: 'dropItem', item: GridLayoutItem<T>): void;
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -161,13 +175,15 @@ onMounted(() => {
     return;
   }
 
+  const effectiveHandle = props.draggableEntireItem ? undefined : props.handle;
+
   const options: GridStackOptions = {
     column: props.column,
     cellHeight: props.cellHeight,
     margin: props.margin,
     float: props.float,
     staticGrid: !props.editable,
-    handle: props.handle,
+    handle: effectiveHandle,
     animate: true,
     ...props.gridOptions,
   };
@@ -175,10 +191,60 @@ onMounted(() => {
   const grid = GridStack.init(options, containerRef.value);
   gridInstance.value = grid;
 
+  if (props.dragIn && typeof GridStack.setupDragIn === 'function') {
+    GridStack.setupDragIn(props.dragIn, props.dragInOptions);
+  }
+
   setupResizeObserver();
 
   grid.on('change', (event: Event, items: GridStackNode[]) => {
     handleGridChange(event, items);
+  });
+
+  grid.on('dropped', (_event: Event, _prevNode: GridStackNode, newNode: GridStackNode) => {
+    if (!newNode) {
+      return;
+    }
+
+    let parsedData: unknown = undefined;
+    if (newNode.el) {
+      const payloadStr =
+        newNode.el.getAttribute('data-payload') ||
+        newNode.el.querySelector('[data-payload]')?.getAttribute('data-payload');
+      if (payloadStr) {
+        try {
+          parsedData = JSON.parse(payloadStr);
+        } catch {
+          parsedData = undefined;
+        }
+      }
+    }
+
+    const newId =
+      newNode.id || 'grid-item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+
+    const newItem: GridLayoutItem<T> = {
+      id: newId,
+      x: newNode.x,
+      y: newNode.y,
+      w: newNode.w ?? 1,
+      h: newNode.h ?? 1,
+      minW: newNode.minW,
+      minH: newNode.minH,
+      maxW: newNode.maxW,
+      maxH: newNode.maxH,
+      data: parsedData as T,
+    };
+
+    if (newNode.el) {
+      grid.removeWidget(newNode.el, true, false);
+    }
+
+    const currentList = Array.isArray(props.layout) ? [...props.layout] : [];
+    const nextList = [...currentList, newItem];
+    emit('update:layout', nextList);
+    emit('change', nextList);
+    emit('dropItem', newItem);
   });
 
   grid.on('dragstop', (_event: Event, el: HTMLElement) => {
