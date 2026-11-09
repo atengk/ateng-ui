@@ -8,9 +8,10 @@
  * @since 2026-11-09
  */
 
-import { ref, getCurrentScope, onScopeDispose, type Ref } from 'vue';
+import { ref, getCurrentScope, onScopeDispose, toValue, type Ref } from 'vue';
 import { streamClient } from '@atengk/core';
 import { ReasoningDemuxer } from '../demux/ReasoningDemuxer';
+import { RenderThrottler } from '../throttler/RenderThrottler';
 import type { ChatMessage, SendMessageOptions, UseAiChatOptions, UseAiChatReturn } from '../types';
 
 /**
@@ -53,11 +54,23 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
 
   // 2. 内部控制器
   let activeAbortController: AbortController | null = null;
+  let activeThrottler: RenderThrottler | null = null;
+
+  /**
+   * 瞬间跳过打字机呼吸感队列，立即刷出所有在途缓冲文本。
+   */
+  const flushTypewriter = (): void => {
+    activeThrottler?.flushTypewriter();
+  };
 
   /**
    * 中断当前正在在途生成的流式连接。
    */
   const abort = (): void => {
+    if (activeThrottler) {
+      activeThrottler.dispose();
+      activeThrottler = null;
+    }
     if (activeAbortController) {
       activeAbortController.abort('Aborted by user');
       activeAbortController = null;
@@ -119,6 +132,13 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     activeAbortController = controller;
 
     const demuxer = new ReasoningDemuxer();
+    const throttler = new RenderThrottler({
+      typewriterSpeed: toValue(options.typewriterSpeed) ?? 0,
+      onUpdate: fullText => {
+        assistantMessage.content = fullText;
+      },
+    });
+    activeThrottler = throttler;
 
     const handleChunk = (chunk: string): void => {
       const res = demuxer.feed(chunk);
@@ -138,7 +158,7 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
       }
 
       if (res.contentChunk) {
-        assistantMessage.content += res.contentChunk;
+        throttler.feed(res.contentChunk);
         if (assistantMessage.reasoning && !assistantMessage.reasoning.collapsed) {
           assistantMessage.reasoning.collapsed = true;
           assistantMessage.reasoning.isStreaming = false;
@@ -172,25 +192,27 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
         assistantMessage.content = '服务端未配置 streamUrl 或 streamHandler。';
       }
 
+      throttler.finish();
       demuxer.finish();
       if (assistantMessage.reasoning) {
         assistantMessage.reasoning.text = demuxer.getReasoning();
         assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
         assistantMessage.reasoning.isStreaming = false;
       }
-      assistantMessage.content = demuxer.getContent();
+      assistantMessage.content = throttler.getRenderedText() || demuxer.getContent();
 
       // 4. 流式安全结束
       assistantMessage.status = 'completed';
       options.onFinish?.(assistantMessage);
     } catch (err) {
+      throttler.finish();
       demuxer.finish();
       if (assistantMessage.reasoning) {
         assistantMessage.reasoning.text = demuxer.getReasoning();
         assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
         assistantMessage.reasoning.isStreaming = false;
       }
-      assistantMessage.content = demuxer.getContent();
+      assistantMessage.content = throttler.getRenderedText() || demuxer.getContent();
       if (isAbortError(err)) {
         // 主动中断：若已收到部分内容则标记 completed，否则标记 error
         assistantMessage.status = assistantMessage.content.length > 0 ? 'completed' : 'error';
@@ -204,6 +226,9 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     } finally {
       if (activeAbortController === controller) {
         activeAbortController = null;
+      }
+      if (activeThrottler === throttler) {
+        activeThrottler = null;
       }
       isStreaming.value = false;
     }
@@ -223,5 +248,6 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     sendMessage,
     abort,
     clearMessages,
+    flushTypewriter,
   };
 }

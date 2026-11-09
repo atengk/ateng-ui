@@ -11,6 +11,7 @@ import { AtengAiChat, useAiChat } from '@atengk/ai-chat-vue';
 import { simulateAiStream } from './mock/mockStream';
 
 const isDark = ref(false);
+const typewriterSpeed = ref<number>(0);
 
 const toggleDark = (): void => {
   isDark.value = !isDark.value;
@@ -21,9 +22,10 @@ const toggleDark = (): void => {
   }
 };
 
-// 初始化无头状态机并挂载全真离线模拟器
-const { messages, isStreaming, sendMessage, abort, clearMessages } = useAiChat({
+// 初始化无头状态机并挂载全真离线模拟器，支持响应式打字机速率
+const { messages, isStreaming, sendMessage, abort, clearMessages, flushTypewriter } = useAiChat({
   streamHandler: simulateAiStream,
+  typewriterSpeed,
 });
 
 const onSend = (content: string): void => {
@@ -51,6 +53,22 @@ const sendPresetPrompt = (prompt: string): void => {
       </div>
 
       <div class="sample-actions">
+        <div class="speed-control-group">
+          <span class="speed-label">渲染输出：</span>
+          <el-radio-group v-model="typewriterSpeed" size="small">
+            <el-radio-button :value="0">🚀 全速 RAF 节流</el-radio-button>
+            <el-radio-button :value="20">⌨️ 打字机 (20ms/字)</el-radio-button>
+          </el-radio-group>
+          <el-button
+            v-if="isStreaming && typewriterSpeed > 0"
+            size="small"
+            type="warning"
+            plain
+            @click="flushTypewriter"
+          >
+            ⚡ 立即刷盘
+          </el-button>
+        </div>
         <el-button size="small" @click="toggleDark">
           {{ isDark ? '🌞 浅色模式' : '🌙 深色模式' }}
         </el-button>
@@ -164,6 +182,11 @@ const sendPresetPrompt = (prompt: string): void => {
               <li>✅ KaTeX 行内/块级数学公式与货币符号保护；</li>
               <li>✅ Prism.js 语法高亮与一键复制代码标牌；</li>
               <li>✅ Mermaid 动态懒加载渲染与语法异常兜底；</li>
+              <li>✅ RenderThrottler 16~32ms RAF 渲染节流与动态队列批处理；</li>
+              <li>✅ 呼吸感打字机模式 (typewriterSpeed) 与立即刷盘 (flushTypewriter)；</li>
+              <li>✅ 视口智能滚动锚定 (Δ ≤ 60px) 与阅读位置锁定；</li>
+              <li>✅ 向上回看历史自动浮现“有新消息 ⬇”悬浮胶囊；</li>
+              <li>✅ 点击胶囊或滑回底部重新恢复滚动锚定；</li>
               <li>✅ 响应式输入控制与 Enter 发送快捷键；</li>
               <li>✅ 生成中动态切换“停止生成”按钮；</li>
               <li>✅ 组件作用域注销自动 Abort 中断。</li>
@@ -198,6 +221,27 @@ const sendPresetPrompt = (prompt: string): void => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.sample-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.speed-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--el-fill-color-light, #f1f5f9);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.speed-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary, #64748b);
+  white-space: nowrap;
 }
 
 .sample-title {

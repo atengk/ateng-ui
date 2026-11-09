@@ -50,6 +50,8 @@ export type AtengMermaidBlockInstance = InstanceType<
 export { useAiChat } from './composables/useAiChat';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
 export type { DemuxResult } from './demux/ReasoningDemuxer';
+export { RenderThrottler } from './throttler/RenderThrottler';
+export type { RenderThrottlerOptions } from './throttler/RenderThrottler';
 export { MarkdownPipeline } from './pipeline/MarkdownPipeline';
 export type { MarkdownChunk } from './pipeline/MarkdownPipeline';
 
@@ -61,6 +63,7 @@ export {
   IconChevronDown,
   IconCopy,
   IconCheck,
+  IconArrowDown,
 } from './components/icons';
 
 // 强类型领域契约与接口

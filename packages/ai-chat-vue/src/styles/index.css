@@ -126,6 +126,16 @@ html.dark,
   font-size: 14px;
 }
 
+/* 消息视口包装层 */
+.at-ai-chat__viewport-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 消息滚动流视口 */
 .at-ai-chat__messages {
   flex: 1;
@@ -135,6 +145,73 @@ html.dark,
   flex-direction: column;
   gap: 16px;
   scroll-behavior: smooth;
+}
+
+/* 悬浮新消息气泡胶囊 */
+.at-ai-chat__unread-badge-container {
+  position: absolute;
+  bottom: 16px;
+  right: 24px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.at-ai-chat__unread-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: var(--at-chat-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--at-chat-radius-full);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.at-ai-chat__unread-badge:hover {
+  background-color: var(--at-chat-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.at-ai-chat__unread-badge:active {
+  background-color: var(--at-chat-primary-active);
+  transform: translateY(0);
+}
+
+.at-ai-chat__unread-icon {
+  display: inline-flex;
+  align-items: center;
+  animation: at-chat-bounce 1.5s infinite;
+}
+
+@keyframes at-chat-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+/* 淡入淡出过渡动画 */
+.at-ai-chat-fade-enter-active,
+.at-ai-chat-fade-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.at-ai-chat-fade-enter-from,
+.at-ai-chat-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
 /* 单条消息包装器 */

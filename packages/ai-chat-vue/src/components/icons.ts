@@ -125,3 +125,24 @@ export const IconCheck: FunctionalComponent = () => {
   );
 };
 IconCheck.displayName = 'IconCheck';
+
+export const IconArrowDown: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('line', { x1: '12', y1: '5', x2: '12', y2: '19' }),
+      h('polyline', { points: '19 12 12 19 5 12' }),
+    ],
+  );
+};
+IconArrowDown.displayName = 'IconArrowDown';

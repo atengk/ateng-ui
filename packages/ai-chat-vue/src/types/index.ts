@@ -5,7 +5,7 @@
  * @since 2026-11-09
  */
 
-import type { Ref } from 'vue';
+import type { Ref, MaybeRefOrGetter } from 'vue';
 
 /**
  * 消息发送方领域角色。
@@ -279,6 +279,13 @@ export interface UseAiChatOptions {
    * 遇到网络故障或读取异常时的错误回调。
    */
   onError?: (error: Error) => void;
+
+  /**
+   * 打字机呼吸感输出速率（毫秒/字符）。
+   * 0: 全速 requestAnimationFrame 批处理（默认 0）；
+   * >0: 匀速队列排队吐字。
+   */
+  typewriterSpeed?: MaybeRefOrGetter<number>;
 }
 
 /**
@@ -314,6 +321,11 @@ export interface UseAiChatReturn {
    * 清空当前所有消息。
    */
   clearMessages: () => void;
+
+  /**
+   * 瞬间跳过打字机呼吸感队列，立即刷出所有在途缓冲文本。
+   */
+  flushTypewriter: () => void;
 }
 
 /**
@@ -344,6 +356,16 @@ export interface AtengAiChatProps {
    * 容器最小高度或固定高度（CSS 字符串）。
    */
   height?: string;
+
+  /**
+   * 触底判断阈值（像素，默认 60px）。
+   */
+  scrollThreshold?: number;
+
+  /**
+   * 打字机呼吸感吐字速率（毫秒/字符，默认 0 为全速 RAF 批处理）。
+   */
+  typewriterSpeed?: number;
 }
 
 /**
