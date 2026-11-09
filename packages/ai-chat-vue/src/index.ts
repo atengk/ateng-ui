@@ -46,10 +46,17 @@ export type AtengMermaidBlockInstance = InstanceType<
   typeof import('./components/AtengMermaidBlock.vue').default
 >;
 
+export { default as AtengToolCallCard } from './components/AtengToolCallCard.vue';
+export type AtengToolCallCardInstance = InstanceType<
+  typeof import('./components/AtengToolCallCard.vue').default
+>;
+
 // 无头响应式状态机、解复用与渲染引擎
 export { useAiChat } from './composables/useAiChat';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
 export type { DemuxResult } from './demux/ReasoningDemuxer';
+export { ToolCallDemuxer } from './demux/ToolCallDemuxer';
+export type { ToolDemuxResult } from './demux/ToolCallDemuxer';
 export { RenderThrottler } from './throttler/RenderThrottler';
 export type { RenderThrottlerOptions } from './throttler/RenderThrottler';
 export { MarkdownPipeline } from './pipeline/MarkdownPipeline';
@@ -64,6 +71,10 @@ export {
   IconCopy,
   IconCheck,
   IconArrowDown,
+  IconTool,
+  IconLoading,
+  IconX,
+  IconAlertTriangle,
 } from './components/icons';
 
 // 强类型领域契约与接口
@@ -71,6 +82,9 @@ export type {
   MessageRole,
   MessageStatus,
   ReasoningContent,
+  ToolExecutionMode,
+  ToolCallState,
+  ToolDefinition,
   ToolCallPayload,
   ArtifactVersion,
   ArtifactPayload,
@@ -84,4 +98,6 @@ export type {
   AtengChatMessageProps,
   AtengChatInputProps,
   AtengChatInputEmits,
+  AtengToolCallCardProps,
+  AtengToolCallCardEmits,
 } from './types';

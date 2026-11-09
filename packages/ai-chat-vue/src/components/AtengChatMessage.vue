@@ -7,15 +7,22 @@
  */
 
 import { computed } from 'vue';
-import type { AtengChatMessageProps, ReasoningContent } from '../types';
+import type { AtengChatMessageProps, ReasoningContent, ToolCallPayload } from '../types';
 import AtengMarkdownRenderer from './AtengMarkdownRenderer.vue';
 import AtengReasoningBlock from './AtengReasoningBlock.vue';
+import AtengToolCallCard from './AtengToolCallCard.vue';
 
 const props = defineProps<AtengChatMessageProps>();
+
+const emit = defineEmits<{
+  (e: 'approveTool', callId: string): void;
+  (e: 'rejectTool', callId: string, reason?: string): void;
+}>();
 
 defineSlots<{
   avatar?: (props: { role: string }) => unknown;
   reasoning?: (props: { reasoning: ReasoningContent }) => unknown;
+  'tool-call'?: (props: { toolCall: ToolCallPayload }) => unknown;
   content?: (props: { content: string }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   extra?: () => unknown;
@@ -58,6 +65,22 @@ const avatarText = computed(() => {
           />
         </slot>
       </template>
+
+      <!-- 工具调用展示区 -->
+      <div
+        v-if="props.message.toolCalls && props.message.toolCalls.length > 0"
+        class="at-ai-chat__tool-calls"
+      >
+        <template v-for="toolCall in props.message.toolCalls" :key="toolCall.callId">
+          <slot name="tool-call" :tool-call="toolCall">
+            <AtengToolCallCard
+              :tool-call="toolCall"
+              @approve="emit('approveTool', $event)"
+              @reject="(callId, reason) => emit('rejectTool', callId, reason)"
+            />
+          </slot>
+        </template>
+      </div>
 
       <div class="at-ai-chat__bubble">
         <slot name="content" :content="props.message.content">

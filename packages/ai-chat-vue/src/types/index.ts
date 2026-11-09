@@ -43,6 +43,55 @@ export interface ReasoningContent {
 }
 
 /**
+ * 工具执行模式：
+ * - 'auto': 自动调用执行，无需人工干预
+ * - 'confirm': 人机协同审批 (HITL)，需人工确认后方可执行
+ */
+export type ToolExecutionMode = 'auto' | 'confirm';
+
+/**
+ * 工具调用生命周期状态：
+ * - 'calling': 正在发起调用/解析参数
+ * - 'awaiting_approval': 挂起等待人工审批 (HITL)
+ * - 'executing': 正在异步执行工具逻辑
+ * - 'success': 执行成功
+ * - 'error': 执行发生异常
+ * - 'rejected': 人工已拒绝执行
+ */
+export type ToolCallState =
+  'calling' | 'awaiting_approval' | 'executing' | 'success' | 'error' | 'rejected';
+
+/**
+ * 标准工具定义契约。
+ */
+export interface ToolDefinition {
+  /**
+   * 工具唯一名称，对应大模型调用的 function name。
+   */
+  name: string;
+
+  /**
+   * 工具功能描述。
+   */
+  description: string;
+
+  /**
+   * 入参 JSON Schema（可选）。
+   */
+  parameters?: Record<string, unknown>;
+
+  /**
+   * 执行模式：'auto' 自动执行 | 'confirm' 需人工审批确认。默认 'auto'。
+   */
+  mode?: ToolExecutionMode;
+
+  /**
+   * 工具执行处理器函数。
+   */
+  execute: (args: Record<string, unknown>) => Promise<unknown> | unknown;
+}
+
+/**
  * 工具调用状态实体。
  */
 export interface ToolCallPayload {
@@ -64,7 +113,7 @@ export interface ToolCallPayload {
   /**
    * 工具调用状态。
    */
-  state: 'calling' | 'success' | 'error';
+  state: ToolCallState;
 
   /**
    * 工具执行返回的结果数据。
@@ -75,6 +124,26 @@ export interface ToolCallPayload {
    * 是否需要人工协同审批（HITL）。
    */
   requireConfirm?: boolean;
+
+  /**
+   * 执行异常或错误描述。
+   */
+  error?: string;
+
+  /**
+   * 人工拒批原因（当 state === 'rejected' 时）。
+   */
+  rejectionReason?: string;
+
+  /**
+   * 工具调用/执行开始时间戳。
+   */
+  startedAt?: number;
+
+  /**
+   * 工具执行结束时间戳。
+   */
+  finishedAt?: number;
 }
 
 /**
@@ -286,6 +355,16 @@ export interface UseAiChatOptions {
    * >0: 匀速队列排队吐字。
    */
   typewriterSpeed?: MaybeRefOrGetter<number>;
+
+  /**
+   * 注册的可用工具集合定义。
+   */
+  tools?: ToolDefinition[];
+
+  /**
+   * 触发工具调用时的自定义钩子（可选）。
+   */
+  onToolCall?: (payload: ToolCallPayload) => Promise<void> | void;
 }
 
 /**
@@ -326,6 +405,16 @@ export interface UseAiChatReturn {
    * 瞬间跳过打字机呼吸感队列，立即刷出所有在途缓冲文本。
    */
   flushTypewriter: () => void;
+
+  /**
+   * 批准并执行处于 awaiting_approval 挂起态的工具调用 (HITL)。
+   */
+  approveToolCall: (callId: string) => Promise<void>;
+
+  /**
+   * 拒绝处于 awaiting_approval 挂起态的工具调用，并提供拒批原因 (HITL)。
+   */
+  rejectToolCall: (callId: string, reason?: string) => Promise<void>;
 }
 
 /**
@@ -386,6 +475,16 @@ export interface AtengAiChatEmits {
    * 清空会话时触发。
    */
   (e: 'clear'): void;
+
+  /**
+   * 批准工具调用时触发 (HITL)。
+   */
+  (e: 'approveTool', callId: string): void;
+
+  /**
+   * 拒绝工具调用时触发 (HITL)。
+   */
+  (e: 'rejectTool', callId: string, reason?: string): void;
 }
 
 /**
@@ -446,4 +545,39 @@ export interface AtengChatInputEmits {
    * 触发停止生成。
    */
   (e: 'stop'): void;
+}
+
+/**
+ * AtengToolCallCard 工具调用卡片组件 Props。
+ */
+export interface AtengToolCallCardProps {
+  /**
+   * 工具调用载荷实体。
+   */
+  toolCall: ToolCallPayload;
+
+  /**
+   * 是否禁用操作交互（如审批按钮）。
+   */
+  disabled?: boolean;
+
+  /**
+   * 是否默认展开入参与结果详情。默认 false。
+   */
+  defaultExpanded?: boolean;
+}
+
+/**
+ * AtengToolCallCard 工具调用卡片组件 Emits。
+ */
+export interface AtengToolCallCardEmits {
+  /**
+   * 批准执行处于 awaiting_approval 态的工具调用 (HITL)。
+   */
+  (e: 'approve', callId: string): void;
+
+  /**
+   * 拒绝执行处于 awaiting_approval 态的工具调用 (HITL)。
+   */
+  (e: 'reject', callId: string, reason?: string): void;
 }

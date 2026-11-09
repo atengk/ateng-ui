@@ -20,16 +20,38 @@ export async function simulateAiStream(
   onChunk: (chunk: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
+  const isWeatherQuery = prompt.includes('天气') || prompt.includes('weather');
+  const isWeatherResult =
+    prompt.includes('晴朗') || prompt.includes('22°C') || prompt.includes('空气质量良好');
+  const isDangerQuery =
+    prompt.includes('删库') ||
+    prompt.includes('删表') ||
+    prompt.includes('drop_table') ||
+    prompt.includes('删除生产');
+  const isDangerApprovedResult =
+    prompt.includes('droppedTable') || prompt.includes('sys_operation_log');
+  const isDangerRejectedResult = prompt.includes('已拒绝') || prompt.includes('拒批');
+
   const isComplexSample =
-    prompt.includes('综合') ||
-    prompt.includes('数学') ||
-    prompt.includes('代码') ||
-    prompt.includes('架构') ||
-    prompt.includes('Mermaid') ||
-    prompt.includes('KaTeX');
+    !isWeatherQuery &&
+    !isWeatherResult &&
+    !isDangerQuery &&
+    !isDangerApprovedResult &&
+    !isDangerRejectedResult &&
+    (prompt.includes('综合') ||
+      prompt.includes('数学') ||
+      prompt.includes('代码') ||
+      prompt.includes('架构') ||
+      prompt.includes('Mermaid') ||
+      prompt.includes('KaTeX'));
 
   const isReasoningPrompt =
     !isComplexSample &&
+    !isWeatherQuery &&
+    !isWeatherResult &&
+    !isDangerQuery &&
+    !isDangerApprovedResult &&
+    !isDangerRejectedResult &&
     (prompt.includes('思考') ||
       prompt.includes('Reasoning') ||
       prompt.includes('DeepSeek') ||
@@ -38,7 +60,65 @@ export async function simulateAiStream(
 
   let chunks: string[] = [];
 
-  if (isComplexSample) {
+  if (isWeatherQuery) {
+    chunks = [
+      '<th',
+      'ink>\n',
+      '1. 识别到实时气象数据查询意图：“',
+      prompt,
+      '”；\n',
+      '2. 匹配到已注册系统工具：get_weather（模式：auto 自动执行）；\n',
+      '3. 构造工具调用入参：{ city: "北京" }；\n',
+      '4. 触发流式工具调用标签。<tool_call>；\n',
+      '</th',
+      'ink>\n\n',
+      '正在连接国家气象卫星监测站获取实时观测数据...\n',
+      '<tool_call>{"callId":"call_weather_bj","name":"get_weather","arguments":{"city":"北京"}}</tool_call>',
+    ];
+  } else if (isWeatherResult) {
+    chunks = [
+      '根据气象数据中心接口实时回传的观测指标：\n\n',
+      '- **监测城市**：北京市海淀区观测站\n',
+      '- **当前天气**：晴天 ☀️\n',
+      '- **环境温度**：22°C (人体体感舒适)\n',
+      '- **相对湿度**：45%\n',
+      '- **空气质量指数**：AQI 28 (优)\n\n',
+      '今日风和日丽，微风拂面，非常适合各类户外团队活动与休闲漫步！',
+    ];
+  } else if (isDangerQuery) {
+    chunks = [
+      '<th',
+      'ink>\n',
+      '1. 捕获到高风险数据库结构变更指令：“',
+      prompt,
+      '”；\n',
+      '2. 匹配到工具：drop_database_table，该工具标注为 mode: confirm（需人工审批）；\n',
+      '3. 触发人机协同审批 (HITL) 安全挂起机制，流式生成在途冻结，等待用户显式授权。\n',
+      '</th',
+      'ink>\n\n',
+      '⚠️ 检测到该指令涉及生产数据库高危表删除操作，已触发系统级人机协同审批 (HITL) 安全防线：\n',
+      '<tool_call>{"callId":"call_danger_drop","name":"drop_database_table","arguments":{"database":"production_db","table":"sys_operation_log","reason":"定期归档冷备释放物理磁盘空间"}}</tool_call>',
+    ];
+  } else if (isDangerApprovedResult) {
+    chunks = [
+      '### ✅ 人机审批授权执行成功\n\n',
+      '已收到操作人员的【允许执行】指令，安全沙箱已完成执行并生成审计流水：\n',
+      '- **目标表**：`production_db.sys_operation_log`\n',
+      '- **执行状态**：`DROPPED & ARCHIVED` (已安全封存至冷备归档库)\n',
+      '- **释放空间**：`120,530` 行记录 (约 45.8 MB 物理磁盘空间)\n',
+      '- **审计流水号**：`SEC-AUDIT-20261109-8891`\n\n',
+      '本次操作已纳入特权审计链条，生产服务运行平稳正常。',
+    ];
+  } else if (isDangerRejectedResult) {
+    chunks = [
+      '### 🛑 操作已被人工驳回安全拦截\n\n',
+      '已收到您的【拒绝执行】指令，高危操作已在执行前被立即原位熔断：\n',
+      '> **拒批说明**：',
+      prompt.replace('[用户已拒绝执行工具 drop_database_table]: ', ''),
+      '\n\n',
+      '生产数据库未发生任何结构或数据变更，审计系统已记录本次驳回事件以供安全复盘。',
+    ];
+  } else if (isComplexSample) {
     chunks = [
       '<th',
       'ink>\n',

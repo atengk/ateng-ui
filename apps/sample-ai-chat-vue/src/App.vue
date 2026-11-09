@@ -7,7 +7,7 @@
  */
 
 import { ref } from 'vue';
-import { AtengAiChat, useAiChat } from '@atengk/ai-chat-vue';
+import { AtengAiChat, useAiChat, type ToolDefinition } from '@atengk/ai-chat-vue';
 import { simulateAiStream } from './mock/mockStream';
 
 const isDark = ref(false);
@@ -22,8 +22,55 @@ const toggleDark = (): void => {
   }
 };
 
-// 初始化无头状态机并挂载全真离线模拟器，支持响应式打字机速率
-const { messages, isStreaming, sendMessage, abort, clearMessages, flushTypewriter } = useAiChat({
+// 1. 注册展厅工具集（自动查询工具 + 敏感操作审批工具）
+const sampleTools: ToolDefinition[] = [
+  {
+    name: 'get_weather',
+    description: '查询城市实时气象与空气质量数据',
+    mode: 'auto',
+    execute: async (args: Record<string, unknown>) => {
+      // 模拟 300ms 异步接口网络延迟
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return {
+        city: args.city || '北京',
+        temperature: '22°C',
+        condition: '晴朗 ☀️',
+        humidity: '45%',
+        aqi: 28,
+        updateTime: new Date().toLocaleTimeString(),
+      };
+    },
+  },
+  {
+    name: 'drop_database_table',
+    description: '删除生产数据库表敏感特权操作 (HITL)',
+    mode: 'confirm',
+    execute: async (args: Record<string, unknown>) => {
+      // 模拟特权数据库 DROP 操作
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        status: 'SUCCESS',
+        droppedTable: args.table || 'sys_operation_log',
+        database: args.database || 'production_db',
+        freedBytes: '45.8 MB',
+        auditId: `SEC-AUDIT-${Date.now()}`,
+      };
+    },
+  },
+];
+
+// 初始化无头状态机并挂载全真离线模拟器，支持响应式打字机速率与工具全双工流转
+const {
+  messages,
+  isStreaming,
+  sendMessage,
+  abort,
+  clearMessages,
+  flushTypewriter,
+  approveToolCall,
+  rejectToolCall,
+} = useAiChat({
+  tools: sampleTools,
   streamHandler: simulateAiStream,
   typewriterSpeed,
 });
@@ -86,6 +133,8 @@ const sendPresetPrompt = (prompt: string): void => {
           placeholder="请输入您的问题（例如：介绍 ateng-ui 的架构优势），Enter 发送..."
           @send="onSend"
           @stop="onStop"
+          @approve-tool="approveToolCall"
+          @reject-tool="rejectToolCall"
         >
           <template #header>
             <div class="chat-custom-header">
@@ -99,6 +148,24 @@ const sendPresetPrompt = (prompt: string): void => {
           <template #footer>
             <div class="chat-custom-footer">
               <span class="preset-label">快捷预设：</span>
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :disabled="isStreaming"
+                @click="sendPresetPrompt('请帮我查询北京当前的实时天气状况')"
+              >
+                ⛅ 自动工具：查询北京天气
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                :disabled="isStreaming"
+                @click="sendPresetPrompt('请执行删除生产操作日志表 drop table sys_operation_log')"
+              >
+                ⚠️ HITL审批：删除生产日志表
+              </el-button>
               <el-button
                 size="small"
                 text
@@ -177,6 +244,10 @@ const sendPresetPrompt = (prompt: string): void => {
             <ul>
               <li>✅ 纯原生 CSS 变量驱动与 scoped 样式隔离；</li>
               <li>✅ 零 Element Plus 依赖与具名插槽反转；</li>
+              <li>✅ ToolCallDemuxer 流式 &lt;tool_call&gt; 协议解析与纯净剥离；</li>
+              <li>✅ mode: 'auto' 工具自动触发与 role: 'tool' 结果回喂大模型；</li>
+              <li>✅ mode: 'confirm' 人机协同审批 (HITL) 挂起、同意授权与拒批拦截；</li>
+              <li>✅ AtengToolCallCard 纯原生三态卡片与 JSON 入参折叠查看；</li>
               <li>✅ ReasoningDemuxer 思考链双模流式分离与折叠计时；</li>
               <li>✅ MarkdownPipeline 高保真 Markdown 与 GFM 表格；</li>
               <li>✅ KaTeX 行内/块级数学公式与货币符号保护；</li>

@@ -9,7 +9,7 @@
  */
 
 import { ref, watch, nextTick } from 'vue';
-import type { AtengAiChatProps, AtengAiChatEmits, ChatMessage } from '../types';
+import type { AtengAiChatProps, AtengAiChatEmits, ChatMessage, ToolCallPayload } from '../types';
 import AtengChatMessage from './AtengChatMessage.vue';
 import AtengChatInput from './AtengChatInput.vue';
 import { IconArrowDown } from './icons';
@@ -30,6 +30,7 @@ defineSlots<{
   header?: () => unknown;
   messages?: (props: { messages: ChatMessage[] }) => unknown;
   'message-item'?: (props: { message: ChatMessage; index: number }) => unknown;
+  'tool-call'?: (props: { toolCall: ToolCallPayload }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   'unread-badge'?: (props: { scrollToBottom: () => void }) => unknown;
   input?: () => unknown;
@@ -123,7 +124,15 @@ defineExpose({
         <slot name="messages" :messages="props.messages">
           <template v-for="(msg, index) in props.messages" :key="msg.id">
             <slot name="message-item" :message="msg" :index="index">
-              <AtengChatMessage :message="msg" :is-last="index === props.messages.length - 1">
+              <AtengChatMessage
+                :message="msg"
+                :is-last="index === props.messages.length - 1"
+                @approve-tool="callId => emit('approveTool', callId)"
+                @reject-tool="(callId, reason) => emit('rejectTool', callId, reason)"
+              >
+                <template #tool-call="slotProps">
+                  <slot name="tool-call" v-bind="slotProps" />
+                </template>
                 <template #code-block="slotProps">
                   <slot name="code-block" v-bind="slotProps" />
                 </template>
