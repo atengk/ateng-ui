@@ -13,15 +13,15 @@
  */
 
 import { ref } from 'vue';
+import VisualDesignerBoard from './scenarios/VisualDesignerBoard.vue';
+import WorkflowSynergyBoard from './scenarios/WorkflowSynergyBoard.vue';
+import DynamicLinkageBoard from './scenarios/DynamicLinkageBoard.vue';
+import SubFormTableBoard from './scenarios/SubFormTableBoard.vue';
+import CustomWidgetBoard from './scenarios/CustomWidgetBoard.vue';
 import MinimalRendererScenario from './scenarios/MinimalRendererScenario.vue';
 import AsyncValidationScenario from './scenarios/AsyncValidationScenario.vue';
-import DynamicRuleScenario from './scenarios/DynamicRuleScenario.vue';
-import WorkflowSynergyScenario from './scenarios/WorkflowSynergyScenario.vue';
-import SubFormScenario from './scenarios/SubFormScenario.vue';
-import FormDesignerScenario from './scenarios/FormDesignerScenario.vue';
-import ElementPlusScenario from './scenarios/ElementPlusScenario.vue';
 
-const activeTab = ref<string>('element-plus');
+const activeTab = ref<string>('designer');
 const isDark = ref<boolean>(false);
 
 const toggleDarkMode = (val: boolean): void => {
@@ -56,29 +56,32 @@ const toggleDarkMode = (val: boolean): void => {
 
     <main class="sample-main">
       <el-tabs v-model="activeTab" type="border-card">
-        <el-tab-pane label="场景一：运行态三段式 AST 渲染 (MinimalRenderer)" name="minimal">
-          <MinimalRendererScenario />
+        <el-tab-pane label="看板一：全功能可视化设计器 (VisualDesignerBoard)" name="designer">
+          <VisualDesignerBoard />
         </el-tab-pane>
-        <el-tab-pane label="场景二：异步网络校验与抗竞态 (AsyncValidation)" name="validation">
-          <AsyncValidationScenario />
-        </el-tab-pane>
-        <el-tab-pane label="场景三：零 eval 动态规则与算术 AST (DynamicRules)" name="dynamic-rules">
-          <DynamicRuleScenario />
-        </el-tab-pane>
-        <el-tab-pane label="场景四：BPMN 流程协同与节点权限 (WorkflowSynergy)" name="workflow">
-          <WorkflowSynergyScenario />
-        </el-tab-pane>
-        <el-tab-pane label="场景五：嵌套排版与动态子表单 (SubForm)" name="subform">
-          <SubFormScenario />
-        </el-tab-pane>
-        <el-tab-pane label="场景六：设计态画板、属性自举与历史栈 (FormDesigner)" name="designer">
-          <FormDesignerScenario />
+        <el-tab-pane label="看板二：BPMN 流程协同与节点权限 (WorkflowSynergyBoard)" name="workflow">
+          <WorkflowSynergyBoard />
         </el-tab-pane>
         <el-tab-pane
-          label="场景七：Element Plus 官方控件与生态物料 (ElementPlus)"
-          name="element-plus"
+          label="看板三：零 eval 动态规则与算术 AST (DynamicLinkageBoard)"
+          name="dynamic"
         >
-          <ElementPlusScenario />
+          <DynamicLinkageBoard />
+        </el-tab-pane>
+        <el-tab-pane label="看板四：嵌套排版与动态明细表 (SubFormTableBoard)" name="subform">
+          <SubFormTableBoard />
+        </el-tab-pane>
+        <el-tab-pane
+          label="看板五：官方 Element Plus 适配与生态物料 (CustomWidgetBoard)"
+          name="ecosystem"
+        >
+          <CustomWidgetBoard />
+        </el-tab-pane>
+        <el-tab-pane label="基础自验：三段式 AST 极简渲染 (MinimalRenderer)" name="minimal">
+          <MinimalRendererScenario />
+        </el-tab-pane>
+        <el-tab-pane label="网络防卫：异步校验与抗竞态丢弃 (AsyncValidation)" name="validation">
+          <AsyncValidationScenario />
         </el-tab-pane>
       </el-tabs>
     </main>
