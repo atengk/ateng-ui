@@ -56,31 +56,41 @@ const toggleDarkMode = (val: boolean): void => {
 
     <main class="sample-main">
       <el-tabs v-model="activeTab" type="border-card">
-        <el-tab-pane label="看板一：全功能可视化设计器 (VisualDesignerBoard)" name="designer">
+        <el-tab-pane label="看板一：全功能可视化设计器 (VisualDesignerBoard)" name="designer" lazy>
           <VisualDesignerBoard />
         </el-tab-pane>
-        <el-tab-pane label="看板二：BPMN 流程协同与节点权限 (WorkflowSynergyBoard)" name="workflow">
+        <el-tab-pane
+          label="看板二：BPMN 流程协同与节点权限 (WorkflowSynergyBoard)"
+          name="workflow"
+          lazy
+        >
           <WorkflowSynergyBoard />
         </el-tab-pane>
         <el-tab-pane
           label="看板三：零 eval 动态规则与算术 AST (DynamicLinkageBoard)"
           name="dynamic"
+          lazy
         >
           <DynamicLinkageBoard />
         </el-tab-pane>
-        <el-tab-pane label="看板四：嵌套排版与动态明细表 (SubFormTableBoard)" name="subform">
+        <el-tab-pane label="看板四：嵌套排版与动态明细表 (SubFormTableBoard)" name="subform" lazy>
           <SubFormTableBoard />
         </el-tab-pane>
         <el-tab-pane
           label="看板五：官方 Element Plus 适配与生态物料 (CustomWidgetBoard)"
           name="ecosystem"
+          lazy
         >
           <CustomWidgetBoard />
         </el-tab-pane>
-        <el-tab-pane label="基础自验：三段式 AST 极简渲染 (MinimalRenderer)" name="minimal">
+        <el-tab-pane label="基础自验：三段式 AST 极简渲染 (MinimalRenderer)" name="minimal" lazy>
           <MinimalRendererScenario />
         </el-tab-pane>
-        <el-tab-pane label="网络防卫：异步校验与抗竞态丢弃 (AsyncValidation)" name="validation">
+        <el-tab-pane
+          label="网络防卫：异步校验与抗竞态丢弃 (AsyncValidation)"
+          name="validation"
+          lazy
+        >
           <AsyncValidationScenario />
         </el-tab-pane>
       </el-tabs>

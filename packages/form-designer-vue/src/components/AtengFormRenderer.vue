@@ -8,7 +8,7 @@
  * @since 2026-11-09
  */
 
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, provide } from 'vue';
 import type {
   FormSchema,
   FieldPermissionMatrix,
@@ -71,6 +71,12 @@ const emit = defineEmits<{
   'draft-restored': [record: DraftRecord];
   'draft-cleared': [];
 }>();
+
+// 向上向下注入响应式 formData，供深度嵌套组件或数据源适配器读取依赖
+provide(
+  'ateng_form_data',
+  computed(() => props.formData),
+);
 
 // 实例化无头响应式状态机
 const renderer = useFormRenderer({

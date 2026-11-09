@@ -8,8 +8,8 @@
  * @since 2026-11-09
  */
 
-import { h, ref, defineComponent } from 'vue';
-import type { Component, VNode } from 'vue';
+import { h, ref, inject, defineComponent } from 'vue';
+import type { Component, VNode, ComputedRef } from 'vue';
 import {
   ElInput,
   ElInputNumber,
@@ -32,49 +32,71 @@ import type { FormWidgetAdapter, WidgetRenderContext, FormWidget } from '../../t
 import { DataSourceResolver, type DataSourceConfig, type DataSourceOption } from '../../datasource';
 
 /**
- * 缓存数据源动态选项的响应式 Map。
+ * 缓存数据源动态选项的响应式 Map 项。
  */
-const dynamicOptionsCache = new Map<string, ReturnType<typeof ref<DataSourceOption[]>>>();
+interface DynamicOptionCacheEntry {
+  optionsRef: ReturnType<typeof ref<DataSourceOption[]>>;
+  lastDepHash?: string;
+  isFetching?: boolean;
+}
+
+const dynamicOptionsCache = new Map<string, DynamicOptionCacheEntry>();
 
 /**
- * 获取或创建对应控件的动态选项 Ref。
+ * 获取或创建对应控件的动态选项缓存项。
  */
-function useDynamicOptions(widgetId: string, initialOptions?: DataSourceOption[]) {
-  let optionsRef = dynamicOptionsCache.get(widgetId);
-  if (!optionsRef) {
-    optionsRef = ref<DataSourceOption[]>(initialOptions || []);
-    dynamicOptionsCache.set(widgetId, optionsRef);
+function getOptionCacheEntry(
+  widgetId: string,
+  initialOptions?: DataSourceOption[],
+): DynamicOptionCacheEntry {
+  let entry = dynamicOptionsCache.get(widgetId);
+  if (!entry) {
+    entry = {
+      optionsRef: ref<DataSourceOption[]>(initialOptions || []),
+      lastDepHash: undefined,
+      isFetching: false,
+    };
+    dynamicOptionsCache.set(widgetId, entry);
   }
-  return optionsRef;
+  return entry;
 }
 
 /**
- * 异步同步数据源选项。
+ * 异步同步数据源选项（具备依赖特征对比，严格防止 render 循环触发死锁）。
  */
-function syncDataSource(
-  ctx: WidgetRenderContext,
-  optionsRef: ReturnType<typeof ref<DataSourceOption[]>>,
-) {
+function syncDataSource(ctx: WidgetRenderContext, entry: DynamicOptionCacheEntry): void {
   const ds = ctx.widget.props?.dataSource as DataSourceConfig | undefined;
   if (!ds) {
     const staticOpts = (ctx.widget.props?.options as DataSourceOption[]) || [];
-    if (staticOpts.length > 0) {
-      optionsRef.value = staticOpts;
+    if (staticOpts.length > 0 && (!entry.optionsRef.value || entry.optionsRef.value.length === 0)) {
+      entry.optionsRef.value = staticOpts;
     }
     return;
   }
 
-  // 依赖检测与异步拉取
-  if (ds.dependencies && ds.dependencies.length > 0) {
-    const controller = new AbortController();
-    DataSourceResolver.fetchOptions(ds, ctx.formData, controller.signal).then(opts => {
-      optionsRef.value = opts || [];
-    });
-  } else if (!optionsRef.value || optionsRef.value.length === 0) {
-    DataSourceResolver.fetchOptions(ds, ctx.formData).then(opts => {
-      optionsRef.value = opts || [];
-    });
+  // 计算当前依赖字段值的特征串
+  const depValues = (ds.dependencies || []).map(dep => ctx.formData?.[dep]);
+  const currentDepHash = JSON.stringify(depValues);
+
+  // 若依赖未发生变化且已有拉取记录，则直接返回，根除微任务循环
+  if (entry.lastDepHash === currentDepHash) {
+    return;
   }
+
+  entry.lastDepHash = currentDepHash;
+  entry.isFetching = true;
+
+  const controller = new AbortController();
+  DataSourceResolver.fetchOptions(ds, ctx.formData, controller.signal)
+    .then(opts => {
+      entry.optionsRef.value = opts || [];
+    })
+    .catch(() => {
+      entry.optionsRef.value = [];
+    })
+    .finally(() => {
+      entry.isFetching = false;
+    });
 }
 
 /**
@@ -89,15 +111,23 @@ function createAdapterComponent(renderFn: (ctx: WidgetRenderContext) => VNode): 
       disabled: { type: Boolean, default: false },
       readonly: { type: Boolean, default: false },
       size: { type: String, default: 'default' },
+      formData: { type: Object, default: undefined },
     },
     emits: ['update:modelValue', 'blur'],
     setup(props, { emit }) {
+      const injectedFormData = inject<ComputedRef<Record<string, unknown>> | null>(
+        'ateng_form_data',
+        null,
+      );
+
       return () => {
+        const currentFormData =
+          (props.formData as Record<string, unknown>) || injectedFormData?.value || {};
         const ctx: WidgetRenderContext = {
           widget: props.widget as FormWidget,
           modelValue: props.modelValue,
           'onUpdate:modelValue': (val: unknown) => emit('update:modelValue', val),
-          formData: {},
+          formData: currentFormData,
           disabled: props.disabled,
           readonly: props.readonly,
           size: props.size as 'large' | 'default' | 'small',
@@ -175,10 +205,10 @@ export const elInputNumberAdapter: FormWidgetAdapter = {
 // 4. 下拉选择器 ElSelect
 const renderSelect = (ctx: WidgetRenderContext): VNode => {
   const staticOptions = (ctx.widget.props?.options as DataSourceOption[]) || [];
-  const optionsRef = useDynamicOptions(ctx.widget.id, staticOptions);
-  syncDataSource(ctx, optionsRef);
+  const entry = getOptionCacheEntry(ctx.widget.id, staticOptions);
+  syncDataSource(ctx, entry);
 
-  const opts = optionsRef.value || [];
+  const opts = entry.optionsRef.value || [];
   return h(
     ElSelect as unknown as Component,
     {
@@ -214,10 +244,10 @@ export const elSelectAdapter: FormWidgetAdapter = {
 // 5. 单选框组 ElRadioGroup
 const renderRadio = (ctx: WidgetRenderContext): VNode => {
   const staticOptions = (ctx.widget.props?.options as DataSourceOption[]) || [];
-  const optionsRef = useDynamicOptions(ctx.widget.id, staticOptions);
-  syncDataSource(ctx, optionsRef);
+  const entry = getOptionCacheEntry(ctx.widget.id, staticOptions);
+  syncDataSource(ctx, entry);
 
-  const opts = optionsRef.value || [];
+  const opts = entry.optionsRef.value || [];
   return h(
     ElRadioGroup,
     {
@@ -273,10 +303,10 @@ export const elCheckboxAdapter: FormWidgetAdapter = {
 // 7. 多选复选框组 ElCheckboxGroup
 const renderCheckboxGroup = (ctx: WidgetRenderContext): VNode => {
   const staticOptions = (ctx.widget.props?.options as DataSourceOption[]) || [];
-  const optionsRef = useDynamicOptions(ctx.widget.id, staticOptions);
-  syncDataSource(ctx, optionsRef);
+  const entry = getOptionCacheEntry(ctx.widget.id, staticOptions);
+  syncDataSource(ctx, entry);
 
-  const opts = optionsRef.value || [];
+  const opts = entry.optionsRef.value || [];
   return h(
     ElCheckboxGroup,
     {
@@ -426,14 +456,14 @@ export const elColorPickerAdapter: FormWidgetAdapter = {
 // 14. 级联选择器 ElCascader
 const renderCascader = (ctx: WidgetRenderContext): VNode => {
   const staticOptions = (ctx.widget.props?.options as DataSourceOption[]) || [];
-  const optionsRef = useDynamicOptions(ctx.widget.id, staticOptions);
-  syncDataSource(ctx, optionsRef);
+  const entry = getOptionCacheEntry(ctx.widget.id, staticOptions);
+  syncDataSource(ctx, entry);
 
   return h(ElCascader, {
     modelValue: (ctx.modelValue as string[]) || [],
     'onUpdate:modelValue': ctx['onUpdate:modelValue'],
     disabled: ctx.disabled || ctx.readonly,
-    options: (optionsRef.value || []) as unknown as import('element-plus').CascaderOption[],
+    options: (entry.optionsRef.value || []) as unknown as import('element-plus').CascaderOption[],
     placeholder: (ctx.widget.props?.placeholder as string) || '请选择层级',
     clearable: (ctx.widget.props?.clearable as boolean) ?? true,
   });
@@ -451,10 +481,10 @@ export const elCascaderAdapter: FormWidgetAdapter = {
 // 15. 穿梭框 ElTransfer
 const renderTransfer = (ctx: WidgetRenderContext): VNode => {
   const staticOptions = (ctx.widget.props?.options as DataSourceOption[]) || [];
-  const optionsRef = useDynamicOptions(ctx.widget.id, staticOptions);
-  syncDataSource(ctx, optionsRef);
+  const entry = getOptionCacheEntry(ctx.widget.id, staticOptions);
+  syncDataSource(ctx, entry);
 
-  const transferData = (optionsRef.value || []).map(opt => ({
+  const transferData = (entry.optionsRef.value || []).map(opt => ({
     key: opt.value as string | number,
     label: opt.label,
     disabled: opt.disabled,

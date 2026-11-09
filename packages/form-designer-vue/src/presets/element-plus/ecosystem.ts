@@ -9,11 +9,29 @@
  * @since 2026-11-09
  */
 
-import { h, resolveComponent, defineComponent } from 'vue';
-import type { Component, VNode } from 'vue';
+import { h, getCurrentInstance, inject, defineComponent } from 'vue';
+import type { Component, VNode, ComputedRef } from 'vue';
 import { ElUpload } from 'element-plus';
 import type { FormWidgetAdapter, WidgetRenderContext, FormWidget } from '../../types';
 import AtengSignature from './components/AtengSignature.vue';
+
+/**
+ * 安全探测全局或自定义组件，避免 resolveComponent 在组件未注册时抛出控制台警告。
+ */
+function getGlobalOrCustomComponent(
+  name: string,
+  customComponent?: Component,
+): Component | undefined {
+  if (customComponent) return customComponent;
+  const instance = getCurrentInstance();
+  if (instance?.appContext?.components) {
+    const comps = instance.appContext.components;
+    if (comps[name]) return comps[name] as Component;
+    const kebabName = name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    if (comps[kebabName]) return comps[kebabName] as Component;
+  }
+  return undefined;
+}
 
 /**
  * 生态物料装配选项。
@@ -41,15 +59,23 @@ function createEcosystemAdapterComponent(renderFn: (ctx: WidgetRenderContext) =>
       disabled: { type: Boolean, default: false },
       readonly: { type: Boolean, default: false },
       size: { type: String, default: 'default' },
+      formData: { type: Object, default: undefined },
     },
     emits: ['update:modelValue', 'blur'],
     setup(props, { emit }) {
+      const injectedFormData = inject<ComputedRef<Record<string, unknown>> | null>(
+        'ateng_form_data',
+        null,
+      );
+
       return () => {
+        const currentFormData =
+          (props.formData as Record<string, unknown>) || injectedFormData?.value || {};
         const ctx: WidgetRenderContext = {
           widget: props.widget as FormWidget,
           modelValue: props.modelValue,
           'onUpdate:modelValue': (val: unknown) => emit('update:modelValue', val),
-          formData: {},
+          formData: currentFormData,
           disabled: props.disabled,
           readonly: props.readonly,
           size: props.size as 'large' | 'default' | 'small',
@@ -65,13 +91,7 @@ function createEcosystemAdapterComponent(renderFn: (ctx: WidgetRenderContext) =>
  */
 export function createEditorWidgetAdapter(customComponent?: Component): FormWidgetAdapter {
   const renderFn = (ctx: WidgetRenderContext): VNode => {
-    let TargetComp: Component | string | undefined = customComponent;
-    if (!TargetComp) {
-      const resolved = resolveComponent('AtengEditor');
-      if (typeof resolved !== 'string') {
-        TargetComp = resolved as Component;
-      }
-    }
+    const TargetComp = getGlobalOrCustomComponent('AtengEditor', customComponent);
 
     if (TargetComp) {
       return h(TargetComp, {
@@ -117,13 +137,7 @@ export function createEditorWidgetAdapter(customComponent?: Component): FormWidg
  */
 export function createCodeEditorWidgetAdapter(customComponent?: Component): FormWidgetAdapter {
   const renderFn = (ctx: WidgetRenderContext): VNode => {
-    let TargetComp: Component | string | undefined = customComponent;
-    if (!TargetComp) {
-      const resolved = resolveComponent('AtengCodeEditor');
-      if (typeof resolved !== 'string') {
-        TargetComp = resolved as Component;
-      }
-    }
+    const TargetComp = getGlobalOrCustomComponent('AtengCodeEditor', customComponent);
 
     if (TargetComp) {
       return h(TargetComp, {
@@ -204,13 +218,7 @@ export function createSignatureWidgetAdapter(customComponent?: Component): FormW
  */
 export function createUploadWidgetAdapter(customComponent?: Component): FormWidgetAdapter {
   const renderFn = (ctx: WidgetRenderContext): VNode => {
-    let TargetComp: Component | string | undefined = customComponent;
-    if (!TargetComp) {
-      const resolved = resolveComponent('AtengUpload');
-      if (typeof resolved !== 'string') {
-        TargetComp = resolved as Component;
-      }
-    }
+    const TargetComp = getGlobalOrCustomComponent('AtengUpload', customComponent);
 
     if (TargetComp) {
       return h(TargetComp, {
