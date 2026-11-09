@@ -8,6 +8,7 @@
 
 import { ref } from 'vue';
 import BasicDashboard from './views/BasicDashboard.vue';
+import PhysicsDashboard from './views/PhysicsDashboard.vue';
 
 const activeTab = ref('basic');
 const isDark = ref(false);
@@ -42,8 +43,8 @@ const toggleDark = () => {
         <el-tab-pane label="1. 基础栅格与双向 JSON" name="basic">
           <BasicDashboard />
         </el-tab-pane>
-        <el-tab-pane label="2. 排版物理与自由浮动" name="physics" disabled>
-          <div class="placeholder-pane">待切片 #305 竣工接入</div>
+        <el-tab-pane label="2. 排版物理与自由浮动" name="physics">
+          <PhysicsDashboard />
         </el-tab-pane>
         <el-tab-pane label="3. ECharts 驾驶舱联动" name="cockpit" disabled>
           <div class="placeholder-pane">待切片 #308 竣工接入</div>

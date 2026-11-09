@@ -100,6 +100,12 @@ export interface UseGridLayoutReturn<T = Record<string, unknown>> {
   float: Ref<boolean>;
   /** 是否展示参考线 */
   showGridLines: Ref<boolean>;
+  /** 动态切换浮动模式 */
+  setFloat: (val: boolean) => void;
+  /** 动态切换编辑态 */
+  setEditable: (val: boolean) => void;
+  /** 动态切换参考线显隐 */
+  setShowGridLines: (val: boolean) => void;
   /** 批量更新布局 */
   setLayout: (newLayout: GridLayoutItem<T>[]) => void;
   /** 添加布局项 */

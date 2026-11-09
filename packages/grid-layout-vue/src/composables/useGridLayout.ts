@@ -77,11 +77,63 @@ export function useGridLayout<T = Record<string, unknown>>(
   };
 
   /**
+   * 动态设置自由浮动模式。
+   */
+  const setFloat = (val: boolean): void => {
+    float.value = Boolean(val);
+    if (gridInstance.value) {
+      gridInstance.value.float(float.value);
+    }
+  };
+
+  /**
+   * 动态设置编辑态/运行态。
+   */
+  const setEditable = (val: boolean): void => {
+    editable.value = Boolean(val);
+    if (gridInstance.value) {
+      gridInstance.value.setStatic(!editable.value);
+    }
+  };
+
+  /**
+   * 动态设置参考线显隐。
+   */
+  const setShowGridLines = (val: boolean): void => {
+    showGridLines.value = Boolean(val);
+  };
+
+  /**
    * 一键垂直紧凑规整。
    */
   const tidyLayout = (): void => {
     if (gridInstance.value) {
       gridInstance.value.compact();
+      // 同步最新紧凑排版后的坐标数据
+      const nodes = gridInstance.value.save(false) as unknown as Array<{
+        id: string | number;
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+      }>;
+      if (Array.isArray(nodes) && nodes.length > 0) {
+        isInternalUpdating.value = true;
+        layout.value = layout.value.map(item => {
+          const matched = nodes.find(n => String(n.id) === String(item.id));
+          if (matched) {
+            return {
+              ...item,
+              x: matched.x,
+              y: matched.y,
+              w: matched.w,
+              h: matched.h,
+            };
+          }
+          return item;
+        });
+        isInternalUpdating.value = false;
+      }
     }
   };
 
@@ -102,6 +154,9 @@ export function useGridLayout<T = Record<string, unknown>>(
     editable,
     float,
     showGridLines,
+    setFloat,
+    setEditable,
+    setShowGridLines,
     setLayout,
     addItem,
     removeItem,

@@ -8,8 +8,8 @@
  * @since 2026-11-09
  */
 
-import { computed, provide, ref, toRef } from 'vue';
-import { GRID_ITEM_KEY } from '../constants';
+import { computed, inject, provide, ref, toRef, watch } from 'vue';
+import { GRID_ITEM_KEY, GRID_LAYOUT_KEY } from '../constants';
 import type { GridItemContext, GridLayoutItem } from '../types';
 
 const props = withDefaults(
@@ -20,6 +20,7 @@ const props = withDefaults(
   {},
 );
 
+const gridLayoutContext = inject(GRID_LAYOUT_KEY, null);
 const elRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const isResizing = ref(false);
@@ -28,6 +29,20 @@ const pixelHeight = ref(0);
 
 const itemRef = toRef(props, 'item');
 const isLocked = computed(() => Boolean(props.item.locked || props.item.static));
+
+// 响应式监听锁控与可调整性变更并同步底层 GridStack 节点
+watch(
+  () => [props.item.locked, props.item.static, props.item.noResize, props.item.noMove],
+  () => {
+    if (gridLayoutContext?.gridInstance.value && elRef.value) {
+      gridLayoutContext.gridInstance.value.update(elRef.value, {
+        locked: isLocked.value,
+        noResize: Boolean(props.item.noResize),
+        noMove: Boolean(props.item.noMove),
+      });
+    }
+  },
+);
 
 // 向上向子树提供 GridItemContext 契约
 provide(GRID_ITEM_KEY, {

@@ -176,6 +176,9 @@ watch(
   val => {
     if (gridInstance.value) {
       gridInstance.value.float(val);
+      if (!val) {
+        internalController.tidyLayout();
+      }
     }
   },
 );
@@ -205,6 +208,7 @@ defineExpose({
   controller: internalController,
   container: containerRef,
   tidy: internalController.tidyLayout,
+  tidyLayout: internalController.tidyLayout,
 });
 </script>
 
