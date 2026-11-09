@@ -172,6 +172,11 @@ export interface ArtifactVersion {
 }
 
 /**
+ * Artifact 侧边栏展示与渲染视图模式。
+ */
+export type ArtifactMode = 'preview' | 'code' | 'diff';
+
+/**
  * 独立交付物产物（Artifact）实体。
  */
 export interface ArtifactPayload {
@@ -189,6 +194,11 @@ export interface ArtifactPayload {
    * 产物语言或类型（如 vue, typescript, markdown, svg, html）。
    */
   language: string;
+
+  /**
+   * 产物大类（可选，默认 'code'）。
+   */
+  type?: 'code' | 'markdown' | 'html' | 'svg';
 
   /**
    * 不可变多版本演进链。
@@ -415,6 +425,41 @@ export interface UseAiChatReturn {
    * 拒绝处于 awaiting_approval 挂起态的工具调用，并提供拒批原因 (HITL)。
    */
   rejectToolCall: (callId: string, reason?: string) => Promise<void>;
+
+  /**
+   * 当前会话已收集的所有 Artifact 产物列表。
+   */
+  artifacts: Ref<ArtifactPayload[]>;
+
+  /**
+   * 当前侧边栏激活展示的 Artifact 产物实体。
+   */
+  activeArtifact: Ref<ArtifactPayload | null>;
+
+  /**
+   * 当前在侧边栏激活查看的版本序号（1, 2, ...）。
+   */
+  activeArtifactVersion: Ref<number>;
+
+  /**
+   * Artifact 侧边栏/抽屉是否正处于打开展示态。
+   */
+  isArtifactSidebarOpen: Ref<boolean>;
+
+  /**
+   * 打开指定 identifier 的产物并唤起侧边栏工作台。
+   */
+  openArtifact: (identifier: string, version?: number) => void;
+
+  /**
+   * 关闭当前 Artifact 侧边栏。
+   */
+  closeArtifact: () => void;
+
+  /**
+   * 切换当前激活产物的版本切片。
+   */
+  selectArtifactVersion: (version: number) => void;
 }
 
 /**
@@ -485,6 +530,11 @@ export interface AtengAiChatEmits {
    * 拒绝工具调用时触发 (HITL)。
    */
   (e: 'rejectTool', callId: string, reason?: string): void;
+
+  /**
+   * 用户点击产物卡片请求打开侧边栏时触发。
+   */
+  (e: 'openArtifact', artifact: ArtifactPayload): void;
 }
 
 /**
@@ -580,4 +630,104 @@ export interface AtengToolCallCardEmits {
    * 拒绝执行处于 awaiting_approval 态的工具调用 (HITL)。
    */
   (e: 'reject', callId: string, reason?: string): void;
+}
+
+/**
+ * AtengArtifactCard 气泡内紧凑产物卡片 Props。
+ */
+export interface AtengArtifactCardProps {
+  /**
+   * 关联的 Artifact 实体。
+   */
+  artifact: ArtifactPayload;
+
+  /**
+   * 是否处于当前激活选中态。
+   */
+  active?: boolean;
+}
+
+/**
+ * AtengArtifactCard 气泡内紧凑产物卡片 Emits。
+ */
+export interface AtengArtifactCardEmits {
+  /**
+   * 点击产物卡片唤起工作台。
+   */
+  (e: 'click', artifact: ArtifactPayload): void;
+}
+
+/**
+ * AtengArtifactSidebar 独立产物工作台侧边栏 Props。
+ */
+export interface AtengArtifactSidebarProps {
+  /**
+   * 当前查看的目标 Artifact 产物实体。为 null 时显示空状态。
+   */
+  artifact: ArtifactPayload | null;
+
+  /**
+   * 侧边栏是否可见。支持 v-model:visible 双向绑定。
+   */
+  visible?: boolean;
+
+  /**
+   * 当前激活选中的版本序号（1, 2, ...）。支持 v-model:activeVersion 双向绑定。
+   */
+  activeVersion?: number;
+
+  /**
+   * 默认初始展示视图模式 ('preview' | 'code' | 'diff')。默认 'code'。
+   */
+  initialMode?: ArtifactMode;
+
+  /**
+   * 桌面端默认宽度（像素，默认 560）。
+   */
+  width?: number;
+
+  /**
+   * 拖拽调节的最小宽度限制（像素，默认 360）。
+   */
+  minWidth?: number;
+
+  /**
+   * 拖拽调节的最大宽度限制（像素，默认 960）。
+   */
+  maxWidth?: number;
+
+  /**
+   * 移动端/窄屏切换全高抽屉的视口宽度阈值（像素，默认 768）。
+   */
+  breakpoint?: number;
+}
+
+/**
+ * AtengArtifactSidebar 独立产物工作台侧边栏 Emits。
+ */
+export interface AtengArtifactSidebarEmits {
+  /**
+   * 双向同步可见性。
+   */
+  (e: 'update:visible', value: boolean): void;
+
+  /**
+   * 双向同步当前选中的版本序号。
+   */
+  (e: 'update:activeVersion', version: number): void;
+
+  /**
+   * 点击关闭按钮时触发。
+   */
+  (e: 'close'): void;
+
+  /**
+   * 切换版本时触发。
+   */
+  (e: 'versionChange', version: number): void;
+
+  /**
+   * 切换视图模式时触发。
+   */
+  (e: 'modeChange', mode: ArtifactMode): void;
 }

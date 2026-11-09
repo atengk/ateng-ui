@@ -7,7 +7,13 @@
  */
 
 import { ref } from 'vue';
-import { AtengAiChat, useAiChat, type ToolDefinition } from '@atengk/ai-chat-vue';
+import {
+  AtengAiChat,
+  AtengArtifactSidebar,
+  useAiChat,
+  type ToolDefinition,
+} from '@atengk/ai-chat-vue';
+import { AtengCodeDiffEditor } from '@atengk/code-editor-vue';
 import { simulateAiStream } from './mock/mockStream';
 
 const isDark = ref(false);
@@ -59,7 +65,7 @@ const sampleTools: ToolDefinition[] = [
   },
 ];
 
-// 初始化无头状态机并挂载全真离线模拟器，支持响应式打字机速率与工具全双工流转
+// 初始化无头状态机并挂载全真离线模拟器，支持响应式打字机速率、工具全双工流转与全局 Artifacts 产物总线
 const {
   messages,
   isStreaming,
@@ -69,6 +75,11 @@ const {
   flushTypewriter,
   approveToolCall,
   rejectToolCall,
+  artifacts,
+  activeArtifact,
+  activeArtifactVersion,
+  isArtifactSidebarOpen,
+  openArtifact,
 } = useAiChat({
   tools: sampleTools,
   streamHandler: simulateAiStream,
@@ -124,7 +135,7 @@ const sendPresetPrompt = (prompt: string): void => {
     </header>
 
     <!-- 主展示区 -->
-    <main class="sample-main">
+    <main class="sample-main" :class="{ 'sample-main--with-artifact': isArtifactSidebarOpen }">
       <div class="sample-chat-card">
         <AtengAiChat
           :messages="messages"
@@ -135,6 +146,7 @@ const sendPresetPrompt = (prompt: string): void => {
           @stop="onStop"
           @approve-tool="approveToolCall"
           @reject-tool="rejectToolCall"
+          @open-artifact="art => openArtifact(art.identifier)"
         >
           <template #header>
             <div class="chat-custom-header">
@@ -150,12 +162,32 @@ const sendPresetPrompt = (prompt: string): void => {
               <span class="preset-label">快捷预设：</span>
               <el-button
                 size="small"
+                type="success"
+                plain
+                :disabled="isStreaming"
+                @click="sendPresetPrompt('请为我生成一个 Vue 用户资料卡片组件 (v1 产物)')"
+              >
+                📦 产物v1：生成Vue卡片
+              </el-button>
+              <el-button
+                size="small"
+                type="warning"
+                plain
+                :disabled="isStreaming"
+                @click="
+                  sendPresetPrompt('请迭代升级该组件 (v2 版本)，增加头像、关注切换与 Diff 比对')
+                "
+              >
+                🔄 产物v2：升级并Diff比对
+              </el-button>
+              <el-button
+                size="small"
                 type="primary"
                 plain
                 :disabled="isStreaming"
                 @click="sendPresetPrompt('请帮我查询北京当前的实时天气状况')"
               >
-                ⛅ 自动工具：查询北京天气
+                ⛅ 自动工具：查询天气
               </el-button>
               <el-button
                 size="small"
@@ -164,7 +196,7 @@ const sendPresetPrompt = (prompt: string): void => {
                 :disabled="isStreaming"
                 @click="sendPresetPrompt('请执行删除生产操作日志表 drop table sys_operation_log')"
               >
-                ⚠️ HITL审批：删除生产日志表
+                ⚠️ HITL：删库审批
               </el-button>
               <el-button
                 size="small"
@@ -174,24 +206,6 @@ const sendPresetPrompt = (prompt: string): void => {
                 @click="sendPresetPrompt('请解释四层洋葱拓扑的设计哲学与单向依赖律')"
               >
                 📐 四层洋葱拓扑
-              </el-button>
-              <el-button
-                size="small"
-                text
-                bg
-                :disabled="isStreaming"
-                @click="sendPresetPrompt('为什么 L2 扩展层严禁物理依赖 Element Plus？')"
-              >
-                🛡️ L2 纯净律
-              </el-button>
-              <el-button
-                size="small"
-                text
-                bg
-                :disabled="isStreaming"
-                @click="sendPresetPrompt('介绍 ReasoningDemuxer 思考链双模分离算法')"
-              >
-                🧠 Reasoning 思考链
               </el-button>
               <el-button
                 size="small"
@@ -211,8 +225,26 @@ const sendPresetPrompt = (prompt: string): void => {
         </AtengAiChat>
       </div>
 
+      <!-- 独立产物工作台侧边栏 (宽屏右侧分栏 / 窄屏全高抽屉，集成 Monaco Diff 比对) -->
+      <AtengArtifactSidebar
+        v-if="isArtifactSidebarOpen"
+        v-model:visible="isArtifactSidebarOpen"
+        v-model:active-version="activeArtifactVersion"
+        :artifact="activeArtifact"
+        :width="540"
+      >
+        <template #diff="{ originalCode, modifiedCode, language }">
+          <AtengCodeDiffEditor
+            :original="originalCode"
+            :modified="modifiedCode"
+            :language="language === 'vue' ? 'html' : language"
+            height="100%"
+          />
+        </template>
+      </AtengArtifactSidebar>
+
       <!-- 状态监控侧栏 -->
-      <aside class="sample-sidebar">
+      <aside v-if="!isArtifactSidebarOpen" class="sample-sidebar">
         <el-card shadow="never" class="info-card">
           <template #header>
             <div class="card-header">
@@ -233,6 +265,11 @@ const sendPresetPrompt = (prompt: string): void => {
           </div>
 
           <div class="info-item">
+            <span class="info-label">独立产物：</span>
+            <el-tag type="success" size="small">{{ artifacts.length }} 个产物</el-tag>
+          </div>
+
+          <div class="info-item">
             <span class="info-label">网络接缝：</span>
             <span class="info-value">MockStreamEngine</span>
           </div>
@@ -242,25 +279,19 @@ const sendPresetPrompt = (prompt: string): void => {
           <div class="info-desc">
             <p><strong>特性验证清单：</strong></p>
             <ul>
-              <li>✅ 纯原生 CSS 变量驱动与 scoped 样式隔离；</li>
-              <li>✅ 零 Element Plus 依赖与具名插槽反转；</li>
-              <li>✅ ToolCallDemuxer 流式 &lt;tool_call&gt; 协议解析与纯净剥离；</li>
-              <li>✅ mode: 'auto' 工具自动触发与 role: 'tool' 结果回喂大模型；</li>
-              <li>✅ mode: 'confirm' 人机协同审批 (HITL) 挂起、同意授权与拒批拦截；</li>
-              <li>✅ AtengToolCallCard 纯原生三态卡片与 JSON 入参折叠查看；</li>
+              <li>✅ ArtifactDemuxer 流式提取 &lt;artifact&gt; 产物并剥离正文；</li>
+              <li>✅ 同一 identifier 自动生成递增不可变版本链 (v1 ➔ v2)；</li>
+              <li>✅ AtengArtifactCard 气泡内紧凑卡片与一键唤起侧边栏；</li>
+              <li>✅ AtengArtifactSidebar 独立产物工作台 (Preview / Code / Diff)；</li>
+              <li>✅ 桌面端拖拽调节分栏宽度与最小/最大宽度防溢出边界；</li>
+              <li>✅ 移动端/窄屏自动切换全高抽屉与遮罩自适应；</li>
+              <li>✅ #diff 插槽反转装配 @atengk/code-editor-vue Monaco Diff；</li>
+              <li>✅ ToolCallDemuxer 工具调用全双工执行与 HITL 审批拦截；</li>
               <li>✅ ReasoningDemuxer 思考链双模流式分离与折叠计时；</li>
-              <li>✅ MarkdownPipeline 高保真 Markdown 与 GFM 表格；</li>
-              <li>✅ KaTeX 行内/块级数学公式与货币符号保护；</li>
-              <li>✅ Prism.js 语法高亮与一键复制代码标牌；</li>
-              <li>✅ Mermaid 动态懒加载渲染与语法异常兜底；</li>
-              <li>✅ RenderThrottler 16~32ms RAF 渲染节流与动态队列批处理；</li>
-              <li>✅ 呼吸感打字机模式 (typewriterSpeed) 与立即刷盘 (flushTypewriter)；</li>
-              <li>✅ 视口智能滚动锚定 (Δ ≤ 60px) 与阅读位置锁定；</li>
-              <li>✅ 向上回看历史自动浮现“有新消息 ⬇”悬浮胶囊；</li>
-              <li>✅ 点击胶囊或滑回底部重新恢复滚动锚定；</li>
-              <li>✅ 响应式输入控制与 Enter 发送快捷键；</li>
-              <li>✅ 生成中动态切换“停止生成”按钮；</li>
-              <li>✅ 组件作用域注销自动 Abort 中断。</li>
+              <li>✅ MarkdownPipeline 高保真 Markdown、KaTeX 公式与 Prism 高亮；</li>
+              <li>✅ RenderThrottler 16~32ms RAF 渲染节流与呼吸感打字机；</li>
+              <li>✅ 视口智能滚动锚定 (Δ ≤ 60px) 与“有新消息 ⬇”气泡；</li>
+              <li>✅ 组件作用域注销确定性清理与 Abort 中断。</li>
             </ul>
           </div>
         </el-card>
@@ -330,6 +361,11 @@ const sendPresetPrompt = (prompt: string): void => {
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+}
+
+.sample-main--with-artifact {
+  grid-template-columns: 1fr auto;
+  max-width: 1680px;
 }
 
 .sample-chat-card {

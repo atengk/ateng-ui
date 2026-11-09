@@ -7,22 +7,30 @@
  */
 
 import { computed } from 'vue';
-import type { AtengChatMessageProps, ReasoningContent, ToolCallPayload } from '../types';
+import type {
+  AtengChatMessageProps,
+  ReasoningContent,
+  ToolCallPayload,
+  ArtifactPayload,
+} from '../types';
 import AtengMarkdownRenderer from './AtengMarkdownRenderer.vue';
 import AtengReasoningBlock from './AtengReasoningBlock.vue';
 import AtengToolCallCard from './AtengToolCallCard.vue';
+import AtengArtifactCard from './AtengArtifactCard.vue';
 
 const props = defineProps<AtengChatMessageProps>();
 
 const emit = defineEmits<{
   (e: 'approveTool', callId: string): void;
   (e: 'rejectTool', callId: string, reason?: string): void;
+  (e: 'openArtifact', artifact: ArtifactPayload): void;
 }>();
 
 defineSlots<{
   avatar?: (props: { role: string }) => unknown;
   reasoning?: (props: { reasoning: ReasoningContent }) => unknown;
   'tool-call'?: (props: { toolCall: ToolCallPayload }) => unknown;
+  artifact?: (props: { artifact: ArtifactPayload }) => unknown;
   content?: (props: { content: string }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   extra?: () => unknown;
@@ -78,6 +86,18 @@ const avatarText = computed(() => {
               @approve="emit('approveTool', $event)"
               @reject="(callId, reason) => emit('rejectTool', callId, reason)"
             />
+          </slot>
+        </template>
+      </div>
+
+      <!-- Artifact 产物卡片展示区 -->
+      <div
+        v-if="props.message.artifacts && props.message.artifacts.length > 0"
+        class="at-ai-chat__artifacts"
+      >
+        <template v-for="artifact in props.message.artifacts" :key="artifact.identifier">
+          <slot name="artifact" :artifact="artifact">
+            <AtengArtifactCard :artifact="artifact" @click="emit('openArtifact', artifact)" />
           </slot>
         </template>
       </div>

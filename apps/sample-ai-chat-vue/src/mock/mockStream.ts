@@ -20,19 +20,34 @@ export async function simulateAiStream(
   onChunk: (chunk: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const isWeatherQuery = prompt.includes('天气') || prompt.includes('weather');
+  const isArtifactGen =
+    prompt.includes('生成 Vue') || prompt.includes('v1 产物') || prompt.includes('生成用户卡片');
+  const isArtifactUpgrade =
+    prompt.includes('迭代升级') || prompt.includes('v2 版本') || prompt.includes('带状态与动效');
+
+  const isWeatherQuery =
+    !isArtifactGen && !isArtifactUpgrade && (prompt.includes('天气') || prompt.includes('weather'));
   const isWeatherResult =
-    prompt.includes('晴朗') || prompt.includes('22°C') || prompt.includes('空气质量良好');
+    !isArtifactGen &&
+    !isArtifactUpgrade &&
+    (prompt.includes('晴朗') || prompt.includes('22°C') || prompt.includes('空气质量良好'));
   const isDangerQuery =
-    prompt.includes('删库') ||
-    prompt.includes('删表') ||
-    prompt.includes('drop_table') ||
-    prompt.includes('删除生产');
+    !isArtifactGen &&
+    !isArtifactUpgrade &&
+    (prompt.includes('删库') ||
+      prompt.includes('删表') ||
+      prompt.includes('drop_table') ||
+      prompt.includes('删除生产'));
   const isDangerApprovedResult =
-    prompt.includes('droppedTable') || prompt.includes('sys_operation_log');
-  const isDangerRejectedResult = prompt.includes('已拒绝') || prompt.includes('拒批');
+    !isArtifactGen &&
+    !isArtifactUpgrade &&
+    (prompt.includes('droppedTable') || prompt.includes('sys_operation_log'));
+  const isDangerRejectedResult =
+    !isArtifactGen && !isArtifactUpgrade && (prompt.includes('已拒绝') || prompt.includes('拒批'));
 
   const isComplexSample =
+    !isArtifactGen &&
+    !isArtifactUpgrade &&
     !isWeatherQuery &&
     !isWeatherResult &&
     !isDangerQuery &&
@@ -47,6 +62,8 @@ export async function simulateAiStream(
 
   const isReasoningPrompt =
     !isComplexSample &&
+    !isArtifactGen &&
+    !isArtifactUpgrade &&
     !isWeatherQuery &&
     !isWeatherResult &&
     !isDangerQuery &&
@@ -60,7 +77,116 @@ export async function simulateAiStream(
 
   let chunks: string[] = [];
 
-  if (isWeatherQuery) {
+  if (isArtifactGen) {
+    chunks = [
+      '<th',
+      'ink>\n',
+      '1. 收到独立交付物组件开发请求：“',
+      prompt,
+      '”；\n',
+      '2. 正在提取 Vue 3.5 SFC 结构，设计纯原生基础用户卡片；\n',
+      '3. 标记产物 identifier="user-card-comp", language="vue"；\n',
+      '4. 触发流式 <artifact> 标签并吐出 v1 初版源码。\n',
+      '</th',
+      'ink>\n\n',
+      '为您设计并交付了 **用户资料卡片组件 (v1 初版)**：\n',
+      '<artifact identifier="user-card-comp" title="用户资料卡片组件" language="vue">\n',
+      '<template>\n',
+      '  <div class="user-card">\n',
+      '    <div class="user-card__header">\n',
+      '      <h3>{{ user.name }}</h3>\n',
+      '      <span class="badge">{{ user.role }}</span>\n',
+      '    </div>\n',
+      '    <p class="user-card__bio">{{ user.bio }}</p>\n',
+      '    <button class="btn" @click="handleFollow">关注作者</button>\n',
+      '  </div>\n',
+      '</template>\n\n',
+      '<script setup lang="ts">\n',
+      'interface User {\n',
+      '  name: string;\n',
+      '  role: string;\n',
+      '  bio: string;\n',
+      '}\n\n',
+      'defineProps<{\n',
+      '  user: User;\n',
+      '}>();\n\n',
+      'const emit = defineEmits<{\n',
+      '  (e: "follow"): void;\n',
+      '}>();\n\n',
+      'const handleFollow = (): void => {\n',
+      '  emit("follow");\n',
+      '};\n',
+      '</',
+      'script>\n',
+      '</artifact>\n\n',
+      '已为您在右侧【Artifacts 产物工作台】加载该组件，您可以点击卡片展开侧边栏查看源码与复制！',
+    ];
+  } else if (isArtifactUpgrade) {
+    chunks = [
+      '<th',
+      'ink>\n',
+      '1. 识别到对已存在产物 identifier="user-card-comp" 的迭代需求；\n',
+      '2. 在保留前置版本不可变历史的前提下，演进至版本 v2；\n',
+      '3. 增加头像渲染、已关注状态响应式切换、私信按钮与 scoped 样式；\n',
+      '4. 触发 <artifact> 标签闭合并生成新切片。\n',
+      '</th',
+      'ink>\n\n',
+      '已对用户卡片组件进行了 **v2 增强版迭代升级**：\n',
+      '<artifact identifier="user-card-comp" title="用户资料卡片组件 (v2 交互增强版)" language="vue">\n',
+      '<template>\n',
+      '  <div class="user-card" :class="{ \'user-card--followed\': isFollowed }">\n',
+      '    <div class="user-card__header">\n',
+      '      <img :src="user.avatar || \'/default-avatar.png\'" class="avatar" alt="avatar" />\n',
+      '      <div class="meta">\n',
+      '        <h3>{{ user.name }}</h3>\n',
+      '        <span class="badge">{{ user.role }}</span>\n',
+      '      </div>\n',
+      '    </div>\n',
+      '    <p class="user-card__bio">{{ user.bio }}</p>\n',
+      '    <div class="user-card__actions">\n',
+      '      <button class="btn btn--primary" @click="toggleFollow">\n',
+      '        {{ isFollowed ? "已关注 ✓" : "+ 关注作者" }}\n',
+      '      </button>\n',
+      '      <button class="btn btn--outline" @click="sendDirectMessage">\n',
+      '        发送私信\n',
+      '      </button>\n',
+      '    </div>\n',
+      '  </div>\n',
+      '</template>\n\n',
+      '<script setup lang="ts">\n',
+      'import { ref } from "vue";\n\n',
+      'interface User {\n',
+      '  name: string;\n',
+      '  role: string;\n',
+      '  bio: string;\n',
+      '  avatar?: string;\n',
+      '}\n\n',
+      'defineProps<{\n',
+      '  user: User;\n',
+      '}>();\n\n',
+      'const isFollowed = ref(false);\n\n',
+      'const toggleFollow = (): void => {\n',
+      '  isFollowed.value = !isFollowed.value;\n',
+      '};\n\n',
+      'const sendDirectMessage = (): void => {\n',
+      '  alert("私信窗口已唤起");\n',
+      '};\n',
+      '</',
+      'script>\n\n',
+      '<style scoped>\n',
+      '.user-card { padding: 18px; border-radius: 8px; border: 1px solid var(--at-chat-border, #e2e8f0); }\n',
+      '.user-card--followed { background-color: rgba(16, 185, 129, 0.05); border-color: #10b981; }\n',
+      '.user-card__header { display: flex; align-items: center; gap: 12px; }\n',
+      '.avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }\n',
+      '.user-card__actions { display: flex; gap: 8px; margin-top: 14px; }\n',
+      '.btn { padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; }\n',
+      '.btn--primary { background: #2563eb; color: #fff; border: none; }\n',
+      '.btn--outline { background: transparent; border: 1px solid #cbd5e1; }\n',
+      '</style>\n',
+      '</artifact>\n\n',
+      'v2 版本已推送到产物工作台！您可以点击上方卡片，并在侧边栏顶栏切换到 **【比对 (Diff)】** 视图，通过 Monaco Editor 高保真查看前后两个版本的代码增删差异！',
+    ];
+  } else if (isWeatherQuery) {
     chunks = [
       '<th',
       'ink>\n',

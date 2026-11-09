@@ -51,12 +51,24 @@ export type AtengToolCallCardInstance = InstanceType<
   typeof import('./components/AtengToolCallCard.vue').default
 >;
 
+export { default as AtengArtifactCard } from './components/AtengArtifactCard.vue';
+export type AtengArtifactCardInstance = InstanceType<
+  typeof import('./components/AtengArtifactCard.vue').default
+>;
+
+export { default as AtengArtifactSidebar } from './components/AtengArtifactSidebar.vue';
+export type AtengArtifactSidebarInstance = InstanceType<
+  typeof import('./components/AtengArtifactSidebar.vue').default
+>;
+
 // 无头响应式状态机、解复用与渲染引擎
 export { useAiChat } from './composables/useAiChat';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
 export type { DemuxResult } from './demux/ReasoningDemuxer';
 export { ToolCallDemuxer } from './demux/ToolCallDemuxer';
 export type { ToolDemuxResult } from './demux/ToolCallDemuxer';
+export { ArtifactDemuxer } from './demux/ArtifactDemuxer';
+export type { ArtifactDemuxResult } from './demux/ArtifactDemuxer';
 export { RenderThrottler } from './throttler/RenderThrottler';
 export type { RenderThrottlerOptions } from './throttler/RenderThrottler';
 export { MarkdownPipeline } from './pipeline/MarkdownPipeline';
@@ -75,6 +87,12 @@ export {
   IconLoading,
   IconX,
   IconAlertTriangle,
+  IconFileCode,
+  IconEye,
+  IconGitDiff,
+  IconDownload,
+  IconMaximize,
+  IconMinimize,
 } from './components/icons';
 
 // 强类型领域契约与接口
@@ -86,6 +104,7 @@ export type {
   ToolCallState,
   ToolDefinition,
   ToolCallPayload,
+  ArtifactMode,
   ArtifactVersion,
   ArtifactPayload,
   ChatAttachment,
@@ -100,4 +119,8 @@ export type {
   AtengChatInputEmits,
   AtengToolCallCardProps,
   AtengToolCallCardEmits,
+  AtengArtifactCardProps,
+  AtengArtifactCardEmits,
+  AtengArtifactSidebarProps,
+  AtengArtifactSidebarEmits,
 } from './types';

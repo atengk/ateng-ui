@@ -3,7 +3,7 @@
  *
  * 桥接 @atengk/core 的 StreamClient 与 @atengk/vue 的流式状态机制，
  * 管理多轮消息链、流式增量追加与在途中断，并支持全双工 Function Calling /
- * 工具调用自动调度与人机协同审批 (HITL)。
+ * 工具调用自动调度与人机协同审批 (HITL)，以及全局 Artifact 产物工作台总线。
  *
  * @author Ateng
  * @since 2026-11-09
@@ -13,8 +13,10 @@ import { ref, getCurrentScope, onScopeDispose, toValue, type Ref } from 'vue';
 import { streamClient } from '@atengk/core';
 import { ReasoningDemuxer } from '../demux/ReasoningDemuxer';
 import { ToolCallDemuxer } from '../demux/ToolCallDemuxer';
+import { ArtifactDemuxer } from '../demux/ArtifactDemuxer';
 import { RenderThrottler } from '../throttler/RenderThrottler';
 import type {
+  ArtifactPayload,
   ChatMessage,
   SendMessageOptions,
   ToolCallPayload,
@@ -61,6 +63,13 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
   const isStreaming: Ref<boolean> = ref(false);
   const error: Ref<Error | null> = ref(null);
 
+  // 全局 Artifact 产物总线状态
+  const artifacts: Ref<ArtifactPayload[]> = ref([]);
+  const activeArtifact: Ref<ArtifactPayload | null> = ref(null);
+  const activeArtifactVersion: Ref<number> = ref(1);
+  const isArtifactSidebarOpen: Ref<boolean> = ref(false);
+  const globalArtifactMap = new Map<string, ArtifactPayload>();
+
   // 工具注册表缓存
   const toolRegistry = new Map<string, ToolDefinition>();
   if (options.tools && options.tools.length > 0) {
@@ -96,12 +105,71 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
   };
 
   /**
-   * 清空所有消息历史并重置状态。
+   * 清空所有消息历史与产物状态并重置。
    */
   const clearMessages = (): void => {
     abort();
     messages.value = [];
+    artifacts.value = [];
+    globalArtifactMap.clear();
+    activeArtifact.value = null;
+    activeArtifactVersion.value = 1;
+    isArtifactSidebarOpen.value = false;
     error.value = null;
+  };
+
+  /**
+   * 打开指定 identifier 的产物并唤起侧边栏工作台。
+   */
+  const openArtifact = (identifier: string, version?: number): void => {
+    const found = artifacts.value.find(art => art.identifier === identifier);
+    if (!found) return;
+
+    activeArtifact.value = found;
+    if (version !== undefined) {
+      activeArtifactVersion.value = version;
+    } else {
+      const lastVersion = found.versions[found.versions.length - 1];
+      activeArtifactVersion.value = lastVersion ? lastVersion.version : 1;
+    }
+    isArtifactSidebarOpen.value = true;
+  };
+
+  /**
+   * 关闭当前打开的 Artifact 侧边栏工作台。
+   */
+  const closeArtifact = (): void => {
+    isArtifactSidebarOpen.value = false;
+  };
+
+  /**
+   * 切换当前激活产物的版本切片。
+   */
+  const selectArtifactVersion = (version: number): void => {
+    activeArtifactVersion.value = version;
+  };
+
+  /**
+   * 同步更新全局产物总线列表。
+   */
+  const syncGlobalArtifacts = (incomingArtifacts: ArtifactPayload[]): void => {
+    for (const incoming of incomingArtifacts) {
+      const idx = artifacts.value.findIndex(a => a.identifier === incoming.identifier);
+      if (idx !== -1) {
+        artifacts.value[idx] = incoming;
+      } else {
+        artifacts.value.push(incoming);
+      }
+
+      // 若当前正在查看该产物，自动同步至最新引用
+      if (activeArtifact.value && activeArtifact.value.identifier === incoming.identifier) {
+        activeArtifact.value = incoming;
+        const incomingLast = incoming.versions[incoming.versions.length - 1];
+        if (incomingLast) {
+          activeArtifactVersion.value = incomingLast.version;
+        }
+      }
+    }
   };
 
   /**
@@ -179,6 +247,7 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
 
     const demuxer = new ReasoningDemuxer();
     const toolDemuxer = new ToolCallDemuxer();
+    const artifactDemuxer = new ArtifactDemuxer(globalArtifactMap);
 
     const throttler = new RenderThrottler({
       typewriterSpeed: toValue(options.typewriterSpeed) ?? 0,
@@ -217,11 +286,33 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
           assistantMessage.toolCalls.push(...toolRes.toolCalls);
         }
 
+        // 3. Artifact 产物标签流式解复用
         if (toolRes.textChunk) {
-          throttler.feed(toolRes.textChunk);
-          if (assistantMessage.reasoning && !assistantMessage.reasoning.collapsed) {
-            assistantMessage.reasoning.collapsed = true;
-            assistantMessage.reasoning.isStreaming = false;
+          const artRes = artifactDemuxer.feed(toolRes.textChunk);
+
+          if (artRes.artifacts.length > 0) {
+            if (!assistantMessage.artifacts) {
+              assistantMessage.artifacts = [];
+            }
+            for (const incomingArt of artRes.artifacts) {
+              const idx = assistantMessage.artifacts.findIndex(
+                a => a.identifier === incomingArt.identifier,
+              );
+              if (idx !== -1) {
+                assistantMessage.artifacts[idx] = incomingArt;
+              } else {
+                assistantMessage.artifacts.push(incomingArt);
+              }
+            }
+            syncGlobalArtifacts(artRes.artifacts);
+          }
+
+          if (artRes.textChunk) {
+            throttler.feed(artRes.textChunk);
+            if (assistantMessage.reasoning && !assistantMessage.reasoning.collapsed) {
+              assistantMessage.reasoning.collapsed = true;
+              assistantMessage.reasoning.isStreaming = false;
+            }
           }
         }
       }
@@ -261,8 +352,28 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
         }
         assistantMessage.toolCalls.push(...toolFinishRes.toolCalls);
       }
-      if (toolFinishRes.textChunk) {
-        throttler.feed(toolFinishRes.textChunk);
+
+      const artFinishRes = artifactDemuxer.finish();
+      if (artFinishRes.artifacts.length > 0) {
+        if (!assistantMessage.artifacts) {
+          assistantMessage.artifacts = [];
+        }
+        for (const incomingArt of artFinishRes.artifacts) {
+          const idx = assistantMessage.artifacts.findIndex(
+            a => a.identifier === incomingArt.identifier,
+          );
+          if (idx !== -1) {
+            assistantMessage.artifacts[idx] = incomingArt;
+          } else {
+            assistantMessage.artifacts.push(incomingArt);
+          }
+        }
+        syncGlobalArtifacts(artFinishRes.artifacts);
+      }
+
+      const residualText = (toolFinishRes.textChunk || '') + (artFinishRes.textChunk || '');
+      if (residualText) {
+        throttler.feed(residualText);
         throttler.finish();
       }
 
@@ -271,10 +382,11 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
         assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
         assistantMessage.reasoning.isStreaming = false;
       }
-      assistantMessage.content = throttler.getRenderedText() || toolDemuxer.getContent();
+      assistantMessage.content =
+        throttler.getRenderedText() || artifactDemuxer.getContent() || toolDemuxer.getContent();
       assistantMessage.status = 'completed';
 
-      // 3. 校验并调度解析出的工具调用
+      // 4. 校验并调度解析出的工具调用
       if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
         for (const tc of assistantMessage.toolCalls) {
           if (tc.state === 'calling') {
@@ -308,12 +420,31 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
         assistantMessage.toolCalls.push(...toolFinishRes.toolCalls);
       }
 
+      const artFinishRes = artifactDemuxer.finish();
+      if (artFinishRes.artifacts.length > 0) {
+        if (!assistantMessage.artifacts) {
+          assistantMessage.artifacts = [];
+        }
+        for (const incomingArt of artFinishRes.artifacts) {
+          const idx = assistantMessage.artifacts.findIndex(
+            a => a.identifier === incomingArt.identifier,
+          );
+          if (idx !== -1) {
+            assistantMessage.artifacts[idx] = incomingArt;
+          } else {
+            assistantMessage.artifacts.push(incomingArt);
+          }
+        }
+        syncGlobalArtifacts(artFinishRes.artifacts);
+      }
+
       if (assistantMessage.reasoning) {
         assistantMessage.reasoning.text = demuxer.getReasoning();
         assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
         assistantMessage.reasoning.isStreaming = false;
       }
-      assistantMessage.content = throttler.getRenderedText() || toolDemuxer.getContent();
+      assistantMessage.content =
+        throttler.getRenderedText() || artifactDemuxer.getContent() || toolDemuxer.getContent();
 
       if (isAbortError(err)) {
         assistantMessage.status = assistantMessage.content.length > 0 ? 'completed' : 'error';
@@ -334,7 +465,7 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
       isStreaming.value = false;
     }
 
-    // 4. 若有等待自动执行的工具，顺次触发执行
+    // 5. 若有等待自动执行的工具，顺次触发执行
     for (const item of pendingAutoTools) {
       await executeAndDispatchTool(item.toolCall, item.toolDef, sendOptions);
     }
@@ -458,5 +589,12 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     flushTypewriter,
     approveToolCall,
     rejectToolCall,
+    artifacts,
+    activeArtifact,
+    activeArtifactVersion,
+    isArtifactSidebarOpen,
+    openArtifact,
+    closeArtifact,
+    selectArtifactVersion,
   };
 }

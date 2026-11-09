@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@atengk/ai-chat-vue": "workspace:*",
+    "@atengk/code-editor-vue": "workspace:*",
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
     "element-plus": "^2.14.7",

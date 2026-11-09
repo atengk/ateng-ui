@@ -9,7 +9,13 @@
  */
 
 import { ref, watch, nextTick } from 'vue';
-import type { AtengAiChatProps, AtengAiChatEmits, ChatMessage, ToolCallPayload } from '../types';
+import type {
+  AtengAiChatProps,
+  AtengAiChatEmits,
+  ChatMessage,
+  ToolCallPayload,
+  ArtifactPayload,
+} from '../types';
 import AtengChatMessage from './AtengChatMessage.vue';
 import AtengChatInput from './AtengChatInput.vue';
 import { IconArrowDown } from './icons';
@@ -31,6 +37,7 @@ defineSlots<{
   messages?: (props: { messages: ChatMessage[] }) => unknown;
   'message-item'?: (props: { message: ChatMessage; index: number }) => unknown;
   'tool-call'?: (props: { toolCall: ToolCallPayload }) => unknown;
+  artifact?: (props: { artifact: ArtifactPayload }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   'unread-badge'?: (props: { scrollToBottom: () => void }) => unknown;
   input?: () => unknown;
@@ -129,9 +136,13 @@ defineExpose({
                 :is-last="index === props.messages.length - 1"
                 @approve-tool="callId => emit('approveTool', callId)"
                 @reject-tool="(callId, reason) => emit('rejectTool', callId, reason)"
+                @open-artifact="art => emit('openArtifact', art)"
               >
                 <template #tool-call="slotProps">
                   <slot name="tool-call" v-bind="slotProps" />
+                </template>
+                <template #artifact="slotProps">
+                  <slot name="artifact" v-bind="slotProps" />
                 </template>
                 <template #code-block="slotProps">
                   <slot name="code-block" v-bind="slotProps" />
