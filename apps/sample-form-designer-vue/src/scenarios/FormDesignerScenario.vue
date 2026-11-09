@@ -238,7 +238,7 @@ const testGuardValidDrop = (): void => {
   <div class="form-designer-scenario">
     <div class="scenario-intro">
       <div class="intro-header">
-        <h2 class="title">场景六：设计态画板、物料库、大纲树与 SortableJS 多层拖拽守卫</h2>
+        <h2 class="title">场景六：设计态画板、属性自举面板与不可变历史快照栈 (Undo/Redo)</h2>
         <div class="actions">
           <el-button-group size="small">
             <el-button @click="loadPreset(blankPreset, '空白画板')">📄 空白画板</el-button>
@@ -256,24 +256,47 @@ const testGuardValidDrop = (): void => {
         </div>
       </div>
 
-      <!-- 拖拽守卫实机验证栏 -->
+      <!-- 拖拽守卫与特性说明实测栏 -->
       <div class="guard-bar">
-        <span class="guard-label">🛡️ validateDropTarget 守卫实测：</span>
+        <span class="guard-label">🛡️ 核心特性实测：</span>
         <el-button size="small" type="warning" plain @click="testGuardSubFormInSubForm">
-          测试：SubForm 内套 SubForm (预期拦截)
+          守卫：SubForm 内套 SubForm (预期拦截)
         </el-button>
         <el-button size="small" type="warning" plain @click="testGuardSelfNest">
-          测试：容器拖入自身内部 (预期拦截)
+          守卫：容器拖入自身内部 (预期拦截)
         </el-button>
         <el-button size="small" type="success" plain @click="testGuardValidDrop">
-          测试：向 SubForm 添加 Input (预期放行)
+          守卫：向 SubForm 添加 Input (预期放行)
         </el-button>
+        <el-tag type="info" size="small" effect="plain">
+          ⏱️ 连续打字 300ms 防抖合并 · 最大 30 步快照 · 渲染器自举渲染配置器
+        </el-tag>
       </div>
     </div>
 
-    <!-- 设计器核心容器 -->
+    <!-- 设计器核心容器（接入 #custom-property 插槽逃生门） -->
     <div class="designer-container">
-      <AtengFormDesigner ref="designerRef" :schema="currentSchema" />
+      <AtengFormDesigner ref="designerRef" :schema="currentSchema">
+        <template #custom-property="{ widget, updateProperty }">
+          <div v-if="widget && widget.type === 'input'" class="custom-slot-demo">
+            <span class="custom-slot-tag">#custom-property 插槽逃生门：前后缀定制</span>
+            <div class="custom-slot-inputs">
+              <input
+                class="slot-input"
+                :value="widget.props?.prefix || ''"
+                placeholder="输入框前缀 (prefix)"
+                @input="updateProperty('prefix', ($event.target as HTMLInputElement).value)"
+              />
+              <input
+                class="slot-input"
+                :value="widget.props?.suffix || ''"
+                placeholder="输入框后缀 (suffix)"
+                @input="updateProperty('suffix', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+        </template>
+      </AtengFormDesigner>
     </div>
 
     <!-- 查看 AST Schema 弹窗 -->
@@ -352,6 +375,39 @@ const testGuardValidDrop = (): void => {
   flex: 1;
   min-height: 0;
   height: 100%;
+}
+
+.custom-slot-demo {
+  padding: 8px;
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  border: 1px dashed var(--el-color-primary, #409eff);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.custom-slot-tag {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-color-primary, #409eff);
+  margin-bottom: 6px;
+}
+
+.custom-slot-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot-input {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 4px;
+  background: var(--el-bg-color, #ffffff);
+  color: var(--el-text-color-primary, #303133);
+  outline: none;
 }
 
 .json-code {

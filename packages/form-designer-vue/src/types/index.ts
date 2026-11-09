@@ -351,6 +351,18 @@ export interface StencilItem {
 }
 
 /**
+ * FormHistoryStack 快照历史栈配置选项。
+ */
+export interface FormHistoryStackOptions {
+  /** 最大快照步数上限，默认 30 */
+  maxLimit?: number;
+  /** 连续输入防抖合并延迟（毫秒），默认 300ms */
+  debounceMs?: number;
+  /** 快照变更回调 */
+  onChange?: (snapshot: FormSchema, stack: { canUndo: boolean; canRedo: boolean }) => void;
+}
+
+/**
  * useFormDesigner 状态机配置选项。
  */
 export interface UseFormDesignerOptions {
@@ -358,6 +370,8 @@ export interface UseFormDesignerOptions {
   initialSchema?: FormSchema;
   /** 最大快照历史步数，默认 30 */
   maxHistoryLimit?: number;
+  /** 连续输入防抖合并延迟（毫秒），默认 300ms */
+  debounceMs?: number;
   /** Schema 变更回调 */
   onSchemaChange?: (schema: FormSchema) => void;
   /** 选中节点变更回调 */
@@ -392,8 +406,8 @@ export interface UseFormDesignerReturn {
   removeWidget: (id: string) => boolean;
   /** 跨容器或同级移动控件 */
   moveWidget: (sourceId: string, targetParentId: string | null, targetIndex: number) => boolean;
-  /** 局部更新指定控件属性 */
-  updateWidget: (id: string, patch: Partial<FormWidget>) => boolean;
+  /** 局部更新指定控件属性 (支持 debounced 防抖合并) */
+  updateWidget: (id: string, patch: Partial<FormWidget>, debounced?: boolean) => boolean;
   /** 复制指定控件并赋予全新唯一标识 */
   copyWidget: (id: string) => FormWidget | null;
   /** 清空画布中所有控件 */

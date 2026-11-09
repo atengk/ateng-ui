@@ -70,7 +70,7 @@ const toggleDarkMode = (val: boolean): void => {
         <el-tab-pane label="场景五：嵌套排版与动态子表单 (SubForm)" name="subform">
           <SubFormScenario />
         </el-tab-pane>
-        <el-tab-pane label="场景六：设计态画板与物料拖拽 (FormDesigner)" name="designer">
+        <el-tab-pane label="场景六：设计态画板、属性自举与历史栈 (FormDesigner)" name="designer">
           <FormDesignerScenario />
         </el-tab-pane>
       </el-tabs>

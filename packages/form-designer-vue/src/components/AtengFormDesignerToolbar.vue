@@ -2,12 +2,13 @@
 /**
  * AtengFormDesignerToolbar 设计器顶部操作工具栏。
  *
- * 遵循 ADR-0044 规约，负责视口规格切换、历史撤销重做、清空画布与实时预览模式切换。
+ * 遵循 ADR-0044 规约，负责视口规格切换、历史撤销重做、防误触清空确认与全屏/预览模式切换。
  *
  * @author Ateng
  * @since 2026-11-09
  */
 
+import { ref } from 'vue';
 import type { ViewportType } from '../types';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
   canUndo?: boolean;
   canRedo?: boolean;
   isPreviewMode?: boolean;
+  isFullscreen?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -22,6 +24,7 @@ withDefaults(defineProps<Props>(), {
   canUndo: false,
   canRedo: false,
   isPreviewMode: false,
+  isFullscreen: false,
 });
 
 const emit = defineEmits<{
@@ -30,7 +33,22 @@ const emit = defineEmits<{
   redo: [];
   clear: [];
   'toggle-preview': [];
+  'toggle-fullscreen': [];
 }>();
+
+const isConfirmingClear = ref<boolean>(false);
+
+const handleClearClick = (): void => {
+  if (isConfirmingClear.value) {
+    emit('clear');
+    isConfirmingClear.value = false;
+  } else {
+    isConfirmingClear.value = true;
+    setTimeout(() => {
+      isConfirmingClear.value = false;
+    }, 3000);
+  }
+};
 </script>
 
 <template>
@@ -42,7 +60,7 @@ const emit = defineEmits<{
           type="button"
           class="at-designer-tool-btn"
           :class="{ 'is-active': viewport === 'pc' }"
-          title="PC 宽屏"
+          title="PC 宽屏 (100%)"
           @click="emit('set-viewport', 'pc')"
         >
           🖥️ PC
@@ -51,7 +69,7 @@ const emit = defineEmits<{
           type="button"
           class="at-designer-tool-btn"
           :class="{ 'is-active': viewport === 'pad' }"
-          title="平板 (768px)"
+          title="平板视口 (768px)"
           @click="emit('set-viewport', 'pad')"
         >
           📱 Pad
@@ -60,7 +78,7 @@ const emit = defineEmits<{
           type="button"
           class="at-designer-tool-btn"
           :class="{ 'is-active': viewport === 'mobile' }"
-          title="移动手机仿真 (375px)"
+          title="手机壳仿真 (375px)"
           @click="emit('set-viewport', 'mobile')"
         >
           📲 Mobile
@@ -73,7 +91,7 @@ const emit = defineEmits<{
         type="button"
         class="at-designer-tool-btn"
         :disabled="!canUndo"
-        title="撤销 (Undo)"
+        title="撤销变更 (Ctrl+Z)"
         @click="emit('undo')"
       >
         ↩️ 撤销
@@ -82,13 +100,28 @@ const emit = defineEmits<{
         type="button"
         class="at-designer-tool-btn"
         :disabled="!canRedo"
-        title="重做 (Redo)"
+        title="重做变更 (Ctrl+Y)"
         @click="emit('redo')"
       >
         ↪️ 重做
       </button>
-      <button type="button" class="at-designer-tool-btn" title="清空画布" @click="emit('clear')">
-        🗑️ 清空
+      <button
+        type="button"
+        class="at-designer-tool-btn"
+        :class="{ 'is-danger-confirm': isConfirmingClear }"
+        :title="isConfirmingClear ? '再次点击以确认清空' : '清空当前画布'"
+        @click="handleClearClick"
+      >
+        {{ isConfirmingClear ? '⚠️ 确认清空？' : '🗑️ 清空' }}
+      </button>
+      <button
+        type="button"
+        class="at-designer-tool-btn"
+        :class="{ 'is-active': isFullscreen }"
+        title="切换全屏沉浸模式"
+        @click="emit('toggle-fullscreen')"
+      >
+        {{ isFullscreen ? '🗗 退出全屏' : '⛶ 全屏' }}
       </button>
       <button type="button" class="at-designer-tool-btn is-primary" @click="emit('toggle-preview')">
         {{ isPreviewMode ? '✏️ 返回设计' : '👁️ 实时预览' }}
@@ -153,6 +186,13 @@ const emit = defineEmits<{
   color: var(--el-color-primary, #409eff);
   font-weight: 500;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.at-designer-tool-btn.is-danger-confirm {
+  background: var(--el-color-danger-light-9, #fef0f0);
+  border-color: var(--el-color-danger, #f56c6c);
+  color: var(--el-color-danger, #f56c6c);
+  font-weight: 600;
 }
 
 .at-designer-tool-btn.is-primary {

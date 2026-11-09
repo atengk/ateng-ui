@@ -5,8 +5,9 @@
  * 遵循 ADR-0044 规约：
  * 1. 组合物料面板（AtengFormStencil）、图层大纲树（AtengFormOutlineTree）与中央拖拽画板（AtengFormCanvas）；
  * 2. 调度 useFormDesigner 无头状态机、不可变快照历史栈与多端视口仿真；
- * 3. 支持设计态与运行态（AtengFormRenderer）实时零损无缝切换预览；
- * 4. 显式通过 defineExpose 暴露实例方法族。
+ * 3. 接入 AtengFormPropertyPanel 属性自举面板与 #custom-property 插槽逃生门；
+ * 4. 支持设计态与运行态（AtengFormRenderer）实时零损无缝切换预览与全屏模式；
+ * 5. 显式通过 defineExpose 暴露实例方法族。
  *
  * @author Ateng
  * @since 2026-11-09
@@ -18,8 +19,11 @@ import type {
   ViewportType,
   FormDesignerInstance,
   FormWidget,
+  FormConfig,
   ContainerType,
 } from '../types';
+import { defaultWidgetRegistry } from '../registry';
+import type { FormWidgetRegistry } from '../registry';
 import { useFormDesigner } from '../composables/useFormDesigner';
 import { createDefaultWidget, findWidgetNode } from '../utils/designer';
 import AtengFormStencil from './AtengFormStencil.vue';
@@ -27,21 +31,27 @@ import AtengFormOutlineTree from './AtengFormOutlineTree.vue';
 import AtengFormCanvas from './AtengFormCanvas.vue';
 import AtengFormRenderer from './AtengFormRenderer.vue';
 import AtengFormDesignerToolbar from './AtengFormDesignerToolbar.vue';
-import AtengFormQuickPropertyPanel from './AtengFormQuickPropertyPanel.vue';
+import AtengFormPropertyPanel from './AtengFormPropertyPanel.vue';
 
 interface Props {
   /** 初始表单 Schema */
   schema?: FormSchema;
   /** 快照历史栈最大深度，默认 30 */
   maxHistoryLimit?: number;
+  /** 连续输入防抖合并延迟（毫秒），默认 300ms */
+  debounceMs?: number;
   /** 默认画布视口 */
   defaultViewport?: ViewportType;
+  /** 控件注册中心单例 */
+  registry?: FormWidgetRegistry;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   schema: undefined,
   maxHistoryLimit: 30,
+  debounceMs: 300,
   defaultViewport: 'pc',
+  registry: () => defaultWidgetRegistry,
 });
 
 const emit = defineEmits<{
@@ -53,6 +63,7 @@ const emit = defineEmits<{
 const designer = useFormDesigner({
   initialSchema: props.schema,
   maxHistoryLimit: props.maxHistoryLimit,
+  debounceMs: props.debounceMs,
   onSchemaChange: s => emit('update:schema', s),
   onSelectWidget: w => emit('select-widget', w),
 });
@@ -88,8 +99,9 @@ if (props.defaultViewport) {
 // 侧边栏活动 Tab
 const activeSideTab = ref<'stencil' | 'outline'>('stencil');
 
-// 预览模式开关
+// 预览模式与全屏状态开关
 const isPreviewMode = ref<boolean>(false);
+const isFullscreen = ref<boolean>(false);
 const previewFormData = ref<Record<string, unknown>>({});
 
 // 处理物料添加
@@ -148,38 +160,22 @@ const handleCanvasSortWidget = (
   }
 };
 
-// 属性更新
-const handlePropertyChange = (key: string, value: unknown): void => {
+// 属性面板更新控件属性
+const handlePropertyPanelUpdateWidget = (patch: Partial<FormWidget>, debounced = true): void => {
   if (activeWidget.value) {
-    if (key.startsWith('props.')) {
-      const propKey = key.slice(6);
-      const newProps = { ...(activeWidget.value.props || {}), [propKey]: value };
-      updateWidget(activeWidget.value.id, { props: newProps });
-    } else if (key === 'required') {
-      const currentRules = activeWidget.value.rules ? [...activeWidget.value.rules] : [];
-      const reqIndex = currentRules.findIndex(r => r.required);
-      if (value) {
-        if (reqIndex < 0) {
-          currentRules.unshift({
-            required: true,
-            message: `${activeWidget.value.label || '此项'}不能为空`,
-          });
-        }
-      } else {
-        if (reqIndex >= 0) {
-          currentRules.splice(reqIndex, 1);
-        }
-      }
-      updateWidget(activeWidget.value.id, { rules: currentRules });
-    } else {
-      updateWidget(activeWidget.value.id, { [key]: value });
-    }
+    updateWidget(activeWidget.value.id, patch, debounced);
   }
+};
+
+// 属性面板更新全局配置
+const handleUpdateFormConfig = (cfg: Partial<FormConfig>): void => {
+  activeSchema.value.formConfig = { ...(activeSchema.value.formConfig || {}), ...cfg };
+  emit('update:schema', activeSchema.value);
 };
 
 // 大纲重命名
 const handleOutlineRename = (id: string, newLabel: string): void => {
-  updateWidget(id, { label: newLabel });
+  updateWidget(id, { label: newLabel }, false);
 };
 
 // 暴露实例方法
@@ -197,18 +193,20 @@ defineExpose<FormDesignerInstance>({
 </script>
 
 <template>
-  <div class="at-form-designer">
+  <div class="at-form-designer" :class="{ 'is-fullscreen': isFullscreen }">
     <!-- 顶部操作工具栏 -->
     <AtengFormDesignerToolbar
       :viewport="viewport"
       :can-undo="canUndo"
       :can-redo="canRedo"
       :is-preview-mode="isPreviewMode"
+      :is-fullscreen="isFullscreen"
       @set-viewport="setViewport"
       @undo="undo"
       @redo="redo"
       @clear="clearWidgets"
       @toggle-preview="isPreviewMode = !isPreviewMode"
+      @toggle-fullscreen="isFullscreen = !isFullscreen"
     />
 
     <!-- 中间主工作区 -->
@@ -277,11 +275,18 @@ defineExpose<FormDesignerInstance>({
         />
       </main>
 
-      <!-- 右侧快速属性配置面板 -->
-      <AtengFormQuickPropertyPanel
+      <!-- 右侧自举属性面板与自定义插槽 -->
+      <AtengFormPropertyPanel
         :active-widget="activeWidget"
-        @update-property="handlePropertyChange"
-      />
+        :form-config="activeSchema.formConfig"
+        :registry="registry"
+        @update-widget="handlePropertyPanelUpdateWidget"
+        @update-form-config="handleUpdateFormConfig"
+      >
+        <template #custom-property="slotProps">
+          <slot name="custom-property" v-bind="slotProps" />
+        </template>
+      </AtengFormPropertyPanel>
     </div>
   </div>
 </template>
@@ -297,6 +302,17 @@ defineExpose<FormDesignerInstance>({
   border-radius: 6px;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.at-form-designer.is-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  border-radius: 0;
+  border: none;
 }
 
 .at-designer-body {

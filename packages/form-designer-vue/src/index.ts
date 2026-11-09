@@ -15,6 +15,7 @@ import AtengFormCanvasItem from './components/AtengFormCanvasItem.vue';
 import AtengFormStencil from './components/AtengFormStencil.vue';
 import AtengFormOutlineTree from './components/AtengFormOutlineTree.vue';
 import AtengFormDesignerToolbar from './components/AtengFormDesignerToolbar.vue';
+import AtengFormPropertyPanel from './components/AtengFormPropertyPanel.vue';
 import AtengFormQuickPropertyPanel from './components/AtengFormQuickPropertyPanel.vue';
 import AtengFormCanvasLeaf from './components/AtengFormCanvasLeaf.vue';
 
@@ -23,6 +24,7 @@ export {
   AtengFormRenderer,
   AtengFormDesigner,
   AtengFormDesignerToolbar,
+  AtengFormPropertyPanel,
   AtengFormQuickPropertyPanel,
   AtengFormCanvas,
   AtengFormCanvasItem,
@@ -33,10 +35,11 @@ export {
 export { default as AtengFormItemRenderer } from './components/AtengFormItemRenderer.vue';
 export { AtengFormGrid, AtengFormCard, AtengSubForm } from './containers';
 
-// 导出无头状态机 Hooks
+// 导出无头状态机 Hooks 与不可变历史栈
 export { useFormRenderer } from './composables/useFormRenderer';
 export type { UseFormRendererOptions } from './composables/useFormRenderer';
 export { useFormDesigner, createEmptySchema } from './composables/useFormDesigner';
+export { FormHistoryStack } from './history';
 
 // 导出异步校验引擎
 export { AsyncValidatorEngine } from './validator/AsyncValidatorEngine';
@@ -68,6 +71,7 @@ export {
   isDescendantOf,
   generateWidgetId,
 } from './utils/designer';
+export { getWidgetPropsConfigSchema, globalFormConfigSchema } from './utils/propertyPresets';
 export {
   formatReadonlyValue,
   formatCurrency,
@@ -101,6 +105,7 @@ export type {
   ViewportType,
   DropValidationResult,
   StencilItem,
+  FormHistoryStackOptions,
   UseFormDesignerOptions,
   UseFormDesignerReturn,
   FormDesignerInstance,
@@ -115,6 +120,7 @@ export function install(app: App): void {
   app.component('AtengFormCanvas', AtengFormCanvas);
   app.component('AtengFormStencil', AtengFormStencil);
   app.component('AtengFormOutlineTree', AtengFormOutlineTree);
+  app.component('AtengFormPropertyPanel', AtengFormPropertyPanel);
 }
 
 export default {

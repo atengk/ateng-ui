@@ -3,7 +3,7 @@
  *
  * 遵循 ADR-0044、ADR-0002 与 ADR-0013 响应式契约：
  * 1. 负责管理 FormSchema 响应式树状实体与活动选中控件（activeWidgetId）；
- * 2. 基于 structuredClone 实现不可变快照历史栈（支持撤销 undo / 重做 redo，最大 30 步）；
+ * 2. 委托 FormHistoryStack 实现不可变快照历史栈与 300ms 连续属性输入防抖合并；
  * 3. 对称暴露控件添加、删除、位移、克隆、更新与清空能力；
  * 4. 内置 validateDrop 类型守卫判定，确保画布结构的绝对健壮性与单向数据流。
  *
@@ -24,6 +24,7 @@ import type {
 } from '../types';
 import { safeClone } from '../utils/path';
 import { findWidgetNode, cloneWidgetWithNewIds, validateDropTarget } from '../utils/designer';
+import { FormHistoryStack } from '../history/FormHistoryStack';
 
 /**
  * 默认空 FormSchema 骨架。
@@ -49,8 +50,6 @@ export function createEmptySchema(): FormSchema {
  * @param options 配置选项
  */
 export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDesignerReturn {
-  const maxHistory = options.maxHistoryLimit ?? 30;
-
   // 1. 初始化响应式 Schema 实体
   const initial = options.initialSchema ? safeClone(options.initialSchema) : createEmptySchema();
   const schema: Ref<FormSchema> = ref(initial);
@@ -59,29 +58,23 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
   const activeWidgetId: Ref<string | null> = ref(null);
   const viewport: Ref<ViewportType> = ref('pc');
 
-  // 3. 快照历史栈 (基于 structuredClone 的不可变快照序列)
-  const history: FormSchema[] = [safeClone(schema.value)];
-  const historyIndex: Ref<number> = ref(0);
+  // 3. 不可变快照历史栈 (委托 FormHistoryStack，支持 300ms 防抖合并与最大 30 步上限截断)
+  const canUndoState: Ref<boolean> = ref(false);
+  const canRedoState: Ref<boolean> = ref(false);
 
-  /**
-   * 记录一次不可变历史快照。
-   */
-  const recordSnapshot = (): void => {
-    // 截断当前游标之后的前进快照
-    if (historyIndex.value < history.length - 1) {
-      history.splice(historyIndex.value + 1);
-    }
+  const historyStack = new FormHistoryStack(initial, {
+    maxLimit: options.maxHistoryLimit ?? 30,
+    debounceMs: options.debounceMs ?? 300,
+    onChange: (snapshot, stack) => {
+      canUndoState.value = stack.canUndo;
+      canRedoState.value = stack.canRedo;
+      options.onSchemaChange?.(snapshot);
+    },
+  });
 
-    history.push(safeClone(schema.value));
-
-    // 环形超出最大深度截断
-    if (history.length > maxHistory) {
-      history.shift();
-    } else {
-      historyIndex.value = history.length - 1;
-    }
-
-    options.onSchemaChange?.(safeClone(schema.value));
+  const syncHistoryState = (): void => {
+    canUndoState.value = historyStack.canUndo;
+    canRedoState.value = historyStack.canRedo;
   };
 
   // 4. 计算属性：当前选中节点及父级容器
@@ -100,8 +93,8 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     return activeNodeInfo.value ? activeNodeInfo.value.parent : null;
   });
 
-  const canUndo: ComputedRef<boolean> = computed(() => historyIndex.value > 0);
-  const canRedo: ComputedRef<boolean> = computed(() => historyIndex.value < history.length - 1);
+  const canUndo: ComputedRef<boolean> = computed(() => canUndoState.value);
+  const canRedo: ComputedRef<boolean> = computed(() => canRedoState.value);
 
   // 5. 核心状态机方法
   const selectWidget = (id: string | null): void => {
@@ -142,7 +135,6 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     targetParentId: string | null = null,
     targetIndex?: number,
   ): boolean => {
-    // 执行前置守卫校验
     const validation = validateDrop(widget, targetParentId);
     if (!validation.allowed) {
       console.warn(`[useFormDesigner] 拦截非法嵌套操作: ${validation.reason}`);
@@ -175,7 +167,8 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     }
 
     selectWidget(clonedWidget.id);
-    recordSnapshot();
+    historyStack.push(schema.value, true);
+    syncHistoryState();
     return true;
   };
 
@@ -193,12 +186,12 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
       schema.value.widgetList.splice(found.index, 1);
     }
 
-    // 若移除的是当前激活节点，自动回退选中父级或置空
     if (activeWidgetId.value === id) {
       selectWidget(found.parent ? found.parent.id : null);
     }
 
-    recordSnapshot();
+    historyStack.push(schema.value, true);
+    syncHistoryState();
     return true;
   };
 
@@ -212,7 +205,6 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
       return false;
     }
 
-    // 前置守卫校验
     const validation = validateDrop(sourceFound.widget, targetParentId);
     if (!validation.allowed) {
       console.warn(`[useFormDesigner] 移动失败，触发类型守卫拦截: ${validation.reason}`);
@@ -222,7 +214,6 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     const currentParentId = sourceFound.parent ? sourceFound.parent.id : null;
     const sameParent = currentParentId === targetParentId;
 
-    // 从原位置提取节点
     const [removed] = sourceFound.parent
       ? (sourceFound.parent.children ?? []).splice(sourceFound.index, 1)
       : schema.value.widgetList.splice(sourceFound.index, 1);
@@ -231,7 +222,6 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
       return false;
     }
 
-    // 计算校正后的插入索引
     let adjustedIndex = targetIndex;
     if (sameParent && sourceFound.index < targetIndex) {
       adjustedIndex = Math.max(0, targetIndex - 1);
@@ -255,11 +245,12 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     }
 
     selectWidget(removed.id);
-    recordSnapshot();
+    historyStack.push(schema.value, true);
+    syncHistoryState();
     return true;
   };
 
-  const updateWidget = (id: string, patch: Partial<FormWidget>): boolean => {
+  const updateWidget = (id: string, patch: Partial<FormWidget>, debounced = false): boolean => {
     const found = findWidgetNode(schema.value.widgetList, id);
     if (!found) {
       return false;
@@ -268,7 +259,9 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     const { id: _, ...restPatch } = patch;
     Object.assign(found.widget, restPatch);
 
-    recordSnapshot();
+    // debounced 为 true 时走 300ms 防抖合并；为 false 时立即提交
+    historyStack.push(schema.value, !debounced);
+    syncHistoryState();
     return true;
   };
 
@@ -290,47 +283,38 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
     }
 
     selectWidget(copied.id);
-    recordSnapshot();
+    historyStack.push(schema.value, true);
+    syncHistoryState();
     return copied;
   };
 
   const clearWidgets = (): void => {
     schema.value.widgetList = [];
     selectWidget(null);
-    recordSnapshot();
+    historyStack.push(schema.value, true);
+    syncHistoryState();
   };
 
   const undo = (): void => {
-    if (!canUndo.value) {
-      return;
+    const prev = historyStack.undo();
+    if (prev) {
+      schema.value = prev;
+      syncHistoryState();
+      if (activeWidgetId.value && !findWidgetNode(schema.value.widgetList, activeWidgetId.value)) {
+        selectWidget(null);
+      }
     }
-    historyIndex.value--;
-    const targetSnapshot = history[historyIndex.value];
-    if (targetSnapshot) {
-      schema.value = safeClone(targetSnapshot);
-    }
-
-    // 重新确认当前激活节点是否仍然存在
-    if (activeWidgetId.value && !findWidgetNode(schema.value.widgetList, activeWidgetId.value)) {
-      selectWidget(null);
-    }
-    options.onSchemaChange?.(safeClone(schema.value));
   };
 
   const redo = (): void => {
-    if (!canRedo.value) {
-      return;
+    const next = historyStack.redo();
+    if (next) {
+      schema.value = next;
+      syncHistoryState();
+      if (activeWidgetId.value && !findWidgetNode(schema.value.widgetList, activeWidgetId.value)) {
+        selectWidget(null);
+      }
     }
-    historyIndex.value++;
-    const targetSnapshot = history[historyIndex.value];
-    if (targetSnapshot) {
-      schema.value = safeClone(targetSnapshot);
-    }
-
-    if (activeWidgetId.value && !findWidgetNode(schema.value.widgetList, activeWidgetId.value)) {
-      selectWidget(null);
-    }
-    options.onSchemaChange?.(safeClone(schema.value));
   };
 
   const setViewport = (v: ViewportType): void => {
@@ -344,7 +328,8 @@ export function useFormDesigner(options: UseFormDesignerOptions = {}): UseFormDe
   const setSchema = (newSchema: FormSchema): void => {
     schema.value = safeClone(newSchema);
     selectWidget(null);
-    recordSnapshot();
+    historyStack.clear(newSchema);
+    syncHistoryState();
   };
 
   return {
