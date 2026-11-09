@@ -102,6 +102,10 @@ export interface UseGridLayoutReturn<T = Record<string, unknown>> {
   float: Ref<boolean>;
   /** 是否展示参考线 */
   showGridLines: Ref<boolean>;
+  /** 当前处于拖拽中的卡片 ID (若无则为 null) */
+  activeDraggingId: Ref<string | number | null>;
+  /** 当前处于调整尺寸中的卡片 ID (若无则为 null) */
+  activeResizingId: Ref<string | number | null>;
   /** 当前栅格列数 */
   currentColumn: Ref<number>;
   /** 当前行高配置 */
@@ -146,4 +150,6 @@ export interface GridItemContext<T = Record<string, unknown>> {
   pixelWidth: Ref<number>;
   /** 像素高度 */
   pixelHeight: Ref<number>;
+  /** 尺寸变动防抖订阅回调 (返回注销函数) */
+  onResize: (cb: (size: { width: number; height: number }) => void) => () => void;
 }

@@ -73,7 +73,9 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'update:layout', layout: GridLayoutItem<T>[]): void;
   (e: 'change', layout: GridLayoutItem<T>[]): void;
+  (e: 'dragstart', id: string | number): void;
   (e: 'dragstop', id: string | number): void;
+  (e: 'resizestart', id: string | number): void;
   (e: 'resizestop', id: string | number): void;
   (e: 'breakpointChange', payload: { width: number; column: number }): void;
   (e: 'dropItem', item: GridLayoutItem<T>): void;
@@ -247,14 +249,32 @@ onMounted(() => {
     emit('dropItem', newItem);
   });
 
+  grid.on('dragstart', (_event: Event, el: HTMLElement) => {
+    const id = el.getAttribute('gs-id');
+    internalController.activeDraggingId.value = id;
+    if (id) {
+      emit('dragstart', id);
+    }
+  });
+
   grid.on('dragstop', (_event: Event, el: HTMLElement) => {
+    internalController.activeDraggingId.value = null;
     const id = el.getAttribute('gs-id');
     if (id) {
       emit('dragstop', id);
     }
   });
 
+  grid.on('resizestart', (_event: Event, el: HTMLElement) => {
+    const id = el.getAttribute('gs-id');
+    internalController.activeResizingId.value = id;
+    if (id) {
+      emit('resizestart', id);
+    }
+  });
+
   grid.on('resizestop', (_event: Event, el: HTMLElement) => {
+    internalController.activeResizingId.value = null;
     const id = el.getAttribute('gs-id');
     if (id) {
       emit('resizestop', id);

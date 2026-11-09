@@ -329,12 +329,18 @@ importers:
       '@atengk/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@atengk/echarts-vue':
+        specifier: workspace:*
+        version: link:../../packages/echarts-vue
       '@atengk/grid-layout-vue':
         specifier: workspace:*
         version: link:../../packages/grid-layout-vue
       '@atengk/vue':
         specifier: workspace:*
         version: link:../../packages/vue
+      echarts:
+        specifier: ^5.6.0
+        version: 5.6.0
       element-plus:
         specifier: ^2.14.7
         version: 2.14.7(vue@3.5.44(typescript@5.9.3))

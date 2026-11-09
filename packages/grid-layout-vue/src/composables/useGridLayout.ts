@@ -38,6 +38,8 @@ export function useGridLayout<T = Record<string, unknown>>(
   const showGridLines = ref(options.showGridLines ?? false);
   const currentColumn = ref(options.column ?? 12);
   const cellHeight = ref(options.cellHeight ?? '80px');
+  const activeDraggingId = ref<string | number | null>(null);
+  const activeResizingId = ref<string | number | null>(null);
 
   /**
    * 批量替换布局数据。
@@ -191,6 +193,8 @@ export function useGridLayout<T = Record<string, unknown>>(
     editable,
     float,
     showGridLines,
+    activeDraggingId,
+    activeResizingId,
     currentColumn,
     cellHeight,
     setFloat,

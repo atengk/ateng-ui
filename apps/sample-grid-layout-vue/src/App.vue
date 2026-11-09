@@ -11,6 +11,7 @@ import BasicDashboard from './views/BasicDashboard.vue';
 import PhysicsDashboard from './views/PhysicsDashboard.vue';
 import ResponsiveDashboard from './views/ResponsiveDashboard.vue';
 import PaletteDashboard from './views/PaletteDashboard.vue';
+import CockpitDashboard from './views/CockpitDashboard.vue';
 
 const activeTab = ref('basic');
 const isDark = ref(false);
@@ -54,8 +55,8 @@ const toggleDark = () => {
         <el-tab-pane label="4. 外部物料抽屉拖拽" name="palette">
           <PaletteDashboard />
         </el-tab-pane>
-        <el-tab-pane label="5. ECharts 驾驶舱联动" name="cockpit" disabled>
-          <div class="placeholder-pane">待切片 #308 竣工接入</div>
+        <el-tab-pane label="5. ECharts 驾驶舱联动" name="cockpit">
+          <CockpitDashboard />
         </el-tab-pane>
         <el-tab-pane label="6. 企业级治理与容灾" name="governance" disabled>
           <div class="placeholder-pane">待切片 #310 竣工接入</div>

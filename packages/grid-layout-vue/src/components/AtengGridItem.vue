@@ -22,13 +22,55 @@ const props = withDefaults(
 
 const gridLayoutContext = inject(GRID_LAYOUT_KEY, null);
 const elRef = ref<HTMLElement | null>(null);
-const isDragging = ref(false);
-const isResizing = ref(false);
-const pixelWidth = ref(0);
-const pixelHeight = ref(0);
+
+const emit = defineEmits<{
+  (e: 'resize', size: { width: number; height: number }): void;
+}>();
 
 const itemRef = toRef(props, 'item');
 const isLocked = computed(() => Boolean(props.item.locked || props.item.static));
+const isDragging = computed(() =>
+  Boolean(
+    gridLayoutContext?.activeDraggingId.value &&
+    String(gridLayoutContext.activeDraggingId.value) === String(props.item.id),
+  ),
+);
+const isResizing = computed(() =>
+  Boolean(
+    gridLayoutContext?.activeResizingId.value &&
+    String(gridLayoutContext.activeResizingId.value) === String(props.item.id),
+  ),
+);
+
+const pixelWidth = ref(0);
+const pixelHeight = ref(0);
+const resizeCallbacks = new Set<(size: { width: number; height: number }) => void>();
+
+let itemResizeObserver: ResizeObserver | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+const onResize = (cb: (size: { width: number; height: number }) => void): (() => void) => {
+  resizeCallbacks.add(cb);
+  if (pixelWidth.value > 0 && pixelHeight.value > 0) {
+    cb({ width: pixelWidth.value, height: pixelHeight.value });
+  }
+  return () => {
+    resizeCallbacks.delete(cb);
+  };
+};
+
+const triggerSizeBroadcast = (w: number, h: number): void => {
+  pixelWidth.value = w;
+  pixelHeight.value = h;
+  emit('resize', { width: w, height: h });
+  for (const cb of resizeCallbacks) {
+    try {
+      cb({ width: w, height: h });
+    } catch (err) {
+      console.error('Grid item onResize callback error:', err);
+    }
+  }
+};
 
 // 响应式监听锁控与可调整性变更并同步底层 GridStack 节点
 watch(
@@ -52,9 +94,48 @@ onMounted(() => {
       grid.makeWidget(elRef.value);
     }
   }
+
+  if (typeof ResizeObserver !== 'undefined' && elRef.value) {
+    itemResizeObserver = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
+      const w = Math.round(entry.contentRect.width);
+      const h = Math.round(entry.contentRect.height);
+      if (w <= 0 || h <= 0) {
+        return;
+      }
+
+      if (isResizing.value || isDragging.value) {
+        pixelWidth.value = w;
+        pixelHeight.value = h;
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(() => {
+          triggerSizeBroadcast(w, h);
+        }, 100);
+      } else {
+        triggerSizeBroadcast(w, h);
+      }
+    });
+
+    itemResizeObserver.observe(elRef.value);
+  }
 });
 
 onUnmounted(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  if (itemResizeObserver) {
+    itemResizeObserver.disconnect();
+    itemResizeObserver = null;
+  }
+  resizeCallbacks.clear();
+
   if (gridLayoutContext?.gridInstance.value && elRef.value) {
     const grid = gridLayoutContext.gridInstance.value;
     const node = (elRef.value as unknown as { gridstackNode?: unknown }).gridstackNode;
@@ -72,6 +153,7 @@ provide(GRID_ITEM_KEY, {
   isLocked,
   pixelWidth,
   pixelHeight,
+  onResize,
 } as unknown as GridItemContext<Record<string, unknown>>);
 
 defineExpose({
@@ -80,6 +162,9 @@ defineExpose({
   isDragging,
   isResizing,
   isLocked,
+  pixelWidth,
+  pixelHeight,
+  onResize,
 });
 </script>
 
