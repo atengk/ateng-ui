@@ -8,8 +8,9 @@
 
 import { ref } from 'vue';
 import DriverDebugView from './views/DriverDebugView.vue';
+import StandardSheetsView from './views/StandardSheetsView.vue';
 
-const activeTab = ref('drivers');
+const activeTab = ref('sheets');
 const isDark = ref(false);
 
 const toggleDark = () => {
@@ -41,6 +42,9 @@ const toggleDark = () => {
       <el-tabs v-model="activeTab" type="border-card">
         <el-tab-pane label="1. 多驱动与样式保真调试" name="drivers">
           <DriverDebugView />
+        </el-tab-pane>
+        <el-tab-pane label="2. 多规格纸张与排版仿真" name="sheets">
+          <StandardSheetsView />
         </el-tab-pane>
       </el-tabs>
     </main>

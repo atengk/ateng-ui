@@ -1,16 +1,27 @@
 /**
  * @atengk/print-vue 顶级公开导出入口。
  *
- * 遵循纯声明式具名导出规范，声明式导出所有错误实体、驱动 SPI、服务与指令。
+ * 遵循纯声明式具名导出规范，声明式导出所有组件、错误实体、驱动 SPI、服务与指令。
  *
  * @author Ateng
  * @since 2026-11-10
  */
 
 import type { App } from 'vue';
+import AtengPrintSheet from './components/AtengPrintSheet.vue';
+import AtengPrintRuler from './components/AtengPrintRuler.vue';
+import AtengPrintBreak from './components/AtengPrintBreak.vue';
 import { vPrint } from './directives/vPrint';
 
 import './style/index.css';
+
+// 核心组件导出
+export { AtengPrintSheet, AtengPrintRuler, AtengPrintBreak };
+export type { AtengPrintSheetProps, AtengPrintRulerProps } from './types/components';
+
+// 纸张尺寸与预设导出
+export { resolvePaperDimensions, PAPER_PRESET_MAP } from './types/paper';
+export type { PaperPreset, PaperOrientation, ResolvedPaperDimensions } from './types/paper';
 
 // 异常与错误码导出
 export { PrintException, PrintErrorCode } from './errors/PrintException';
@@ -33,9 +44,12 @@ export { vPrint } from './directives/vPrint';
 
 /**
  * Vue 插件安装器。
- * 显式注册 v-print 全局指令。
+ * 注册 AtengPrintSheet、AtengPrintRuler、AtengPrintBreak 与 v-print 指令。
  */
 export function install(app: App): void {
+  app.component('AtengPrintSheet', AtengPrintSheet);
+  app.component('AtengPrintRuler', AtengPrintRuler);
+  app.component('AtengPrintBreak', AtengPrintBreak);
   app.directive('print', vPrint);
 }
 

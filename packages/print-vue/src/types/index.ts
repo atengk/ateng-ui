@@ -9,6 +9,8 @@
 
 import type { PrintException } from '../errors/PrintException';
 
+export * from './paper';
+
 /**
  * 打印执行进度状态契约。
  */
