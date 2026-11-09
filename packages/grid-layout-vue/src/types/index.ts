@@ -78,6 +78,8 @@ export interface UseGridLayoutOptions<T = Record<string, unknown>> {
   showGridLines?: boolean;
   /** 拖拽手柄选择器 (默认 '.at-grid-drag-handle, .at-grid-item__header') */
   handle?: string;
+  /** 是否开启响应式容器断点 */
+  responsive?: boolean;
   /** 响应式断点配置 */
   breakpoints?: GridResponsiveBreakpoints;
   /** 底层 GridStack 原生选项透传 */
@@ -100,12 +102,20 @@ export interface UseGridLayoutReturn<T = Record<string, unknown>> {
   float: Ref<boolean>;
   /** 是否展示参考线 */
   showGridLines: Ref<boolean>;
+  /** 当前栅格列数 */
+  currentColumn: Ref<number>;
+  /** 当前行高配置 */
+  cellHeight: Ref<number | string>;
   /** 动态切换浮动模式 */
   setFloat: (val: boolean) => void;
   /** 动态切换编辑态 */
   setEditable: (val: boolean) => void;
   /** 动态切换参考线显隐 */
   setShowGridLines: (val: boolean) => void;
+  /** 动态切换列数 */
+  setColumn: (val: number) => void;
+  /** 动态切换行高 */
+  setCellHeight: (val: number | string) => void;
   /** 批量更新布局 */
   setLayout: (newLayout: GridLayoutItem<T>[]) => void;
   /** 添加布局项 */

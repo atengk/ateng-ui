@@ -8,11 +8,11 @@
  * @since 2026-11-09
  */
 
-import { nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { GridStack, type GridStackNode, type GridStackOptions } from 'gridstack';
-import { GRID_LAYOUT_KEY } from '../constants';
+import { GRID_LAYOUT_KEY, resolveResponsiveColumns } from '../constants';
 import { useGridLayout } from '../composables/useGridLayout';
-import type { GridLayoutItem, UseGridLayoutReturn } from '../types';
+import type { GridLayoutItem, GridResponsiveBreakpoints, UseGridLayoutReturn } from '../types';
 
 const props = withDefaults(
   defineProps<{
@@ -32,6 +32,10 @@ const props = withDefaults(
     showGridLines?: boolean;
     /** 拖拽手柄选择器 */
     handle?: string;
+    /** 是否开启容器尺寸响应式断点 (默认 false) */
+    responsive?: boolean;
+    /** 响应式断点映射配置 */
+    breakpoints?: GridResponsiveBreakpoints;
     /** 外部自定义控制器 (可选，双向驱动) */
     controller?: UseGridLayoutReturn<T>;
     /** 底层透传的原生 GridStack 选项 */
@@ -46,6 +50,8 @@ const props = withDefaults(
     editable: false,
     showGridLines: false,
     handle: '.at-grid-drag-handle, .at-grid-item__header',
+    responsive: false,
+    breakpoints: undefined,
     controller: undefined,
     gridOptions: () => ({}),
   },
@@ -56,6 +62,7 @@ const emit = defineEmits<{
   (e: 'change', layout: GridLayoutItem<T>[]): void;
   (e: 'dragstop', id: string | number): void;
   (e: 'resizestop', id: string | number): void;
+  (e: 'breakpointChange', payload: { width: number; column: number }): void;
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -74,6 +81,41 @@ const internalController =
 
 const gridInstance = internalController.gridInstance;
 const isInternalUpdating = internalController.isInternalUpdating;
+const currentColumn = internalController.currentColumn;
+const currentCellHeight = internalController.cellHeight;
+
+let resizeObserver: ResizeObserver | null = null;
+
+const updateResponsiveLayout = (width: number): void => {
+  if (width <= 0) {
+    return;
+  }
+  const targetCol = resolveResponsiveColumns(width, props.breakpoints, props.column);
+  if (targetCol !== currentColumn.value) {
+    currentColumn.value = targetCol;
+    if (gridInstance.value) {
+      gridInstance.value.column(targetCol);
+    }
+    emit('breakpointChange', { width, column: targetCol });
+  }
+};
+
+const setupResizeObserver = (): void => {
+  if (typeof ResizeObserver === 'undefined' || !containerRef.value) {
+    return;
+  }
+  if (!props.responsive && !props.breakpoints) {
+    return;
+  }
+
+  resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      updateResponsiveLayout(entry.contentRect.width);
+    }
+  });
+
+  resizeObserver.observe(containerRef.value);
+};
 
 // 向上提供全局网格上下文
 provide(
@@ -133,6 +175,8 @@ onMounted(() => {
   const grid = GridStack.init(options, containerRef.value);
   gridInstance.value = grid;
 
+  setupResizeObserver();
+
   grid.on('change', (event: Event, items: GridStackNode[]) => {
     handleGridChange(event, items);
   });
@@ -153,10 +197,25 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (gridInstance.value) {
     // 依据 ADR-0045，严格保留 DOM 节点让 Vue 自行安全卸载，杜绝 double-unmount 崩溃
     gridInstance.value.destroy(false);
     gridInstance.value = null;
+  }
+});
+
+// 监听响应式配置热切换
+watch([() => props.responsive, () => props.breakpoints], ([newResponsive, newBreakpoints]) => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+  if (newResponsive || newBreakpoints) {
+    setupResizeObserver();
   }
 });
 
@@ -187,8 +246,8 @@ watch(
 watch(
   () => props.column,
   val => {
-    if (gridInstance.value && val) {
-      gridInstance.value.column(val);
+    if (val && !props.responsive && !props.breakpoints) {
+      internalController.setColumn(val);
     }
   },
 );
@@ -197,16 +256,36 @@ watch(
 watch(
   () => props.cellHeight,
   val => {
-    if (gridInstance.value && val) {
-      gridInstance.value.cellHeight(val);
+    if (val) {
+      internalController.setCellHeight(val);
     }
   },
 );
+
+const gridStyle = computed(() => {
+  const heightVal =
+    typeof currentCellHeight.value === 'number'
+      ? `${currentCellHeight.value}px`
+      : currentCellHeight.value === 'auto'
+        ? '80px'
+        : String(currentCellHeight.value);
+  return {
+    '--at-grid-columns': String(currentColumn.value),
+    '--at-grid-cell-height': heightVal,
+  };
+});
 
 defineExpose({
   grid: gridInstance,
   controller: internalController,
   container: containerRef,
+  currentColumn,
+  cellHeight: currentCellHeight,
+  setColumn: internalController.setColumn,
+  setCellHeight: internalController.setCellHeight,
+  setFloat: internalController.setFloat,
+  setEditable: internalController.setEditable,
+  setShowGridLines: internalController.setShowGridLines,
   tidy: internalController.tidyLayout,
   tidyLayout: internalController.tidyLayout,
 });
@@ -220,6 +299,7 @@ defineExpose({
       'at-grid-layout--grid-lines': showGridLines,
       'at-grid-layout--editable': editable,
     }"
+    :style="gridStyle"
   >
     <slot />
   </div>

@@ -22,7 +22,14 @@ export { useGridLayout } from './composables/useGridLayout';
 export { useGridItem } from './composables/useGridItem';
 
 // 导出常量与注入键
-export { GRID_LAYOUT_KEY, GRID_ITEM_KEY, DEFAULT_BREAKPOINTS, CSS_PREFIX } from './constants';
+export {
+  GRID_LAYOUT_KEY,
+  GRID_ITEM_KEY,
+  DEFAULT_BREAKPOINTS,
+  DEFAULT_RESPONSIVE_COLUMNS,
+  resolveResponsiveColumns,
+  CSS_PREFIX,
+} from './constants';
 
 // 导出强类型接口
 export type {

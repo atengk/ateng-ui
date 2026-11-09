@@ -35,6 +35,8 @@ export function useGridLayout<T = Record<string, unknown>>(
   const editable = ref(options.editable ?? false);
   const float = ref(options.float ?? false);
   const showGridLines = ref(options.showGridLines ?? false);
+  const currentColumn = ref(options.column ?? 12);
+  const cellHeight = ref(options.cellHeight ?? '80px');
 
   /**
    * 批量替换布局数据。
@@ -104,6 +106,28 @@ export function useGridLayout<T = Record<string, unknown>>(
   };
 
   /**
+   * 动态设置栅格列数。
+   */
+  const setColumn = (val: number): void => {
+    if (val > 0) {
+      currentColumn.value = val;
+      if (gridInstance.value) {
+        gridInstance.value.column(val);
+      }
+    }
+  };
+
+  /**
+   * 动态设置行高。
+   */
+  const setCellHeight = (val: number | string): void => {
+    cellHeight.value = val;
+    if (gridInstance.value) {
+      gridInstance.value.cellHeight(val);
+    }
+  };
+
+  /**
    * 一键垂直紧凑规整。
    */
   const tidyLayout = (): void => {
@@ -154,9 +178,13 @@ export function useGridLayout<T = Record<string, unknown>>(
     editable,
     float,
     showGridLines,
+    currentColumn,
+    cellHeight,
     setFloat,
     setEditable,
     setShowGridLines,
+    setColumn,
+    setCellHeight,
     setLayout,
     addItem,
     removeItem,
