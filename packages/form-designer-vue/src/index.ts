@@ -12,6 +12,8 @@ import AtengFormRenderer from './components/AtengFormRenderer.vue';
 
 // 导出组件
 export { AtengFormRenderer };
+export { default as AtengFormItemRenderer } from './components/AtengFormItemRenderer.vue';
+export { AtengFormGrid, AtengFormCard, AtengSubForm } from './containers';
 
 // 导出无头状态机 Hooks
 export { useFormRenderer } from './composables/useFormRenderer';
@@ -38,7 +40,7 @@ export {
 } from './widgets/native';
 
 // 导出工具函数
-export { getByPath, setByPath, parsePath } from './utils/path';
+export { getByPath, setByPath, parsePath, safeClone } from './utils/path';
 export {
   formatReadonlyValue,
   formatCurrency,
@@ -53,6 +55,9 @@ export type { ReadonlyFormatType, ReadonlyFormatOptions } from './utils/format';
 export type {
   FieldPermission,
   FieldPermissionMatrix,
+  ContainerType,
+  LayoutContainerProps,
+  SubFormProps,
   WidgetLayout,
   FormRule,
   DynamicCondition,

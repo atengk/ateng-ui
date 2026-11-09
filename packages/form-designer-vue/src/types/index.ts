@@ -120,14 +120,55 @@ export interface DynamicRule {
 }
 
 /**
+ * 容器二分模型分类枚举。
+ * - layout: 纯排版布局容器（Grid、Card、Collapse、Wizard、Tabs），仅影响几何排版，内部字段平铺绑定至根 formData。
+ * - data: 数据集合明细容器（SubForm、DetailTable），在数据模型中产生独立数组分支（formData.items = [...]），具有行作用域。
+ */
+export type ContainerType = 'layout' | 'data';
+
+/**
+ * 布局排版容器通用 Props。
+ */
+export interface LayoutContainerProps {
+  /** 栅格列数 (如 2 表示两列, 3 表示三列) */
+  cols?: number;
+  /** 栅格间距 (px) */
+  gutter?: number;
+  /** 容器卡片标题 */
+  title?: string;
+  /** 是否带边框 */
+  bordered?: boolean;
+}
+
+/**
+ * 子表单明细数据容器专用 Props。
+ */
+export interface SubFormProps {
+  /** 交互模式：table 紧凑行内编辑表格，dialog-list 卡片弹窗填报 */
+  displayMode?: 'table' | 'dialog-list';
+  /** 是否允许新增明细行 */
+  allowAdd?: boolean;
+  /** 是否允许删除明细行 */
+  allowDelete?: boolean;
+  /** 最多允许行数 */
+  maxRows?: number;
+  /** 最少允许行数 */
+  minRows?: number;
+  /** 空数据占位文本 */
+  emptyText?: string;
+  /** 新增按钮文本 */
+  addButtonText?: string;
+}
+
+/**
  * 表单控件单元抽象语法树（AST）节点。
  */
 export interface FormWidget {
   /** 全局唯一标识 */
   id: string;
-  /** 控件类型标识 (如 'input', 'select', 'grid') */
+  /** 控件类型标识 (如 'input', 'select', 'grid', 'card', 'subform') */
   type: string;
-  /** 绑定的数据模型键路径 (如 'username' 或 'user.address.city') */
+  /** 绑定的数据模型键路径 (如 'username' 或 'order.items') */
   modelKey?: string;
   /** 控件标签展示文本 */
   label?: string;
@@ -143,6 +184,8 @@ export interface FormWidget {
   layout?: WidgetLayout;
   /** 动态规则联动树列表 */
   dynamicRules?: DynamicRule[];
+  /** 容器类型分类 ('layout' | 'data') */
+  containerType?: ContainerType;
   /** 是否为排版容器 (如 Grid, Card) */
   isContainer?: boolean;
   /** 是否为数据集合明细容器 (如 SubForm) */

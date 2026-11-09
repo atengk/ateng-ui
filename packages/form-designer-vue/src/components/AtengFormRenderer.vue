@@ -13,6 +13,7 @@ import type { FormSchema, FieldPermissionMatrix, FormValidationErrors } from '..
 import { useFormRenderer } from '../composables/useFormRenderer';
 import { defaultWidgetRegistry } from '../registry';
 import type { FormWidgetRegistry } from '../registry';
+import AtengFormItemRenderer from './AtengFormItemRenderer.vue';
 
 interface Props {
   /** 表单三段式 AST Schema 结构 */
@@ -141,73 +142,23 @@ defineExpose({
   >
     <div class="at-form-body">
       <template v-for="widget in schema.widgetList" :key="widget.id">
-        <div
-          v-if="isFieldVisible(widget)"
-          class="at-form-item"
-          :class="{
-            'has-error': widget.modelKey && errors[widget.modelKey],
-            'is-validating': widget.modelKey && validatingFields[widget.modelKey],
-            'is-required': isFieldRequired(widget),
-            'is-readonly': isFieldReadonly(widget),
-          }"
-        >
-          <!-- 标签区 -->
-          <label
-            v-if="widget.label"
-            class="at-form-item-label"
-            :style="{
-              width: effectiveLabelPosition !== 'top' ? effectiveLabelWidth : undefined,
-            }"
-          >
-            <span v-if="isFieldRequired(widget)" class="at-required-asterisk">*</span>
-            {{ widget.label }}
-            <span v-if="schema.formConfig?.colon" class="at-colon">:</span>
-          </label>
-
-          <!-- 控件渲染区 -->
-          <div class="at-form-item-content">
-            <component
-              :is="registry.get(widget.type)?.component"
-              v-if="registry.get(widget.type)"
-              :widget="widget"
-              :model-value="widget.modelKey ? getFieldValue(widget.modelKey) : undefined"
-              :disabled="isFieldDisabled(widget)"
-              :readonly="isFieldReadonly(widget)"
-              :size="effectiveSize"
-              @update:model-value="
-                (val: unknown) => {
-                  if (widget.modelKey) {
-                    setFieldValue(widget.modelKey, val);
-                    validateField(widget.modelKey, 'change');
-                  }
-                }
-              "
-              @blur="() => widget.modelKey && validateField(widget.modelKey, 'blur')"
-            />
-            <div v-else class="at-widget-missing-fallback">未注册的控件类型: {{ widget.type }}</div>
-
-            <!-- 异步校验中提示 -->
-            <div
-              v-if="widget.modelKey && validatingFields[widget.modelKey]"
-              class="at-form-item-validating"
-            >
-              <span class="at-validating-dot"></span>
-              <span>正在校验中...</span>
-            </div>
-
-            <!-- 错误校验提示 -->
-            <transition name="at-fade">
-              <div
-                v-if="
-                  widget.modelKey && errors[widget.modelKey] && !validatingFields[widget.modelKey]
-                "
-                class="at-form-item-error"
-              >
-                {{ errors[widget.modelKey] }}
-              </div>
-            </transition>
-          </div>
-        </div>
+        <AtengFormItemRenderer
+          :widget="widget"
+          :errors="errors"
+          :validating-fields="validatingFields"
+          :registry="registry"
+          :effective-label-position="effectiveLabelPosition"
+          :effective-label-width="effectiveLabelWidth"
+          :effective-size="effectiveSize"
+          :colon="schema.formConfig?.colon"
+          :is-field-visible="isFieldVisible"
+          :is-field-disabled="isFieldDisabled"
+          :is-field-readonly="isFieldReadonly"
+          :is-field-required="isFieldRequired"
+          :get-field-value="getFieldValue"
+          :set-field-value="setFieldValue"
+          :validate-field="validateField"
+        />
       </template>
     </div>
 

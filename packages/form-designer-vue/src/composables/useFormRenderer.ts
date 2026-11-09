@@ -70,12 +70,22 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     if (!Array.isArray(widgets)) return result;
 
     for (const widget of widgets) {
-      if (widget.modelKey && widget.defaultValue !== undefined) {
-        setByPath(result, widget.modelKey, widget.defaultValue);
-      }
-      if (widget.children && Array.isArray(widget.children)) {
-        const childDefaults = extractDefaultValues(widget.children);
-        Object.assign(result, childDefaults);
+      if (widget.isCollection || widget.type === 'subform') {
+        if (widget.modelKey) {
+          setByPath(
+            result,
+            widget.modelKey,
+            widget.defaultValue !== undefined ? widget.defaultValue : [],
+          );
+        }
+      } else {
+        if (widget.modelKey && widget.defaultValue !== undefined) {
+          setByPath(result, widget.modelKey, widget.defaultValue);
+        }
+        if (widget.children && Array.isArray(widget.children)) {
+          const childDefaults = extractDefaultValues(widget.children);
+          Object.assign(result, childDefaults);
+        }
       }
     }
     return result;
@@ -303,7 +313,7 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   };
 
   /**
-   * 扁平收集所有参与渲染的有效表单控件。
+   * 扁平收集所有参与渲染的有效表单控件（支持 SubForm 动态明细行作用域展开）。
    */
   const collectActiveWidgets = (widgets: FormWidget[]): FormWidget[] => {
     const result: FormWidget[] = [];
@@ -311,11 +321,32 @@ export function useFormRenderer(options: UseFormRendererOptions) {
 
     for (const widget of widgets) {
       if (isFieldVisible(widget)) {
-        if (widget.modelKey) {
-          result.push(widget);
-        }
-        if (widget.children && Array.isArray(widget.children)) {
-          result.push(...collectActiveWidgets(widget.children));
+        if (widget.isCollection || widget.type === 'subform') {
+          // DataContainer: 针对明细行展开为带行索引路径的独立有效控件
+          if (widget.modelKey && widget.children && widget.children.length > 0) {
+            const rows = getByPath(internalFormData.value, widget.modelKey);
+            if (Array.isArray(rows)) {
+              rows.forEach((_, rowIndex) => {
+                widget.children!.forEach(child => {
+                  if (child.modelKey) {
+                    result.push({
+                      ...child,
+                      id: `${widget.id}_row_${rowIndex}_${child.id}`,
+                      modelKey: `${widget.modelKey}[${rowIndex}].${child.modelKey}`,
+                      label: `${widget.label || '明细'}第${rowIndex + 1}行-${child.label || child.modelKey}`,
+                    });
+                  }
+                });
+              });
+            }
+          }
+        } else {
+          if (widget.modelKey) {
+            result.push(widget);
+          }
+          if (widget.children && Array.isArray(widget.children)) {
+            result.push(...collectActiveWidgets(widget.children));
+          }
         }
       }
     }

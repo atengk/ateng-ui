@@ -14,6 +14,8 @@ export type ReadonlyFormatType =
 export interface ReadonlyFormatOptions {
   /** 格式化类型 */
   formatType?: ReadonlyFormatType;
+  /** 格式化类型别名 */
+  format?: ReadonlyFormatType;
   /** 货币符号，默认 '¥' */
   currencySymbol?: string;
   /** 小数位数，默认 2 */
@@ -140,7 +142,8 @@ export function formatReadonlyValue(value: unknown, options?: ReadonlyFormatOpti
   }
 
   // 2. 内置语义化类型转换
-  switch (options.formatType) {
+  const type = options.formatType || options.format;
+  switch (type) {
     case 'currency':
       return formatCurrency(value, options.currencySymbol ?? '¥', options.precision ?? 2);
     case 'phone':
