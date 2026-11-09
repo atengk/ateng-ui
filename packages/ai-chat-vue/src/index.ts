@@ -26,11 +26,18 @@ export type AtengChatInputInstance = InstanceType<
   typeof import('./components/AtengChatInput.vue').default
 >;
 
-// 无头响应式状态机
+export { default as AtengReasoningBlock } from './components/AtengReasoningBlock.vue';
+export type AtengReasoningBlockInstance = InstanceType<
+  typeof import('./components/AtengReasoningBlock.vue').default
+>;
+
+// 无头响应式状态机与解复用引擎
 export { useAiChat } from './composables/useAiChat';
+export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
+export type { DemuxResult } from './demux/ReasoningDemuxer';
 
 // 原生图标组件
-export { IconSend, IconStop } from './components/icons';
+export { IconSend, IconStop, IconBrain, IconChevronDown } from './components/icons';
 
 // 强类型领域契约与接口
 export type {

@@ -10,6 +10,7 @@
 
 import { ref, getCurrentScope, onScopeDispose, type Ref } from 'vue';
 import { streamClient } from '@atengk/core';
+import { ReasoningDemuxer } from '../demux/ReasoningDemuxer';
 import type { ChatMessage, SendMessageOptions, UseAiChatOptions, UseAiChatReturn } from '../types';
 
 /**
@@ -117,17 +118,39 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     const controller = new AbortController();
     activeAbortController = controller;
 
+    const demuxer = new ReasoningDemuxer();
+
+    const handleChunk = (chunk: string): void => {
+      const res = demuxer.feed(chunk);
+
+      if (res.reasoningChunk || demuxer.isThinkingActive()) {
+        if (!assistantMessage.reasoning) {
+          assistantMessage.reasoning = {
+            text: '',
+            isStreaming: true,
+            collapsed: false,
+            elapsedMs: 0,
+          };
+        }
+        assistantMessage.reasoning.text = demuxer.getReasoning();
+        assistantMessage.reasoning.isStreaming = demuxer.isThinkingActive();
+        assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
+      }
+
+      if (res.contentChunk) {
+        assistantMessage.content += res.contentChunk;
+        if (assistantMessage.reasoning && !assistantMessage.reasoning.collapsed) {
+          assistantMessage.reasoning.collapsed = true;
+          assistantMessage.reasoning.isStreaming = false;
+        }
+      }
+    };
+
     // 3. 执行流式通信管道
     try {
       if (options.streamHandler) {
         // 自定义处理函数优先（用于离线 Mock 或特殊协议引擎）
-        await options.streamHandler(
-          trimmed,
-          chunk => {
-            assistantMessage.content += chunk;
-          },
-          controller.signal,
-        );
+        await options.streamHandler(trimmed, handleChunk, controller.signal);
       } else if (options.streamUrl) {
         // 依托 @atengk/core StreamClient 发起 SSE / 分块流式请求
         await streamClient.subscribe(options.streamUrl, {
@@ -139,9 +162,7 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
             ...sendOptions.extraBody,
           },
           signal: controller.signal,
-          onMessage: (data: string) => {
-            assistantMessage.content += data;
-          },
+          onMessage: handleChunk,
           onError: (err: Error) => {
             throw err;
           },
@@ -151,10 +172,25 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
         assistantMessage.content = '服务端未配置 streamUrl 或 streamHandler。';
       }
 
+      demuxer.finish();
+      if (assistantMessage.reasoning) {
+        assistantMessage.reasoning.text = demuxer.getReasoning();
+        assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
+        assistantMessage.reasoning.isStreaming = false;
+      }
+      assistantMessage.content = demuxer.getContent();
+
       // 4. 流式安全结束
       assistantMessage.status = 'completed';
       options.onFinish?.(assistantMessage);
     } catch (err) {
+      demuxer.finish();
+      if (assistantMessage.reasoning) {
+        assistantMessage.reasoning.text = demuxer.getReasoning();
+        assistantMessage.reasoning.elapsedMs = demuxer.getElapsedMs();
+        assistantMessage.reasoning.isStreaming = false;
+      }
+      assistantMessage.content = demuxer.getContent();
       if (isAbortError(err)) {
         // 主动中断：若已收到部分内容则标记 completed，否则标记 error
         assistantMessage.status = assistantMessage.content.length > 0 ? 'completed' : 'error';

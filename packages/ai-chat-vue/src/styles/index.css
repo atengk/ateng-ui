@@ -194,6 +194,106 @@ html.dark,
   }
 }
 
+/* 思考链推理折叠块 */
+.at-ai-chat__reasoning {
+  background-color: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--at-chat-border);
+  border-radius: var(--at-chat-radius-md);
+  margin-bottom: 8px;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.at-ai-chat__reasoning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--at-chat-text-muted);
+  font-size: 12px;
+  transition: background-color 0.15s;
+}
+
+.at-ai-chat__reasoning-header:hover {
+  background-color: rgba(148, 163, 184, 0.14);
+}
+
+.at-ai-chat__reasoning-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.at-ai-chat__reasoning-title {
+  font-weight: 500;
+  color: var(--at-chat-text-secondary);
+}
+
+.at-ai-chat__reasoning-timer {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: var(--at-chat-radius-full);
+  background-color: rgba(148, 163, 184, 0.15);
+  color: var(--at-chat-text-muted);
+}
+
+.at-ai-chat__reasoning-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.at-ai-chat__reasoning-arrow--expanded {
+  transform: rotate(180deg);
+}
+
+.at-ai-chat__reasoning-body {
+  padding: 8px 12px;
+  border-top: 1px dashed var(--at-chat-border);
+  color: var(--at-chat-text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.at-ai-chat__reasoning-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.at-ai-chat__reasoning-skeleton-line {
+  height: 10px;
+  border-radius: var(--at-chat-radius-sm);
+  background-color: rgba(148, 163, 184, 0.25);
+  animation: at-chat-pulse 1.5s ease-in-out infinite;
+}
+
+.at-ai-chat__reasoning-skeleton-line:nth-child(1) {
+  width: 90%;
+}
+.at-ai-chat__reasoning-skeleton-line:nth-child(2) {
+  width: 75%;
+}
+.at-ai-chat__reasoning-skeleton-line:nth-child(3) {
+  width: 50%;
+}
+
+@keyframes at-chat-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
 /* 底部输入区 */
 .at-ai-chat__input-area {
   padding: 12px 16px;

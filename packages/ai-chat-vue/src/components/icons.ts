@@ -43,3 +43,46 @@ export const IconStop: FunctionalComponent = () => {
   );
 };
 IconStop.displayName = 'IconStop';
+
+export const IconBrain: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', {
+        d: 'M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z',
+      }),
+      h('path', {
+        d: 'M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z',
+      }),
+    ],
+  );
+};
+IconBrain.displayName = 'IconBrain';
+
+export const IconChevronDown: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [h('polyline', { points: '6 9 12 15 18 9' })],
+  );
+};
+IconChevronDown.displayName = 'IconChevronDown';

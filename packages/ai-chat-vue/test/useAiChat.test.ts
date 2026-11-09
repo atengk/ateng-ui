@@ -145,4 +145,23 @@ describe('useAiChat', () => {
     expect(capturedSignal?.aborted).toBe(true);
     expect(hookResult!.isStreaming.value).toBe(false);
   });
+
+  it('应当通过 ReasoningDemuxer 自动流式分离 <think> 思考内容与正文并在正文开始时自动折叠', async () => {
+    const { messages, sendMessage } = useAiChat({
+      streamHandler: async (_prompt, onChunk) => {
+        onChunk('<think>分析中：第一步...');
+        onChunk('第二步完成。</think>');
+        onChunk('这是正式答复文本。');
+      },
+    });
+
+    await sendMessage('深度推理测试');
+
+    expect(messages.value.length).toBe(2);
+    const assistantMsg = messages.value[1];
+    expect(assistantMsg.role).toBe('assistant');
+    expect(assistantMsg.reasoning?.text).toBe('分析中：第一步...第二步完成。');
+    expect(assistantMsg.reasoning?.collapsed).toBe(true);
+    expect(assistantMsg.content).toBe('这是正式答复文本。');
+  });
 });
