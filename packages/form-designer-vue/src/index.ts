@@ -21,6 +21,10 @@ export type { UseFormRendererOptions } from './composables/useFormRenderer';
 export { AsyncValidatorEngine } from './validator/AsyncValidatorEngine';
 export type { ValidationResult } from './validator/AsyncValidatorEngine';
 
+// 导出零 eval 动态规则与算术 AST 解释器
+export { SafeMathEvaluator, DynamicRuleEngine } from './rules';
+export type { WidgetBaselineState, EvaluatedWidgetState } from './rules';
+
 // 导出控件注册中心与原生适配器
 export { FormWidgetRegistry, defaultWidgetRegistry } from './registry';
 export {

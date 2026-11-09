@@ -20,6 +20,7 @@ import type {
 } from '../types';
 import { getByPath, setByPath } from '../utils/path';
 import { AsyncValidatorEngine } from '../validator/AsyncValidatorEngine';
+import { DynamicRuleEngine } from '../rules/DynamicRuleEngine';
 
 /**
  * 安全深度克隆工具（解包 Vue Proxy，防御 DataCloneError）。
@@ -99,6 +100,66 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     return result;
   };
 
+  /**
+   * 递归扁平收集全量控件（包括容器内部子控件）。
+   */
+  const collectAllWidgets = (widgets: FormWidget[]): FormWidget[] => {
+    const result: FormWidget[] = [];
+    if (!Array.isArray(widgets)) return result;
+
+    for (const widget of widgets) {
+      result.push(widget);
+      if (widget.children && Array.isArray(widget.children)) {
+        result.push(...collectAllWidgets(widget.children));
+      }
+    }
+    return result;
+  };
+
+  /**
+   * 执行动态规则中的公式计算与联动赋值（支持最多 5 级级联计算并防循环依赖）。
+   */
+  const applyFormulaRules = (): void => {
+    const currentSchema = toValue(options.schema);
+    if (!currentSchema) return;
+
+    const allWidgets = collectAllWidgets(currentSchema.widgetList);
+    const valueWidgets = allWidgets.filter(
+      w =>
+        Boolean(w.modelKey) &&
+        Boolean(w.dynamicRules?.some(r => r.actions?.some(a => a.target === 'value'))),
+    );
+
+    if (valueWidgets.length === 0) return;
+
+    let hasChanged = false;
+    let passes = 0;
+    const maxPasses = 5;
+
+    while (passes < maxPasses) {
+      let passChanged = false;
+      for (const widget of valueWidgets) {
+        if (!widget.modelKey) continue;
+        const evaluated = DynamicRuleEngine.evaluateWidget(widget, internalFormData.value);
+        if (evaluated.hasValueAction && evaluated.computedValue !== undefined) {
+          const currentVal = getByPath(internalFormData.value, widget.modelKey);
+          if (!Object.is(currentVal, evaluated.computedValue)) {
+            setByPath(internalFormData.value, widget.modelKey, evaluated.computedValue);
+            passChanged = true;
+            hasChanged = true;
+          }
+        }
+      }
+      if (!passChanged) break;
+      passes++;
+    }
+
+    if (hasChanged) {
+      const updatedSnapshot = { ...internalFormData.value };
+      options.onUpdateFormData?.(updatedSnapshot);
+    }
+  };
+
   // 初始化数据流
   const initFormData = (): void => {
     const currentSchema = toValue(options.schema);
@@ -108,7 +169,8 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     // 合并外部传入的数据与 Schema 默认值
     const merged = { ...defaults, ...(external || {}) };
     internalFormData.value = safeClone(merged);
-    initialDataSnapshot = safeClone(merged);
+    applyFormulaRules();
+    initialDataSnapshot = safeClone(internalFormData.value);
   };
 
   initFormData();
@@ -119,6 +181,7 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     newVal => {
       if (newVal && newVal !== internalFormData.value) {
         internalFormData.value = { ...internalFormData.value, ...newVal };
+        applyFormulaRules();
       }
     },
     { deep: true },
@@ -140,6 +203,9 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     const updatedSnapshot = { ...internalFormData.value };
     options.onUpdateFormData?.(updatedSnapshot);
     options.onFieldChange?.(path, value, updatedSnapshot);
+
+    // 重新运行公式联动计算
+    applyFormulaRules();
 
     // 若该字段存在校验错误，清理错误状态并取消在途校验
     if (errors.value[path]) {
@@ -185,22 +251,29 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   };
 
   /**
-   * 判定控件是否可见（未被流程权限置为 hidden）。
+   * 判定控件是否可见。
+   * 仲裁优先级：流程权限矩阵 (hidden) > 动态规则 (visible) > 控件默认 (props.visible !== false)。
    */
   const isFieldVisible = (widget: FormWidget): boolean => {
     const perm = getFieldPermission(widget);
-    return perm !== 'hidden';
+    if (perm === 'hidden') {
+      return false;
+    }
+    const evaluated = DynamicRuleEngine.evaluateWidget(widget, internalFormData.value);
+    return evaluated.visible;
   };
 
   /**
-   * 判定控件是否禁用（全局禁用或自身属性禁用）。
+   * 判定控件是否禁用。
+   * 仲裁优先级：全局禁用 > 动态规则 (disabled) > 控件默认 (props.disabled)。
    */
   const isFieldDisabled = (widget: FormWidget): boolean => {
     const isGlobalDisabled = toValue(options.disabled);
     if (isGlobalDisabled) {
       return true;
     }
-    return Boolean(widget.props?.disabled);
+    const evaluated = DynamicRuleEngine.evaluateWidget(widget, internalFormData.value);
+    return evaluated.disabled;
   };
 
   /**
@@ -215,7 +288,8 @@ export function useFormRenderer(options: UseFormRendererOptions) {
   };
 
   /**
-   * 判定控件是否强制必填（流程权限为 required 或 rules 声明必填）。
+   * 判定控件是否强制必填。
+   * 仲裁优先级：流程权限矩阵 (required / readonly / hidden) > 动态规则 (required) > rules 默认必填。
    */
   const isFieldRequired = (widget: FormWidget): boolean => {
     const perm = getFieldPermission(widget);
@@ -225,10 +299,8 @@ export function useFormRenderer(options: UseFormRendererOptions) {
     if (perm === 'readonly' || perm === 'hidden') {
       return false;
     }
-    if (Array.isArray(widget.rules)) {
-      return widget.rules.some(rule => Boolean(rule.required));
-    }
-    return false;
+    const evaluated = DynamicRuleEngine.evaluateWidget(widget, internalFormData.value);
+    return evaluated.required;
   };
 
   /**
@@ -382,7 +454,6 @@ export function useFormRenderer(options: UseFormRendererOptions) {
       const nextErrors = { ...errors.value };
       delete nextErrors[path];
       errors.value = nextErrors;
-
       const nextValidating = { ...validatingFields.value };
       delete nextValidating[path];
       validatingFields.value = nextValidating;
@@ -398,6 +469,7 @@ export function useFormRenderer(options: UseFormRendererOptions) {
    */
   const resetFields = (): void => {
     internalFormData.value = safeClone(initialDataSnapshot);
+    applyFormulaRules();
     clearValidate();
     options.onUpdateFormData?.({ ...internalFormData.value });
   };

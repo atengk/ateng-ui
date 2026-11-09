@@ -115,6 +115,8 @@ export interface DynamicRule {
   logic?: 'and' | 'or';
   /** 满足条件时触发的行为 */
   actions: DynamicAction[];
+  /** 条件不满足时触发的反向行为（可选） */
+  otherwise?: DynamicAction[];
 }
 
 /**
