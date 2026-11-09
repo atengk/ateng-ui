@@ -1,0 +1,78 @@
+/**
+ * @atengk/grid-layout-vue 全局样式与 CSS Tokens。
+ *
+ * @author Ateng
+ * @since 2026-11-09
+ */
+
+@import 'gridstack/dist/gridstack.min.css';
+
+:root {
+  --at-grid-gap: 12px;
+  --at-grid-line-color: rgba(0, 0, 0, 0.06);
+  --at-grid-placeholder-bg: rgba(64, 158, 255, 0.1);
+  --at-grid-placeholder-border: 2px dashed #409eff;
+  --at-grid-border-radius: 8px;
+}
+
+html.dark {
+  --at-grid-line-color: rgba(255, 255, 255, 0.08);
+  --at-grid-placeholder-bg: rgba(64, 158, 255, 0.15);
+  --at-grid-placeholder-border: 2px dashed #409eff;
+}
+
+.at-grid-layout {
+  position: relative;
+  width: 100%;
+  min-height: 100px;
+  box-sizing: border-box;
+}
+
+.at-grid-layout--grid-lines {
+  background-image:
+    linear-gradient(to right, var(--at-grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--at-grid-line-color) 1px, transparent 1px);
+  background-size: calc(100% / 12) 80px;
+}
+
+.at-grid-item {
+  box-sizing: border-box;
+  transition:
+    transform 0.2s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+}
+
+.at-grid-item.ui-draggable-dragging,
+.at-grid-item.ui-resizable-resizing {
+  transition: none !important;
+  z-index: 1000 !important;
+}
+
+.at-grid-item__content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: var(--at-grid-border-radius);
+}
+
+.at-grid-drag-handle,
+.at-grid-item__header {
+  cursor: grab;
+  user-select: none;
+}
+
+.at-grid-drag-handle:active,
+.at-grid-item__header:active {
+  cursor: grabbing;
+}
+
+.grid-stack-placeholder > .placeholder-content {
+  background-color: var(--at-grid-placeholder-bg) !important;
+  border: var(--at-grid-placeholder-border) !important;
+  border-radius: var(--at-grid-border-radius) !important;
+}

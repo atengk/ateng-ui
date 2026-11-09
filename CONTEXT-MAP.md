@@ -40,6 +40,8 @@
   面向现代 Web 应用与大语言模型交互的企业级 AI 智能体对话、思考链折叠与 Artifacts 产物协同响应式扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`)、`markdown-it`、`katex` 与可选 `mermaid`，严格中立并与具体 UI 库解耦。提供 `<AtengAiChat />` 统领容器、`<AtengChatMessage />`、`<AtengReasoningBlock />`、`<AtengToolCallCard />`、`<AtengArtifactSidebar />`、`<AtengChatInput />` 表现容器与 `useAiChat()` 无头状态机；内置 `ReasoningDemuxer` 实现 DeepSeek R1 `<think>` 与 OpenAI `reasoning_content` 双模流式多路解复用与计时折叠；内置 Markdown/KaTeX 解析与动态 `mermaid` 懒加载；提供 Artifacts 全局产物总线与 Monaco 代码编辑器插槽反转。
 - **[FormDesignerVue 动态表单设计器与Schema引擎扩展](./packages/form-designer-vue/CONTEXT.md)**（`@atengk/form-designer-vue`，当前孵化中）：
   面向现代 Web 应用与企业级审批流的工业级动态表单设计器、JSON Schema 渲染引擎与流程权限协同响应式扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层 SortableJS，严格中立并与具体 UI 库解耦（通过 `FormWidgetAdapter` SPI 解耦 UI，子路径输出可选 Element Plus 预设）。提供 `<AtengFormDesigner />` 设计器统领容器、`<AtengFormRenderer />` 运行态轻量渲染器、`<AtengFormCanvas />`、`<AtengFormStencil />`、`<AtengFormOutlineTree />`、`<AtengFormPropertyPanel />` 表现容器与 `useFormDesigner()` / `useFormRenderer()` 无头状态机；内置面向表单的三段式 AST 与标准 JSON Schema 双向转译器；支持 100% 免疫 CSP 的安全声明式规则树与算术 AST 动态联动；提供 `FieldPermissionMatrix` 流程节点权限最高优先级覆盖；提供多端视口仿真（PC/Pad/Mobile）、远程 DataSource 级联数据源驱动、分步向导（Wizard）/多标签页（Tabs）分段校验、子表单双模（行内表格 vs 弹窗收集）、防灾草稿箱与 Vue 3 SFC 代码生成引擎。
+- **[GridLayoutVue 仪表盘与拖拽网格布局扩展](./packages/grid-layout-vue/CONTEXT.md)**（`@atengk/grid-layout-vue`，当前孵化中）：
+  面向现代 Web 应用与企业级系统的大屏仪表盘、千人千面工作台与可视化拖拽网格布局基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 GridStack 10.x，严格中立并与具体 UI 库解耦。提供 `<AtengGridLayout />`、`<AtengGridItem />`、`<AtengGridPaletteItem />` 表现容器与 `useGridLayout()` / `useGridItem()` 无头状态机；支持双向 JSON 布局同步与原子互斥锁防死循环更新；支持垂直重力紧凑（GravityCompacting）与自由浮动（FloatLayout）双模切换、碰撞避让（CollisionPush）、静态锁定、响应式多列断点与外部物料拖入；内置 `ResizeObserver` 尺寸感知总线无缝广播下游图表（`@atengk/echarts-vue`）自愈，确立保留 DOM 的确定性生命周期清理。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -63,6 +65,7 @@
 - **[Sample Monitor 原生监控与APM自验展厅](./apps/sample-monitor/README.md)**（`sample-monitor`）：监控沙箱，1:1 对标 `@atengk/monitor`，固定端口 3010，验证故障模拟（JS/Promise/资源 404）、白屏自愈、Web Vitals 实时打点、脱敏面包屑时间轴与本地 APM 接收器。
 - **[Sample AiChatVue 智能体会话与Artifacts自验展厅](./apps/sample-ai-chat-vue/README.md)**（`sample-ai-chat-vue`）：AI 对话沙箱，1:1 对标 `@atengk/ai-chat-vue`，固定端口 3011，验证流式打字机、DeepSeek R1 思考链折叠、Tool Call 工具卡片、Artifacts 侧边栏与 Monaco 代码插槽。
 - **[Sample FormDesignerVue 动态表单自验展厅](./apps/sample-form-designer-vue/README.md)**（`sample-form-designer-vue`）：动态表单沙箱，1:1 对标 `@atengk/form-designer-vue`，固定端口 3012，验证可视化拖拽排版、三段式 AST 解析、流程节点权限协同、动态安全规则联动、分步向导与子表单双模填报。
+- **[Sample GridLayoutVue 拖拽网格布局自验展厅](./apps/sample-grid-layout-vue/README.md)**（`sample-grid-layout-vue`）：网格沙箱，1:1 对标 `@atengk/grid-layout-vue`，固定端口 3013，验证基础栅格双向 JSON 绑定、紧凑与浮动物理双模、ECharts 驾驶舱联动自适应重绘、外部物料抽屉拖拽与持久化草稿重置。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -94,6 +97,7 @@ flowchart TD
         EDIT["@atengk/editor-vue<br/>(现代富文本与内容创作扩展)"]
         AIC["@atengk/ai-chat-vue<br/>(AI智能体会话与Artifacts扩展)"]
         FORM["@atengk/form-designer-vue<br/>(动态表单设计器与Schema引擎)"]
+        GRID["@atengk/grid-layout-vue<br/>(仪表盘与拖拽网格布局扩展)"]
         EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -118,6 +122,7 @@ flowchart TD
         S_EDIT["apps/sample-editor-vue"]
         S_AIC["apps/sample-ai-chat-vue"]
         S_FORM["apps/sample-form-designer-vue"]
+        S_GRID["apps/sample-grid-layout-vue"]
         S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
@@ -141,6 +146,7 @@ flowchart TD
     EDIT --> S_EDIT
     AIC --> S_AIC
     FORM --> S_FORM
+    GRID --> S_GRID
     EP --> S_EP
 ```
 

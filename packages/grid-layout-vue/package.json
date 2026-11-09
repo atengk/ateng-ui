@@ -1,0 +1,48 @@
+{
+  "name": "@atengk/grid-layout-vue",
+  "version": "1.0.0",
+  "description": "面向现代 Web 应用与企业级系统的大屏仪表盘、千人千面工作台与可视化拖拽网格布局基础设施",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "vue": ">=3.5.0"
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "gridstack": "^10.3.1"
+  },
+  "devDependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.3.0",
+    "vue": "^3.5.13"
+  }
+}
