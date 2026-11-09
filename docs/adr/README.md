@@ -47,6 +47,7 @@
 | [ADR-0041](./0041-file-viewer-network-fetch-transport-and-asset-offline-strategy.md)               | 文件预览流式传输层 Fetch API 重构与生产级离线资产同步策略             | Accepted | 采用原生 Fetch API 替代 XHR 规避三方插件 `responseType='blob'` 篡改崩溃，修复 PPTX/DOCX 离线 Worker 资产同步与 Markdown 原生支持                                                   |
 | [ADR-0042](./0042-file-viewer-document-toc-heading-semantic-extraction.md)                         | 文档目录大纲 (TOC) 专有标题语义提取与层级渲染契约                     | Accepted | 建立独立的 `extractDocumentHeadings` 标题语义提取器，剥离全文检索锚点污染，支持 H1~H6 树状层级缩进与无标题空状态保底                                                               |
 | [ADR-0043](./0043-ai-chat-vue-l2-architecture-and-artifacts-governance.md)                         | AiChatVue L2 扩展层架构、思考链流式多路解复用与 Artifacts 治理规范    | Accepted | 确立 @atengk/ai-chat-vue L2 定位与零 UI 依赖，ReasoningDemuxer 双模思考链分离，动态 Mermaid 懒加载，Artifacts 不可变版本链与 Monaco 双模 Diff，RAF 节流与全双工 HITL 工具审批闭环  |
+| [ADR-0044](./0044-form-designer-vue-l2-architecture-and-schema-governance.md)                      | FormDesignerVue L2 扩展层架构、三段式 Schema 引擎与流程权限治理规范   | Accepted | 确立三段式表单 AST 与标准 JSON Schema 双向互转，L2 零 UI 依赖与次级 Element Plus 预设，零 eval 安全规则与算术 AST，流程权限矩阵覆盖，大纲树、多端仿真与草稿箱容灾护栏              |
 
 ---
 
