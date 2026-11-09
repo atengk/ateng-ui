@@ -34,6 +34,7 @@ const emit = defineEmits<{
   clear: [];
   'toggle-preview': [];
   'toggle-fullscreen': [];
+  'open-code': [];
 }>();
 
 const isConfirmingClear = ref<boolean>(false);
@@ -113,6 +114,14 @@ const handleClearClick = (): void => {
         @click="handleClearClick"
       >
         {{ isConfirmingClear ? '⚠️ 确认清空？' : '🗑️ 清空' }}
+      </button>
+      <button
+        type="button"
+        class="at-designer-tool-btn"
+        title="导出 Vue 3 SFC / JSON Schema / AST / Mock"
+        @click="emit('open-code')"
+      >
+        💻 导出代码
       </button>
       <button
         type="button"

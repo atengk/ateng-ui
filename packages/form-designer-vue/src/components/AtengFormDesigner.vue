@@ -32,6 +32,7 @@ import AtengFormCanvas from './AtengFormCanvas.vue';
 import AtengFormRenderer from './AtengFormRenderer.vue';
 import AtengFormDesignerToolbar from './AtengFormDesignerToolbar.vue';
 import AtengFormPropertyPanel from './AtengFormPropertyPanel.vue';
+import AtengFormCodeDrawer from './AtengFormCodeDrawer.vue';
 
 interface Props {
   /** 初始表单 Schema */
@@ -102,6 +103,7 @@ const activeSideTab = ref<'stencil' | 'outline'>('stencil');
 // 预览模式与全屏状态开关
 const isPreviewMode = ref<boolean>(false);
 const isFullscreen = ref<boolean>(false);
+const isCodeDrawerOpen = ref<boolean>(false);
 const previewFormData = ref<Record<string, unknown>>({});
 
 // 处理物料添加
@@ -207,6 +209,7 @@ defineExpose<FormDesignerInstance>({
       @clear="clearWidgets"
       @toggle-preview="isPreviewMode = !isPreviewMode"
       @toggle-fullscreen="isFullscreen = !isFullscreen"
+      @open-code="isCodeDrawerOpen = true"
     />
 
     <!-- 中间主工作区 -->
@@ -288,6 +291,13 @@ defineExpose<FormDesignerInstance>({
         </template>
       </AtengFormPropertyPanel>
     </div>
+
+    <!-- 代码与 Schema 导出抽屉 -->
+    <AtengFormCodeDrawer v-model="isCodeDrawerOpen" :schema="activeSchema">
+      <template #code-editor="slotProps">
+        <slot name="code-editor" v-bind="slotProps" />
+      </template>
+    </AtengFormCodeDrawer>
   </div>
 </template>
 

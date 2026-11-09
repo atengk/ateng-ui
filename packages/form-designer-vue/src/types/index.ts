@@ -228,6 +228,14 @@ export interface FormSchema {
   formConfig: FormConfig;
   /** 根控件节点列表 */
   widgetList: FormWidget[];
+  /** 表单唯一标识（可选） */
+  id?: string;
+  /** 表单标题（可选） */
+  title?: string;
+  /** 表单描述信息（可选） */
+  description?: string;
+  /** 根控件节点别名兼容字段 */
+  widgets?: FormWidget[];
 }
 
 /**
@@ -459,4 +467,111 @@ export interface FormDesignerInstance {
   exportSchema: () => FormSchema;
   /** 切换视口 */
   setViewport: (viewport: ViewportType) => void;
+}
+
+/**
+ * 草稿箱数据持久化记录结构。
+ */
+export interface DraftRecord<T = Record<string, unknown>> {
+  /** 表单或业务专属草稿键 */
+  key: string;
+  /** 填报数据实体 */
+  data: T;
+  /** 时间戳毫秒数 */
+  timestamp: number;
+  /** ISO 格式更新时间字符串 */
+  updatedAt: string;
+  /** 表单 Schema 版本或唯一标识 */
+  schemaVersion?: string;
+}
+
+/**
+ * DraftManager 本地草稿箱容灾管理器配置选项。
+ */
+export interface DraftManagerOptions {
+  /** 本地存储 Key 前缀，默认 '@atengk/form-draft:' */
+  prefix?: string;
+  /** 静默落盘防抖延迟（毫秒），默认 500ms */
+  debounceMs?: number;
+  /** 最大有效期（毫秒），默认无限制 */
+  maxAgeMs?: number;
+  /** 成功持久化落盘回调 */
+  onSave?: (record: DraftRecord) => void;
+  /** 读写异常回调（如 QuotaExceeded 等） */
+  onError?: (error: Error) => void;
+}
+
+/**
+ * 代码生成器目标编译模式枚举。
+ * - sfc: 独立完整 Vue 3 SFC 单文件组件代码
+ * - ast: FormSchema 结构化 AST JSON 字符串
+ * - json-schema: 符合 JSON Schema Draft-07 规范协议
+ * - mock: 真实填报语义 Mock 虚假数据对象
+ */
+export type CodeGeneratorTarget = 'sfc' | 'ast' | 'json-schema' | 'mock';
+
+/**
+ * Vue 3 SFC 单文件代码生成编译选项。
+ */
+export interface VueSfcGenOptions {
+  /** 生成的 SFC 组件名称，默认 'DynamicForm' */
+  componentName?: string;
+  /** 是否生成内置 <style scoped> 样式，默认 true */
+  includeStyles?: boolean;
+  /** 是否附带默认 Mock 数据初始值，默认 true */
+  includeMockData?: boolean;
+  /** 是否使用 TypeScript (<script setup lang="ts">)，默认 true */
+  typescript?: boolean;
+}
+
+/**
+ * JSON Schema Draft-07 属性规范契约。
+ */
+export interface StandardJsonSchemaProperty {
+  /** 属性基础类型 */
+  type: string;
+  /** 标题或显示名称 */
+  title?: string;
+  /** 描述信息 */
+  description?: string;
+  /** 字符串最小长度 */
+  minLength?: number;
+  /** 字符串最大长度 */
+  maxLength?: number;
+  /** 数值最小值 */
+  minimum?: number;
+  /** 数值最大值 */
+  maximum?: number;
+  /** 正则表达式校验规则 */
+  pattern?: string;
+  /** 格式（如 'email', 'uri', 'date', 'date-time' 等） */
+  format?: string;
+  /** 数组项模式（SubForm 或多选场景） */
+  items?: StandardJsonSchemaProperty | StandardJsonSchema;
+  /** 对象内部属性定义 */
+  properties?: Record<string, StandardJsonSchemaProperty>;
+  /** 必填属性字段集合 */
+  required?: string[];
+  /** 枚举候选项 */
+  enum?: unknown[];
+  /** 默认初始值 */
+  default?: unknown;
+}
+
+/**
+ * 标准 JSON Schema Draft-07 根协议对象。
+ */
+export interface StandardJsonSchema {
+  /** 遵循的标准规范 URL */
+  $schema?: string;
+  /** 根类型，固定为 'object' */
+  type: 'object';
+  /** 表单标题 */
+  title?: string;
+  /** 表单描述 */
+  description?: string;
+  /** 顶层属性字典 */
+  properties: Record<string, StandardJsonSchemaProperty>;
+  /** 顶层必填属性集合 */
+  required?: string[];
 }

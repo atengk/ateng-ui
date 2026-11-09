@@ -18,6 +18,7 @@ import AtengFormDesignerToolbar from './components/AtengFormDesignerToolbar.vue'
 import AtengFormPropertyPanel from './components/AtengFormPropertyPanel.vue';
 import AtengFormQuickPropertyPanel from './components/AtengFormQuickPropertyPanel.vue';
 import AtengFormCanvasLeaf from './components/AtengFormCanvasLeaf.vue';
+import AtengFormCodeDrawer from './components/AtengFormCodeDrawer.vue';
 
 // 导出运行态与设计态组件
 export {
@@ -31,6 +32,7 @@ export {
   AtengFormCanvasLeaf,
   AtengFormStencil,
   AtengFormOutlineTree,
+  AtengFormCodeDrawer,
 };
 export { default as AtengFormItemRenderer } from './components/AtengFormItemRenderer.vue';
 export { AtengFormGrid, AtengFormCard, AtengSubForm } from './containers';
@@ -60,6 +62,10 @@ export {
   nativeCheckboxAdapter,
   nativeRadioAdapter,
 } from './widgets/native';
+
+// 导出容灾草稿箱与代码生成器
+export { DraftManager, createDraftManager } from './storage';
+export { CodeGenerator } from './generator';
 
 // 导出工具函数
 export { getByPath, setByPath, parsePath, safeClone } from './utils/path';
@@ -109,6 +115,12 @@ export type {
   UseFormDesignerOptions,
   UseFormDesignerReturn,
   FormDesignerInstance,
+  DraftRecord,
+  DraftManagerOptions,
+  CodeGeneratorTarget,
+  VueSfcGenOptions,
+  StandardJsonSchema,
+  StandardJsonSchemaProperty,
 } from './types';
 
 /**
@@ -121,6 +133,7 @@ export function install(app: App): void {
   app.component('AtengFormStencil', AtengFormStencil);
   app.component('AtengFormOutlineTree', AtengFormOutlineTree);
   app.component('AtengFormPropertyPanel', AtengFormPropertyPanel);
+  app.component('AtengFormCodeDrawer', AtengFormCodeDrawer);
 }
 
 export default {

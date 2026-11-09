@@ -8,11 +8,17 @@
  * @since 2026-11-09
  */
 
-import { computed } from 'vue';
-import type { FormSchema, FieldPermissionMatrix, FormValidationErrors } from '../types';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import type {
+  FormSchema,
+  FieldPermissionMatrix,
+  FormValidationErrors,
+  DraftRecord,
+} from '../types';
 import { useFormRenderer } from '../composables/useFormRenderer';
 import { defaultWidgetRegistry } from '../registry';
 import type { FormWidgetRegistry } from '../registry';
+import { createDraftManager, type DraftManager } from '../storage';
 import AtengFormItemRenderer from './AtengFormItemRenderer.vue';
 
 interface Props {
@@ -34,6 +40,12 @@ interface Props {
   labelPosition?: 'left' | 'right' | 'top';
   /** 尺寸覆盖 */
   size?: 'large' | 'default' | 'small';
+  /** 是否开启本地草稿箱容灾静默落盘 */
+  enableDraft?: boolean;
+  /** 本地草稿存储键，默认对齐 schema.id */
+  draftKey?: string;
+  /** 草稿箱防抖落盘延迟（毫秒），默认 500ms */
+  draftDebounceMs?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,6 +57,9 @@ const props = withDefaults(defineProps<Props>(), {
   labelWidth: undefined,
   labelPosition: undefined,
   size: undefined,
+  enableDraft: false,
+  draftKey: undefined,
+  draftDebounceMs: 500,
 });
 
 const emit = defineEmits<{
@@ -52,6 +67,9 @@ const emit = defineEmits<{
   change: [field: string, value: unknown, data: Record<string, unknown>];
   submit: [data: Record<string, unknown>];
   'validate-fail': [errors: FormValidationErrors];
+  'draft-detected': [record: DraftRecord];
+  'draft-restored': [record: DraftRecord];
+  'draft-cleared': [];
 }>();
 
 // 实例化无头响应式状态机
@@ -105,10 +123,75 @@ const effectiveSize = computed(() => {
   return props.size || props.schema.formConfig?.size || 'default';
 });
 
+// 草稿箱容灾联动
+let draftManager: DraftManager | null = null;
+const detectedDraft = ref<DraftRecord | null>(null);
+const showDraftNotice = ref<boolean>(false);
+
+onMounted(() => {
+  if (props.enableDraft) {
+    const key = props.draftKey || props.schema.id || 'default';
+    draftManager = createDraftManager(key, {
+      debounceMs: props.draftDebounceMs,
+    });
+    if (draftManager.hasDraft()) {
+      const draft = draftManager.get();
+      if (draft && draft.data && Object.keys(draft.data).length > 0) {
+        detectedDraft.value = draft;
+        showDraftNotice.value = true;
+        emit('draft-detected', draft);
+      }
+    }
+  }
+});
+
+// 监听数据变动静默落盘
+watch(
+  () => props.formData,
+  newVal => {
+    if (props.enableDraft && draftManager && newVal) {
+      draftManager.save(newVal);
+    }
+  },
+  { deep: true },
+);
+
+onUnmounted(() => {
+  if (draftManager) {
+    draftManager.dispose();
+    draftManager = null;
+  }
+});
+
+// 恢复草稿
+const handleRestoreDraft = (): void => {
+  if (detectedDraft.value) {
+    setFormData(detectedDraft.value.data);
+    emit('draft-restored', detectedDraft.value);
+    showDraftNotice.value = false;
+  }
+};
+
+// 放弃草稿
+const handleDiscardDraft = (): void => {
+  if (draftManager) {
+    draftManager.clear();
+  }
+  showDraftNotice.value = false;
+  detectedDraft.value = null;
+  emit('draft-cleared');
+};
+
 // 表单提交处理
 const handleSubmit = async (): Promise<void> => {
   const result = await validate();
   if (result.valid) {
+    // 提交成功自动清理草稿
+    if (props.enableDraft && draftManager) {
+      draftManager.clear();
+      showDraftNotice.value = false;
+      detectedDraft.value = null;
+    }
     emit('submit', getFormData());
   } else {
     emit('validate-fail', result.errors);
@@ -127,6 +210,9 @@ defineExpose({
   setFieldValue,
   validating,
   validatingFields,
+  restoreDraft: handleRestoreDraft,
+  clearDraft: handleDiscardDraft,
+  getDraft: () => draftManager?.get() ?? null,
 });
 </script>
 
@@ -140,6 +226,23 @@ defineExpose({
     ]"
     @submit.prevent="handleSubmit"
   >
+    <!-- 草稿箱容灾感知恢复条 -->
+    <transition name="at-fade">
+      <div v-if="showDraftNotice && detectedDraft" class="at-form-draft-notice">
+        <span class="at-form-draft-notice__text">
+          📝 检测到您上次未提交的表单草稿（{{ detectedDraft.updatedAt }}），是否恢复？
+        </span>
+        <div class="at-form-draft-notice__actions">
+          <button type="button" class="at-draft-btn is-restore" @click="handleRestoreDraft">
+            恢复草稿
+          </button>
+          <button type="button" class="at-draft-btn is-discard" @click="handleDiscardDraft">
+            放弃
+          </button>
+        </div>
+      </div>
+    </transition>
+
     <div class="at-form-body">
       <template v-for="widget in schema.widgetList" :key="widget.id">
         <AtengFormItemRenderer
@@ -177,111 +280,63 @@ defineExpose({
   color: var(--at-form-text-color, #1e293b);
 }
 
+.at-form-draft-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  border: 1px solid var(--el-color-primary-light-7, #d9ecff);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.at-form-draft-notice__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.at-form-draft-notice__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-draft-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.at-draft-btn.is-restore {
+  background: var(--el-color-primary, #409eff);
+  color: #ffffff;
+}
+
+.at-draft-btn.is-restore:hover {
+  background: var(--el-color-primary-light-3, #79bbff);
+}
+
+.at-draft-btn.is-discard {
+  background: transparent;
+  border-color: var(--el-border-color, #dcdfe6);
+  color: var(--el-text-color-regular, #606266);
+}
+
+.at-draft-btn.is-discard:hover {
+  background: var(--el-fill-color-light, #f5f7fa);
+}
+
 .at-form-body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.at-form-item {
-  display: flex;
-  position: relative;
-  box-sizing: border-box;
-}
-
-/* 垂直排版 (标签置顶) */
-.label-pos-top .at-form-item {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-/* 水平排版 (标签居左或居右) */
-.label-pos-left .at-form-item,
-.label-pos-right .at-form-item {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.label-pos-right .at-form-item-label {
-  text-align: right;
-}
-
-.label-pos-left .at-form-item-label {
-  text-align: left;
-}
-
-.at-form-item-label {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 36px;
-  color: var(--at-form-label-color, #334155);
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-.at-required-asterisk {
-  color: var(--at-form-danger-color, #ef4444);
-  margin-right: 4px;
-  font-weight: bold;
-}
-
-.at-colon {
-  margin-left: 2px;
-}
-
-.at-form-item-content {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.at-form-item-error {
-  color: var(--at-form-danger-color, #ef4444);
-  font-size: 12px;
-  line-height: 1.4;
-  margin-top: 4px;
-}
-
-.at-form-item-validating {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--at-form-info-color, #3b82f6);
-  font-size: 12px;
-  line-height: 1.4;
-  margin-top: 4px;
-}
-
-.at-validating-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--at-form-info-color, #3b82f6);
-  animation: at-pulse 1s infinite alternate;
-}
-
-@keyframes at-pulse {
-  from {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-.at-widget-missing-fallback {
-  padding: 8px 12px;
-  background-color: #fef2f2;
-  border: 1px dashed #f87171;
-  color: #b91c1c;
-  border-radius: 6px;
-  font-size: 13px;
 }
 
 .at-form-footer {

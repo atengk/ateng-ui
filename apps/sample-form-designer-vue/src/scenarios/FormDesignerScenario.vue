@@ -19,12 +19,14 @@ import {
   AtengFormDesigner,
   validateDropTarget,
   createDefaultWidget,
+  createDraftManager,
 } from '@atengk/form-designer-vue';
 import type { FormSchema, FormDesignerInstance } from '@atengk/form-designer-vue';
 
 const designerRef = ref<FormDesignerInstance | null>(null);
 const jsonDialogVisible = ref<boolean>(false);
 const currentJson = ref<string>('');
+const sampleDraftManager = createDraftManager('sample_scenario_6');
 
 // 预设模板 A：空白画板
 const blankPreset: FormSchema = {
@@ -232,13 +234,21 @@ const testGuardValidDrop = (): void => {
     ElMessage.error('守卫误判！');
   }
 };
+
+const testDraftWorkflow = (): void => {
+  sampleDraftManager.save({ testKey: '草稿模拟数据', time: new Date().toLocaleTimeString() }, true);
+  const draft = sampleDraftManager.get();
+  if (draft) {
+    ElMessage.success(`💾 草稿箱写入并恢复成功！更新时间: ${draft.updatedAt}`);
+  }
+};
 </script>
 
 <template>
   <div class="form-designer-scenario">
     <div class="scenario-intro">
       <div class="intro-header">
-        <h2 class="title">场景六：设计态画板、属性自举面板与不可变历史快照栈 (Undo/Redo)</h2>
+        <h2 class="title">场景六：多端视口仿真、草稿箱容灾、历史撤销重做与多目标代码导出</h2>
         <div class="actions">
           <el-button-group size="small">
             <el-button @click="loadPreset(blankPreset, '空白画板')">📄 空白画板</el-button>
@@ -268,8 +278,11 @@ const testGuardValidDrop = (): void => {
         <el-button size="small" type="success" plain @click="testGuardValidDrop">
           守卫：向 SubForm 添加 Input (预期放行)
         </el-button>
+        <el-button size="small" type="primary" plain @click="testDraftWorkflow">
+          💾 模拟草稿保存与读取
+        </el-button>
         <el-tag type="info" size="small" effect="plain">
-          ⏱️ 连续打字 300ms 防抖合并 · 最大 30 步快照 · 渲染器自举渲染配置器
+          ⏱️ 500ms 防抖草稿 · 移动仿真单列排版 · SFC/AST/Schema/Mock 四目标代码导出
         </el-tag>
       </div>
     </div>

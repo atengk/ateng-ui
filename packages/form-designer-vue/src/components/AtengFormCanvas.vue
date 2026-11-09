@@ -220,6 +220,11 @@ const handleCanvasClick = (evt: MouseEvent): void => {
   padding-bottom: 24px;
 }
 
+.at-form-canvas__viewport-frame.is-mobile :deep(.at-canvas-widget-node) {
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+}
+
 .at-form-canvas__mobile-notch {
   display: flex;
   align-items: center;
