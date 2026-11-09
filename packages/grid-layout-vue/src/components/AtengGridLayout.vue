@@ -8,7 +8,7 @@
  * @since 2026-11-09
  */
 
-import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
+import { computed, nextTick, onActivated, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { GridStack, type DDDragInOpt, type GridStackNode, type GridStackOptions } from 'gridstack';
 import { GRID_LAYOUT_KEY, resolveResponsiveColumns } from '../constants';
 import { useGridLayout } from '../composables/useGridLayout';
@@ -105,6 +105,19 @@ const currentColumn = internalController.currentColumn;
 const currentCellHeight = internalController.cellHeight;
 
 let resizeObserver: ResizeObserver | null = null;
+let lastContainerWidth = 0;
+
+/**
+ * 手动唤醒网格尺寸自愈 (特别用于隐藏 Tab 重新显示或弹窗展开)。
+ */
+const wakeUp = (): void => {
+  if (gridInstance.value) {
+    const grid = gridInstance.value as unknown as { onParentResize?: () => void };
+    if (typeof grid.onParentResize === 'function') {
+      grid.onParentResize();
+    }
+  }
+};
 
 const updateResponsiveLayout = (width: number): void => {
   if (width <= 0) {
@@ -130,12 +143,27 @@ const setupResizeObserver = (): void => {
 
   resizeObserver = new ResizeObserver(entries => {
     for (const entry of entries) {
-      updateResponsiveLayout(entry.contentRect.width);
+      const w = entry.contentRect.width;
+
+      // 1. TabWakeupHealing: 监听从 0 隐藏尺寸唤醒至正尺寸
+      if (w > 0 && lastContainerWidth <= 0) {
+        wakeUp();
+      }
+      lastContainerWidth = w;
+
+      // 2. 响应式列断点适配
+      updateResponsiveLayout(w);
     }
   });
 
   resizeObserver.observe(containerRef.value);
 };
+
+onActivated(() => {
+  nextTick(() => {
+    wakeUp();
+  });
+});
 
 // 向上提供全局网格上下文
 provide(
@@ -400,6 +428,8 @@ defineExpose({
   setShowGridLines: internalController.setShowGridLines,
   tidy: internalController.tidyLayout,
   tidyLayout: internalController.tidyLayout,
+  wakeUp,
+  refresh: wakeUp,
 });
 </script>
 

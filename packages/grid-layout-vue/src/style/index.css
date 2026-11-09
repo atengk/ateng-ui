@@ -76,6 +76,7 @@ html.dark {
 .at-grid-drag-in-source {
   cursor: grab;
   user-select: none;
+  touch-action: pan-y;
 }
 
 .at-grid-drag-handle:active,
@@ -83,6 +84,22 @@ html.dark {
 .at-grid-palette-item:active,
 .at-grid-drag-in-source:active {
   cursor: grabbing;
+}
+
+/* 运行态双模治理：只读模式隐藏/重置手柄样式，杜绝误触 */
+.at-grid-layout:not(.at-grid-layout--editable) .at-grid-drag-handle,
+.at-grid-layout:not(.at-grid-layout--editable) .at-grid-item__header,
+.at-grid-layout:not(.at-grid-layout--editable) .drag-icon {
+  cursor: default !important;
+  user-select: auto;
+}
+
+.at-grid-layout:not(.at-grid-layout--editable) .ui-resizable-handle {
+  display: none !important;
+}
+
+.at-grid-layout:not(.at-grid-layout--editable) .at-grid-item {
+  touch-action: auto;
 }
 
 .grid-stack-placeholder > .placeholder-content {

@@ -24,6 +24,7 @@ export { vGridDragIn };
 
 // 导出算法工具函数
 export { findFirstAvailableSlot } from './utils/autoPosition';
+export { sanitizeLayout } from './utils/sanitizer';
 
 // 导出无头状态机
 export { useGridLayout } from './composables/useGridLayout';
