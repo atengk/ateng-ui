@@ -61,6 +61,11 @@ export type AtengArtifactSidebarInstance = InstanceType<
   typeof import('./components/AtengArtifactSidebar.vue').default
 >;
 
+export { default as AtengMessageToolbar } from './components/AtengMessageToolbar.vue';
+export type AtengMessageToolbarInstance = InstanceType<
+  typeof import('./components/AtengMessageToolbar.vue').default
+>;
+
 // 无头响应式状态机、解复用与渲染引擎
 export { useAiChat } from './composables/useAiChat';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
@@ -93,6 +98,14 @@ export {
   IconDownload,
   IconMaximize,
   IconMinimize,
+  IconThumbsUp,
+  IconThumbsDown,
+  IconRotateCcw,
+  IconEdit,
+  IconVolume2,
+  IconVolumeX,
+  IconPaperclip,
+  IconTrash,
 } from './components/icons';
 
 // 强类型领域契约与接口
@@ -108,6 +121,8 @@ export type {
   ArtifactVersion,
   ArtifactPayload,
   ChatAttachment,
+  StarterPrompt,
+  MessageFeedback,
   ChatMessage,
   SendMessageOptions,
   UseAiChatOptions,
@@ -115,6 +130,9 @@ export type {
   AtengAiChatProps,
   AtengAiChatEmits,
   AtengChatMessageProps,
+  AtengChatMessageEmits,
+  AtengMessageToolbarProps,
+  AtengMessageToolbarEmits,
   AtengChatInputProps,
   AtengChatInputEmits,
   AtengToolCallCardProps,

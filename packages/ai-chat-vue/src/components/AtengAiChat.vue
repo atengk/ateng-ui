@@ -2,7 +2,8 @@
 /**
  * @atengk/ai-chat-vue 统领表现容器组件。
  *
- * 集成视口智能滚动锚定、新消息悬浮气泡、打字机节流协同与多插槽扩展机制。
+ * 集成视口智能滚动锚定、新消息悬浮气泡、打字机节流协同、
+ * 空会话 starterPrompts 引导卡片网格与多模态附件流水线。
  *
  * @author Ateng
  * @since 2026-11-09
@@ -15,6 +16,9 @@ import type {
   ChatMessage,
   ToolCallPayload,
   ArtifactPayload,
+  StarterPrompt,
+  ChatAttachment,
+  MessageFeedback,
 } from '../types';
 import AtengChatMessage from './AtengChatMessage.vue';
 import AtengChatInput from './AtengChatInput.vue';
@@ -28,6 +32,9 @@ const props = withDefaults(defineProps<AtengAiChatProps>(), {
   height: '600px',
   scrollThreshold: 60,
   typewriterSpeed: 0,
+  starterPrompts: () => [],
+  speechEnabled: true,
+  exportEnabled: true,
 });
 
 const emit = defineEmits<AtengAiChatEmits>();
@@ -40,6 +47,10 @@ defineSlots<{
   artifact?: (props: { artifact: ArtifactPayload }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   'unread-badge'?: (props: { scrollToBottom: () => void }) => unknown;
+  'starter-prompts'?: (props: {
+    prompts: StarterPrompt[];
+    select: (prompt: string) => void;
+  }) => unknown;
   input?: () => unknown;
   footer?: () => unknown;
 }>();
@@ -104,12 +115,20 @@ watch(
   { deep: true },
 );
 
-const onSend = (content: string): void => {
-  emit('send', content);
+const onSend = (content: string, attachments?: ChatAttachment[]): void => {
+  if (attachments && attachments.length > 0) {
+    emit('send', content, attachments);
+  } else {
+    emit('send', content);
+  }
 };
 
 const onStop = (): void => {
   emit('stop');
+};
+
+const onSelectStarterPrompt = (prompt: string): void => {
+  emit('send', prompt);
 };
 
 defineExpose({
@@ -128,15 +147,54 @@ defineExpose({
     <!-- 消息流视口与相对定位包装层 -->
     <div class="at-ai-chat__viewport-wrapper">
       <div ref="messagesContainerRef" class="at-ai-chat__messages" @scroll="onScroll">
-        <slot name="messages" :messages="props.messages">
+        <!-- 空会话提问引导网格 -->
+        <slot
+          v-if="
+            props.messages.length === 0 && props.starterPrompts && props.starterPrompts.length > 0
+          "
+          name="starter-prompts"
+          :prompts="props.starterPrompts"
+          :select="onSelectStarterPrompt"
+        >
+          <div class="at-ai-chat__starters-wrapper">
+            <div class="at-ai-chat__starters-title">✨ 您可以这样问我：</div>
+            <div class="at-ai-chat__starters-grid">
+              <button
+                v-for="(starter, idx) in props.starterPrompts"
+                :key="idx"
+                type="button"
+                class="at-ai-chat__starter-card"
+                @click="onSelectStarterPrompt(starter.prompt)"
+              >
+                <span v-if="starter.icon" class="at-ai-chat__starter-icon">{{ starter.icon }}</span>
+                <div class="at-ai-chat__starter-content">
+                  <div class="at-ai-chat__starter-card-title">{{ starter.title }}</div>
+                  <div v-if="starter.description" class="at-ai-chat__starter-card-desc">
+                    {{ starter.description }}
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </slot>
+
+        <!-- 正常消息列表 -->
+        <slot v-else name="messages" :messages="props.messages">
           <template v-for="(msg, index) in props.messages" :key="msg.id">
             <slot name="message-item" :message="msg" :index="index">
               <AtengChatMessage
                 :message="msg"
                 :is-last="index === props.messages.length - 1"
+                :is-streaming="props.isStreaming"
+                :speech-enabled="props.speechEnabled"
+                :export-enabled="props.exportEnabled"
                 @approve-tool="callId => emit('approveTool', callId)"
                 @reject-tool="(callId, reason) => emit('rejectTool', callId, reason)"
                 @open-artifact="art => emit('openArtifact', art)"
+                @regenerate="msgId => emit('regenerate', msgId)"
+                @edit-message="(msgId, newContent) => emit('editMessage', msgId, newContent)"
+                @feedback="(fb: MessageFeedback) => emit('feedback', fb)"
+                @click-suggested-question="q => emit('clickSuggestedQuestion', q)"
               >
                 <template #tool-call="slotProps">
                   <slot name="tool-call" v-bind="slotProps" />
@@ -172,6 +230,9 @@ defineExpose({
         :placeholder="props.placeholder"
         :disabled="props.disabled"
         :is-streaming="props.isStreaming"
+        :upload-handler="props.uploadHandler"
+        :accepted-file-types="props.acceptedFileTypes"
+        :max-file-size="props.maxFileSize"
         @submit="onSend"
         @stop="onStop"
       />

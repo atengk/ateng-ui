@@ -7,11 +7,15 @@
  */
 
 import { ref } from 'vue';
+import { ElMessage, ElNotification } from 'element-plus';
 import {
   AtengAiChat,
   AtengArtifactSidebar,
   useAiChat,
   type ToolDefinition,
+  type StarterPrompt,
+  type ChatAttachment,
+  type MessageFeedback,
 } from '@atengk/ai-chat-vue';
 import { AtengCodeDiffEditor } from '@atengk/code-editor-vue';
 import { simulateAiStream } from './mock/mockStream';
@@ -26,6 +30,51 @@ const toggleDark = (): void => {
   } else {
     document.documentElement.classList.remove('dark');
   }
+};
+
+// 空会话引导提示卡片网格
+const sampleStarterPrompts: StarterPrompt[] = [
+  {
+    icon: '📦',
+    title: '产物与不可变版本链',
+    description: '为我生成一个 Vue 用户资料卡片组件 (v1 产物)',
+    prompt: '请为我生成一个 Vue 用户资料卡片组件 (v1 产物)',
+  },
+  {
+    icon: '⛅',
+    title: '全双工工具调用 (Function Calling)',
+    description: '查询北京实时气象与空气质量数据',
+    prompt: '请帮我查询北京当前的实时天气状况',
+  },
+  {
+    icon: '⚠️',
+    title: '人机协同特权审批 (HITL)',
+    description: '申请删除生产日志表敏感特权操作',
+    prompt: '请执行删除生产操作日志表 drop table sys_operation_log',
+  },
+  {
+    icon: '🔬',
+    title: '高保真 Markdown + KaTeX + Mermaid',
+    description: '数学公式、Prism 语法高亮与流程图全景',
+    prompt: '请展示全场景综合用例（包含 KaTeX 数学、Prism 代码与 Mermaid 架构图）',
+  },
+];
+
+// 多模态附件上传 SPI 处理器
+const mockUploadHandler = async (file: File): Promise<ChatAttachment> => {
+  // 模拟 400ms 异步上传延迟
+  await new Promise(resolve => setTimeout(resolve, 400));
+  const isImage = file.type.startsWith('image/');
+  const mockUrl = URL.createObjectURL(file);
+  return {
+    id: `att_${Date.now()}`,
+    name: file.name,
+    size: file.size,
+    type: isImage ? 'image' : 'file',
+    url: mockUrl,
+    thumbnailUrl: isImage ? mockUrl : undefined,
+    status: 'success',
+  };
 };
 
 // 1. 注册展厅工具集（自动查询工具 + 敏感操作审批工具）
@@ -75,6 +124,8 @@ const {
   flushTypewriter,
   approveToolCall,
   rejectToolCall,
+  regenerate,
+  editMessage,
   artifacts,
   activeArtifact,
   activeArtifactVersion,
@@ -84,10 +135,40 @@ const {
   tools: sampleTools,
   streamHandler: simulateAiStream,
   typewriterSpeed,
+  onFinish: message => {
+    // assistant 消息完成时自动注入动态追问问题胶囊
+    if (message.role === 'assistant') {
+      if (message.content.includes('用户资料卡片')) {
+        message.suggestedQuestions = [
+          '请迭代升级该组件 (v2 版本)，增加头像、关注切换与 Diff 比对',
+          '如何将该卡片改写为 TypeScript 严格契约？',
+          '支持响应式移动端断点吗？',
+        ];
+      } else if (message.content.includes('天气') || message.content.includes('气温')) {
+        message.suggestedQuestions = [
+          '未来 3 天的天气趋势如何？',
+          '空气质量指数 AQI 评级标准是什么？',
+          '适合户外运动吗？',
+        ];
+      } else if (message.content.includes('洋葱拓扑')) {
+        message.suggestedQuestions = [
+          'L0 和 L1 层有什么明确的区别？',
+          '为什么禁止 L2 反向依赖 L3？',
+          '如何对 L0 运行跨框架中立单测？',
+        ];
+      } else {
+        message.suggestedQuestions = [
+          '请展开详细说明核心实现步骤',
+          '有哪些潜在的边界异常需要防御？',
+          '能否给出单元测试示例？',
+        ];
+      }
+    }
+  },
 });
 
-const onSend = (content: string): void => {
-  void sendMessage(content);
+const onSend = (content: string, attachments?: ChatAttachment[]): void => {
+  void sendMessage(content, { attachments });
 };
 
 const onStop = (): void => {
@@ -96,6 +177,34 @@ const onStop = (): void => {
 
 const sendPresetPrompt = (prompt: string): void => {
   void sendMessage(prompt);
+};
+
+// 工具栏反馈处理
+const onFeedback = (feedback: MessageFeedback): void => {
+  if (feedback.type === 'up') {
+    ElMessage.success('已收到您的赞同反馈 👍');
+  } else {
+    ElNotification({
+      title: '已收到改进建议 👎',
+      message: `标签：${feedback.tags?.join('、') || '无'}；理由：${feedback.reason || '无'}`,
+      type: 'warning',
+    });
+  }
+};
+
+const onRegenerate = async (messageId: string): Promise<void> => {
+  ElMessage.info('正在为您重新生成回答...');
+  await regenerate(messageId);
+};
+
+const onEditMessage = async (messageId: string, newContent: string): Promise<void> => {
+  ElMessage.success('提问已修改，正在为您生成新分支...');
+  await editMessage(messageId, newContent);
+};
+
+const onClickSuggestedQuestion = (question: string): void => {
+  ElMessage.info(`发起追问：${question}`);
+  void sendMessage(question);
 };
 </script>
 
@@ -140,13 +249,19 @@ const sendPresetPrompt = (prompt: string): void => {
         <AtengAiChat
           :messages="messages"
           :is-streaming="isStreaming"
+          :starter-prompts="sampleStarterPrompts"
+          :upload-handler="mockUploadHandler"
           height="620px"
-          placeholder="请输入您的问题（例如：介绍 ateng-ui 的架构优势），Enter 发送..."
+          placeholder="请输入您的问题（例如：介绍 ateng-ui 的架构优势），支持拖拽或直接粘贴图片，Enter 发送..."
           @send="onSend"
           @stop="onStop"
           @approve-tool="approveToolCall"
           @reject-tool="rejectToolCall"
           @open-artifact="art => openArtifact(art.identifier)"
+          @regenerate="onRegenerate"
+          @edit-message="onEditMessage"
+          @feedback="onFeedback"
+          @click-suggested-question="onClickSuggestedQuestion"
         >
           <template #header>
             <div class="chat-custom-header">
@@ -279,6 +394,12 @@ const sendPresetPrompt = (prompt: string): void => {
           <div class="info-desc">
             <p><strong>特性验证清单：</strong></p>
             <ul>
+              <li>✅ 多模态附件流水线：文件拖拽、剪贴板截图直粘与 uploadHandler SPI；</li>
+              <li>✅ 消息操作审计条 AtengMessageToolbar：复制、朗读、导出 Markdown/JSON；</li>
+              <li>✅ 评价反馈 SPI：赞同高亮与批评理由/标签选择浮层提交；</li>
+              <li>✅ 对话演进：助手回复重新生成与用户提问原位编辑分支重发；</li>
+              <li>✅ 空会话视口引导：starterPrompts 提问卡片网格与一键发起；</li>
+              <li>✅ 动态追问胶囊：suggestedQuestions 横向平滑滚动气泡；</li>
               <li>✅ ArtifactDemuxer 流式提取 &lt;artifact&gt; 产物并剥离正文；</li>
               <li>✅ 同一 identifier 自动生成递增不可变版本链 (v1 ➔ v2)；</li>
               <li>✅ AtengArtifactCard 气泡内紧凑卡片与一键唤起侧边栏；</li>

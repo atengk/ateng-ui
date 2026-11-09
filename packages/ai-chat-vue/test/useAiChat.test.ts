@@ -164,4 +164,43 @@ describe('useAiChat', () => {
     expect(assistantMsg.reasoning?.collapsed).toBe(true);
     expect(assistantMsg.content).toBe('这是正式答复文本。');
   });
+
+  it('regenerate 应当移除原回复并重新发送对应 prompt', async () => {
+    let callCount = 0;
+    const { messages, sendMessage, regenerate } = useAiChat({
+      streamHandler: async (prompt, onChunk) => {
+        callCount++;
+        onChunk(`回复${callCount}: ${prompt}`);
+      },
+    });
+
+    await sendMessage('第一轮提问');
+    expect(messages.value.length).toBe(2);
+    expect(messages.value[1].content).toBe('回复1: 第一轮提问');
+
+    // 重新生成
+    await regenerate();
+    expect(messages.value.length).toBe(2);
+    expect(messages.value[1].content).toBe('回复2: 第一轮提问');
+  });
+
+  it('editMessage 应当更新 user 消息内容并开启新分支重新生成', async () => {
+    const { messages, sendMessage, editMessage } = useAiChat({
+      streamHandler: async (prompt, onChunk) => {
+        onChunk(`答复: ${prompt}`);
+      },
+    });
+
+    await sendMessage('原始问题');
+    expect(messages.value.length).toBe(2);
+    expect(messages.value[0].content).toBe('原始问题');
+    expect(messages.value[1].content).toBe('答复: 原始问题');
+
+    const userMsgId = messages.value[0].id;
+    await editMessage(userMsgId, '已修改的问题');
+
+    expect(messages.value.length).toBe(2);
+    expect(messages.value[0].content).toBe('已修改的问题');
+    expect(messages.value[1].content).toBe('答复: 已修改的问题');
+  });
 });

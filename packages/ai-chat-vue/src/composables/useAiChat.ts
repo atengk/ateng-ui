@@ -572,6 +572,102 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     await runStreamTurn(toolMessage.content);
   };
 
+  /**
+   * 重新生成指定消息或上一轮对话。
+   *
+   * @param messageId 目标消息标识符。若省略则针对最新一条回复重新生成
+   */
+  const regenerate = async (messageId?: string): Promise<void> => {
+    if (isStreaming.value) {
+      abort();
+    }
+    if (messages.value.length === 0) {
+      return;
+    }
+
+    let targetIndex = -1;
+    if (messageId) {
+      targetIndex = messages.value.findIndex(m => m.id === messageId);
+    } else {
+      targetIndex = messages.value.length - 1;
+    }
+
+    if (targetIndex === -1) {
+      return;
+    }
+
+    const targetMsg = messages.value[targetIndex];
+    if (!targetMsg) {
+      return;
+    }
+
+    let promptToRun = '';
+    let sendOpts: SendMessageOptions = {};
+
+    if (targetMsg.role === 'assistant') {
+      let userIndex = -1;
+      for (let i = targetIndex - 1; i >= 0; i--) {
+        const prev = messages.value[i];
+        if (prev && prev.role === 'user') {
+          userIndex = i;
+          break;
+        }
+      }
+      if (userIndex === -1) {
+        return;
+      }
+      const userMsg = messages.value[userIndex];
+      if (!userMsg) {
+        return;
+      }
+      promptToRun = userMsg.content;
+      sendOpts = { attachments: userMsg.attachments };
+      // 截断目标 assistant 消息及其后续的所有消息
+      messages.value.splice(targetIndex);
+    } else if (targetMsg.role === 'user') {
+      promptToRun = targetMsg.content;
+      sendOpts = { attachments: targetMsg.attachments };
+      // 截断该 user 消息之后的所有消息
+      messages.value.splice(targetIndex + 1);
+    } else {
+      return;
+    }
+
+    await runStreamTurn(promptToRun, sendOpts);
+  };
+
+  /**
+   * 原位编辑指定用户消息并重新触发流式分支。
+   *
+   * @param messageId 目标用户消息标识符
+   * @param newContent 修改后的新提问文本
+   */
+  const editMessage = async (messageId: string, newContent: string): Promise<void> => {
+    const trimmed = newContent.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (isStreaming.value) {
+      abort();
+    }
+
+    const targetIndex = messages.value.findIndex(m => m.id === messageId);
+    if (targetIndex === -1) {
+      return;
+    }
+
+    const targetMsg = messages.value[targetIndex];
+    if (!targetMsg || targetMsg.role !== 'user') {
+      return;
+    }
+
+    targetMsg.content = trimmed;
+    // 截断该消息之后的所有历史分支
+    messages.value.splice(targetIndex + 1);
+
+    await runStreamTurn(trimmed, { attachments: targetMsg.attachments });
+  };
+
   // 3. 确定性生命周期回收：组件卸载或作用域销毁时中断网络
   if (getCurrentScope()) {
     onScopeDispose(() => {
@@ -589,6 +685,8 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     flushTypewriter,
     approveToolCall,
     rejectToolCall,
+    regenerate,
+    editMessage,
     artifacts,
     activeArtifact,
     activeArtifactVersion,

@@ -2,29 +2,36 @@
 /**
  * @atengk/ai-chat-vue 消息气泡展示组件。
  *
+ * 集成思考链、工具调用卡片、Artifact 产物卡片、多模态附件预览、
+ * 原位编辑模式、推荐追问胶囊与消息审计条。
+ *
  * @author Ateng
  * @since 2026-11-09
  */
 
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import type {
   AtengChatMessageProps,
+  AtengChatMessageEmits,
   ReasoningContent,
   ToolCallPayload,
   ArtifactPayload,
+  ChatAttachment,
 } from '../types';
 import AtengMarkdownRenderer from './AtengMarkdownRenderer.vue';
 import AtengReasoningBlock from './AtengReasoningBlock.vue';
 import AtengToolCallCard from './AtengToolCallCard.vue';
 import AtengArtifactCard from './AtengArtifactCard.vue';
+import AtengMessageToolbar from './AtengMessageToolbar.vue';
 
-const props = defineProps<AtengChatMessageProps>();
+const props = withDefaults(defineProps<AtengChatMessageProps>(), {
+  isLast: false,
+  isStreaming: false,
+  speechEnabled: true,
+  exportEnabled: true,
+});
 
-const emit = defineEmits<{
-  (e: 'approveTool', callId: string): void;
-  (e: 'rejectTool', callId: string, reason?: string): void;
-  (e: 'openArtifact', artifact: ArtifactPayload): void;
-}>();
+const emit = defineEmits<AtengChatMessageEmits>();
 
 defineSlots<{
   avatar?: (props: { role: string }) => unknown;
@@ -33,6 +40,9 @@ defineSlots<{
   artifact?: (props: { artifact: ArtifactPayload }) => unknown;
   content?: (props: { content: string }) => unknown;
   'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
+  attachments?: (props: { attachments: ChatAttachment[] }) => unknown;
+  toolbar?: (props: { message: AtengChatMessageProps['message'] }) => unknown;
+  'suggested-questions'?: (props: { questions: string[]; select: (q: string) => void }) => unknown;
   extra?: () => unknown;
 }>();
 
@@ -45,6 +55,34 @@ const avatarText = computed(() => {
   if (props.message.role === 'system') return '系';
   return '工';
 });
+
+// 原位编辑逻辑
+const isEditing = ref(false);
+const editDraft = ref('');
+
+const onStartEdit = (_messageId: string, currentContent: string): void => {
+  isEditing.value = true;
+  editDraft.value = currentContent;
+};
+
+const onCancelEdit = (): void => {
+  isEditing.value = false;
+  editDraft.value = '';
+};
+
+const onSaveEdit = (): void => {
+  const trimmed = editDraft.value.trim();
+  if (trimmed && trimmed !== props.message.content) {
+    emit('editMessage', props.message.id, trimmed);
+  }
+  isEditing.value = false;
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 </script>
 
 <template>
@@ -62,8 +100,46 @@ const avatarText = computed(() => {
       </slot>
     </div>
 
-    <!-- 消息气泡区 -->
+    <!-- 消息主体区 -->
     <div class="at-ai-chat__message-body">
+      <!-- 多模态附件预览区 -->
+      <slot
+        v-if="props.message.attachments && props.message.attachments.length > 0"
+        name="attachments"
+        :attachments="props.message.attachments"
+      >
+        <div class="at-ai-chat__message-attachments">
+          <template v-for="att in props.message.attachments" :key="att.id">
+            <!-- 图片附件卡片 -->
+            <div
+              v-if="att.type === 'image'"
+              class="at-ai-chat__attachment-preview-card at-ai-chat__attachment-preview-card--image"
+            >
+              <img
+                :src="att.thumbnailUrl || att.url"
+                :alt="att.name"
+                class="at-ai-chat__attachment-img"
+              />
+            </div>
+            <!-- 文件/音频附件卡片 -->
+            <div
+              v-else
+              class="at-ai-chat__attachment-preview-card at-ai-chat__attachment-preview-card--file"
+            >
+              <span class="at-ai-chat__attachment-preview-icon">📄</span>
+              <div class="at-ai-chat__attachment-preview-meta">
+                <span class="at-ai-chat__attachment-preview-name" :title="att.name">{{
+                  att.name
+                }}</span>
+                <span class="at-ai-chat__attachment-preview-size">{{
+                  formatFileSize(att.size)
+                }}</span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </slot>
+
       <!-- 思考链展示区 -->
       <template v-if="props.message.reasoning">
         <slot name="reasoning" :reasoning="props.message.reasoning">
@@ -102,7 +178,34 @@ const avatarText = computed(() => {
         </template>
       </div>
 
-      <div class="at-ai-chat__bubble">
+      <!-- 气泡正文区或原位编辑区 -->
+      <div v-if="isEditing" class="at-ai-chat__bubble at-ai-chat__bubble--editing">
+        <textarea
+          v-model="editDraft"
+          class="at-ai-chat__edit-textarea"
+          rows="3"
+          placeholder="修改提问内容..."
+        />
+        <div class="at-ai-chat__edit-actions">
+          <button
+            type="button"
+            class="at-ai-chat__edit-btn at-ai-chat__edit-btn--cancel"
+            @click="onCancelEdit"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="at-ai-chat__edit-btn at-ai-chat__edit-btn--save"
+            :disabled="!editDraft.trim()"
+            @click="onSaveEdit"
+          >
+            保存并提交
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="at-ai-chat__bubble">
         <slot name="content" :content="props.message.content">
           <AtengMarkdownRenderer
             :content="props.message.content"
@@ -119,6 +222,50 @@ const avatarText = computed(() => {
           />
         </slot>
       </div>
+
+      <!-- 操作审计条 -->
+      <slot name="toolbar" :message="props.message">
+        <AtengMessageToolbar
+          v-if="
+            !isEditing &&
+            (props.message.content ||
+              (props.message.attachments && props.message.attachments.length > 0))
+          "
+          :message="props.message"
+          :is-last="props.isLast"
+          :is-streaming="props.isStreaming"
+          :speech-enabled="props.speechEnabled"
+          :export-enabled="props.exportEnabled"
+          @regenerate="emit('regenerate', $event)"
+          @edit="onStartEdit"
+          @feedback="emit('feedback', $event)"
+        />
+      </slot>
+
+      <!-- 推荐追问问题胶囊 (动态平滑滚动推荐气泡) -->
+      <slot
+        v-if="
+          isAssistant &&
+          props.message.suggestedQuestions &&
+          props.message.suggestedQuestions.length > 0
+        "
+        name="suggested-questions"
+        :questions="props.message.suggestedQuestions"
+        :select="(q: string) => emit('clickSuggestedQuestion', q)"
+      >
+        <div class="at-ai-chat__suggested-questions">
+          <button
+            v-for="question in props.message.suggestedQuestions"
+            :key="question"
+            type="button"
+            class="at-ai-chat__suggested-question-btn"
+            @click="emit('clickSuggestedQuestion', question)"
+          >
+            <span class="at-ai-chat__suggested-question-spark">✨</span>
+            <span class="at-ai-chat__suggested-question-text">{{ question }}</span>
+          </button>
+        </div>
+      </slot>
 
       <!-- 附加扩展插槽 -->
       <slot name="extra" />

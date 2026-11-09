@@ -366,3 +366,179 @@ export const IconMinimize: FunctionalComponent = () => {
   );
 };
 IconMinimize.displayName = 'IconMinimize';
+
+export const IconThumbsUp: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', { d: 'M7 10v12' }),
+      h('path', {
+        d: 'M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h3',
+      }),
+    ],
+  );
+};
+IconThumbsUp.displayName = 'IconThumbsUp';
+
+export const IconThumbsDown: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', { d: 'M17 14V2' }),
+      h('path', {
+        d: 'M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3',
+      }),
+    ],
+  );
+};
+IconThumbsDown.displayName = 'IconThumbsDown';
+
+export const IconRotateCcw: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
+      h('path', { d: 'M3 3v5h5' }),
+    ],
+  );
+};
+IconRotateCcw.displayName = 'IconRotateCcw';
+
+export const IconEdit: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', { d: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' }),
+      h('path', { d: 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' }),
+    ],
+  );
+};
+IconEdit.displayName = 'IconEdit';
+
+export const IconVolume2: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('polygon', { points: '11 5 6 9 2 9 2 15 6 15 11 19 11 5' }),
+      h('path', { d: 'M15.54 8.46a5 5 0 0 1 0 7.07' }),
+      h('path', { d: 'M19.07 4.93a10 10 0 0 1 0 14.14' }),
+    ],
+  );
+};
+IconVolume2.displayName = 'IconVolume2';
+
+export const IconVolumeX: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('polygon', { points: '11 5 6 9 2 9 2 15 6 15 11 19 11 5' }),
+      h('line', { x1: '23', y1: '9', x2: '17', y2: '15' }),
+      h('line', { x1: '17', y1: '9', x2: '23', y2: '15' }),
+    ],
+  );
+};
+IconVolumeX.displayName = 'IconVolumeX';
+
+export const IconPaperclip: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', {
+        d: 'm21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88',
+      }),
+    ],
+  );
+};
+IconPaperclip.displayName = 'IconPaperclip';
+
+export const IconTrash: FunctionalComponent = () => {
+  return h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '14',
+      height: '14',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    },
+    [
+      h('path', { d: 'M3 6h18' }),
+      h('path', { d: 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6' }),
+      h('path', { d: 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2' }),
+    ],
+  );
+};
+IconTrash.displayName = 'IconTrash';

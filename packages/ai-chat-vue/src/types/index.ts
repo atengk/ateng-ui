@@ -244,6 +244,66 @@ export interface ChatAttachment {
    * 上传或处理状态。
    */
   status: 'uploading' | 'success' | 'error';
+
+  /**
+   * 本地原始 File 对象引用（可选）。
+   */
+  rawFile?: File;
+}
+
+/**
+ * 空会话推荐卡片实体。
+ */
+export interface StarterPrompt {
+  /**
+   * 卡片展示图标或 Emoji。
+   */
+  icon?: string;
+
+  /**
+   * 引导标题。
+   */
+  title: string;
+
+  /**
+   * 完整提问提示词内容。
+   */
+  prompt: string;
+
+  /**
+   * 提示词副标题或功能说明。
+   */
+  description?: string;
+}
+
+/**
+ * 消息评价反馈载荷 (点赞/点踩)。
+ */
+export interface MessageFeedback {
+  /**
+   * 目标消息唯一标识符。
+   */
+  messageId: string;
+
+  /**
+   * 反馈类型：'up' 点赞 | 'down' 点踩。
+   */
+  type: 'up' | 'down';
+
+  /**
+   * 点踩时的标签（如“答非所问”、“生成截断”）。
+   */
+  tags?: string[];
+
+  /**
+   * 详细反馈理由说明。
+   */
+  reason?: string;
+
+  /**
+   * 反馈提交毫秒级时间戳。
+   */
+  timestamp: number;
 }
 
 /**
@@ -460,6 +520,16 @@ export interface UseAiChatReturn {
    * 切换当前激活产物的版本切片。
    */
   selectArtifactVersion: (version: number) => void;
+
+  /**
+   * 重新生成指定消息或上一轮对话。
+   */
+  regenerate: (messageId?: string) => Promise<void>;
+
+  /**
+   * 原位编辑指定消息并重新触发流式分支。
+   */
+  editMessage: (messageId: string, newContent: string) => Promise<void>;
 }
 
 /**
@@ -500,6 +570,36 @@ export interface AtengAiChatProps {
    * 打字机呼吸感吐字速率（毫秒/字符，默认 0 为全速 RAF 批处理）。
    */
   typewriterSpeed?: number;
+
+  /**
+   * 空会话时在视口中央展示的引导卡片网格。
+   */
+  starterPrompts?: StarterPrompt[];
+
+  /**
+   * 自定义附件上传/预处理 SPI 处理器。
+   */
+  uploadHandler?: (file: File) => Promise<ChatAttachment>;
+
+  /**
+   * 允许上传的单文件最大字节数（默认 20MB）。
+   */
+  maxFileSize?: number;
+
+  /**
+   * 允许上传的文件类型匹配。
+   */
+  acceptedFileTypes?: string;
+
+  /**
+   * 是否启用语音朗读功能（默认 true）。
+   */
+  speechEnabled?: boolean;
+
+  /**
+   * 是否启用导出功能（默认 true）。
+   */
+  exportEnabled?: boolean;
 }
 
 /**
@@ -535,6 +635,26 @@ export interface AtengAiChatEmits {
    * 用户点击产物卡片请求打开侧边栏时触发。
    */
   (e: 'openArtifact', artifact: ArtifactPayload): void;
+
+  /**
+   * 触发重新生成指定消息时触发。
+   */
+  (e: 'regenerate', messageId: string): void;
+
+  /**
+   * 原位编辑指定用户消息并重新提交时触发。
+   */
+  (e: 'editMessage', messageId: string, newContent: string): void;
+
+  /**
+   * 提交评价反馈时触发。
+   */
+  (e: 'feedback', feedback: MessageFeedback): void;
+
+  /**
+   * 点击推荐追问问题胶囊时触发。
+   */
+  (e: 'clickSuggestedQuestion', question: string): void;
 }
 
 /**
@@ -550,6 +670,126 @@ export interface AtengChatMessageProps {
    * 是否为当前列表的最后一条。
    */
   isLast?: boolean;
+
+  /**
+   * 当前会话是否处于流式在途中。
+   */
+  isStreaming?: boolean;
+
+  /**
+   * 是否启用语音朗读功能（默认 true）。
+   */
+  speechEnabled?: boolean;
+
+  /**
+   * 是否启用导出功能（默认 true）。
+   */
+  exportEnabled?: boolean;
+}
+
+/**
+ * AtengChatMessage 消息气泡组件 Emits。
+ */
+export interface AtengChatMessageEmits {
+  /**
+   * 批准工具调用时触发 (HITL)。
+   */
+  (e: 'approveTool', callId: string): void;
+
+  /**
+   * 拒绝工具调用时触发 (HITL)。
+   */
+  (e: 'rejectTool', callId: string, reason?: string): void;
+
+  /**
+   * 用户点击产物卡片请求打开侧边栏时触发。
+   */
+  (e: 'openArtifact', artifact: ArtifactPayload): void;
+
+  /**
+   * 请求重新生成时触发。
+   */
+  (e: 'regenerate', messageId: string): void;
+
+  /**
+   * 原位编辑用户消息并重发时触发。
+   */
+  (e: 'editMessage', messageId: string, newContent: string): void;
+
+  /**
+   * 提交评价反馈时触发。
+   */
+  (e: 'feedback', feedback: MessageFeedback): void;
+
+  /**
+   * 点击推荐追问胶囊时触发。
+   */
+  (e: 'clickSuggestedQuestion', question: string): void;
+}
+
+/**
+ * AtengMessageToolbar 消息操作审计条组件 Props。
+ */
+export interface AtengMessageToolbarProps {
+  /**
+   * 关联的会话消息实体。
+   */
+  message: ChatMessage;
+
+  /**
+   * 是否为当前列表的最后一条消息。
+   */
+  isLast?: boolean;
+
+  /**
+   * 当前整体会话是否处于流式在途中。
+   */
+  isStreaming?: boolean;
+
+  /**
+   * 是否启用语音朗读功能（默认 true）。
+   */
+  speechEnabled?: boolean;
+
+  /**
+   * 是否启用全量导出功能（默认 true）。
+   */
+  exportEnabled?: boolean;
+}
+
+/**
+ * AtengMessageToolbar 消息操作审计条组件 Emits。
+ */
+export interface AtengMessageToolbarEmits {
+  /**
+   * 复制消息正文时触发。
+   */
+  (e: 'copy', text: string): void;
+
+  /**
+   * 请求重新生成消息时触发。
+   */
+  (e: 'regenerate', messageId: string): void;
+
+  /**
+   * 请求编辑用户消息并重发时触发。
+   */
+  (e: 'edit', messageId: string, newContent: string): void;
+
+  /**
+   * 提交评价反馈时触发。
+   */
+  (e: 'feedback', feedback: MessageFeedback): void;
+
+  /**
+   * 朗读消息时触发。
+   */
+  (e: 'speak', messageId: string, text: string): void;
+
+  /**
+   * 导出单条消息为 Markdown 或 JSON 时触发。
+   */
+  (e: 'export', format: 'markdown' | 'json', message: ChatMessage): void;
 }
 
 /**
@@ -575,6 +815,26 @@ export interface AtengChatInputProps {
    * 是否处于流式生成态（显示停止按钮）。
    */
   isStreaming?: boolean;
+
+  /**
+   * 自定义附件上传/处理处理器（SPI）。若未提供则使用本地 Blob URL。
+   */
+  uploadHandler?: (file: File) => Promise<ChatAttachment>;
+
+  /**
+   * 允许上传的文件类型 MIME 匹配串（默认图片与常规文档）。
+   */
+  acceptedFileTypes?: string;
+
+  /**
+   * 允许上传的单文件最大字节数（默认 20MB）。
+   */
+  maxFileSize?: number;
+
+  /**
+   * 当前待发送的附件列表。支持 v-model:attachments 双向绑定。
+   */
+  attachments?: ChatAttachment[];
 }
 
 /**
@@ -587,14 +847,24 @@ export interface AtengChatInputEmits {
   (e: 'update:modelValue', value: string): void;
 
   /**
-   * 触发提交发送。
+   * 双向更新当前待发送附件列表。
    */
-  (e: 'submit', value: string): void;
+  (e: 'update:attachments', attachments: ChatAttachment[]): void;
+
+  /**
+   * 触发提交发送（携带输入文本及附件列表）。
+   */
+  (e: 'submit', value: string, attachments?: ChatAttachment[]): void;
 
   /**
    * 触发停止生成。
    */
   (e: 'stop'): void;
+
+  /**
+   * 附件大小超限或格式不符时抛出的异常提示。
+   */
+  (e: 'fileError', message: string, file: File): void;
 }
 
 /**

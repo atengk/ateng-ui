@@ -236,4 +236,71 @@ describe('AtengAiChat', () => {
     expect(customBadge.exists()).toBe(true);
     expect(customBadge.text()).toBe('自定义胶囊');
   });
+
+  it('空会话时渲染 starterPrompts 引导卡片网格，点击直接触发发送', async () => {
+    wrapper = mount(AtengAiChat, {
+      props: {
+        messages: [],
+        starterPrompts: [
+          {
+            icon: '💡',
+            title: '代码重构建议',
+            description: '分析组件结构并提出优化意见',
+            prompt: '请分析当前组件并提出重构优化方案',
+          },
+          {
+            icon: '🚀',
+            title: '性能调优',
+            description: '排查长列表卡顿与渲染耗时',
+            prompt: '如何优化虚拟滚动的帧率表现？',
+          },
+        ],
+      },
+    });
+
+    const cards = wrapper.findAll('.at-ai-chat__starter-card');
+    expect(cards.length).toBe(2);
+    expect(wrapper.text()).toContain('代码重构建议');
+    expect(wrapper.text()).toContain('性能调优');
+
+    await cards[0].trigger('click');
+    expect(wrapper.emitted('send')).toBeTruthy();
+    expect(wrapper.emitted('send')![0]).toEqual(['请分析当前组件并提出重构优化方案']);
+  });
+
+  it('展示 suggestedQuestions 追问胶囊，点击派发 clickSuggestedQuestion 事件', async () => {
+    const messages: ChatMessage[] = [
+      {
+        id: 'msg-1',
+        role: 'user',
+        status: 'completed',
+        content: '解释一下响应式原理',
+        createdAt: 100,
+      },
+      {
+        id: 'msg-2',
+        role: 'assistant',
+        status: 'completed',
+        content: 'Vue 3 基于 Proxy 拦截对象属性读写。',
+        suggestedQuestions: ['Proxy 与 Object.defineProperty 的区别？', '依赖收集是如何追踪的？'],
+        createdAt: 101,
+      },
+    ];
+
+    wrapper = mount(AtengAiChat, {
+      props: {
+        messages,
+      },
+    });
+
+    const questionBtns = wrapper.findAll('.at-ai-chat__suggested-question-btn');
+    expect(questionBtns.length).toBe(2);
+    expect(questionBtns[0].text()).toContain('Proxy 与 Object.defineProperty 的区别？');
+
+    await questionBtns[0].trigger('click');
+    expect(wrapper.emitted('clickSuggestedQuestion')).toBeTruthy();
+    expect(wrapper.emitted('clickSuggestedQuestion')![0]).toEqual([
+      'Proxy 与 Object.defineProperty 的区别？',
+    ]);
+  });
 });
