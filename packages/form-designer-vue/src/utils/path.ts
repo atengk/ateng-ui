@@ -8,6 +8,8 @@
  * @since 2026-11-09
  */
 
+import { toRaw } from 'vue';
+
 /**
  * 将路径字符串解析为属性键数组。
  * 例如：`user.address[0].city` => `['user', 'address', '0', 'city']`
@@ -103,4 +105,23 @@ export function setByPath<T extends Record<string, unknown>>(
   }
 
   return obj;
+}
+
+/**
+ * 安全深度克隆工具（解包 Vue Proxy，防御 DataCloneError）。
+ */
+export function safeClone<T>(val: T): T {
+  if (val == null || typeof val !== 'object') {
+    return val;
+  }
+  const raw = toRaw(val);
+  try {
+    return structuredClone(raw);
+  } catch {
+    try {
+      return JSON.parse(JSON.stringify(raw));
+    } catch {
+      return Array.isArray(raw) ? ([...raw] as unknown as T) : { ...raw };
+    }
+  }
 }

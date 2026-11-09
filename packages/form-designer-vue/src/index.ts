@@ -39,6 +39,15 @@ export {
 
 // 导出工具函数
 export { getByPath, setByPath, parsePath } from './utils/path';
+export {
+  formatReadonlyValue,
+  formatCurrency,
+  formatPhone,
+  formatIdCard,
+  formatEmail,
+  formatDate,
+} from './utils/format';
+export type { ReadonlyFormatType, ReadonlyFormatOptions } from './utils/format';
 
 // 导出全量强类型声明
 export type {

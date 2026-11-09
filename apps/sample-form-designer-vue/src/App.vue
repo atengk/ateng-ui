@@ -16,6 +16,7 @@ import { ref } from 'vue';
 import MinimalRendererScenario from './scenarios/MinimalRendererScenario.vue';
 import AsyncValidationScenario from './scenarios/AsyncValidationScenario.vue';
 import DynamicRuleScenario from './scenarios/DynamicRuleScenario.vue';
+import WorkflowSynergyScenario from './scenarios/WorkflowSynergyScenario.vue';
 
 const activeTab = ref<string>('minimal');
 const isDark = ref<boolean>(false);
@@ -59,6 +60,9 @@ const toggleDarkMode = (val: boolean): void => {
         </el-tab-pane>
         <el-tab-pane label="场景三：零 eval 动态规则与算术 AST (DynamicRules)" name="dynamic-rules">
           <DynamicRuleScenario />
+        </el-tab-pane>
+        <el-tab-pane label="场景四：BPMN 流程协同与节点权限 (WorkflowSynergy)" name="workflow">
+          <WorkflowSynergyScenario />
         </el-tab-pane>
       </el-tabs>
     </main>

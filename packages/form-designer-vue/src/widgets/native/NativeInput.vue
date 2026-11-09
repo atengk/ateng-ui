@@ -8,6 +8,8 @@
 
 import { computed } from 'vue';
 import type { FormWidget } from '../../types';
+import { formatReadonlyValue } from '../../utils/format';
+import type { ReadonlyFormatOptions } from '../../utils/format';
 
 interface Props {
   widget: FormWidget;
@@ -38,6 +40,14 @@ const stringValue = computed(() => {
   return props.modelValue == null ? '' : String(props.modelValue);
 });
 
+const displayReadonlyText = computed(() => {
+  if (props.modelValue == null || props.modelValue === '') {
+    return '-';
+  }
+  const formatOptions = (props.widget.props || {}) as ReadonlyFormatOptions;
+  return formatReadonlyValue(props.modelValue, formatOptions);
+});
+
 const onInput = (e: Event): void => {
   const target = e.target as HTMLInputElement;
   emit('update:modelValue', target.value);
@@ -55,7 +65,7 @@ const onBlur = (e: FocusEvent): void => {
     :class="[`size-${size}`, { 'is-disabled': disabled, 'is-readonly': readonly }]"
   >
     <template v-if="readonly">
-      <span class="at-native-readonly-text">{{ stringValue || '-' }}</span>
+      <span class="at-native-readonly-text">{{ displayReadonlyText }}</span>
     </template>
     <template v-else>
       <input

@@ -8,7 +8,7 @@
  * @since 2026-11-09
  */
 
-import { ref, computed, toValue, watch, toRaw, getCurrentScope, onScopeDispose } from 'vue';
+import { ref, computed, toValue, watch, getCurrentScope, onScopeDispose } from 'vue';
 import type { MaybeRefOrGetter } from 'vue';
 import type {
   FormSchema,
@@ -18,28 +18,9 @@ import type {
   FormValidationErrors,
   FormRule,
 } from '../types';
-import { getByPath, setByPath } from '../utils/path';
+import { getByPath, setByPath, safeClone } from '../utils/path';
 import { AsyncValidatorEngine } from '../validator/AsyncValidatorEngine';
 import { DynamicRuleEngine } from '../rules/DynamicRuleEngine';
-
-/**
- * 安全深度克隆工具（解包 Vue Proxy，防御 DataCloneError）。
- */
-function safeClone<T>(val: T): T {
-  if (val == null || typeof val !== 'object') {
-    return val;
-  }
-  const raw = toRaw(val);
-  try {
-    return structuredClone(raw);
-  } catch {
-    try {
-      return JSON.parse(JSON.stringify(raw));
-    } catch {
-      return Array.isArray(raw) ? ([...raw] as unknown as T) : { ...raw };
-    }
-  }
-}
 
 export interface UseFormRendererOptions {
   /** 表单 Schema 定义 */
@@ -182,6 +163,24 @@ export function useFormRenderer(options: UseFormRendererOptions) {
       if (newVal && newVal !== internalFormData.value) {
         internalFormData.value = { ...internalFormData.value, ...newVal };
         applyFormulaRules();
+      }
+    },
+    { deep: true },
+  );
+
+  // 监听流程节点权限变更，若字段变为 hidden 或 readonly 则自动清理残余校验错误
+  watch(
+    () => toValue(options.permissions),
+    newPerms => {
+      if (!newPerms) return;
+      for (const [key, perm] of Object.entries(newPerms)) {
+        if (perm === 'hidden' || perm === 'readonly') {
+          if (errors.value[key]) {
+            const nextErrors = { ...errors.value };
+            delete nextErrors[key];
+            errors.value = nextErrors;
+          }
+        }
       }
     },
     { deep: true },
