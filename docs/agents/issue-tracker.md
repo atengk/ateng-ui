@@ -1,45 +1,39 @@
-# Issue 跟踪器：GitHub (Issue Tracker: GitHub)
+# Issue 跟踪器与工单状态机规范 (GitHub Issue Tracker)
 
-本仓库的需求（Specs）与任务（Issues）托管于 GitHub Issues。所有自动化与协同操作统一使用 `gh` CLI。
+本仓库的所有需求（Specs）与任务工单（Issues）托管于 GitHub Issues，统一通过 `gh` CLI 操作（标签状态映射详见 [`triage-labels.md`](./triage-labels.md)）。
 
-## 操作规范 (Conventions)
+## 1. `gh` CLI 标准操作速查
 
-- **创建 Issue**：`gh issue create --title "..." --body "..."`。多行正文建议使用 Heredoc 语法。
-- **查看 Issue**：`gh issue view <number> --comments`，可通过 `jq` 过滤评论并同时获取标签。
-- **查询 Issue 列表**：`gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`，可搭配 `--label` 与 `--state` 过滤参数。
-- **添加评论**：`gh issue comment <number> --body "..."`
-- **添加 / 移除标签**：`gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **关闭 Issue**：`gh issue close <number> --comment "..."`
+- **查看详情与评论**：`gh issue view <number> --comments`
+- **按标签查询队列**：`gh issue list --state open --label "ready-for-agent" --json number,title,labels,assignees`
+- **认领指派**：`gh issue edit <number> --add-assignee "@me"`
+- **流转标签**：`gh issue edit <number> --add-label "<add>" --remove-label "<remove>"`
+- **创建工单**：`gh issue create --title "<title>" -F <body-file>`
+- **回写报告**：`gh issue comment <number> -F <report-file>`
+- **关闭工单**：`gh issue close <number> --comment "<summary>"`
 
-仓库信息自动根据 `git remote -v` 推断——在克隆仓库内执行 `gh` 命令时会自动绑定目标远端。
+## 2. Windows PowerShell 跨平台避坑铁律
 
-## Pull Request 作为分流面 (Pull Requests as a Triage Surface)
+1. **`@me` 等特殊符号强制双引号包裹**：在 PowerShell 下执行 `gh` 命令时，凡包含 `@`、`,` 等特殊字符的参数必须使用双引号包裹（如 `--add-assignee "@me"`），防止 PowerShell 将 `@me` 解析为 Splatting 变量报错。
+2. **多行长文本强制 `-F <file>` 文件传入**：创建 Issue 或回写验收报告时，**严禁在命令行直接拼接多行 Markdown 字符串**；必须先将内容写入 Scratch 临时文件，再通过 `-F <file>` 传入，杜绝转义截断与编码乱码。
 
-**PR 作为请求分流面：否 (PRs as a request surface: no)** _(若本仓库将外部 PR 视为功能请求，请改为 `yes`；`/triage` 技能会读取该标志。)_
+## 3. 五阶段工单执行状态机与显式 Git 授权边界
 
-当设置为 `yes` 时，PR 与 Issue 遵循相同的标签和状态流转规则，使用对应的 `gh pr` 命令：
+处理 GitHub Issue 工单时，严格划分为 **研发验证阶段（阶段 1~3）** 与 **受控交付阶段（阶段 4~5）**：
 
-- **查看 PR**：`gh pr view <number> --comments`，查看 Diff 使用 `gh pr diff <number>`。
-- **列出待分流的外部 PR**：`gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments`，仅保留 `authorAssociation` 为 `CONTRIBUTOR`、`FIRST_TIME_CONTRIBUTOR` 或 `NONE` 的记录（排除 `OWNER` / `MEMBER` / `COLLABORATOR`）。
-- **评论 / 标签 / 关闭**：分别使用 `gh pr comment`、`gh pr edit --add-label`/`--remove-label`、`gh pr close`。
+### 阶段 1~3：默认工作区闭环（未获提交指令前在此停止）
 
-GitHub 的 Issue 与 PR 共享同一数字编号空间，单独的 `#42` 可能指代任一类型——优先使用 `gh pr view 42` 解析，若不存在则回退至 `gh issue view 42`。
+1. **阶段 1（认领与上下文对齐）**：执行 `gh issue view <n> --comments` 研读诉求，对照 [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md) 与 [`docs/adr/README.md`](../adr/README.md) 确认四层拓扑边界；若获指令认领则执行 `gh issue edit <n> --add-assignee "@me"`。
+2. **阶段 2（TDD 与 Sample-First 实现）**：在目标子包 `packages/<name>` 与对应展厅 `apps/sample-<name>` 中实施编码、可视化看板挂载与离线 Mock 单测。
+3. **阶段 3（阶梯二四合一验证与 15 项准出自检）**：运行定向 `typecheck` + `lint` + `test` + `build` 四合一门禁全绿，完成 [`documentation-specification.md`](./documentation-specification.md) 的 15 项准出自检与 `/code-review`。
+   > **🛑 停止判据（Explicit Two-Tier Git Gate）**：若用户未在会话中明确下达“提交/commit”或“推送/push”指令，完成阶段 3 后**必须停留在本地工作区向用户汇报验证结果**，严禁擅自提交、推送或关闭 Issue。
 
-## 当技能提示“发布到 Issue 跟踪器 (publish to the issue tracker)”
+### 阶段 4~5：显式授权交付闭环（仅在收到明确提交/推送指令后触发）
 
-创建对应的 GitHub Issue。
+4. **阶段 4（规范提交与 CI 守护）**：使用 `bash scripts/commit.sh -t <type> -s <scope> -m "<主说明>" [-l "<细项>"] -c <n> [-p] -y` 提交（若获批推送则附加 `-p`），随后立即通过 `gh run list -L 1` 与 `gh run watch <run-id>` 持续监控远端 CI 流水线直至 100% 全绿。
+5. **阶段 5（验收报告回写与关单）**：使用 `gh issue comment <n> -F <report-file>` 回写测试结果与 Commit SHA，最后执行 `gh issue close <n>` 闭环。
 
-## 当技能提示“获取相关 Ticket (fetch the relevant ticket)”
+## 4. 探路操作规范 (Wayfinding Operations)与外部 PR 分诊
 
-执行 `gh issue view <number> --comments`。
-
-## 探路操作规范 (Wayfinding Operations)
-
-供 `/wayfinder` 技能使用。**路线图 (Map)** 为单个顶层 Issue，**子任务 (Child tickets)** 作为关联的子 Issue。
-
-- **路线图 (Map)**：单个带有 `wayfinder:map` 标签的 Issue，正文维护“笔记 (Notes)” / “已有决策 (Decisions-so-far)” / “待决迷雾 (Fog)”。创建命令：`gh issue create --label wayfinder:map`。
-- **子任务 (Child ticket)**：通过 GitHub sub-issue 关联到路线图的 Issue（调用 sub-issues 端点的 `gh api`）。若未启用 sub-issues，则在路线图正文的任务列表中追加子任务，并在子任务正文顶部注明 `Part of #<map>`。标签格式：`wayfinder:<type>`（如 `research` / `prototype` / `grilling` / `task`）。任务被认领后指派给当前推进的开发者。
-- **阻塞依赖 (Blocking)**：采用 GitHub **原生 Issue 依赖**——这是规范且 UI 可视的表达方式。添加依赖关系：`gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`，其中 `<blocker-db-id>` 为阻塞者的数字型**数据库 ID**（通过 `gh api repos/<owner>/<repo>/issues/<n> --jq .id` 获取，**而非** `#number` 或 `node_id`）。GitHub 接口返回 `issue_dependencies_summary.blocked_by`（仅限开启的阻塞项——即实时门禁）。若依赖功能不可用，则在子任务正文顶部添加 `Blocked by: #<n>, #<n>` 作为降级方案。当所有阻塞项全部关闭后，Ticket 自动解除阻塞。
-- **前沿任务查询 (Frontier query)**：列出路线图中开启的子任务（`gh issue list --state open`，作用域限定于路线图的子任务/任务列表），过滤掉存在未完成阻塞项（`issue_dependencies_summary.blocked_by > 0`，或 `Blocked by` 仍有未关闭 Issue）以及已有负责人的项；按路线图排列顺序优先胜出。
-- **认领任务 (Claim)**：`gh issue edit <n> --add-assignee @me`——作为当前推进会话的首次写入操作。
-- **解决任务 (Resolve)**：`gh issue comment <n> --body "<answer>"`，然后执行 `gh issue close <n>`，最后将上下文指针（摘要 + 链接）追加到路线图的“已有决策”中。
+- **PR 作为请求分流面**：`no`（当前仅通过 GitHub Issues 进行需求分诊）。
+- **路线图 (`wayfinder:map`) 与子任务 (`wayfinder:<type>`)**：顶层路线图使用 `gh issue create --label "wayfinder:map"` 创建；子任务通过 GitHub 原生 Issue 依赖（`repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by`）或正文顶部 `Blocked by: #<n>` 声明阻塞关系，认领时执行 `gh issue edit <n> --add-assignee "@me"`。

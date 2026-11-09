@@ -1,9 +1,9 @@
-# ADR-0032: 文档目录大纲 (TOC) 专有标题语义提取与层级渲染契约
+# ADR-0042: 文档目录大纲 (TOC) 专有标题语义提取与层级渲染契约
 
 - **状态**：已采纳 (Accepted)
 - **责任人**：@Ateng
 - **提出日期**：2026-10-26
-- **对齐规范**：[AGENTS.md](../../AGENTS.md) 工业级成熟度防线、[ADR-0031](./0031-file-viewer-network-fetch-transport-and-asset-offline-strategy.md)
+- **对齐规范**：[AGENTS.md](../../AGENTS.md) 工业级成熟度防线、[ADR-0041](./0041-file-viewer-network-fetch-transport-and-asset-offline-strategy.md)
 
 ---
 

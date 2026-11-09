@@ -43,3 +43,13 @@
 | [ADR-0037](./0037-editor-vue-four-tier-presets-and-multi-scenario-architecture.md)                 | EditorVue 四大场景预设体系、块级拖拽、AI 流式协议与 DOCX 分页排版架构 | Accepted | 确立 Simple/Notion/Agent/Docx 四大预设继承体系，原生无依赖六点拖拽手柄，Callout/Toggle 块物料，前端 aiStreamHandler 流式 SPI 与行内 Diff，A4 物理分页仿真与前端 docx 导出          |
 | [ADR-0038](./0038-monitor-l0-observability-architecture-and-governance.md)                         | Monitor L0 纯原生全链路可观测性底座架构与治理规范                     | Accepted | 确立 @atengk/monitor L0 纯 TS 跨框架定位，微内核插件流水线，3x3 点阵白屏双阶段复验，三阶防丢传输与防套娃死循环协议，三级脱敏/指纹去重/会话熔断，Axios 拦截器 TraceId 串联          |
 | [ADR-0039](./0039-documentation-specification-and-sample-visual-dashboard-architecture.md)         | 前端工业级文档规范、三要素就近闭环与 Sample 可视化场景看板架构        | Accepted | 确立子包大纲与“类型-代码-原理”三要素就近闭环，领域大章收敛，无测试桩假数据，Sample 分层弹性场景看板与 Mock 双模，四段式体验卡与六大审查红线                                        |
+| [ADR-0040](./0040-modern-loading-and-anti-flicker-architecture.md)                                 | 现代加载与防闪烁交互架构规约                                          | Accepted | 确立 AtengLoadingBar 2px 顶栏流光线与零遮罩局部加载，配合 150ms 静默延迟保护与 300ms 最小展示时长消除瞬闪                                                                          |
+| [ADR-0041](./0041-file-viewer-network-fetch-transport-and-asset-offline-strategy.md)               | 文件预览流式传输层 Fetch API 重构与生产级离线资产同步策略             | Accepted | 采用原生 Fetch API 替代 XHR 规避三方插件 `responseType='blob'` 篡改崩溃，修复 PPTX/DOCX 离线 Worker 资产同步与 Markdown 原生支持                                                   |
+| [ADR-0042](./0042-file-viewer-document-toc-heading-semantic-extraction.md)                         | 文档目录大纲 (TOC) 专有标题语义提取与层级渲染契约                     | Accepted | 建立独立的 `extractDocumentHeadings` 标题语义提取器，剥离全文检索锚点污染，支持 H1~H6 树状层级缩进与无标题空状态保底                                                               |
+
+---
+
+## 编写与维护规范 (ADR Governance & Anti-Inflation)
+
+1. **防膨胀铁律（Anti-Inflation Rule）**：仅当发生**从 0 到 1 孵化新子包（`packages/*`）、引入全新底层渲染引擎/构建管线、或推翻既有跨层架构契约**时，才允许新建独立 ADR 文件（按序递增四位编号 `NNNN-kebab-case-title.md`，严禁重号）。
+2. **存量优先修订（Update Over Create）**：针对既有子包的常规组件扩充、Props/Hooks 增强、样式微调或局部缺陷修复，**严禁新建碎片化 ADR**；必须优先在所属子包的既有 ADR 文档中增量修订，并同步维护本索引表。
