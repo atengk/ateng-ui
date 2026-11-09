@@ -311,3 +311,138 @@ export interface FormRendererInstance {
   /** 正在进行异步校验的字段映射 */
   validatingFields?: Record<string, boolean>;
 }
+
+/**
+ * 画板视口类型。
+ * - pc: PC 宽屏 (100%)
+ * - pad: 平板视口 (768px)
+ * - mobile: 移动手机视口 (375px 真实手机壳仿真)
+ */
+export type ViewportType = 'pc' | 'pad' | 'mobile';
+
+/**
+ * 拖拽类型守卫判定结果。
+ */
+export interface DropValidationResult {
+  /** 是否允许拖拽放置 */
+  allowed: boolean;
+  /** 拦截原因说明 */
+  reason?: string;
+}
+
+/**
+ * 物料面板图元条目。
+ */
+export interface StencilItem {
+  /** 控件类型标识 */
+  type: string;
+  /** 控件中文展示名称 */
+  label: string;
+  /** 图标字符或 SVG 类名 */
+  icon?: string;
+  /** 所属分类 */
+  category: FormWidgetCategory;
+  /** 是否为排版容器 */
+  isContainer?: boolean;
+  /** 是否为数据集合明细容器 */
+  isCollection?: boolean;
+  /** 容器类型分类 */
+  containerType?: ContainerType;
+}
+
+/**
+ * useFormDesigner 状态机配置选项。
+ */
+export interface UseFormDesignerOptions {
+  /** 初始表单 Schema */
+  initialSchema?: FormSchema;
+  /** 最大快照历史步数，默认 30 */
+  maxHistoryLimit?: number;
+  /** Schema 变更回调 */
+  onSchemaChange?: (schema: FormSchema) => void;
+  /** 选中节点变更回调 */
+  onSelectWidget?: (widget: FormWidget | null) => void;
+}
+
+/**
+ * useFormDesigner 响应式设计态状态机返回值。
+ */
+export interface UseFormDesignerReturn {
+  /** 响应式 FormSchema 实体 */
+  schema: import('vue').Ref<FormSchema>;
+  /** 当前活动选中控件的唯一标识 */
+  activeWidgetId: import('vue').Ref<string | null>;
+  /** 当前活动选中控件实体 */
+  activeWidget: import('vue').ComputedRef<FormWidget | null>;
+  /** 当前活动控件的父级容器实体 */
+  activeParentWidget: import('vue').ComputedRef<FormWidget | null>;
+  /** 画板视口类型 */
+  viewport: import('vue').Ref<ViewportType>;
+  /** 是否允许撤销 */
+  canUndo: import('vue').ComputedRef<boolean>;
+  /** 是否允许重做 */
+  canRedo: import('vue').ComputedRef<boolean>;
+  /** 选中指定控件 */
+  selectWidget: (id: string | null) => void;
+  /** 快速选择当前选中节点的父级容器 */
+  selectParentWidget: () => void;
+  /** 向目标容器添加新控件 */
+  addWidget: (widget: FormWidget, targetParentId?: string | null, targetIndex?: number) => boolean;
+  /** 移除指定控件 */
+  removeWidget: (id: string) => boolean;
+  /** 跨容器或同级移动控件 */
+  moveWidget: (sourceId: string, targetParentId: string | null, targetIndex: number) => boolean;
+  /** 局部更新指定控件属性 */
+  updateWidget: (id: string, patch: Partial<FormWidget>) => boolean;
+  /** 复制指定控件并赋予全新唯一标识 */
+  copyWidget: (id: string) => FormWidget | null;
+  /** 清空画布中所有控件 */
+  clearWidgets: () => void;
+  /** 撤销一步历史变更 */
+  undo: () => void;
+  /** 重做一步历史变更 */
+  redo: () => void;
+  /** 切换画布视口规格 */
+  setViewport: (viewport: ViewportType) => void;
+  /** 导出当前 Schema 纯深拷贝副本 */
+  exportSchema: () => FormSchema;
+  /** 覆盖替换当前 Schema 结构并记录快照 */
+  setSchema: (newSchema: FormSchema) => void;
+  /** 校验拖拽放置合法性（类型守卫） */
+  validateDrop: (
+    source:
+      | FormWidget
+      | {
+          id?: string;
+          type: string;
+          isContainer?: boolean;
+          isCollection?: boolean;
+          containerType?: ContainerType;
+        },
+    targetParentId: string | null,
+  ) => DropValidationResult;
+}
+
+/**
+ * AtengFormDesigner 顶层设计器组件暴露的实例接口。
+ */
+export interface FormDesignerInstance {
+  /** 获取当前 Schema 副本 */
+  getSchema: () => FormSchema;
+  /** 导入设定新 Schema */
+  setSchema: (schema: FormSchema) => void;
+  /** 获取当前选中的控件实体 */
+  getActiveWidget: () => FormWidget | null;
+  /** 选中指定控件 */
+  selectWidget: (id: string | null) => void;
+  /** 清空画布控件 */
+  clearWidgets: () => void;
+  /** 撤销 */
+  undo: () => void;
+  /** 重做 */
+  redo: () => void;
+  /** 导出当前 Schema */
+  exportSchema: () => FormSchema;
+  /** 切换视口 */
+  setViewport: (viewport: ViewportType) => void;
+}

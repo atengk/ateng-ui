@@ -9,15 +9,34 @@
 
 import type { App } from 'vue';
 import AtengFormRenderer from './components/AtengFormRenderer.vue';
+import AtengFormDesigner from './components/AtengFormDesigner.vue';
+import AtengFormCanvas from './components/AtengFormCanvas.vue';
+import AtengFormCanvasItem from './components/AtengFormCanvasItem.vue';
+import AtengFormStencil from './components/AtengFormStencil.vue';
+import AtengFormOutlineTree from './components/AtengFormOutlineTree.vue';
+import AtengFormDesignerToolbar from './components/AtengFormDesignerToolbar.vue';
+import AtengFormQuickPropertyPanel from './components/AtengFormQuickPropertyPanel.vue';
+import AtengFormCanvasLeaf from './components/AtengFormCanvasLeaf.vue';
 
-// 导出组件
-export { AtengFormRenderer };
+// 导出运行态与设计态组件
+export {
+  AtengFormRenderer,
+  AtengFormDesigner,
+  AtengFormDesignerToolbar,
+  AtengFormQuickPropertyPanel,
+  AtengFormCanvas,
+  AtengFormCanvasItem,
+  AtengFormCanvasLeaf,
+  AtengFormStencil,
+  AtengFormOutlineTree,
+};
 export { default as AtengFormItemRenderer } from './components/AtengFormItemRenderer.vue';
 export { AtengFormGrid, AtengFormCard, AtengSubForm } from './containers';
 
 // 导出无头状态机 Hooks
 export { useFormRenderer } from './composables/useFormRenderer';
 export type { UseFormRendererOptions } from './composables/useFormRenderer';
+export { useFormDesigner, createEmptySchema } from './composables/useFormDesigner';
 
 // 导出异步校验引擎
 export { AsyncValidatorEngine } from './validator/AsyncValidatorEngine';
@@ -41,6 +60,14 @@ export {
 
 // 导出工具函数
 export { getByPath, setByPath, parsePath, safeClone } from './utils/path';
+export {
+  validateDropTarget,
+  createDefaultWidget,
+  cloneWidgetWithNewIds,
+  findWidgetNode,
+  isDescendantOf,
+  generateWidgetId,
+} from './utils/designer';
 export {
   formatReadonlyValue,
   formatCurrency,
@@ -71,6 +98,12 @@ export type {
   FormWidgetAdapter,
   FormValidationErrors,
   FormRendererInstance,
+  ViewportType,
+  DropValidationResult,
+  StencilItem,
+  UseFormDesignerOptions,
+  UseFormDesignerReturn,
+  FormDesignerInstance,
 } from './types';
 
 /**
@@ -78,6 +111,10 @@ export type {
  */
 export function install(app: App): void {
   app.component('AtengFormRenderer', AtengFormRenderer);
+  app.component('AtengFormDesigner', AtengFormDesigner);
+  app.component('AtengFormCanvas', AtengFormCanvas);
+  app.component('AtengFormStencil', AtengFormStencil);
+  app.component('AtengFormOutlineTree', AtengFormOutlineTree);
 }
 
 export default {

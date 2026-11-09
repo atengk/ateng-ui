@@ -18,8 +18,9 @@ import AsyncValidationScenario from './scenarios/AsyncValidationScenario.vue';
 import DynamicRuleScenario from './scenarios/DynamicRuleScenario.vue';
 import WorkflowSynergyScenario from './scenarios/WorkflowSynergyScenario.vue';
 import SubFormScenario from './scenarios/SubFormScenario.vue';
+import FormDesignerScenario from './scenarios/FormDesignerScenario.vue';
 
-const activeTab = ref<string>('minimal');
+const activeTab = ref<string>('designer');
 const isDark = ref<boolean>(false);
 
 const toggleDarkMode = (val: boolean): void => {
@@ -39,6 +40,7 @@ const toggleDarkMode = (val: boolean): void => {
         <h1 class="logo">📝 @atengk/form-designer-vue 体验展厅</h1>
         <el-tag type="info" size="small" effect="plain">L2 专用能力扩展层 · 端口 3012</el-tag>
         <el-tag type="success" size="small" effect="plain">运行态三段式 AST 驱动</el-tag>
+        <el-tag type="warning" size="small" effect="plain">设计态 SortableJS 拖拽守卫</el-tag>
       </div>
 
       <div class="header-right">
@@ -67,6 +69,9 @@ const toggleDarkMode = (val: boolean): void => {
         </el-tab-pane>
         <el-tab-pane label="场景五：嵌套排版与动态子表单 (SubForm)" name="subform">
           <SubFormScenario />
+        </el-tab-pane>
+        <el-tab-pane label="场景六：设计态画板与物料拖拽 (FormDesigner)" name="designer">
+          <FormDesignerScenario />
         </el-tab-pane>
       </el-tabs>
     </main>
