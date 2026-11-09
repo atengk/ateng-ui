@@ -108,6 +108,19 @@ const sendPresetPrompt = (prompt: string): void => {
               >
                 🧠 Reasoning 思考链
               </el-button>
+              <el-button
+                size="small"
+                text
+                bg
+                :disabled="isStreaming"
+                @click="
+                  sendPresetPrompt(
+                    '请展示全场景综合用例（包含 KaTeX 数学、Prism 代码与 Mermaid 架构图）',
+                  )
+                "
+              >
+                🔬 数学+代码+架构图综合
+              </el-button>
             </div>
           </template>
         </AtengAiChat>
@@ -147,6 +160,10 @@ const sendPresetPrompt = (prompt: string): void => {
               <li>✅ 纯原生 CSS 变量驱动与 scoped 样式隔离；</li>
               <li>✅ 零 Element Plus 依赖与具名插槽反转；</li>
               <li>✅ ReasoningDemuxer 思考链双模流式分离与折叠计时；</li>
+              <li>✅ MarkdownPipeline 高保真 Markdown 与 GFM 表格；</li>
+              <li>✅ KaTeX 行内/块级数学公式与货币符号保护；</li>
+              <li>✅ Prism.js 语法高亮与一键复制代码标牌；</li>
+              <li>✅ Mermaid 动态懒加载渲染与语法异常兜底；</li>
               <li>✅ 响应式输入控制与 Enter 发送快捷键；</li>
               <li>✅ 生成中动态切换“停止生成”按钮；</li>
               <li>✅ 组件作用域注销自动 Abort 中断。</li>

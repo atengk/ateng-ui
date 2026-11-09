@@ -7,6 +7,8 @@
  * @since 2026-11-09
  */
 
+@import 'katex/dist/katex.min.css';
+
 :root {
   --at-chat-primary: #2563eb;
   --at-chat-primary-hover: #1d4ed8;
@@ -35,6 +37,21 @@
 
   --at-chat-font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --at-chat-code-header-bg: #2d3748;
+  --at-chat-code-bg: #1a202c;
+  --at-chat-code-text: #e2e8f0;
+  --at-chat-inline-code-bg: rgba(175, 184, 193, 0.2);
+  --at-chat-inline-code-text: #d73a49;
+  --at-chat-table-header-bg: #f8fafc;
+  --at-chat-table-stripe-bg: rgba(0, 0, 0, 0.02);
+  --at-chat-token-comment: #718096;
+  --at-chat-token-punctuation: #a0aec0;
+  --at-chat-token-keyword: #f56565;
+  --at-chat-token-string: #68d391;
+  --at-chat-token-number: #63b3ed;
+  --at-chat-token-function: #b794f4;
+  --at-chat-token-variable: #f6ad55;
 }
 
 html.dark,
@@ -59,6 +76,21 @@ html.dark,
   --at-chat-message-text-user: #ffffff;
   --at-chat-message-bg-assistant: #1e293b;
   --at-chat-message-text-assistant: #f8fafc;
+
+  --at-chat-code-header-bg: #1e293b;
+  --at-chat-code-bg: #0f172a;
+  --at-chat-code-text: #f8fafc;
+  --at-chat-inline-code-bg: rgba(110, 118, 129, 0.4);
+  --at-chat-inline-code-text: #ff7b72;
+  --at-chat-table-header-bg: #1e293b;
+  --at-chat-table-stripe-bg: rgba(255, 255, 255, 0.02);
+  --at-chat-token-comment: #64748b;
+  --at-chat-token-punctuation: #94a3b8;
+  --at-chat-token-keyword: #f87171;
+  --at-chat-token-string: #4ade80;
+  --at-chat-token-number: #60a5fa;
+  --at-chat-token-function: #c084fc;
+  --at-chat-token-variable: #fb923c;
 }
 
 /* 统领容器 */
@@ -374,4 +406,320 @@ html.dark,
 
 .at-ai-chat__btn--stop:hover:not(:disabled) {
   background-color: var(--at-chat-danger-hover);
+}
+
+/* ==========================================================================
+   Markdown 渲染与排版体系
+   ========================================================================== */
+
+.at-ai-chat__markdown {
+  line-height: 1.6;
+  word-break: break-word;
+  color: inherit;
+}
+
+.at-ai-chat__markdown-html > *:first-child {
+  margin-top: 0;
+}
+
+.at-ai-chat__markdown-html > *:last-child {
+  margin-bottom: 0;
+}
+
+.at-ai-chat__markdown-html h1,
+.at-ai-chat__markdown-html h2,
+.at-ai-chat__markdown-html h3,
+.at-ai-chat__markdown-html h4,
+.at-ai-chat__markdown-html h5,
+.at-ai-chat__markdown-html h6 {
+  margin: 0.8em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.at-ai-chat__markdown-html h1 {
+  font-size: 1.4em;
+}
+
+.at-ai-chat__markdown-html h2 {
+  font-size: 1.25em;
+}
+
+.at-ai-chat__markdown-html h3 {
+  font-size: 1.1em;
+}
+
+.at-ai-chat__markdown-html p {
+  margin: 0.5em 0;
+}
+
+.at-ai-chat__markdown-html ul,
+.at-ai-chat__markdown-html ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.at-ai-chat__markdown-html li {
+  margin: 0.2em 0;
+}
+
+.at-ai-chat__markdown-html blockquote {
+  margin: 0.6em 0;
+  padding: 0.4em 0.8em;
+  border-left: 3px solid var(--at-chat-primary);
+  background-color: var(--at-chat-surface);
+  border-radius: 0 var(--at-chat-radius-sm) var(--at-chat-radius-sm) 0;
+  color: var(--at-chat-text-secondary);
+}
+
+.at-ai-chat__markdown-html code:not(pre code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+  background-color: var(--at-chat-inline-code-bg);
+  color: var(--at-chat-inline-code-text);
+  padding: 0.15em 0.4em;
+  border-radius: var(--at-chat-radius-sm);
+}
+
+.at-ai-chat__markdown-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-size: 13px;
+}
+
+.at-ai-chat__markdown-html th,
+.at-ai-chat__markdown-html td {
+  border: 1px solid var(--at-chat-border);
+  padding: 6px 12px;
+}
+
+.at-ai-chat__markdown-html th {
+  background-color: var(--at-chat-table-header-bg);
+  font-weight: 600;
+  text-align: left;
+}
+
+.at-ai-chat__markdown-html tr:nth-child(even) {
+  background-color: var(--at-chat-table-stripe-bg);
+}
+
+.at-ai-chat__markdown-html a {
+  color: var(--at-chat-primary);
+  text-decoration: none;
+}
+
+.at-ai-chat__markdown-html a:hover {
+  text-decoration: underline;
+}
+
+.at-ai-chat__markdown-html hr {
+  border: none;
+  border-top: 1px solid var(--at-chat-border);
+  margin: 1em 0;
+}
+
+/* KaTeX 块级数学公式 */
+.at-ai-chat__math-block {
+  overflow-x: auto;
+  padding: 0.6em 0;
+  text-align: center;
+}
+
+/* ==========================================================================
+   代码块组件与 Prism.js 语法高亮
+   ========================================================================== */
+
+.at-ai-chat__code-block {
+  margin: 0.8em 0;
+  border-radius: var(--at-chat-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--at-chat-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.at-ai-chat__code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background-color: var(--at-chat-code-header-bg);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.at-ai-chat__code-lang {
+  text-transform: lowercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.at-ai-chat__code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--at-chat-radius-sm);
+  font-size: 12px;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.at-ai-chat__code-copy:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.at-ai-chat__code-copy-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.at-ai-chat__code-pre {
+  margin: 0;
+  padding: 12px;
+  background-color: var(--at-chat-code-bg);
+  color: var(--at-chat-code-text);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.at-ai-chat__code-pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Prism 语法高亮 Token 色阶 */
+.at-ai-chat__code-pre .token.comment,
+.at-ai-chat__code-pre .token.prolog,
+.at-ai-chat__code-pre .token.doctype,
+.at-ai-chat__code-pre .token.cdata {
+  color: var(--at-chat-token-comment);
+  font-style: italic;
+}
+
+.at-ai-chat__code-pre .token.punctuation {
+  color: var(--at-chat-token-punctuation);
+}
+
+.at-ai-chat__code-pre .token.property,
+.at-ai-chat__code-pre .token.tag,
+.at-ai-chat__code-pre .token.boolean,
+.at-ai-chat__code-pre .token.number,
+.at-ai-chat__code-pre .token.constant,
+.at-ai-chat__code-pre .token.symbol {
+  color: var(--at-chat-token-number);
+}
+
+.at-ai-chat__code-pre .token.selector,
+.at-ai-chat__code-pre .token.attr-name,
+.at-ai-chat__code-pre .token.string,
+.at-ai-chat__code-pre .token.char,
+.at-ai-chat__code-pre .token.builtin {
+  color: var(--at-chat-token-string);
+}
+
+.at-ai-chat__code-pre .token.operator,
+.at-ai-chat__code-pre .token.entity,
+.at-ai-chat__code-pre .token.url {
+  color: var(--at-chat-token-keyword);
+}
+
+.at-ai-chat__code-pre .token.atrule,
+.at-ai-chat__code-pre .token.attr-value,
+.at-ai-chat__code-pre .token.keyword {
+  color: var(--at-chat-token-keyword);
+}
+
+.at-ai-chat__code-pre .token.function,
+.at-ai-chat__code-pre .token.class-name {
+  color: var(--at-chat-token-function);
+}
+
+.at-ai-chat__code-pre .token.regex,
+.at-ai-chat__code-pre .token.important,
+.at-ai-chat__code-pre .token.variable {
+  color: var(--at-chat-token-variable);
+}
+
+/* ==========================================================================
+   Mermaid 架构流程图按需容器
+   ========================================================================== */
+
+.at-ai-chat__mermaid-block {
+  margin: 0.8em 0;
+  padding: 16px;
+  background-color: var(--at-chat-surface);
+  border: 1px solid var(--at-chat-border);
+  border-radius: var(--at-chat-radius-md);
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.at-ai-chat__mermaid-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--at-chat-text-muted);
+  font-size: 13px;
+}
+
+.at-ai-chat__mermaid-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--at-chat-border);
+  border-top-color: var(--at-chat-primary);
+  border-radius: 50%;
+  animation: at-ai-chat-spin 0.8s linear infinite;
+}
+
+.at-ai-chat__mermaid-error {
+  width: 100%;
+  color: var(--at-chat-danger);
+  font-size: 13px;
+}
+
+.at-ai-chat__mermaid-error-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.at-ai-chat__mermaid-error-detail {
+  font-size: 12px;
+  color: var(--at-chat-text-secondary);
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.at-ai-chat__mermaid-svg {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.at-ai-chat__mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+@keyframes at-ai-chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

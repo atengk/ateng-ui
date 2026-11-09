@@ -31,13 +31,37 @@ export type AtengReasoningBlockInstance = InstanceType<
   typeof import('./components/AtengReasoningBlock.vue').default
 >;
 
-// 无头响应式状态机与解复用引擎
+export { default as AtengMarkdownRenderer } from './components/AtengMarkdownRenderer.vue';
+export type AtengMarkdownRendererInstance = InstanceType<
+  typeof import('./components/AtengMarkdownRenderer.vue').default
+>;
+
+export { default as AtengCodeBlock } from './components/AtengCodeBlock.vue';
+export type AtengCodeBlockInstance = InstanceType<
+  typeof import('./components/AtengCodeBlock.vue').default
+>;
+
+export { default as AtengMermaidBlock } from './components/AtengMermaidBlock.vue';
+export type AtengMermaidBlockInstance = InstanceType<
+  typeof import('./components/AtengMermaidBlock.vue').default
+>;
+
+// 无头响应式状态机、解复用与渲染引擎
 export { useAiChat } from './composables/useAiChat';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
 export type { DemuxResult } from './demux/ReasoningDemuxer';
+export { MarkdownPipeline } from './pipeline/MarkdownPipeline';
+export type { MarkdownChunk } from './pipeline/MarkdownPipeline';
 
 // 原生图标组件
-export { IconSend, IconStop, IconBrain, IconChevronDown } from './components/icons';
+export {
+  IconSend,
+  IconStop,
+  IconBrain,
+  IconChevronDown,
+  IconCopy,
+  IconCheck,
+} from './components/icons';
 
 // 强类型领域契约与接口
 export type {

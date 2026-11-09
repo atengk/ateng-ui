@@ -25,6 +25,7 @@ defineSlots<{
   header?: () => unknown;
   messages?: (props: { messages: ChatMessage[] }) => unknown;
   'message-item'?: (props: { message: ChatMessage; index: number }) => unknown;
+  'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   input?: () => unknown;
   footer?: () => unknown;
 }>();
@@ -74,7 +75,11 @@ defineExpose({
       <slot name="messages" :messages="props.messages">
         <template v-for="(msg, index) in props.messages" :key="msg.id">
           <slot name="message-item" :message="msg" :index="index">
-            <AtengChatMessage :message="msg" :is-last="index === props.messages.length - 1" />
+            <AtengChatMessage :message="msg" :is-last="index === props.messages.length - 1">
+              <template #code-block="slotProps">
+                <slot name="code-block" v-bind="slotProps" />
+              </template>
+            </AtengChatMessage>
           </slot>
         </template>
       </slot>

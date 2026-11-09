@@ -8,6 +8,7 @@
 
 import { computed } from 'vue';
 import type { AtengChatMessageProps, ReasoningContent } from '../types';
+import AtengMarkdownRenderer from './AtengMarkdownRenderer.vue';
 import AtengReasoningBlock from './AtengReasoningBlock.vue';
 
 const props = defineProps<AtengChatMessageProps>();
@@ -16,6 +17,7 @@ defineSlots<{
   avatar?: (props: { role: string }) => unknown;
   reasoning?: (props: { reasoning: ReasoningContent }) => unknown;
   content?: (props: { content: string }) => unknown;
+  'code-block'?: (props: { language: string; code: string; isStreaming?: boolean }) => unknown;
   extra?: () => unknown;
 }>();
 
@@ -59,7 +61,14 @@ const avatarText = computed(() => {
 
       <div class="at-ai-chat__bubble">
         <slot name="content" :content="props.message.content">
-          <span>{{ props.message.content }}</span>
+          <AtengMarkdownRenderer
+            :content="props.message.content"
+            :is-streaming="props.message.status === 'streaming'"
+          >
+            <template #code-block="slotProps">
+              <slot name="code-block" v-bind="slotProps" />
+            </template>
+          </AtengMarkdownRenderer>
           <span
             v-if="props.message.status === 'streaming'"
             class="at-ai-chat__cursor"

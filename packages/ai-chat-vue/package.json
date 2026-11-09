@@ -29,13 +29,24 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
+    "mermaid": "^10.0.0 || ^11.0.0 || ^12.0.0",
     "vue": ">=3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "mermaid": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@atengk/core": "workspace:*",
-    "@atengk/vue": "workspace:*"
+    "@atengk/vue": "workspace:*",
+    "katex": "^0.19.1",
+    "markdown-it": "^15.0.3",
+    "prismjs": "^1.30.0"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
+    "@types/prismjs": "^1.26.6",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/test-utils": "^2.4.6",
     "happy-dom": "^15.11.7",

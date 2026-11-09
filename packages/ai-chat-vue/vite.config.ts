@@ -29,7 +29,15 @@ export default defineConfig({
     },
     cssCodeSplit: false,
     rollupOptions: {
-      external: ['vue', '@atengk/core', '@atengk/vue'],
+      external: [
+        'vue',
+        '@atengk/core',
+        '@atengk/vue',
+        'markdown-it',
+        'katex',
+        'prismjs',
+        'mermaid',
+      ],
       output: {
         exports: 'named',
         assetFileNames: assetInfo => {
