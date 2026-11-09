@@ -7,10 +7,11 @@
  * @since 2026-11-09
  */
 
-import { ref, shallowRef } from 'vue';
+import { computed, ref, shallowRef, toRaw } from 'vue';
 import type { GridStack } from 'gridstack';
 import type { GridLayoutItem, UseGridLayoutOptions, UseGridLayoutReturn } from '../types';
 import { findFirstAvailableSlot } from '../utils/autoPosition';
+import { sanitizeLayout } from '../utils/sanitizer';
 
 /**
  * 网格布局核心无头状态机。
@@ -64,6 +65,129 @@ export function useGridLayout<T = Record<string, unknown>>(
       noResize?: boolean;
     }
   >();
+
+  // 6. 不可变快照历史栈与持久化机制
+  const cloneData = (data: GridLayoutItem<T>[]): GridLayoutItem<T>[] => {
+    try {
+      if (typeof structuredClone === 'function') {
+        return structuredClone(toRaw(data));
+      }
+    } catch {
+      // 容灾降级
+    }
+    return JSON.parse(JSON.stringify(toRaw(data)));
+  };
+
+  const basePreset = cloneData(layout.value);
+  const maxHistory = options.maxHistory ?? 20;
+
+  const historyStack = shallowRef<GridLayoutItem<T>[][]>([cloneData(layout.value)]);
+  const historyIndex = ref(0);
+
+  const canUndo = computed(() => historyIndex.value > 0);
+  const canRedo = computed(() => historyIndex.value < historyStack.value.length - 1);
+
+  /**
+   * 手动或自动记录当前布局快照。
+   */
+  const recordSnapshot = (): void => {
+    const currentList = historyStack.value.slice(0, historyIndex.value + 1);
+    currentList.push(cloneData(layout.value));
+    if (currentList.length > maxHistory + 1) {
+      currentList.shift();
+    }
+    historyStack.value = currentList;
+    historyIndex.value = currentList.length - 1;
+  };
+
+  /**
+   * 撤销一步布局操作。
+   */
+  const undo = (): void => {
+    if (!canUndo.value) {
+      return;
+    }
+    historyIndex.value--;
+    const snapshot = historyStack.value[historyIndex.value];
+    if (snapshot) {
+      layout.value = cloneData(snapshot);
+      tidyLayout();
+    }
+  };
+
+  /**
+   * 重做一步布局操作。
+   */
+  const redo = (): void => {
+    if (!canRedo.value) {
+      return;
+    }
+    historyIndex.value++;
+    const snapshot = historyStack.value[historyIndex.value];
+    if (snapshot) {
+      layout.value = cloneData(snapshot);
+      tidyLayout();
+    }
+  };
+
+  /**
+   * 清空历史快照栈。
+   */
+  const clearHistory = (): void => {
+    historyStack.value = [cloneData(layout.value)];
+    historyIndex.value = 0;
+  };
+
+  /**
+   * 将当前布局持久化保存至 localStorage。
+   */
+  const saveToStorage = (key?: string): void => {
+    const effectiveKey = key ?? options.storageKey;
+    if (!effectiveKey || typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.setItem(effectiveKey, JSON.stringify(layout.value));
+    } catch (err) {
+      console.error('saveToStorage failed:', err);
+    }
+  };
+
+  /**
+   * 从 localStorage 读取草稿并容灾清洗自愈。
+   */
+  const loadFromStorage = (key?: string): boolean => {
+    const effectiveKey = key ?? options.storageKey;
+    if (!effectiveKey || typeof localStorage === 'undefined') {
+      return false;
+    }
+    try {
+      const val = localStorage.getItem(effectiveKey);
+      if (!val) {
+        return false;
+      }
+      const parsed = JSON.parse(val);
+      const clean = sanitizeLayout<T>(parsed, currentColumn.value);
+      if (clean.length > 0) {
+        layout.value = clean;
+        recordSnapshot();
+        tidyLayout();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * 一键恢复出厂初始预设布局。
+   */
+  const resetLayout = (): void => {
+    layout.value = cloneData(basePreset);
+    recordSnapshot();
+    tidyLayout();
+  };
 
   /**
    * 批量替换布局数据。
@@ -421,6 +545,7 @@ export function useGridLayout<T = Record<string, unknown>>(
     collapsedIds.value = new Set();
     originalRects.clear();
     originalHeights.clear();
+    clearHistory();
   };
 
   return {
@@ -436,6 +561,15 @@ export function useGridLayout<T = Record<string, unknown>>(
     cellHeight,
     maximizedId,
     collapsedIds,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    recordSnapshot,
+    clearHistory,
+    saveToStorage,
+    loadFromStorage,
+    resetLayout,
     maximize,
     restore,
     toggleMaximize,

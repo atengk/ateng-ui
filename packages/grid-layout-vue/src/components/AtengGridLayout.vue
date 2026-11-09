@@ -295,6 +295,7 @@ onMounted(() => {
     if (id) {
       emit('dragstop', id);
     }
+    internalController.recordSnapshot();
   });
 
   grid.on('resizestart', (_event: Event, el: HTMLElement) => {
@@ -311,10 +312,45 @@ onMounted(() => {
     if (id) {
       emit('resizestop', id);
     }
+    internalController.recordSnapshot();
   });
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', handleKeyDown);
+  }
 });
 
+const handleKeyDown = (e: KeyboardEvent): void => {
+  if (!props.editable) {
+    return;
+  }
+  const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+  if (
+    targetTag === 'input' ||
+    targetTag === 'textarea' ||
+    (e.target as HTMLElement)?.isContentEditable
+  ) {
+    return;
+  }
+
+  const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+  if (!isCtrlOrMeta) {
+    return;
+  }
+
+  if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    internalController.undo();
+  } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+    e.preventDefault();
+    internalController.redo();
+  }
+};
+
 onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleKeyDown);
+  }
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
@@ -430,6 +466,15 @@ defineExpose({
   tidyLayout: internalController.tidyLayout,
   wakeUp,
   refresh: wakeUp,
+  undo: internalController.undo,
+  redo: internalController.redo,
+  canUndo: internalController.canUndo,
+  canRedo: internalController.canRedo,
+  recordSnapshot: internalController.recordSnapshot,
+  clearHistory: internalController.clearHistory,
+  saveToStorage: internalController.saveToStorage,
+  loadFromStorage: internalController.loadFromStorage,
+  resetLayout: internalController.resetLayout,
 });
 </script>
 

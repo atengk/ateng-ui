@@ -8,7 +8,7 @@
  */
 
 import type { GridStack, GridStackOptions } from 'gridstack';
-import type { Ref, ShallowRef } from 'vue';
+import type { ComputedRef, Ref, ShallowRef } from 'vue';
 
 /**
  * 网格布局项泛型接口。
@@ -84,6 +84,10 @@ export interface UseGridLayoutOptions<T = Record<string, unknown>> {
   breakpoints?: GridResponsiveBreakpoints;
   /** 底层 GridStack 原生选项透传 */
   gridOptions?: GridStackOptions;
+  /** 最大历史快照步数 (默认 20) */
+  maxHistory?: number;
+  /** 本地持久化缓存键名 (可选) */
+  storageKey?: string;
 }
 
 /**
@@ -150,6 +154,24 @@ export interface UseGridLayoutReturn<T = Record<string, unknown>> {
   updateItem: (id: string | number, partial: Partial<GridLayoutItem<T>>) => void;
   /** 一键规整消除空洞 */
   tidyLayout: () => void;
+  /** 是否可以撤销 */
+  canUndo: ComputedRef<boolean>;
+  /** 是否可以重做 */
+  canRedo: ComputedRef<boolean>;
+  /** 撤销一步布局操作 */
+  undo: () => void;
+  /** 重做一步布局操作 */
+  redo: () => void;
+  /** 手动记录当前布局不可变快照 */
+  recordSnapshot: () => void;
+  /** 清空历史快照栈 */
+  clearHistory: () => void;
+  /** 将当前布局保存至本地存储 */
+  saveToStorage: (key?: string) => void;
+  /** 从本地存储安全加载恢复草稿 */
+  loadFromStorage: (key?: string) => boolean;
+  /** 一键重置为初始出厂预设 */
+  resetLayout: () => void;
   /** 销毁实例 */
   destroy: () => void;
 }

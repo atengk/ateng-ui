@@ -11,6 +11,7 @@
 import { ref } from 'vue';
 import { AtengGridLayout, AtengGridItem } from '@atengk/grid-layout-vue';
 import type { GridLayoutItem } from '@atengk/grid-layout-vue';
+import { ElMessage } from 'element-plus';
 
 interface CardPayload {
   title: string;
@@ -89,8 +90,33 @@ const handleRemoveCard = (id: string | number) => {
   }
 };
 
+const gridRef = ref<InstanceType<typeof AtengGridLayout> | null>(null);
+
+const handleUndo = () => {
+  gridRef.value?.undo();
+};
+
+const handleRedo = () => {
+  gridRef.value?.redo();
+};
+
+const handleSaveDraft = () => {
+  gridRef.value?.saveToStorage('sample-basic-draft');
+  ElMessage.success('已将当前布局保存至 localStorage 草稿！');
+};
+
+const handleLoadDraft = () => {
+  const success = gridRef.value?.loadFromStorage('sample-basic-draft');
+  if (success) {
+    ElMessage.success('已从 localStorage 成功恢复布局草稿！');
+  } else {
+    ElMessage.warning('未发现有效的草稿数据或数据损坏！');
+  }
+};
+
 const handleReset = () => {
-  layout.value = JSON.parse(JSON.stringify(initialCards));
+  gridRef.value?.resetLayout();
+  ElMessage.info('已重置为出厂默认布局');
 };
 </script>
 
@@ -99,7 +125,15 @@ const handleReset = () => {
     <div class="basic-dashboard__toolbar">
       <el-space wrap>
         <el-button type="primary" @click="handleAddCard">新增卡片 (自动寻空)</el-button>
-        <el-button @click="handleReset">重置默认布局</el-button>
+        <el-button-group>
+          <el-button :disabled="!gridRef?.canUndo" @click="handleUndo">↩️ 撤销 (Ctrl+Z)</el-button>
+          <el-button :disabled="!gridRef?.canRedo" @click="handleRedo">↪️ 重做 (Ctrl+Y)</el-button>
+        </el-button-group>
+        <el-button-group>
+          <el-button @click="handleSaveDraft">💾 保存草稿</el-button>
+          <el-button @click="handleLoadDraft">📂 读取草稿</el-button>
+        </el-button-group>
+        <el-button @click="handleReset">重置出厂布局</el-button>
         <el-divider direction="vertical" />
         <el-switch v-model="editable" active-text="编辑态" inactive-text="只读态" />
         <el-switch v-model="showGridLines" active-text="显示参考线" inactive-text="隐藏参考线" />
@@ -116,6 +150,7 @@ const handleReset = () => {
       <!-- 左侧网格工作区 -->
       <div class="basic-dashboard__canvas">
         <AtengGridLayout
+          ref="gridRef"
           v-model:layout="layout"
           :column="column"
           :editable="editable"
