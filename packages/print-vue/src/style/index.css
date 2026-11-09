@@ -1,0 +1,34 @@
+/**
+ * @atengk/print-vue 基础样式库。
+ *
+ * 遵循 BEM 命名规范（.at-print-*），颜色与尺寸 100% 绑定 CSS 变量。
+ *
+ * @author Ateng
+ * @since 2026-11-10
+ */
+
+:root {
+  --at-print-bg: #f8fafc;
+  --at-print-paper-bg: #ffffff;
+  --at-print-border-color: #e2e8f0;
+  --at-print-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --at-print-text-color: #0f172a;
+  --at-print-ruler-color: #cbd5e1;
+  --at-print-ruler-text: #64748b;
+  --at-print-crosshair: #ef4444;
+}
+
+/* 打印辅助隐藏类 */
+.at-print-hide-screen {
+  display: none !important;
+}
+
+@media print {
+  .at-print-hide-print {
+    display: none !important;
+  }
+
+  .at-print-hide-screen {
+    display: block !important;
+  }
+}

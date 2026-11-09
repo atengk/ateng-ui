@@ -49,6 +49,7 @@
 | [ADR-0043](./0043-ai-chat-vue-l2-architecture-and-artifacts-governance.md)                         | AiChatVue L2 扩展层架构、思考链流式多路解复用与 Artifacts 治理规范        | Accepted | 确立 @atengk/ai-chat-vue L2 定位与零 UI 依赖，ReasoningDemuxer 双模思考链分离，动态 Mermaid 懒加载，Artifacts 不可变版本链与 Monaco 双模 Diff，RAF 节流与全双工 HITL 工具审批闭环               |
 | [ADR-0044](./0044-form-designer-vue-l2-architecture-and-schema-governance.md)                      | FormDesignerVue L2 扩展层架构、三段式 Schema 引擎与流程权限治理规范       | Accepted | 确立三段式表单 AST 与标准 JSON Schema 双向互转，L2 零 UI 依赖与次级 Element Plus 预设，零 eval 安全规则与算术 AST，流程权限矩阵覆盖，大纲树、多端仿真与草稿箱容灾护栏                           |
 | [ADR-0045](./0045-grid-layout-vue-l2-architecture-and-governance.md)                               | GridLayoutVue L2 扩展层架构、GridStack 引擎双向响应式协同与驾驶舱治理规范 | Accepted | 确立 @atengk/grid-layout-vue L2 定位与零 UI 依赖，双轨组件/状态机 API，泛型契约与原子更新互斥锁，容器 ResizeObserver 断点，物料拖入，最大化/折叠，数据清洗自愈，触控防冲突与保留 DOM 确定性清理 |
+| [ADR-0046](./0046-print-vue-l2-architecture-and-governance.md)                                     | PrintVue L2 扩展层架构、多驱动打印调度与精准单据排版治理规范              | Accepted | 确立 @atengk/print-vue L2 定位与零 UI 依赖，多驱动 SPI 架构，AtengPrintSheet 物理纸张与标尺，动态分页防撕裂截断，PDF 逐页切片防爆，批量并发调度，C-Lodop 探针与降级，预印校准与电子印章         |
 
 ---
 

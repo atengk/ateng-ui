@@ -1,0 +1,50 @@
+{
+  "name": "@atengk/print-vue",
+  "version": "1.0.0",
+  "description": "面向现代 Web 应用与企业级系统的专业静默打印、精准票据排版、分页防撕裂截断与高保真 PDF 矢量导出扩展基础设施",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "vue": ">=3.5.0"
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
+    "print-js": "^1.6.0"
+  },
+  "devDependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.3.0",
+    "vue": "^3.5.13"
+  }
+}
