@@ -303,4 +303,54 @@ describe('AtengAiChat', () => {
       'Proxy 与 Object.defineProperty 的区别？',
     ]);
   });
+
+  it('beforeSend 前置安全合规拦截生效时派发 blocked 事件且不发出 send', async () => {
+    wrapper = mount(AtengAiChat, {
+      props: {
+        beforeSend: content => {
+          if (content.includes('银行卡')) {
+            return { allow: false, reason: '包含银行账号敏感信息' };
+          }
+          return true;
+        },
+      },
+    });
+
+    const textarea = wrapper.find('textarea');
+    await textarea.setValue('我的银行卡号是 622202...');
+    const sendBtn = wrapper.find('.at-ai-chat__btn--send');
+    await sendBtn.trigger('click');
+
+    expect(wrapper.emitted('send')).toBeFalsy();
+    expect(wrapper.emitted('blocked')).toBeTruthy();
+    expect(wrapper.emitted('blocked')![0]).toEqual(['包含银行账号敏感信息']);
+  });
+
+  it('流式异常消息渲染标红自愈卡片，点击重新尝试触发 regenerate', async () => {
+    const errorMsg: ChatMessage = {
+      id: 'err-1',
+      role: 'assistant',
+      status: 'error',
+      content: '回答已中断',
+      error: '504 Gateway Timeout',
+      createdAt: Date.now(),
+    };
+
+    wrapper = mount(AtengAiChat, {
+      props: {
+        messages: [errorMsg],
+      },
+    });
+
+    const retryCard = wrapper.find('.at-ai-chat__error-retry-card');
+    expect(retryCard.exists()).toBe(true);
+    expect(retryCard.text()).toContain('504 Gateway Timeout');
+
+    const retryBtn = wrapper.find('.at-ai-chat__error-retry-btn');
+    expect(retryBtn.exists()).toBe(true);
+
+    await retryBtn.trigger('click');
+    expect(wrapper.emitted('regenerate')).toBeTruthy();
+    expect(wrapper.emitted('regenerate')![0]).toEqual([errorMsg.id]);
+  });
 });

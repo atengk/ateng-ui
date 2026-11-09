@@ -68,6 +68,9 @@ export type AtengMessageToolbarInstance = InstanceType<
 
 // 无头响应式状态机、解复用与渲染引擎
 export { useAiChat } from './composables/useAiChat';
+export { useAiChatSessions } from './composables/useAiChatSessions';
+export { LocalStorageAdapter } from './storage/LocalStorageAdapter';
+export type { StorageAdapterOptions } from './storage/StorageAdapter';
 export { ReasoningDemuxer } from './demux/ReasoningDemuxer';
 export type { DemuxResult } from './demux/ReasoningDemuxer';
 export { ToolCallDemuxer } from './demux/ToolCallDemuxer';
@@ -123,6 +126,14 @@ export type {
   ChatAttachment,
   StarterPrompt,
   MessageFeedback,
+  SlashCommandContext,
+  SlashCommand,
+  BeforeSendResult,
+  BeforeSendHook,
+  StorageAdapter,
+  ChatSession,
+  UseAiChatSessionsOptions,
+  UseAiChatSessionsReturn,
   ChatMessage,
   SendMessageOptions,
   UseAiChatOptions,

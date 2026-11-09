@@ -1342,3 +1342,140 @@ html.dark,
   color: var(--at-chat-text-muted);
   line-height: 1.4;
 }
+
+/* ==========================================================================
+   斜杠快捷指令菜单 (/ Slash Menu)
+   ========================================================================== */
+
+.at-ai-chat__slash-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 12px;
+  min-width: 240px;
+  max-width: 320px;
+  background-color: var(--at-chat-surface);
+  border: 1px solid var(--at-chat-border);
+  border-radius: var(--at-chat-radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 25;
+}
+
+.at-ai-chat__slash-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--at-chat-text-muted);
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.at-ai-chat__slash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.at-ai-chat__slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--at-chat-radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease-in-out;
+}
+
+.at-ai-chat__slash-item:hover,
+.at-ai-chat__slash-item.is-active {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.at-ai-chat__slash-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.at-ai-chat__slash-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.at-ai-chat__slash-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--at-chat-primary);
+}
+
+.at-ai-chat__slash-desc {
+  font-size: 11px;
+  color: var(--at-chat-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   异常标红状态与原位重试自愈卡片
+   ========================================================================== */
+
+.at-ai-chat__bubble--error {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid var(--at-chat-danger) !important;
+  color: var(--at-chat-danger) !important;
+}
+
+.at-ai-chat__error-retry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--at-chat-radius-md);
+  font-size: 12px;
+}
+
+.at-ai-chat__error-retry-text {
+  color: var(--at-chat-danger);
+  font-weight: 500;
+  flex: 1;
+}
+
+.at-ai-chat__error-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--at-chat-surface);
+  border: 1px solid var(--at-chat-danger);
+  border-radius: var(--at-chat-radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--at-chat-danger);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+}
+
+.at-ai-chat__error-retry-btn:hover {
+  background-color: var(--at-chat-danger);
+  color: #ffffff;
+}
+
+.at-ai-chat__error-retry-icon {
+  width: 13px;
+  height: 13px;
+}

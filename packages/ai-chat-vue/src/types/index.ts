@@ -367,6 +367,207 @@ export interface ChatMessage {
 }
 
 /**
+ * 快捷指令执行上下文。
+ */
+export interface SlashCommandContext {
+  /**
+   * 替换或填充当前输入文本框内容。
+   */
+  setText: (text: string) => void;
+
+  /**
+   * 触发立即发送当前文本。
+   */
+  submit: (text?: string) => void;
+
+  /**
+   * 清空输入框并关闭面板。
+   */
+  close: () => void;
+}
+
+/**
+ * 斜杠快捷指令定义实体。
+ */
+export interface SlashCommand {
+  /**
+   * 指令触发名称（如 "/clear"、"/model"、"/prompt"）。
+   */
+  name: string;
+
+  /**
+   * 指令简要功能描述。
+   */
+  description: string;
+
+  /**
+   * 指令展示图标或 Emoji（可选）。
+   */
+  icon?: string;
+
+  /**
+   * 快捷填充的目标提示词或模板文本（可选）。
+   */
+  snippet?: string;
+
+  /**
+   * 执行自定义行为的回调钩子（可选）。
+   */
+  action?: (context: SlashCommandContext) => void;
+}
+
+/**
+ * beforeSend 前置安全合规拦截返回值。
+ * - boolean: true 允许发送；false 拦截并阻止发送
+ * - 对象: 包含 allow、拒绝原因 reason 与可选的脱敏文本 sanitizedContent
+ */
+export type BeforeSendResult =
+  | boolean
+  | {
+      allow: boolean;
+      reason?: string;
+      sanitizedContent?: string;
+    };
+
+/**
+ * 发送前前置合规与脱敏拦截钩子 SPI。
+ */
+export type BeforeSendHook = (
+  content: string,
+  options?: SendMessageOptions,
+) => Promise<BeforeSendResult> | BeforeSendResult;
+
+/**
+ * 结构化持久化存储适配器契约。
+ */
+export interface StorageAdapter {
+  /**
+   * 读取指定键名下的字符串值。
+   */
+  getItem: (key: string) => Promise<string | null> | string | null;
+
+  /**
+   * 写入指定键值对。
+   */
+  setItem: (key: string, value: string) => Promise<void> | void;
+
+  /**
+   * 删除指定键名。
+   */
+  removeItem: (key: string) => Promise<void> | void;
+
+  /**
+   * 清空所有命名空间下的数据（可选）。
+   */
+  clear?: () => Promise<void> | void;
+}
+
+/**
+ * 独立对话会话领域模型。
+ */
+export interface ChatSession {
+  /**
+   * 会话全局唯一标识符。
+   */
+  id: string;
+
+  /**
+   * 会话展示标题（默认提取首条提问）。
+   */
+  title: string;
+
+  /**
+   * 该会话关联的消息历史列表。
+   */
+  messages: ChatMessage[];
+
+  /**
+   * 会话创建毫秒级时间戳。
+   */
+  createdAt: number;
+
+  /**
+   * 会话最近更新毫秒级时间戳。
+   */
+  updatedAt: number;
+}
+
+/**
+ * useAiChatSessions 多会话状态机配置项。
+ */
+export interface UseAiChatSessionsOptions {
+  /**
+   * 持久化存储适配器。默认使用 LocalStorageAdapter。
+   */
+  storage?: StorageAdapter;
+
+  /**
+   * 存储键名前缀命名空间（默认 'ateng_ai_chat_sessions'）。
+   */
+  storageKey?: string;
+
+  /**
+   * 默认初始会话标题（默认 '新对话'）。
+   */
+  defaultTitle?: string;
+
+  /**
+   * 是否在初始化时自动生成一个默认空会话（若存储为空时，默认 true）。
+   */
+  autoCreate?: boolean;
+}
+
+/**
+ * useAiChatSessions 多会话管理状态机返回门面。
+ */
+export interface UseAiChatSessionsReturn {
+  /**
+   * 所有历史会话列表。
+   */
+  sessions: Ref<ChatSession[]>;
+
+  /**
+   * 当前激活会话标识符。
+   */
+  currentSessionId: Ref<string>;
+
+  /**
+   * 当前激活的会话实体（若无则为 null）。
+   */
+  currentSession: Ref<ChatSession | null>;
+
+  /**
+   * 新建一个独立会话并自动切换为当前会话。
+   */
+  createSession: (title?: string, initialMessages?: ChatMessage[]) => ChatSession;
+
+  /**
+   * 切换当前激活的会话。
+   */
+  switchSession: (sessionId: string) => void;
+
+  /**
+   * 重命名指定会话标题。
+   */
+  renameSession: (sessionId: string, newTitle: string) => void;
+
+  /**
+   * 删除指定会话（若删除的是当前会话，自动切换至相邻会话）。
+   */
+  deleteSession: (sessionId: string) => void;
+
+  /**
+   * 清空所有历史会话并重置。
+   */
+  clearAllSessions: () => void;
+
+  /**
+   * 更新当前或指定会话的消息链并触发持久化。
+   */
+  updateSessionMessages: (sessionId: string, messages: ChatMessage[]) => void;
+}
+
+/**
  * 单条消息发送配置。
  */
 export interface SendMessageOptions {
@@ -435,6 +636,21 @@ export interface UseAiChatOptions {
    * 触发工具调用时的自定义钩子（可选）。
    */
   onToolCall?: (payload: ToolCallPayload) => Promise<void> | void;
+
+  /**
+   * 发送前前置合规检测与敏感数据脱敏拦截钩子（DLP）。
+   */
+  beforeSend?: BeforeSendHook;
+
+  /**
+   * 持久化存储适配器（可选）。提供后自动同步消息。
+   */
+  storage?: StorageAdapter;
+
+  /**
+   * 当前会话存储标识键（可选）。
+   */
+  storageKey?: string;
 }
 
 /**
@@ -600,6 +816,26 @@ export interface AtengAiChatProps {
    * 是否启用导出功能（默认 true）。
    */
   exportEnabled?: boolean;
+
+  /**
+   * 输入框自适应最小行高（默认 1）。
+   */
+  minRows?: number;
+
+  /**
+   * 输入框自适应最大行高（默认 6）。
+   */
+  maxRows?: number;
+
+  /**
+   * 斜杠快捷指令列表（输入 / 时唤出）。
+   */
+  slashCommands?: SlashCommand[];
+
+  /**
+   * 发送前前置合规检测与敏感数据脱敏拦截钩子（DLP）。
+   */
+  beforeSend?: BeforeSendHook;
 }
 
 /**
@@ -655,6 +891,16 @@ export interface AtengAiChatEmits {
    * 点击推荐追问问题胶囊时触发。
    */
   (e: 'clickSuggestedQuestion', question: string): void;
+
+  /**
+   * 发送前命中合规安全策略被拦截时触发（DLP）。
+   */
+  (e: 'blocked', reason: string): void;
+
+  /**
+   * 选中并激活快捷指令时触发。
+   */
+  (e: 'selectSlashCommand', command: SlashCommand): void;
 }
 
 /**
@@ -835,6 +1081,21 @@ export interface AtengChatInputProps {
    * 当前待发送的附件列表。支持 v-model:attachments 双向绑定。
    */
   attachments?: ChatAttachment[];
+
+  /**
+   * 输入框自适应最小行高（默认 1）。
+   */
+  minRows?: number;
+
+  /**
+   * 输入框自适应最大行高（默认 6）。
+   */
+  maxRows?: number;
+
+  /**
+   * 斜杠快捷指令列表（输入 / 时唤出）。
+   */
+  slashCommands?: SlashCommand[];
 }
 
 /**
@@ -865,6 +1126,11 @@ export interface AtengChatInputEmits {
    * 附件大小超限或格式不符时抛出的异常提示。
    */
   (e: 'fileError', message: string, file: File): void;
+
+  /**
+   * 选中并激活快捷指令时触发。
+   */
+  (e: 'selectSlashCommand', command: SlashCommand): void;
 }
 
 /**

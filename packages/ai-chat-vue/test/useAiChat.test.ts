@@ -203,4 +203,44 @@ describe('useAiChat', () => {
     expect(messages.value[0].content).toBe('已修改的问题');
     expect(messages.value[1].content).toBe('答复: 已修改的问题');
   });
+
+  it('beforeSend 钩子返回 false 或 allow: false 时阻止发送并触发错误回调', async () => {
+    const onError = vi.fn();
+    const { messages, sendMessage, error } = useAiChat({
+      streamHandler: async (_p, onChunk) => {
+        onChunk('不应到达这里');
+      },
+      beforeSend: content => {
+        if (content.includes('机密')) {
+          return { allow: false, reason: '包含涉密信息，已触发 DLP 合规阻断' };
+        }
+        return true;
+      },
+      onError,
+    });
+
+    await sendMessage('这是机密数据');
+    expect(messages.value.length).toBe(0);
+    expect(error.value?.message).toContain('包含涉密信息');
+    expect(onError).toHaveBeenCalled();
+  });
+
+  it('beforeSend 钩子支持敏感数据脱敏 sanitizedContent 替换', async () => {
+    const { messages, sendMessage } = useAiChat({
+      streamHandler: async (prompt, onChunk) => {
+        onChunk(`收到脱敏后的输入: ${prompt}`);
+      },
+      beforeSend: content => {
+        return {
+          allow: true,
+          sanitizedContent: content.replace(/138\d{8}/g, '138****0000'),
+        };
+      },
+    });
+
+    await sendMessage('我的手机号是 13812345678');
+    expect(messages.value.length).toBe(2);
+    expect(messages.value[0].content).toBe('我的手机号是 138****0000');
+    expect(messages.value[1].content).toContain('138****0000');
+  });
 });

@@ -166,4 +166,66 @@ describe('AtengChatInput', () => {
     expect(mockRevokeObjectURL).toHaveBeenCalled();
     expect(wrapper.find('.at-ai-chat__attachment-capsule').exists()).toBe(false);
   });
+
+  it('CompositionGuard: 中文输入拼音拼装状态下回车硬拦截，不触发 submit', async () => {
+    wrapper = mount(AtengChatInput);
+    const textarea = wrapper.find('textarea');
+
+    await textarea.setValue('nihao');
+    // 触发拼音拼装开始
+    await textarea.trigger('compositionstart');
+
+    // 敲击回车
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false });
+    expect(wrapper.emitted('submit')).toBeFalsy();
+
+    // 拼音拼装结束并上屏
+    await textarea.setValue('你好');
+    await textarea.trigger('compositionend');
+
+    // 再次敲击回车
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false });
+    expect(wrapper.emitted('submit')).toBeTruthy();
+    expect(wrapper.emitted('submit')![0]).toEqual(['你好', []]);
+  });
+
+  it('斜杠快捷指令: 输入 / 唤出菜单，支持键盘上下切换与回车选中', async () => {
+    const onClearAction = vi.fn();
+    wrapper = mount(AtengChatInput, {
+      props: {
+        slashCommands: [
+          {
+            name: '/clear',
+            description: '清空会话历史',
+            action: onClearAction,
+          },
+          {
+            name: '/prompt',
+            description: '填充代码评审模板',
+            snippet: '请帮我评审以下代码：',
+          },
+        ],
+      },
+    });
+
+    const textarea = wrapper.find('textarea');
+    await textarea.setValue('/');
+    await wrapper.vm.$nextTick();
+
+    const menu = wrapper.find('.at-ai-chat__slash-menu');
+    expect(menu.exists()).toBe(true);
+    const items = wrapper.findAll('.at-ai-chat__slash-item');
+    expect(items.length).toBe(2);
+
+    // 键盘向下箭头切换到第二个指令
+    await textarea.trigger('keydown', { key: 'ArrowDown' });
+    expect(items[1].classes()).toContain('is-active');
+
+    // 回车确认
+    await textarea.trigger('keydown', { key: 'Enter' });
+    expect(wrapper.emitted('selectSlashCommand')).toBeTruthy();
+    const updateEvents = wrapper.emitted('update:modelValue');
+    expect(updateEvents).toBeTruthy();
+    expect(updateEvents?.[updateEvents.length - 1]).toEqual(['请帮我评审以下代码：']);
+  });
 });

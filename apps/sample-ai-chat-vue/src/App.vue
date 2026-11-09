@@ -6,16 +6,19 @@
  * @since 2026-11-09
  */
 
-import { ref } from 'vue';
-import { ElMessage, ElNotification } from 'element-plus';
+import { ref, watch } from 'vue';
+import { ElMessage, ElNotification, ElMessageBox } from 'element-plus';
 import {
   AtengAiChat,
   AtengArtifactSidebar,
   useAiChat,
+  useAiChatSessions,
   type ToolDefinition,
   type StarterPrompt,
   type ChatAttachment,
   type MessageFeedback,
+  type SlashCommand,
+  type BeforeSendHook,
 } from '@atengk/ai-chat-vue';
 import { AtengCodeDiffEditor } from '@atengk/code-editor-vue';
 import { simulateAiStream } from './mock/mockStream';
@@ -30,6 +33,74 @@ const toggleDark = (): void => {
   } else {
     document.documentElement.classList.remove('dark');
   }
+};
+
+// 1. 多会话持久化状态机
+const {
+  sessions,
+  currentSessionId,
+  currentSession,
+  createSession,
+  switchSession,
+  renameSession,
+  deleteSession,
+  updateSessionMessages,
+} = useAiChatSessions({
+  defaultTitle: '新对话',
+});
+
+// 2. 斜杠快捷指令预设列表
+const sampleSlashCommands: SlashCommand[] = [
+  {
+    name: '/clear',
+    description: '清空当前对话所有消息',
+    icon: '🗑️',
+    action: ctx => {
+      clearMessages();
+      ctx.close();
+      ElMessage.info('当前会话消息已清空');
+    },
+  },
+  {
+    name: '/architect',
+    description: '插入系统架构分析提示词模板',
+    icon: '📐',
+    snippet: '作为资深系统架构师，请帮我分析该业务场景的技术架构与性能瓶颈：',
+  },
+  {
+    name: '/weather',
+    description: '快速查询指定城市气象数据',
+    icon: '⛅',
+    snippet: '请帮我查询北京当前的实时天气状况',
+  },
+  {
+    name: '/timeout',
+    description: '模拟网络超时与 504 异常以自验原位重试自愈',
+    icon: '⚠️',
+    snippet: '模拟超时：请执行一个会发生 504 超时的请求',
+  },
+];
+
+// 3. 前置 DLP 安全合规拦截与脱敏钩子
+const sampleBeforeSend: BeforeSendHook = content => {
+  if (content.includes('删库跑路') || content.includes('密码明文')) {
+    return {
+      allow: false,
+      reason: '触发企业 DLP 合规安全审查阻断：检测到高危涉密敏感词汇！',
+    };
+  }
+  // 手机号自动脱敏
+  const phoneRegex = /1[3-9]\d{9}/g;
+  if (phoneRegex.test(content)) {
+    return {
+      allow: true,
+      sanitizedContent: content.replace(
+        phoneRegex,
+        match => `${match.slice(0, 3)}****${match.slice(7)}`,
+      ),
+    };
+  }
+  return true;
 };
 
 // 空会话引导提示卡片网格
@@ -62,7 +133,6 @@ const sampleStarterPrompts: StarterPrompt[] = [
 
 // 多模态附件上传 SPI 处理器
 const mockUploadHandler = async (file: File): Promise<ChatAttachment> => {
-  // 模拟 400ms 异步上传延迟
   await new Promise(resolve => setTimeout(resolve, 400));
   const isImage = file.type.startsWith('image/');
   const mockUrl = URL.createObjectURL(file);
@@ -77,14 +147,13 @@ const mockUploadHandler = async (file: File): Promise<ChatAttachment> => {
   };
 };
 
-// 1. 注册展厅工具集（自动查询工具 + 敏感操作审批工具）
+// 注册展厅工具集（自动查询工具 + 敏感操作审批工具）
 const sampleTools: ToolDefinition[] = [
   {
     name: 'get_weather',
     description: '查询城市实时气象与空气质量数据',
     mode: 'auto',
     execute: async (args: Record<string, unknown>) => {
-      // 模拟 300ms 异步接口网络延迟
       await new Promise(resolve => setTimeout(resolve, 300));
       return {
         city: args.city || '北京',
@@ -101,7 +170,6 @@ const sampleTools: ToolDefinition[] = [
     description: '删除生产数据库表敏感特权操作 (HITL)',
     mode: 'confirm',
     execute: async (args: Record<string, unknown>) => {
-      // 模拟特权数据库 DROP 操作
       await new Promise(resolve => setTimeout(resolve, 500));
       return {
         status: 'SUCCESS',
@@ -132,11 +200,12 @@ const {
   isArtifactSidebarOpen,
   openArtifact,
 } = useAiChat({
+  initialMessages: currentSession.value?.messages || [],
   tools: sampleTools,
   streamHandler: simulateAiStream,
   typewriterSpeed,
+  beforeSend: sampleBeforeSend,
   onFinish: message => {
-    // assistant 消息完成时自动注入动态追问问题胶囊
     if (message.role === 'assistant') {
       if (message.content.includes('用户资料卡片')) {
         message.suggestedQuestions = [
@@ -166,6 +235,68 @@ const {
     }
   },
 });
+
+// 会话消息自动持久化到当前会话
+watch(
+  messages,
+  newMsgs => {
+    if (currentSessionId.value) {
+      updateSessionMessages(currentSessionId.value, newMsgs);
+    }
+  },
+  { deep: true },
+);
+
+// 切换会话时同步更新状态机中的消息链
+const handleSwitchSession = (sid: string): void => {
+  if (isStreaming.value) {
+    ElMessage.warning('当前正在流式生成中，请先等待完成或停止');
+    return;
+  }
+  switchSession(sid);
+  if (currentSession.value) {
+    messages.value = [...currentSession.value.messages];
+  }
+};
+
+const handleCreateSession = (): void => {
+  if (isStreaming.value) {
+    ElMessage.warning('当前正在流式生成中，请先等待完成或停止');
+    return;
+  }
+  const newS = createSession();
+  messages.value = [];
+  ElMessage.success(`已新建会话：“${newS.title}”`);
+};
+
+const handleRenameCurrentSession = async (): Promise<void> => {
+  if (!currentSession.value) return;
+  try {
+    const { value } = await ElMessageBox.prompt('请输入新的会话名称：', '重命名会话', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValue: currentSession.value.title,
+    });
+    if (value && value.trim()) {
+      renameSession(currentSession.value.id, value.trim());
+      ElMessage.success('会话重命名成功');
+    }
+  } catch {
+    // 取消
+  }
+};
+
+const handleDeleteCurrentSession = (): void => {
+  if (!currentSession.value) return;
+  const targetId = currentSession.value.id;
+  deleteSession(targetId);
+  if (currentSession.value) {
+    messages.value = [...currentSession.value.messages];
+  } else {
+    messages.value = [];
+  }
+  ElMessage.info('会话已删除');
+};
 
 const onSend = (content: string, attachments?: ChatAttachment[]): void => {
   void sendMessage(content, { attachments });
@@ -206,6 +337,10 @@ const onClickSuggestedQuestion = (question: string): void => {
   ElMessage.info(`发起追问：${question}`);
   void sendMessage(question);
 };
+
+const onBlocked = (reason: string): void => {
+  ElMessage.error(`[DLP 合规拦截] ${reason}`);
+};
 </script>
 
 <template>
@@ -217,6 +352,32 @@ const onClickSuggestedQuestion = (question: string): void => {
         <el-tag type="success" size="small" effect="plain">端口: 3011</el-tag>
         <el-tag type="info" size="small" effect="plain">L2 专用能力扩展层</el-tag>
         <el-tag type="warning" size="small" effect="plain">全真离线 Mock 驱动</el-tag>
+
+        <!-- 会话选择器与多会话管理 -->
+        <div class="session-manager-group">
+          <el-select
+            :model-value="currentSessionId"
+            size="small"
+            style="width: 150px"
+            placeholder="切换会话"
+            @update:model-value="handleSwitchSession"
+          >
+            <el-option v-for="s in sessions" :key="s.id" :label="s.title" :value="s.id" />
+          </el-select>
+          <el-button size="small" type="primary" plain @click="handleCreateSession">
+            ➕ 新建
+          </el-button>
+          <el-button size="small" @click="handleRenameCurrentSession"> ✏️ 重命名 </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            plain
+            :disabled="sessions.length <= 1"
+            @click="handleDeleteCurrentSession"
+          >
+            🗑️ 删除
+          </el-button>
+        </div>
       </div>
 
       <div class="sample-actions">
@@ -251,8 +412,12 @@ const onClickSuggestedQuestion = (question: string): void => {
           :is-streaming="isStreaming"
           :starter-prompts="sampleStarterPrompts"
           :upload-handler="mockUploadHandler"
+          :min-rows="1"
+          :max-rows="6"
+          :slash-commands="sampleSlashCommands"
+          :before-send="sampleBeforeSend"
           height="620px"
-          placeholder="请输入您的问题（例如：介绍 ateng-ui 的架构优势），支持拖拽或直接粘贴图片，Enter 发送..."
+          placeholder="请输入您的问题，支持 1~6 行自适应伸缩，输入 / 唤出快捷指令，支持拖拽或直接粘贴图片..."
           @send="onSend"
           @stop="onStop"
           @approve-tool="approveToolCall"
@@ -262,10 +427,11 @@ const onClickSuggestedQuestion = (question: string): void => {
           @edit-message="onEditMessage"
           @feedback="onFeedback"
           @click-suggested-question="onClickSuggestedQuestion"
+          @blocked="onBlocked"
         >
           <template #header>
             <div class="chat-custom-header">
-              <span>🤖 智能对话助手（离线仿真运行中）</span>
+              <span>🤖 智能对话助手（当前会话：{{ currentSession?.title }}）</span>
               <span class="chat-status-pill" :class="{ 'chat-status-pill--active': isStreaming }">
                 {{ isStreaming ? '正在生成中...' : '空闲就绪' }}
               </span>
@@ -277,23 +443,39 @@ const onClickSuggestedQuestion = (question: string): void => {
               <span class="preset-label">快捷预设：</span>
               <el-button
                 size="small"
-                type="success"
+                type="danger"
                 plain
                 :disabled="isStreaming"
-                @click="sendPresetPrompt('请为我生成一个 Vue 用户资料卡片组件 (v1 产物)')"
+                @click="sendPresetPrompt('模拟超时：请执行一个会发生 504 超时的请求')"
               >
-                📦 产物v1：生成Vue卡片
+                🔄 504超时原位自愈
               </el-button>
               <el-button
                 size="small"
                 type="warning"
                 plain
                 :disabled="isStreaming"
-                @click="
-                  sendPresetPrompt('请迭代升级该组件 (v2 版本)，增加头像、关注切换与 Diff 比对')
-                "
+                @click="sendPresetPrompt('测试敏感词拦截：我想准备删库跑路了')"
               >
-                🔄 产物v2：升级并Diff比对
+                🛡️ DLP拦截：删库跑路
+              </el-button>
+              <el-button
+                size="small"
+                type="info"
+                plain
+                :disabled="isStreaming"
+                @click="sendPresetPrompt('请为客户登记联系电话：13812345678')"
+              >
+                🔒 DLP脱敏：手机号脱敏
+              </el-button>
+              <el-button
+                size="small"
+                type="success"
+                plain
+                :disabled="isStreaming"
+                @click="sendPresetPrompt('请为我生成一个 Vue 用户资料卡片组件 (v1 产物)')"
+              >
+                📦 产物v1：生成Vue卡片
               </el-button>
               <el-button
                 size="small"
@@ -306,34 +488,12 @@ const onClickSuggestedQuestion = (question: string): void => {
               </el-button>
               <el-button
                 size="small"
-                type="danger"
-                plain
-                :disabled="isStreaming"
-                @click="sendPresetPrompt('请执行删除生产操作日志表 drop table sys_operation_log')"
-              >
-                ⚠️ HITL：删库审批
-              </el-button>
-              <el-button
-                size="small"
                 text
                 bg
                 :disabled="isStreaming"
                 @click="sendPresetPrompt('请解释四层洋葱拓扑的设计哲学与单向依赖律')"
               >
                 📐 四层洋葱拓扑
-              </el-button>
-              <el-button
-                size="small"
-                text
-                bg
-                :disabled="isStreaming"
-                @click="
-                  sendPresetPrompt(
-                    '请展示全场景综合用例（包含 KaTeX 数学、Prism 代码与 Mermaid 架构图）',
-                  )
-                "
-              >
-                🔬 数学+代码+架构图综合
               </el-button>
             </div>
           </template>
@@ -394,6 +554,13 @@ const onClickSuggestedQuestion = (question: string): void => {
           <div class="info-desc">
             <p><strong>特性验证清单：</strong></p>
             <ul>
+              <li>✅ CompositionGuard：IME 中文拼音合成硬拦截防线，杜绝误触回车；</li>
+              <li>✅ 自适应伸缩输入框：1~6 行高度动态伸展自适应，超出平滑滚动；</li>
+              <li>✅ 斜杠快捷指令：输入 / 呼出浮层面板，支持键盘上下与回车选中；</li>
+              <li>✅ ChatSession 多会话管理：新建/切换/重命名/删除与 StorageAdapter 持久化；</li>
+              <li>✅ LocalStorageAdapter：持久化存储与 QuotaExceeded 配额防溢出保护；</li>
+              <li>✅ DLP 前置合规：beforeSend 安全拦截阻断与手机号/敏感词脱敏掩码；</li>
+              <li>✅ 原位重试自愈：流式网络中断或 504 异常消息标红，提供一键单点自愈重试；</li>
               <li>✅ 多模态附件流水线：文件拖拽、剪贴板截图直粘与 uploadHandler SPI；</li>
               <li>✅ 消息操作审计条 AtengMessageToolbar：复制、朗读、导出 Markdown/JSON；</li>
               <li>✅ 评价反馈 SPI：赞同高亮与批评理由/标签选择浮层提交；</li>
@@ -444,6 +611,13 @@ const onClickSuggestedQuestion = (question: string): void => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.session-manager-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
 }
 
 .sample-actions {

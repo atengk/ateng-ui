@@ -20,6 +20,13 @@ export async function simulateAiStream(
   onChunk: (chunk: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
+  // 模拟网络故障/504超时以验证原位重试自愈
+  if (prompt.includes('504') || prompt.includes('模拟超时') || prompt.includes('模拟网络中断')) {
+    onChunk('正在连接后端流式网关...\n');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    throw new Error('504 Gateway Timeout (后端代理链路超时中断)');
+  }
+
   const isArtifactGen =
     prompt.includes('生成 Vue') || prompt.includes('v1 产物') || prompt.includes('生成用户卡片');
   const isArtifactUpgrade =

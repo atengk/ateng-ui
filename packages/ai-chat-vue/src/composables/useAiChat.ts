@@ -54,14 +54,40 @@ function isAbortError(error: unknown): boolean {
  * @returns 响应式会话状态机与控制门面
  */
 export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
-  // 1. 响应式状态定义
-  const messages: Ref<ChatMessage[]> = ref(
-    options.initialMessages && options.initialMessages.length > 0
-      ? [...options.initialMessages]
-      : [],
-  );
+  // 1. 响应式状态定义与存储初始化
+  let defaultInitialMessages: ChatMessage[] = [];
+  if (options.initialMessages && options.initialMessages.length > 0) {
+    defaultInitialMessages = [...options.initialMessages];
+  } else if (options.storage && options.storageKey) {
+    try {
+      const stored = options.storage.getItem(options.storageKey);
+      if (stored && typeof stored === 'string') {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          defaultInitialMessages = parsed;
+        }
+      }
+    } catch {
+      // 容错忽略
+    }
+  }
+
+  const messages: Ref<ChatMessage[]> = ref(defaultInitialMessages);
   const isStreaming: Ref<boolean> = ref(false);
   const error: Ref<Error | null> = ref(null);
+
+  /**
+   * 触发可选存储持久化。
+   */
+  const syncStorage = (): void => {
+    if (options.storage && options.storageKey) {
+      try {
+        void options.storage.setItem(options.storageKey, JSON.stringify(messages.value));
+      } catch {
+        // 存储降级
+      }
+    }
+  };
 
   // 全局 Artifact 产物总线状态
   const artifacts: Ref<ArtifactPayload[]> = ref([]);
@@ -116,6 +142,7 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     activeArtifactVersion.value = 1;
     isArtifactSidebarOpen.value = false;
     error.value = null;
+    syncStorage();
   };
 
   /**
@@ -478,12 +505,44 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
     content: string,
     sendOptions: SendMessageOptions = {},
   ): Promise<void> => {
-    const trimmed = content.trim();
+    let finalContent = content.trim();
     const hasAttachments = Boolean(sendOptions.attachments) && sendOptions.attachments!.length > 0;
 
     // 前置空安全卫语句校验
-    if (!trimmed && !hasAttachments) {
+    if (!finalContent && !hasAttachments) {
       return;
+    }
+
+    // 前置 DLP 安全合规拦截钩子检测
+    if (options.beforeSend) {
+      try {
+        const checkResult = await options.beforeSend(finalContent, sendOptions);
+        if (typeof checkResult === 'boolean') {
+          if (!checkResult) {
+            const blockedErr = new Error('消息未通过安全合规检测，已被拦截发送');
+            error.value = blockedErr;
+            options.onError?.(blockedErr);
+            return;
+          }
+        } else if (checkResult && typeof checkResult === 'object') {
+          if (!checkResult.allow) {
+            const blockedErr = new Error(
+              checkResult.reason || '消息包含敏感违规内容，已被拦截发送',
+            );
+            error.value = blockedErr;
+            options.onError?.(blockedErr);
+            return;
+          }
+          if (checkResult.sanitizedContent) {
+            finalContent = checkResult.sanitizedContent.trim();
+          }
+        }
+      } catch (err) {
+        const checkErr = err instanceof Error ? err : new Error(String(err));
+        error.value = checkErr;
+        options.onError?.(checkErr);
+        return;
+      }
     }
 
     // 中断可能未决的前序请求
@@ -495,14 +554,16 @@ export function useAiChat(options: UseAiChatOptions = {}): UseAiChatReturn {
       id: createMessageId(),
       role: 'user',
       status: 'completed',
-      content: trimmed,
+      content: finalContent,
       attachments: sendOptions.attachments,
       createdAt: Date.now(),
     };
     messages.value.push(userMessage);
+    syncStorage();
 
     // 2. 触发流式交互回合
-    await runStreamTurn(trimmed, sendOptions);
+    await runStreamTurn(finalContent, sendOptions);
+    syncStorage();
   };
 
   /**

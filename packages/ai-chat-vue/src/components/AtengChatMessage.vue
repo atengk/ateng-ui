@@ -23,6 +23,7 @@ import AtengReasoningBlock from './AtengReasoningBlock.vue';
 import AtengToolCallCard from './AtengToolCallCard.vue';
 import AtengArtifactCard from './AtengArtifactCard.vue';
 import AtengMessageToolbar from './AtengMessageToolbar.vue';
+import { IconRotateCcw } from './icons';
 
 const props = withDefaults(defineProps<AtengChatMessageProps>(), {
   isLast: false,
@@ -205,7 +206,11 @@ const formatFileSize = (bytes: number): string => {
         </div>
       </div>
 
-      <div v-else class="at-ai-chat__bubble">
+      <div
+        v-else
+        class="at-ai-chat__bubble"
+        :class="{ 'at-ai-chat__bubble--error': props.message.status === 'error' }"
+      >
         <slot name="content" :content="props.message.content">
           <AtengMarkdownRenderer
             :content="props.message.content"
@@ -221,6 +226,22 @@ const formatFileSize = (bytes: number): string => {
             aria-hidden="true"
           />
         </slot>
+      </div>
+
+      <!-- 异常状态标红与原位重试自愈按钮 -->
+      <div v-if="props.message.status === 'error'" class="at-ai-chat__error-retry-card">
+        <span class="at-ai-chat__error-retry-text">
+          ⚠️ {{ props.message.error || '网络连接中断或服务异常' }}
+        </span>
+        <button
+          type="button"
+          class="at-ai-chat__error-retry-btn"
+          title="重新尝试此请求"
+          @click="emit('regenerate', props.message.id)"
+        >
+          <IconRotateCcw class="at-ai-chat__error-retry-icon" />
+          <span>重新尝试此请求</span>
+        </button>
       </div>
 
       <!-- 操作审计条 -->

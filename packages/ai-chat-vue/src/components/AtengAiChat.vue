@@ -35,6 +35,9 @@ const props = withDefaults(defineProps<AtengAiChatProps>(), {
   starterPrompts: () => [],
   speechEnabled: true,
   exportEnabled: true,
+  minRows: 1,
+  maxRows: 6,
+  slashCommands: () => [],
 });
 
 const emit = defineEmits<AtengAiChatEmits>();
@@ -115,11 +118,37 @@ watch(
   { deep: true },
 );
 
-const onSend = (content: string, attachments?: ChatAttachment[]): void => {
+const onSend = async (content: string, attachments?: ChatAttachment[]): Promise<void> => {
+  let finalContent = content.trim();
+
+  // 前置 DLP 合规检测
+  if (props.beforeSend) {
+    try {
+      const checkResult = await props.beforeSend(finalContent, { attachments });
+      if (typeof checkResult === 'boolean') {
+        if (!checkResult) {
+          emit('blocked', '消息未通过安全合规检测，已被拦截发送');
+          return;
+        }
+      } else if (checkResult && typeof checkResult === 'object') {
+        if (!checkResult.allow) {
+          emit('blocked', checkResult.reason || '消息包含敏感违规内容，已被拦截发送');
+          return;
+        }
+        if (checkResult.sanitizedContent) {
+          finalContent = checkResult.sanitizedContent.trim();
+        }
+      }
+    } catch (err) {
+      emit('blocked', err instanceof Error ? err.message : String(err));
+      return;
+    }
+  }
+
   if (attachments && attachments.length > 0) {
-    emit('send', content, attachments);
+    emit('send', finalContent, attachments);
   } else {
-    emit('send', content);
+    emit('send', finalContent);
   }
 };
 
@@ -233,8 +262,12 @@ defineExpose({
         :upload-handler="props.uploadHandler"
         :accepted-file-types="props.acceptedFileTypes"
         :max-file-size="props.maxFileSize"
+        :min-rows="props.minRows"
+        :max-rows="props.maxRows"
+        :slash-commands="props.slashCommands"
         @submit="onSend"
         @stop="onStop"
+        @select-slash-command="cmd => emit('selectSlashCommand', cmd)"
       />
     </slot>
 
