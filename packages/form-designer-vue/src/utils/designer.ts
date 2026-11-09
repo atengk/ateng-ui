@@ -102,6 +102,22 @@ function getDefaultLabel(type: string): string {
       return '复选框';
     case 'radio':
       return '单选框';
+    case 'switch':
+      return '开关切换';
+    case 'date-picker':
+      return '日期选择';
+    case 'rate':
+      return '评分星级';
+    case 'slider':
+      return '滑块条';
+    case 'rich-editor':
+      return '富文本创作器';
+    case 'code-editor':
+      return '代码编辑器';
+    case 'signature':
+      return '手写签名板';
+    case 'chunk-upload':
+      return '切片文件上传';
     case 'grid':
       return '栅格排版';
     case 'card':

@@ -12,6 +12,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./presets/element-plus": {
+      "types": "./dist/presets/element-plus/index.d.ts",
+      "import": "./dist/presets/element-plus.js",
+      "require": "./dist/presets/element-plus.cjs"
+    },
     "./style.css": "./dist/index.css"
   },
   "files": [

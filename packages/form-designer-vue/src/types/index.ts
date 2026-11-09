@@ -287,6 +287,8 @@ export interface FormWidgetAdapter {
   propsConfigSchema?: FormSchema;
   /** 控件渲染组件或渲染函数 */
   component: Component;
+  /** 控件直接渲染方法（可选扩展） */
+  render?: (ctx: WidgetRenderContext) => unknown;
 }
 
 /**

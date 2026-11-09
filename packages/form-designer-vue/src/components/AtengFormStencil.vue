@@ -2,7 +2,7 @@
 /**
  * AtengFormStencil 物料面板组件。
  *
- * 遵循 ADR-0044 规约，按“基础输入、布局排版、数据集合”分类呈现可用图元，
+ * 遵循 ADR-0044 规约，按“基础输入、高级扩展、布局排版、数据集合”分类呈现可用图元，
  * 支持 SortableJS 拖拽源配置与一键点击快速添加。
  *
  * @author Ateng
@@ -21,7 +21,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  categories: () => ['basic', 'layout', 'collection'],
+  categories: () => ['basic', 'advanced', 'layout', 'collection'],
   disabled: false,
 });
 
@@ -33,41 +33,28 @@ const emit = defineEmits<{
 /** 预设物料字典 */
 const defaultStencilItems: StencilItem[] = [
   // 1. 基础输入
-  {
-    type: 'input',
-    label: '单行文本',
-    icon: 'text',
-    category: 'basic',
-  },
-  {
-    type: 'textarea',
-    label: '多行文本',
-    icon: 'textarea',
-    category: 'basic',
-  },
-  {
-    type: 'select',
-    label: '下拉选择',
-    icon: 'select',
-    category: 'basic',
-  },
-  {
-    type: 'checkbox',
-    label: '复选框',
-    icon: 'checkbox',
-    category: 'basic',
-  },
-  {
-    type: 'radio',
-    label: '单选框',
-    icon: 'radio',
-    category: 'basic',
-  },
-  // 2. 布局排版
+  { type: 'input', label: '单行文本', icon: '📝', category: 'basic' },
+  { type: 'textarea', label: '多行文本', icon: '📄', category: 'basic' },
+  { type: 'input-number', label: '数字计数', icon: '🔢', category: 'basic' },
+  { type: 'select', label: '下拉选择', icon: '🔽', category: 'basic' },
+  { type: 'checkbox', label: '复选框', icon: '☑️', category: 'basic' },
+  { type: 'radio', label: '单选框', icon: '🔘', category: 'basic' },
+  { type: 'switch', label: '开关切换', icon: '🔛', category: 'basic' },
+  { type: 'date-picker', label: '日期选择', icon: '📅', category: 'basic' },
+
+  // 2. 高级扩展生态物料
+  { type: 'rate', label: '评分星级', icon: '⭐', category: 'advanced' },
+  { type: 'slider', label: '滑块条', icon: '🎚️', category: 'advanced' },
+  { type: 'rich-editor', label: '富文本创作', icon: '🖋️', category: 'advanced' },
+  { type: 'code-editor', label: '代码编辑器', icon: '💻', category: 'advanced' },
+  { type: 'signature', label: '手写签名板', icon: '✍️', category: 'advanced' },
+  { type: 'chunk-upload', label: '切片上传', icon: '📦', category: 'advanced' },
+
+  // 3. 布局排版
   {
     type: 'grid',
     label: '栅格排版',
-    icon: 'grid',
+    icon: '🔲',
     category: 'layout',
     isContainer: true,
     containerType: 'layout',
@@ -75,16 +62,17 @@ const defaultStencilItems: StencilItem[] = [
   {
     type: 'card',
     label: '卡片分组',
-    icon: 'card',
+    icon: '🃏',
     category: 'layout',
     isContainer: true,
     containerType: 'layout',
   },
-  // 3. 数据集合
+
+  // 4. 数据集合
   {
     type: 'subform',
     label: '明细子表单',
-    icon: 'table',
+    icon: '📑',
     category: 'collection',
     isCollection: true,
     containerType: 'data',
@@ -92,10 +80,10 @@ const defaultStencilItems: StencilItem[] = [
 ];
 
 const categoryMeta: Record<FormWidgetCategory, { title: string; desc: string }> = {
-  basic: { title: '基础输入控件', desc: '单行、多行、选择等表单项' },
-  advanced: { title: '高级业务控件', desc: '富文本、代码、上传等扩展' },
-  layout: { title: '布局排版容器', desc: '栅格布局、折叠卡片等几何结构' },
-  collection: { title: '数据集合容器', desc: '明细子表单与列表数据项' },
+  basic: { title: '基础输入控件', desc: '文本、数字、选择等原子项' },
+  advanced: { title: '高级生态物料', desc: '富文本、代码、签名、切片上传' },
+  layout: { title: '布局排版容器', desc: '栅格布局、卡片分组等几何结构' },
+  collection: { title: '数据集合容器', desc: '明细子表单与多行记录项' },
 };
 
 /** 分类过滤后的物料集 */
@@ -143,7 +131,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  // 100% 销毁 Sortable 实例
   sortableInstances.forEach(instance => {
     try {
       instance.destroy();
@@ -189,105 +176,7 @@ const handleDragStart = (item: StencilItem, evt: DragEvent): void => {
           @click="handleItemClick(item)"
           @dragstart="handleDragStart(item, $event)"
         >
-          <span class="at-form-stencil__icon">
-            <svg
-              v-if="item.icon === 'text'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="4 7 4 4 20 4 20 7" />
-              <line x1="9" y1="20" x2="15" y2="20" />
-              <line x1="12" y1="4" x2="12" y2="20" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'textarea'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'select'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polygon points="6 9 12 15 18 9" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'checkbox'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <polyline points="9 11 12 14 22 4" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'radio'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="4" fill="currentColor" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'grid'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            <svg
-              v-else-if="item.icon === 'card'"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-            <svg
-              v-else
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
-            </svg>
-          </span>
+          <span class="at-form-stencil__icon">{{ item.icon }}</span>
           <span class="at-form-stencil__label">{{ item.label }}</span>
         </div>
       </div>
@@ -372,9 +261,9 @@ const handleDragStart = (item: StencilItem, evt: DragEvent): void => {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
   width: 18px;
   height: 18px;
-  color: inherit;
 }
 
 .at-form-stencil__label {
@@ -383,7 +272,6 @@ const handleDragStart = (item: StencilItem, evt: DragEvent): void => {
   white-space: nowrap;
 }
 
-/* Sortable 占位样式 */
 .at-stencil-ghost {
   opacity: 0.4;
   border: 1px dashed var(--el-color-primary, #409eff);

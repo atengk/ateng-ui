@@ -19,8 +19,9 @@ import DynamicRuleScenario from './scenarios/DynamicRuleScenario.vue';
 import WorkflowSynergyScenario from './scenarios/WorkflowSynergyScenario.vue';
 import SubFormScenario from './scenarios/SubFormScenario.vue';
 import FormDesignerScenario from './scenarios/FormDesignerScenario.vue';
+import ElementPlusScenario from './scenarios/ElementPlusScenario.vue';
 
-const activeTab = ref<string>('designer');
+const activeTab = ref<string>('element-plus');
 const isDark = ref<boolean>(false);
 
 const toggleDarkMode = (val: boolean): void => {
@@ -72,6 +73,12 @@ const toggleDarkMode = (val: boolean): void => {
         </el-tab-pane>
         <el-tab-pane label="场景六：设计态画板、属性自举与历史栈 (FormDesigner)" name="designer">
           <FormDesignerScenario />
+        </el-tab-pane>
+        <el-tab-pane
+          label="场景七：Element Plus 官方控件与生态物料 (ElementPlus)"
+          name="element-plus"
+        >
+          <ElementPlusScenario />
         </el-tab-pane>
       </el-tabs>
     </main>

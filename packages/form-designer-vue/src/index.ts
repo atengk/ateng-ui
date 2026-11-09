@@ -19,6 +19,7 @@ import AtengFormPropertyPanel from './components/AtengFormPropertyPanel.vue';
 import AtengFormQuickPropertyPanel from './components/AtengFormQuickPropertyPanel.vue';
 import AtengFormCanvasLeaf from './components/AtengFormCanvasLeaf.vue';
 import AtengFormCodeDrawer from './components/AtengFormCodeDrawer.vue';
+import AtengSignature from './presets/element-plus/components/AtengSignature.vue';
 
 // 导出运行态与设计态组件
 export {
@@ -66,6 +67,10 @@ export {
 // 导出容灾草稿箱与代码生成器
 export { DraftManager, createDraftManager } from './storage';
 export { CodeGenerator } from './generator';
+
+// 导出数据源与 Element Plus 官方适配套件
+export * from './datasource';
+export * from './presets/element-plus';
 
 // 导出工具函数
 export { getByPath, setByPath, parsePath, safeClone } from './utils/path';
@@ -134,6 +139,7 @@ export function install(app: App): void {
   app.component('AtengFormOutlineTree', AtengFormOutlineTree);
   app.component('AtengFormPropertyPanel', AtengFormPropertyPanel);
   app.component('AtengFormCodeDrawer', AtengFormCodeDrawer);
+  app.component('AtengSignature', AtengSignature);
 }
 
 export default {
