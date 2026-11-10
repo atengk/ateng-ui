@@ -173,3 +173,18 @@ export class ImageCompressionPipeline {
     };
   }
 }
+
+/**
+ * 便捷执行图像画布智能压缩与尺寸降采样。
+ *
+ * @param sourceCanvas 输入的源 Canvas
+ * @param options 导出选项
+ * @returns 压缩后的二进制 Blob
+ */
+export async function compressCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  options?: CropperExportOptions,
+): Promise<Blob> {
+  const result = await ImageCompressionPipeline.compress(sourceCanvas, options);
+  return result.blob;
+}

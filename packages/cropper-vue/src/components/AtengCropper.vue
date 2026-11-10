@@ -133,6 +133,7 @@ defineExpose({
   exportFile: cropper.exportFile,
   exportDataUrl: cropper.exportDataUrl,
   exportCanvas: cropper.exportCanvas,
+  getCroppedCanvas: cropper.exportCanvas,
   exportResult: cropper.exportResult,
   destroy: cropper.destroy,
   getData: () => cropper.data.value,

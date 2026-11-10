@@ -89,3 +89,17 @@ export class WatermarkEngine {
     return targetCanvas;
   }
 }
+
+/**
+ * 将防伪水印便捷合成到目标 Canvas 副本上。
+ *
+ * @param sourceCanvas 原始图像 Canvas
+ * @param options 防伪水印配置项
+ * @returns 带有合成水印的新 Canvas 实例
+ */
+export function applyWatermark(
+  sourceCanvas: HTMLCanvasElement,
+  options?: CropperWatermarkOptions,
+): HTMLCanvasElement {
+  return WatermarkEngine.apply(sourceCanvas, options);
+}
