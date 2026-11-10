@@ -101,3 +101,309 @@
 .at-cropper .cropper-modal {
   background-color: var(--at-cropper-mask-bg);
 }
+
+/* 模态弹窗脱壳脱耦体系 */
+.at-cropper-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.at-cropper-modal__mask {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.2s ease;
+}
+
+.at-cropper-modal__container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 90vw;
+  max-height: 90vh;
+  background-color: var(--at-cropper-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  border-radius: 12px;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.25),
+    0 10px 10px -5px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.at-cropper-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--at-cropper-border-color);
+}
+
+.at-cropper-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--at-cropper-text-color);
+}
+
+.at-cropper-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--at-cropper-text-color);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 0.15s ease;
+}
+
+.at-cropper-modal__close:hover {
+  opacity: 1;
+  background-color: var(--at-cropper-border-color);
+}
+
+.at-cropper-modal__body {
+  display: flex;
+  flex: 1;
+  min-height: 380px;
+  padding: 20px;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.at-cropper-modal__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.at-cropper-modal__canvas-wrapper {
+  flex: 1;
+  min-height: 320px;
+  height: 380px;
+}
+
+/* 工具栏 */
+.at-cropper-modal__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: var(--at-cropper-empty-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  border-radius: 8px;
+}
+
+.at-cropper-modal__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.at-cropper-modal__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  background-color: var(--at-cropper-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  border-radius: 6px;
+  color: var(--at-cropper-text-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.at-cropper-modal__btn:hover {
+  border-color: var(--at-cropper-point-color);
+  color: var(--at-cropper-point-color);
+}
+
+.at-cropper-modal__btn--active {
+  background-color: var(--at-cropper-point-color);
+  border-color: var(--at-cropper-point-color);
+  color: #ffffff !important;
+}
+
+.at-cropper-modal__slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--at-cropper-text-color);
+}
+
+.at-cropper-modal__slider {
+  width: 90px;
+  cursor: pointer;
+  accent-color: var(--at-cropper-point-color);
+}
+
+/* 侧边预览面板 */
+.at-cropper-modal__sidebar {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  padding-left: 10px;
+  border-left: 1px solid var(--at-cropper-border-color);
+}
+
+.at-cropper-modal__sidebar-title {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--at-cropper-text-color);
+}
+
+.at-cropper-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.at-cropper-preview__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.at-cropper-preview__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: var(--at-cropper-empty-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  box-sizing: border-box;
+}
+
+.at-cropper-preview__box--circle {
+  border-radius: 50% !important;
+}
+
+.at-cropper-preview__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.at-cropper-preview__label {
+  font-size: 11px;
+  color: var(--at-cropper-text-color);
+  opacity: 0.7;
+}
+
+/* 拖拽上传空状态 (Dropzone) */
+.at-cropper-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  padding: 30px 20px;
+  border: 2px dashed var(--at-cropper-border-color);
+  border-radius: 8px;
+  background-color: var(--at-cropper-empty-bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.at-cropper-dropzone:hover,
+.at-cropper-dropzone--active {
+  border-color: var(--at-cropper-point-color);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.at-cropper-dropzone__icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  color: var(--at-cropper-point-color);
+  opacity: 0.85;
+}
+
+.at-cropper-dropzone__title {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--at-cropper-text-color);
+}
+
+.at-cropper-dropzone__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--at-cropper-text-color);
+  opacity: 0.65;
+}
+
+/* 底部操作栏 */
+.at-cropper-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--at-cropper-border-color);
+  background-color: var(--at-cropper-empty-bg);
+}
+
+.at-cropper-modal__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.at-cropper-modal__action-btn--cancel {
+  background-color: var(--at-cropper-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  color: var(--at-cropper-text-color);
+}
+
+.at-cropper-modal__action-btn--cancel:hover {
+  background-color: var(--at-cropper-border-color);
+}
+
+.at-cropper-modal__action-btn--primary {
+  background-color: var(--at-cropper-point-color);
+  border: 1px solid var(--at-cropper-point-color);
+  color: #ffffff;
+}
+
+.at-cropper-modal__action-btn--primary:hover {
+  opacity: 0.9;
+}
+
+.at-cropper-modal__action-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
