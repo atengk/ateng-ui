@@ -1,0 +1,36 @@
+{
+  "name": "sample-spreadsheet-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/spreadsheet-vue 电子表格引擎与交互自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/spreadsheet-vue": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "@univerjs/core": "^0.4.3",
+    "@univerjs/design": "^0.4.3",
+    "@univerjs/docs": "^0.4.3",
+    "@univerjs/docs-ui": "^0.4.3",
+    "@univerjs/engine-formula": "^0.4.3",
+    "@univerjs/engine-render": "^0.4.3",
+    "@univerjs/sheets": "^0.4.3",
+    "@univerjs/sheets-formula": "^0.4.3",
+    "@univerjs/sheets-formula-ui": "^0.4.3",
+    "@univerjs/sheets-numfmt": "^0.4.3",
+    "@univerjs/sheets-ui": "^0.4.3",
+    "@univerjs/ui": "^0.4.3",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
