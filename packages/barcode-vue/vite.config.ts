@@ -29,7 +29,7 @@ export default defineConfig({
     },
     cssCodeSplit: false,
     rollupOptions: {
-      external: ['vue', '@atengk/core', '@atengk/vue', 'jsbarcode'],
+      external: ['vue', '@atengk/core', '@atengk/vue', 'jsbarcode', 'html5-qrcode'],
       output: {
         exports: 'named',
         assetFileNames: assetInfo => {

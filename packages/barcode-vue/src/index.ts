@@ -12,6 +12,7 @@ import './style/index.css';
 // 核心组件
 export { default as AtengBarcode } from './components/AtengBarcode.vue';
 export { default as AtengQRCode } from './components/AtengQRCode.vue';
+export { default as AtengCodeScanner } from './components/AtengCodeScanner.vue';
 
 // 无头状态机 Hooks
 export { useBarcode } from './composables/useBarcode';
@@ -19,6 +20,9 @@ export type { UseBarcodeReturn } from './composables/useBarcode';
 
 export { useQRCode } from './composables/useQRCode';
 export type { UseQRCodeOptions } from './composables/useQRCode';
+
+export { useCodeScanner } from './composables/useCodeScanner';
+export type { UseCodeScannerOptions } from './composables/useCodeScanner';
 
 // 校验工具
 export { validateBarcode } from './utils/validator';
@@ -36,6 +40,15 @@ export { exportQRCodeAsImage, downloadQRCodeImage } from './utils/exportQRCode';
 // 二维码 Logo 容错提升与 CORS 跨域防污损守卫
 export { elevateErrorCorrectionLevel, clampLogoSize, loadSafeImage } from './utils/corsGuard';
 
+// 扫码引擎动态懒加载器与长宽比构型工具
+export {
+  loadHtml5Qrcode,
+  resolveFormatsForScanMode,
+  resolveAdaptiveQrBox,
+  setScannerEngineMock,
+  resetScannerEngineMock,
+} from './utils/scannerLoader';
+
 // 类型契约
 export type {
   BarcodeFormat,
@@ -45,6 +58,19 @@ export type {
   BarcodeRenderOptions,
   BarcodeValidationResult,
 } from './types';
+
+export type {
+  ScanMode,
+  ScannerFacingMode,
+  QrBoxDimensions,
+  QrBoxFunction,
+  QrBoxConfig,
+  ScannerCameraDevice,
+  ScanResult,
+  StartScanOptions,
+  UseCodeScannerReturn,
+  AtengCodeScannerProps,
+} from './types/scanner';
 
 export type {
   QRCodePreset,

@@ -11,13 +11,19 @@ import BarcodeBasicView from './views/BarcodeBasicView.vue';
 import BarcodeTypographyView from './views/BarcodeTypographyView.vue';
 import QRCodePresetsView from './views/QRCodePresetsView.vue';
 import QRCodeLogoGuardView from './views/QRCodeLogoGuardView.vue';
+import CameraScannerView from './views/CameraScannerView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash === 'qrcode-logo-guard' || window.location.pathname.includes('/qrcode-logo-guard')) {
+  if (hash === 'camera-scanner' || window.location.pathname.includes('/camera-scanner')) {
+    activeTab.value = 'camera-scanner';
+  } else if (
+    hash === 'qrcode-logo-guard' ||
+    window.location.pathname.includes('/qrcode-logo-guard')
+  ) {
     activeTab.value = 'qrcode-logo-guard';
   } else if (hash === 'qrcode-presets' || window.location.pathname.includes('/qrcode-presets')) {
     activeTab.value = 'qrcode-presets';
@@ -86,6 +92,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="🛡️ 4. Logo 护栏与防污损" name="qrcode-logo-guard">
           <QRCodeLogoGuardView />
+        </el-tab-pane>
+        <el-tab-pane label="📷 5. 摄像头扫码与构型自适应" name="camera-scanner">
+          <CameraScannerView />
         </el-tab-pane>
       </el-tabs>
     </el-main>
