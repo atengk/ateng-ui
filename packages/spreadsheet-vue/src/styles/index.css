@@ -104,7 +104,20 @@ html.dark,
 
 /* 紧凑模式隐藏顶部工具栏 */
 .at-spreadsheet--compact .univer-ribbon-bar,
-.at-spreadsheet--compact .univer-toolbar {
+.at-spreadsheet--compact .univer-toolbar,
+.at-spreadsheet--compact .univer-menubar {
+  display: none !important;
+}
+
+/* 隐藏公式栏 */
+.at-spreadsheet--hide-formulabar .univer-formula-bar {
+  display: none !important;
+}
+
+/* 隐藏底部工作表标签栏 */
+.at-spreadsheet--hide-sheetbar .univer-sheet-bar,
+.at-spreadsheet--hide-sheetbar .univer-sheet-footer,
+.at-spreadsheet--hide-sheetbar .univer-workbook-bottom-bar {
   display: none !important;
 }
 

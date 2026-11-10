@@ -25,10 +25,10 @@ const props = withDefaults(defineProps<SpreadsheetProps>(), {
   data: undefined,
   columns: undefined,
   mode: 'full',
-  showToolbar: true,
+  showToolbar: undefined,
   showFormulaBar: true,
   showSheetBar: true,
-  readOnly: false,
+  readOnly: undefined,
   theme: 'auto',
   locale: 'zh-CN',
   worker: false,
@@ -41,6 +41,22 @@ const emit = defineEmits<SpreadsheetEmits>();
 
 const containerEl = ref<HTMLDivElement | null>(null);
 
+// 计算模式与只读类名
+const isReadOnly = computed(() => {
+  if (typeof props.readOnly === 'boolean') {
+    return props.readOnly;
+  }
+  return props.mode === 'readonly';
+});
+
+// 计算工具栏是否显示
+const isShowToolbar = computed(() => {
+  if (typeof props.showToolbar === 'boolean') {
+    return props.showToolbar;
+  }
+  return props.mode !== 'compact';
+});
+
 // 初始化无头状态机
 const spreadsheet = useSpreadsheet({
   container: null,
@@ -48,10 +64,10 @@ const spreadsheet = useSpreadsheet({
   data: props.data,
   columns: props.columns,
   mode: props.mode,
-  showToolbar: props.showToolbar,
+  showToolbar: isShowToolbar.value,
   showFormulaBar: props.showFormulaBar,
   showSheetBar: props.showSheetBar,
-  readOnly: props.readOnly,
+  readOnly: isReadOnly.value,
   theme: props.theme,
   locale: props.locale,
   worker: props.worker,
@@ -70,9 +86,6 @@ const containerStyle = computed(() => ({
   height: typeof props.height === 'number' ? `${props.height}px` : props.height,
   width: typeof props.width === 'number' ? `${props.width}px` : props.width,
 }));
-
-// 计算模式与只读类名
-const isReadOnly = computed(() => props.readOnly || props.mode === 'readonly');
 
 // 监听外部快照变动
 watch(
@@ -172,8 +185,10 @@ defineExpose({
   <div
     class="at-spreadsheet"
     :class="{
-      'at-spreadsheet--compact': mode === 'compact',
+      'at-spreadsheet--compact': mode === 'compact' || !isShowToolbar,
       'at-spreadsheet--readonly': isReadOnly,
+      'at-spreadsheet--hide-sheetbar': !showSheetBar,
+      'at-spreadsheet--hide-formulabar': !showFormulaBar,
     }"
     :style="containerStyle"
   >

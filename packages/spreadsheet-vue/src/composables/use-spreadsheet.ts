@@ -42,6 +42,7 @@ import type {
 } from '../types';
 import { SpreadsheetResizeGuard } from '../guards/spreadsheet-resize-guard';
 import { SheetDataMapper } from '../mappers/sheet-data-mapper';
+import { SpreadsheetExporter } from '../exporters/spreadsheet-exporter';
 
 type FWorkbook = ReturnType<FUniver['createWorkbook']>;
 
@@ -283,30 +284,25 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
   };
 
   /**
-   * 导出当前表格为 CSV 文本并触发下载（Ticket 4 深度扩展）。
+   * 导出当前表格为 CSV 文本并触发下载。
    */
-  const exportCsv = (_filename?: string): void => {
-    // 后续由 Ticket 4 实现
+  const exportCsv = (filename = 'spreadsheet.csv'): void => {
+    const snapshot = getSnapshot();
+    if (!snapshot) return;
+
+    SpreadsheetExporter.exportCsvFromSnapshot(snapshot, filename, {
+      sheetId: activeSheetId.value ?? undefined,
+    });
   };
 
   /**
-   * 导出当前工作簿快照为 JSON 文件并下载（Ticket 4 深度扩展）。
+   * 导出当前工作簿快照为 JSON 文件并下载。
    */
   const exportJson = (filename = 'spreadsheet.json'): void => {
     const snapshot = getSnapshot();
     if (!snapshot) return;
 
-    try {
-      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename.endsWith('.json') ? filename : `${filename}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Failed to export JSON snapshot:', err);
-    }
+    SpreadsheetExporter.exportJsonFromSnapshot(snapshot, filename);
   };
 
   /**
