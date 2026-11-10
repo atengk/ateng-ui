@@ -11,5 +11,7 @@ export * from './types';
 export * from './guards/blob-url-guard';
 export * from './guards/canvas-taint-guard';
 export * from './utils/circle-clip';
+export * from './utils/watermark-engine';
+export * from './utils/image-compression';
 export * from './composables/use-cropper';
 export { default as AtengCropper } from './components/AtengCropper.vue';

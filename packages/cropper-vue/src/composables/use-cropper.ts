@@ -14,6 +14,8 @@ import Cropper from 'cropperjs';
 import { BlobUrlGuard } from '../guards/blob-url-guard';
 import { CanvasTaintGuard } from '../guards/canvas-taint-guard';
 import { clipCircleCanvas } from '../utils/circle-clip';
+import { WatermarkEngine } from '../utils/watermark-engine';
+import { ImageCompressionPipeline } from '../utils/image-compression';
 import type {
   CropperSource,
   CropperCropData,
@@ -393,44 +395,40 @@ export function useCropper(
         throw new Error('Canvas 导出失败：未能获取到有效的 CroppedCanvas。');
       }
 
+      let processedCanvas = rawCanvas;
+
       const optShape = toValue(rawOptions)?.shape;
-      // 物理圆形裁切：当配置为 circle 且未显式关闭 clipCircle 时执行
+      // 1. 物理圆形裁切：当配置为 circle 且未显式关闭 clipCircle 时执行
       if (optShape === 'circle' && options?.clipCircle !== false) {
-        return clipCircleCanvas(rawCanvas);
+        processedCanvas = clipCircleCanvas(processedCanvas);
       }
 
-      return rawCanvas;
+      // 2. 离屏防伪倾斜水印合成
+      if (options?.watermark) {
+        processedCanvas = WatermarkEngine.apply(processedCanvas, options.watermark);
+      }
+
+      return processedCanvas;
     });
   };
 
   /**
-   * 导出为二进制 Blob。
+   * 导出为二进制 Blob（支持二分质量与降采样压缩）。
    */
   const exportBlob = async (options?: CropperExportOptions): Promise<Blob> => {
     const canvas = exportCanvas(options);
     const optShape = toValue(rawOptions)?.shape;
-    // 当为圆形裁切且未显式指定 format 时，自动收敛为 PNG 格式以保留透明 Alpha 通道
     const format =
       options?.format ??
       (optShape === 'circle' && options?.clipCircle !== false ? 'image/png' : 'image/png');
-    const quality = options?.quality ?? 0.92;
 
-    return CanvasTaintGuard.guardAsync(
-      () =>
-        new Promise((resolve, reject) => {
-          canvas.toBlob(
-            blob => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Canvas 转 Blob 失败。'));
-              }
-            },
-            format,
-            quality,
-          );
-        }),
-    );
+    return CanvasTaintGuard.guardAsync(async () => {
+      const compressionResult = await ImageCompressionPipeline.compress(canvas, {
+        ...options,
+        format,
+      });
+      return compressionResult.blob;
+    });
   };
 
   /**
