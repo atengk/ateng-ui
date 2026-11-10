@@ -16,6 +16,12 @@ import type {
   BarcodeTextAlign,
 } from '../types';
 import { useBarcode } from '../composables/useBarcode';
+import {
+  exportBarcodeAsImage,
+  downloadBarcodeImage,
+  type BarcodeExportFormat,
+  type BarcodeExportOptions,
+} from '../utils/export';
 
 interface Props {
   /** 条码原始字符串内容 */
@@ -171,11 +177,26 @@ watch(
   { deep: true },
 );
 
+const exportAsImage = (
+  format: BarcodeExportFormat = 'png',
+  options?: BarcodeExportOptions,
+): Promise<string | Blob> => {
+  const el = props.renderType === 'svg' ? svgRef.value : canvasRef.value;
+  return exportBarcodeAsImage(el, format, options);
+};
+
+const download = (format: BarcodeExportFormat = 'png', fileName?: string): Promise<void> => {
+  const el = props.renderType === 'svg' ? svgRef.value : canvasRef.value;
+  return downloadBarcodeImage(el, format, fileName);
+};
+
 defineExpose({
   render: triggerRender,
   isValid: computed(() => isValid.value),
   errorMessage: computed(() => errorMessage.value),
   getElement: () => (props.renderType === 'svg' ? svgRef.value : canvasRef.value),
+  exportAsImage,
+  download,
 });
 </script>
 

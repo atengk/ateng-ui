@@ -19,6 +19,12 @@ export type { UseBarcodeReturn } from './composables/useBarcode';
 // 校验工具
 export { validateBarcode } from './utils/validator';
 
+// 格式化管道与图像导出工具
+export { formatEan13, formatItf14, formatCode128Grouped, formatIsbn } from './utils/formatter';
+
+export { exportBarcodeAsImage, downloadBarcodeImage } from './utils/export';
+export type { BarcodeExportFormat, BarcodeExportOptions } from './utils/export';
+
 // 类型契约
 export type {
   BarcodeFormat,

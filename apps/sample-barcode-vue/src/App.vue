@@ -8,13 +8,16 @@
 
 import { ref, onMounted, watch } from 'vue';
 import BarcodeBasicView from './views/BarcodeBasicView.vue';
+import BarcodeTypographyView from './views/BarcodeTypographyView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (
+  if (hash === 'barcode-typography' || window.location.pathname.includes('/barcode-typography')) {
+    activeTab.value = 'barcode-typography';
+  } else if (
     hash === 'barcode-basic' ||
     hash === '' ||
     window.location.pathname.includes('/barcode-basic')
@@ -65,6 +68,9 @@ const toggleDark = () => {
       <el-tabs v-model="activeTab" type="border-card" class="sample-tabs">
         <el-tab-pane label="📦 1. 一维条码与防崩溃容错" name="barcode-basic">
           <BarcodeBasicView />
+        </el-tab-pane>
+        <el-tab-pane label="✍️ 2. 工业排版与肉眼防错" name="barcode-typography">
+          <BarcodeTypographyView />
         </el-tab-pane>
       </el-tabs>
     </el-main>

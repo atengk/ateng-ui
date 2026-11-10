@@ -104,5 +104,24 @@ describe('AtengBarcode 容器组件', () => {
     expect(vm.errorMessage).toBe('');
     expect(typeof vm.render).toBe('function');
     expect(vm.getElement()).toBeTruthy();
+    expect(typeof vm.exportAsImage).toBe('function');
+    expect(typeof vm.download).toBe('function');
+
+    const svgBlob = await vm.exportAsImage('svg');
+    expect(svgBlob).toBeInstanceOf(Blob);
+  });
+
+  it('支持 formatText 属性自定义展示文本而不破坏条码图形', async () => {
+    wrapper = mount(AtengBarcode, {
+      props: {
+        value: '1234567890',
+        formatText: (code: string) => `[ ${code} ]`,
+      },
+    });
+
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(wrapper.find('svg.at-barcode__svg').exists()).toBe(true);
+    expect(wrapper.text()).toContain('[ 1234567890 ]');
   });
 });
