@@ -202,6 +202,14 @@ export interface UseSpreadsheetOptions {
   locale?: SpreadsheetLocale;
   /** 公式 Worker 扩展配置 */
   worker?: boolean | string;
+  /** 单元格编辑后向外同步的防抖等待时间（毫秒，默认 200） */
+  debounceWait?: number;
+  /** 数据记录变化防抖回调 */
+  onDataChange?: (data: SpreadsheetRecord[]) => void;
+  /** 快照变化防抖回调 */
+  onSnapshotChange?: (snapshot: SpreadsheetSnapshot) => void;
+  /** 单元格编辑变更回调 */
+  onCellChange?: (payload: { row: number; col: number; value: unknown; oldValue: unknown }) => void;
 }
 
 /**
@@ -222,6 +230,8 @@ export interface UseSpreadsheetReturn {
   selection: Readonly<Ref<SpreadsheetRange | null>>;
   /** 是否包含未保存的脏数据修改 */
   isDirty: Readonly<Ref<boolean>>;
+  /** 手动初始化 Univer 容器 */
+  init: (targetEl?: HTMLElement | null) => void;
   /** 获取当前工作簿完整 JSON 快照 */
   getSnapshot: () => SpreadsheetSnapshot | null;
   /** 设置/替换当前工作簿全量快照 */
@@ -290,6 +300,8 @@ export interface SpreadsheetProps {
   height?: string | number;
   /** 容器宽度 */
   width?: string | number;
+  /** 单元格编辑后向外同步的防抖等待时间（毫秒，默认 200） */
+  debounceWait?: number;
 }
 
 /**
@@ -302,6 +314,10 @@ export interface SpreadsheetEmits {
   (e: 'change', snapshot: SpreadsheetSnapshot): void;
   (e: 'selection-change', range: SpreadsheetRange | null): void;
   (e: 'sheet-activate', sheetId: string): void;
+  (
+    e: 'cell-change',
+    payload: { row: number; col: number; value: unknown; oldValue: unknown },
+  ): void;
 }
 
 /**

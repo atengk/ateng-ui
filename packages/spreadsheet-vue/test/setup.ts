@@ -34,30 +34,56 @@ beforeEach(() => {
       }));
     }
 
-    if (typeof HTMLCanvasElement !== 'undefined' && !HTMLCanvasElement.prototype.getContext) {
-      HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
-        fillRect: vi.fn(),
-        clearRect: vi.fn(),
-        getImageData: vi.fn(),
-        putImageData: vi.fn(),
-        createImageData: vi.fn(),
-        setTransform: vi.fn(),
-        drawImage: vi.fn(),
-        save: vi.fn(),
-        fillText: vi.fn(),
-        restore: vi.fn(),
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        closePath: vi.fn(),
-        stroke: vi.fn(),
-        translate: vi.fn(),
-        scale: vi.fn(),
-        rotate: vi.fn(),
-        arc: vi.fn(),
-        fill: vi.fn(),
-        measureText: vi.fn().mockReturnValue({ width: 0 }),
-      });
+    if (typeof document !== 'undefined') {
+      const originalCreateElement = document.createElement.bind(document);
+      document.createElement = function (tagName: string, options?: ElementCreationOptions) {
+        const el = originalCreateElement(tagName, options);
+        if (tagName && tagName.toLowerCase() === 'canvas') {
+          const canvasEl = el as HTMLCanvasElement;
+          canvasEl.getContext = vi.fn().mockImplementation(() => ({
+            canvas: canvasEl,
+            fillRect: vi.fn(),
+            clearRect: vi.fn(),
+            getImageData: vi.fn(),
+            putImageData: vi.fn(),
+            createImageData: vi.fn(),
+            setTransform: vi.fn(),
+            getTransform: vi.fn().mockReturnValue({
+              a: 1,
+              b: 0,
+              c: 0,
+              d: 1,
+              e: 0,
+              f: 0,
+              is2D: true,
+              isIdentity: true,
+            }),
+            resetTransform: vi.fn(),
+            createLinearGradient: vi.fn().mockReturnValue({ addColorStop: vi.fn() }),
+            createRadialGradient: vi.fn().mockReturnValue({ addColorStop: vi.fn() }),
+            createPattern: vi.fn(),
+            drawImage: vi.fn(),
+            save: vi.fn(),
+            fillText: vi.fn(),
+            strokeText: vi.fn(),
+            restore: vi.fn(),
+            beginPath: vi.fn(),
+            moveTo: vi.fn(),
+            lineTo: vi.fn(),
+            closePath: vi.fn(),
+            stroke: vi.fn(),
+            translate: vi.fn(),
+            scale: vi.fn(),
+            rotate: vi.fn(),
+            arc: vi.fn(),
+            fill: vi.fn(),
+            clip: vi.fn(),
+            measureText: vi.fn().mockReturnValue({ width: 0 }),
+            webkitBackingStorePixelRatio: 1,
+          }));
+        }
+        return el;
+      };
     }
   }
 });

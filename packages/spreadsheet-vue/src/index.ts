@@ -11,6 +11,7 @@ import './styles/index.css';
 
 export * from './types';
 export * from './guards/spreadsheet-resize-guard';
+export * from './mappers/sheet-data-mapper';
 export * from './composables/use-spreadsheet';
 export { default as AtengSpreadsheet } from './components/AtengSpreadsheet.vue';
 

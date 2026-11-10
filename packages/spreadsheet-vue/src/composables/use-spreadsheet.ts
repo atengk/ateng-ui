@@ -41,6 +41,7 @@ import type {
   SpreadsheetLocale,
 } from '../types';
 import { SpreadsheetResizeGuard } from '../guards/spreadsheet-resize-guard';
+import { SheetDataMapper } from '../mappers/sheet-data-mapper';
 
 type FWorkbook = ReturnType<FUniver['createWorkbook']>;
 
@@ -58,7 +59,13 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
   let univerAPIInstance: FUniver | null = null;
   let activeWorkbook: FWorkbook | null = null;
   let resizeGuard: SpreadsheetResizeGuard | null = null;
+  let eventDisposable: { dispose: () => void } | null = null;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  let currentRecords: SpreadsheetRecord[] = options.data ? [...options.data] : [];
+  let currentColumns: SpreadsheetColumn[] = options.columns ? [...options.columns] : [];
   let currentReadOnly = options.readOnly ?? options.mode === 'readonly';
+  const debounceWait = options.debounceWait ?? 200;
 
   /**
    * 映射为 Univer 原生 LocaleType 枚举。
@@ -66,6 +73,31 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
   const resolveLocaleType = (locale?: SpreadsheetLocale): LocaleType => {
     if (locale === 'en-US') return LocaleType.EN_US;
     return LocaleType.ZH_CN;
+  };
+
+  /**
+   * 调度防抖触发数据变更与快照变更回调。
+   */
+  /**
+   * 调度防抖触发数据变更与快照变更回调。
+   */
+  const scheduleEmitChange = (): void => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      if (!univerAPIInstance) return;
+
+      const latestSnapshot = getSnapshot();
+      if (latestSnapshot) {
+        options.onSnapshotChange?.(latestSnapshot);
+      }
+
+      const latestRecords = getData();
+      options.onDataChange?.(latestRecords);
+    }, debounceWait);
   };
 
   /**
@@ -96,13 +128,38 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
       univerInstance = univer;
       univerAPIInstance = univerAPI;
 
-      // 初始化工作簿实例
+      // 初始化工作簿实例（优先使用 snapshot，其次由 records 生成）
+      let initialSnapshot = options.snapshot;
+      if (!initialSnapshot && currentRecords.length > 0) {
+        initialSnapshot = SheetDataMapper.recordsToSnapshot(
+          currentRecords,
+          currentColumns.length > 0 ? currentColumns : undefined,
+        );
+      }
+
       activeWorkbook = univerAPI.createWorkbook(
-        (options.snapshot as unknown as Partial<IWorkbookData>) ?? {},
+        (initialSnapshot as unknown as Partial<IWorkbookData>) ?? {},
       );
 
       // 提取工作表列表与当前激活表
       syncSheetInfo();
+
+      // 监听 Univer 命令执行，捕获单元格编辑与修改并防抖回写（跳过内部公式派发与纯操作）
+      if (univerAPI.addEvent && univerAPI.Event?.CommandExecuted) {
+        eventDisposable = univerAPI.addEvent(
+          univerAPI.Event.CommandExecuted,
+          (commandInfo: unknown) => {
+            if (loading.value) return;
+            const cmdId = (commandInfo as { id?: string })?.id ?? '';
+            // 过滤公式计算内部通知与纯 UI 选区/滚动操作
+            if (!cmdId || /formula\.mutation|operation|scroll/i.test(cmdId)) {
+              return;
+            }
+            isDirty.value = true;
+            scheduleEmitChange();
+          },
+        );
+      }
 
       // 挂载尺寸自愈守卫
       resizeGuard = new SpreadsheetResizeGuard(el, () => {
@@ -157,27 +214,71 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
   const setSnapshot = (snapshot: SpreadsheetSnapshot): void => {
     if (!univerAPIInstance) return;
     try {
+      loading.value = true;
+      // 销毁旧工作簿单元，防止 unitId 冲突与内存泄漏
+      if (activeWorkbook) {
+        try {
+          const oldUnitId = (activeWorkbook as unknown as { getId?: () => string })?.getId?.();
+          if (oldUnitId) {
+            univerAPIInstance.disposeUnit(oldUnitId);
+          }
+        } catch {
+          // 容错
+        }
+      }
+
+      // 分配唯一的 unitId 避免与旧记录碰撞
+      const safeSnapshot = {
+        ...snapshot,
+        id: `wb-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      };
+
       activeWorkbook = univerAPIInstance.createWorkbook(
-        snapshot as unknown as Partial<IWorkbookData>,
+        safeSnapshot as unknown as Partial<IWorkbookData>,
       );
       syncSheetInfo();
       isDirty.value = false;
+      scheduleEmitChange();
     } catch (err) {
       console.error('Failed to load snapshot:', err);
+    } finally {
+      loading.value = false;
     }
   };
 
   /**
-   * 获取当前工作表的扁平行记录数组（Ticket 3 深度扩展）。
+   * 获取当前工作表的扁平行记录数组。
    */
   const getData = (): SpreadsheetRecord[] => {
-    return [];
+    const snapshot = getSnapshot();
+    if (!snapshot) return [];
+
+    return SheetDataMapper.snapshotToRecords(
+      snapshot,
+      currentColumns.length > 0 ? currentColumns : undefined,
+      currentRecords,
+      activeSheetId.value ?? undefined,
+    );
   };
 
   /**
-   * 设置当前工作表的扁平行记录数组（Ticket 3 深度扩展）。
+   * 设置当前工作表的扁平行记录数组。
    */
-  const setData = (_records: SpreadsheetRecord[], _columns?: SpreadsheetColumn[]): void => {
+  const setData = (records: SpreadsheetRecord[], columns?: SpreadsheetColumn[]): void => {
+    currentRecords = Array.isArray(records) ? [...records] : [];
+    if (columns && columns.length > 0) {
+      currentColumns = [...columns];
+    }
+
+    const snapshot = SheetDataMapper.recordsToSnapshot(
+      currentRecords,
+      currentColumns.length > 0 ? currentColumns : undefined,
+      {
+        sheetId: activeSheetId.value ?? undefined,
+      },
+    );
+
+    setSnapshot(snapshot);
     isDirty.value = true;
   };
 
@@ -328,6 +429,20 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
    * 确定性生命周期销毁。
    */
   const destroy = (): void => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    if (eventDisposable) {
+      try {
+        eventDisposable.dispose();
+      } catch {
+        // 容错
+      }
+      eventDisposable = null;
+    }
+
     if (resizeGuard) {
       resizeGuard.disconnect();
       resizeGuard = null;
@@ -344,6 +459,8 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
       activeWorkbook = null;
     }
 
+    currentRecords = [];
+    currentColumns = [];
     ready.value = false;
     loading.value = false;
     activeSheetId.value = null;
@@ -351,6 +468,11 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
     selection.value = null;
     isDirty.value = false;
   };
+
+  // 如果已传入容器，立即触发初始化
+  if (options.container) {
+    init(options.container);
+  }
 
   // 挂载逻辑
   if (getCurrentInstance()) {
@@ -380,6 +502,7 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
     sheetList: readonly(sheetList) as Readonly<Ref<Array<{ id: string; name: string }>>>,
     selection: readonly(selection) as Readonly<Ref<SpreadsheetRange | null>>,
     isDirty: readonly(isDirty) as Readonly<Ref<boolean>>,
+    init,
     getSnapshot,
     setSnapshot,
     getData,

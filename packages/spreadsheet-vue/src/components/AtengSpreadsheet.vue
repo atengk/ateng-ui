@@ -10,7 +10,13 @@
  */
 
 import { ref, onMounted, computed, watch } from 'vue';
-import type { SpreadsheetProps, SpreadsheetEmits, SpreadsheetSnapshot } from '../types';
+import type {
+  SpreadsheetProps,
+  SpreadsheetEmits,
+  SpreadsheetSnapshot,
+  SpreadsheetRecord,
+  SpreadsheetColumn,
+} from '../types';
 import { useSpreadsheet } from '../composables/use-spreadsheet';
 import '../styles/index.css';
 
@@ -28,6 +34,7 @@ const props = withDefaults(defineProps<SpreadsheetProps>(), {
   worker: false,
   height: '100%',
   width: '100%',
+  debounceWait: 200,
 });
 
 const emit = defineEmits<SpreadsheetEmits>();
@@ -38,6 +45,8 @@ const containerEl = ref<HTMLDivElement | null>(null);
 const spreadsheet = useSpreadsheet({
   container: null,
   snapshot: props.snapshot,
+  data: props.data,
+  columns: props.columns,
   mode: props.mode,
   showToolbar: props.showToolbar,
   showFormulaBar: props.showFormulaBar,
@@ -46,6 +55,14 @@ const spreadsheet = useSpreadsheet({
   theme: props.theme,
   locale: props.locale,
   worker: props.worker,
+  debounceWait: props.debounceWait,
+  onDataChange: latestData => {
+    emit('update:data', latestData);
+  },
+  onSnapshotChange: latestSnapshot => {
+    emit('update:snapshot', latestSnapshot);
+    emit('change', latestSnapshot);
+  },
 });
 
 // 计算容器高度与宽度样式
@@ -63,6 +80,17 @@ watch(
   newSnapshot => {
     if (newSnapshot && spreadsheet.ready.value) {
       spreadsheet.setSnapshot(newSnapshot);
+    }
+  },
+  { deep: true },
+);
+
+// 监听外部扁平数据行变动
+watch(
+  () => props.data,
+  newData => {
+    if (newData && spreadsheet.ready.value) {
+      spreadsheet.setData(newData, props.columns);
     }
   },
   { deep: true },
@@ -89,6 +117,7 @@ watch(spreadsheet.selection, range => {
 onMounted(() => {
   if (containerEl.value) {
     spreadsheet.containerRef.value = containerEl.value;
+    spreadsheet.init(containerEl.value);
     // 触发就绪事件
     if (spreadsheet.ready.value) {
       emit('ready', spreadsheet.getUniverAPI());
@@ -111,13 +140,17 @@ defineExpose({
   sheetList: spreadsheet.sheetList,
   selection: spreadsheet.selection,
   isDirty: spreadsheet.isDirty,
+  init: spreadsheet.init,
   getSnapshot: spreadsheet.getSnapshot,
   setSnapshot: (snapshot: SpreadsheetSnapshot) => {
     spreadsheet.setSnapshot(snapshot);
     emit('update:snapshot', snapshot);
   },
   getData: spreadsheet.getData,
-  setData: spreadsheet.setData,
+  setData: (data: SpreadsheetRecord[], columns?: SpreadsheetColumn[]) => {
+    spreadsheet.setData(data, columns);
+    emit('update:data', spreadsheet.getData());
+  },
   exportCsv: spreadsheet.exportCsv,
   exportJson: spreadsheet.exportJson,
   addSheet: spreadsheet.addSheet,
