@@ -18,6 +18,7 @@ import type {
   SpreadsheetColumn,
 } from '../types';
 import { useSpreadsheet } from '../composables/use-spreadsheet';
+import { useSpreadsheetThemeSync } from '../composables/use-spreadsheet-theme-sync';
 import '../styles/index.css';
 
 const props = withDefaults(defineProps<SpreadsheetProps>(), {
@@ -126,13 +127,24 @@ watch(spreadsheet.selection, range => {
   emit('selection-change', range);
 });
 
+// 宿主暗黑热跟随联动
+const { currentResolvedTheme } = useSpreadsheetThemeSync(
+  () => props.theme,
+  resolvedTheme => {
+    if (spreadsheet.ready.value) {
+      spreadsheet.setTheme(resolvedTheme);
+    }
+  },
+);
+
 // 挂载时绑定容器元素并初始化
 onMounted(() => {
   if (containerEl.value) {
     spreadsheet.containerRef.value = containerEl.value;
     spreadsheet.init(containerEl.value);
-    // 触发就绪事件
+    // 触发就绪事件与初始主题同步
     if (spreadsheet.ready.value) {
+      spreadsheet.setTheme(currentResolvedTheme.value);
       emit('ready', spreadsheet.getUniverAPI());
     }
   }
@@ -141,6 +153,7 @@ onMounted(() => {
 // 监听状态机就绪
 watch(spreadsheet.ready, isReady => {
   if (isReady) {
+    spreadsheet.setTheme(currentResolvedTheme.value);
     emit('ready', spreadsheet.getUniverAPI());
   }
 });

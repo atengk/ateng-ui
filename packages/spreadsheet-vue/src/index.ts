@@ -15,7 +15,9 @@ export * from './mappers/sheet-data-mapper';
 export * from './exporters/spreadsheet-exporter';
 export * from './spi/excel-exchange-spi';
 export * from './composables/use-spreadsheet';
+export * from './composables/use-spreadsheet-theme-sync';
 export { default as AtengSpreadsheet } from './components/AtengSpreadsheet.vue';
+export { default as AtengSpreadsheetModal } from './components/AtengSpreadsheetModal.vue';
 
 /**
  * 当前包发布版本标识。
