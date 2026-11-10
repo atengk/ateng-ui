@@ -8,16 +8,18 @@
  * @since 2026-11-10
  */
 
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { usePrint } from '@atengk/print-vue';
 
-const { isPrinting, print } = usePrint();
+const { isPrinting, print, exportPdf } = usePrint();
 
 const customerName = ref('杭州蚂蚁智能科技有限公司');
 const invoiceType = ref('专票');
 const remarks = ref('请于工作日安排顺丰速运寄送至园区前台。');
 const customCss = ref('');
+const isExportingPdf = ref(false);
+const exportedPdfUrl = ref<string | null>(null);
 
 const handlePrintByHook = async () => {
   try {
@@ -34,6 +36,33 @@ const handlePrintByHook = async () => {
     // 异常已由 onError 接管
   }
 };
+
+const handleExportPdf = async () => {
+  isExportingPdf.value = true;
+  try {
+    const blob = await exportPdf('#demo-invoice-sheet', {
+      filename: `发货单_${customerName.value}_${Date.now()}.pdf`,
+      download: true,
+      scale: 2,
+    });
+    if (exportedPdfUrl.value) {
+      URL.revokeObjectURL(exportedPdfUrl.value);
+    }
+    exportedPdfUrl.value = URL.createObjectURL(blob);
+    ElMessage.success('高保真 PDF 逐页切片导出成功，并已触发浏览器自动下载！');
+  } catch (err: unknown) {
+    ElMessage.error(err instanceof Error ? err.message : 'PDF 导出失败');
+  } finally {
+    isExportingPdf.value = false;
+  }
+};
+
+onUnmounted(() => {
+  if (exportedPdfUrl.value) {
+    URL.revokeObjectURL(exportedPdfUrl.value);
+    exportedPdfUrl.value = null;
+  }
+});
 </script>
 
 <template>
@@ -87,7 +116,29 @@ const handlePrintByHook = async () => {
           <el-button v-print="'#demo-invoice-sheet'" type="success">
             2. 指令声明式绑定: v-print="'#demo-invoice-sheet'"
           </el-button>
+          <el-button type="warning" :loading="isExportingPdf" @click="handleExportPdf">
+            3. 高保真 PDF 导出 (PdfExportDriver)
+          </el-button>
         </el-form-item>
+
+        <el-alert
+          v-if="exportedPdfUrl"
+          type="info"
+          show-icon
+          :closable="false"
+          style="margin-top: 12px"
+        >
+          <template #title>
+            <span>PDF 文件已就绪：</span>
+            <a
+              :href="exportedPdfUrl"
+              target="_blank"
+              style="color: #2563eb; text-decoration: underline"
+            >
+              点击在新标签页中预览导出的 PDF 文件
+            </a>
+          </template>
+        </el-alert>
       </el-form>
     </el-card>
 

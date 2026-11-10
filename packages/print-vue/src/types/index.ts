@@ -8,6 +8,7 @@
  */
 
 import type { PrintException } from '../errors/PrintException';
+import type { PaperPreset, PaperOrientation } from './paper';
 
 export * from './paper';
 
@@ -53,6 +54,26 @@ export interface PrintOptions {
   onError?: (error: PrintException) => void;
   /** 当发生硬件向浏览器打印降级时的钩子 */
   onFallback?: (reason: string) => void;
+}
+
+/**
+ * PDF 矢量导出专属配置参数契约。
+ */
+export interface PdfExportOptions extends PrintOptions {
+  /** 导出的 PDF 文件名（默认 'document.pdf'） */
+  filename?: string;
+  /** 是否自动触发浏览器文件下载（默认 true） */
+  download?: boolean;
+  /** 光栅化清晰度缩放倍数（默认为 window.devicePixelRatio || 2） */
+  scale?: number;
+  /** 是否允许跨域图片资源（默认 true） */
+  useCORS?: boolean;
+  /** 纸张规格预设（默认 'a4'） */
+  preset?: PaperPreset;
+  /** 纸张方向（'portrait' | 'landscape'，默认 'portrait'） */
+  orientation?: PaperOrientation;
+  /** 背景色（默认为 '#ffffff'） */
+  backgroundColor?: string;
 }
 
 /**

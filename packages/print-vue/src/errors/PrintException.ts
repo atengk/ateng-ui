@@ -23,6 +23,7 @@ export interface PrintExceptionContext {
   driverName?: string;
   target?: unknown;
   printerName?: string;
+  pageIndex?: number;
   extra?: Record<string, unknown>;
 }
 

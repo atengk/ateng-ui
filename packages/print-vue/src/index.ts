@@ -46,12 +46,19 @@ export { PrintException, PrintErrorCode } from './errors/PrintException';
 export type { PrintExceptionContext } from './errors/PrintException';
 
 // 类型定义导出
-export type { PrintDriver, PrintOptions, PrintProgress, PrintBindingValue } from './types';
+export type {
+  PrintDriver,
+  PrintOptions,
+  PrintProgress,
+  PrintBindingValue,
+  PdfExportOptions,
+} from './types';
 
 // 服务与驱动导出
 export { StyleHarvester } from './services/StyleHarvester';
 export type { HarvestStylesOptions } from './services/StyleHarvester';
 export { BrowserIframeDriver } from './drivers/BrowserIframeDriver';
+export { PdfExportDriver } from './drivers/PdfExportDriver';
 
 // Composables 导出
 export { usePrint } from './composables/usePrint';

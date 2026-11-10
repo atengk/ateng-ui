@@ -10,14 +10,17 @@
 import { ref, type Ref } from 'vue';
 import { PrintErrorCode, PrintException } from '../errors/PrintException';
 import { BrowserIframeDriver } from '../drivers/BrowserIframeDriver';
-import type { PrintDriver, PrintOptions } from '../types';
+import { PdfExportDriver } from '../drivers/PdfExportDriver';
+import type { PrintDriver, PrintOptions, PdfExportOptions } from '../types';
 
 /** 全局驱动单例注册表 */
 const driverRegistry = new Map<string, PrintDriver>();
 
-// 默认注册浏览器无头 iframe 驱动
+// 默认注册浏览器无头 iframe 驱动与 PDF 导出驱动
 const defaultBrowserDriver = new BrowserIframeDriver();
+const defaultPdfDriver = new PdfExportDriver();
 driverRegistry.set(defaultBrowserDriver.name, defaultBrowserDriver);
+driverRegistry.set(defaultPdfDriver.name, defaultPdfDriver);
 
 export interface UsePrintReturn {
   /** 当前是否正在执行打印任务 */
@@ -28,6 +31,8 @@ export interface UsePrintReturn {
   currentDriver: Ref<string>;
   /** 提交打印任务 */
   print: (target: HTMLElement | string, options?: PrintOptions) => Promise<void>;
+  /** 导出高保真 PDF 矢量文件 */
+  exportPdf: (target: HTMLElement | string, options?: PdfExportOptions) => Promise<Blob>;
   /** 注册新的打印驱动 SPI */
   registerDriver: (driver: PrintDriver) => void;
   /** 获取指定名称的驱动实例 */
@@ -100,11 +105,42 @@ export function usePrint(defaultOptions?: PrintOptions): UsePrintReturn {
     }
   };
 
+  const exportPdf = async (
+    target: HTMLElement | string,
+    options?: PdfExportOptions,
+  ): Promise<Blob> => {
+    isPrinting.value = true;
+    error.value = null;
+
+    try {
+      const pdfDriver = getDriver('pdf') as PdfExportDriver;
+      if (!pdfDriver) {
+        throw new PrintException('未找到 PDF 导出驱动 (pdf)', PrintErrorCode.DRIVER_NOT_FOUND, {
+          driverName: 'pdf',
+        });
+      }
+      const blob = await pdfDriver.exportPdf(target, options);
+      options?.onSuccess?.();
+      return blob;
+    } catch (err) {
+      const printErr =
+        err instanceof PrintException
+          ? err
+          : new PrintException('PDF 导出执行异常', PrintErrorCode.EXPORT_FAILED, {}, err);
+      error.value = printErr;
+      options?.onError?.(printErr);
+      throw printErr;
+    } finally {
+      isPrinting.value = false;
+    }
+  };
+
   return {
     isPrinting,
     error,
     currentDriver,
     print,
+    exportPdf,
     registerDriver,
     getDriver,
   };
