@@ -13,6 +13,7 @@ import './style/index.css';
 export { default as AtengBarcode } from './components/AtengBarcode.vue';
 export { default as AtengQRCode } from './components/AtengQRCode.vue';
 export { default as AtengCodeScanner } from './components/AtengCodeScanner.vue';
+export { default as AtengCodeScannerModal } from './components/AtengCodeScannerModal.vue';
 
 // 无头状态机 Hooks
 export { useBarcode } from './composables/useBarcode';
@@ -92,6 +93,7 @@ export type {
   StartScanOptions,
   UseCodeScannerReturn,
   AtengCodeScannerProps,
+  AtengCodeScannerModalProps,
 } from './types/scanner';
 
 export type {

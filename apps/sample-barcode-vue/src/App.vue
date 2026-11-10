@@ -14,13 +14,19 @@ import QRCodeLogoGuardView from './views/QRCodeLogoGuardView.vue';
 import CameraScannerView from './views/CameraScannerView.vue';
 import ContinuousAndFilesView from './views/ContinuousAndFilesView.vue';
 import HardwareScannerView from './views/HardwareScannerView.vue';
+import PrintSynergyModalView from './views/PrintSynergyModalView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash === 'hardware-scanner' || window.location.pathname.includes('/hardware-scanner')) {
+  if (hash === 'print-synergy-modal' || window.location.pathname.includes('/print-synergy-modal')) {
+    activeTab.value = 'print-synergy-modal';
+  } else if (
+    hash === 'hardware-scanner' ||
+    window.location.pathname.includes('/hardware-scanner')
+  ) {
     activeTab.value = 'hardware-scanner';
   } else if (
     hash === 'continuous-and-files' ||
@@ -110,6 +116,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="🔫 7. 物理扫码枪与表单防污染" name="hardware-scanner">
           <HardwareScannerView />
+        </el-tab-pane>
+        <el-tab-pane label="📑 8. 打印套打协同与扫码弹窗" name="print-synergy-modal">
+          <PrintSynergyModalView />
         </el-tab-pane>
       </el-tabs>
     </el-main>

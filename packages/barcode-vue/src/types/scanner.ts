@@ -233,3 +233,39 @@ export interface AtengCodeScannerProps {
   /** 引擎加载与相机启动过程中的提示文案 */
   loadingText?: string;
 }
+
+/**
+ * AtengCodeScannerModal 扫码弹窗 Props 配置契约。
+ */
+export interface AtengCodeScannerModalProps {
+  /** 弹窗显隐状态，支持 v-model 双向绑定，默认 false */
+  modelValue?: boolean;
+  /** 弹窗标题文案，默认 '扫码识别' */
+  title?: string;
+  /** 扫码识别模式，默认 'all' */
+  scanMode?: ScanMode;
+  /** 扫码成功后是否自动自愈关闭弹窗，默认 true */
+  autoCloseOnSuccess?: boolean;
+  /** 挂载的 Teleport 宿主目标，默认 'body' */
+  teleportTo?: string | HTMLElement;
+  /** 是否允许点击半透明遮罩背景关闭弹窗，默认 true */
+  closeOnClickModal?: boolean;
+  /** 弹窗最大宽度 (例如 '540px' 或 540)，默认 '540px' */
+  width?: string | number;
+  /** 镜头朝向，默认 'environment' */
+  facingMode?: ScannerFacingMode;
+  /** 指定的摄像头硬件设备 ID */
+  cameraId?: string;
+  /** 采样帧率 (fps)，默认 10 */
+  fps?: number;
+  /** 连续模式下同码去重冷却时间 (ms)，默认 1500 */
+  duplicateIntervalMs?: number;
+  /** 是否开启蜂鸣音，默认 true */
+  beepFeedback?: boolean;
+  /** 是否开启震动反馈，默认 true */
+  vibrateFeedback?: boolean;
+  /** 是否允许拖拽图片解码，默认 true */
+  enableDrop?: boolean;
+  /** 是否监听剪贴板粘贴截图解码，默认 true */
+  enablePaste?: boolean;
+}
