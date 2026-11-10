@@ -49,6 +49,16 @@ export {
   resetScannerEngineMock,
 } from './utils/scannerLoader';
 
+// Web Audio 原生蜂鸣音与设备震动发生器
+export {
+  playScanBeep,
+  triggerVibrate,
+  playSuccessFeedback,
+  setAudioContextMock,
+  resetAudioContextMock,
+} from './utils/audioFeedback';
+export type { BeepOptions, FeedbackOptions } from './utils/audioFeedback';
+
 // 类型契约
 export type {
   BarcodeFormat,
@@ -62,6 +72,7 @@ export type {
 export type {
   ScanMode,
   ScannerFacingMode,
+  ScannerInteractionMode,
   QrBoxDimensions,
   QrBoxFunction,
   QrBoxConfig,

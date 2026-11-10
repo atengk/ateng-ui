@@ -25,6 +25,13 @@ export type ScanMode = 'qr-code' | 'barcode' | 'all';
 export type ScannerFacingMode = 'environment' | 'user';
 
 /**
+ * 扫码交互与流水线触发模式。
+ * - 'single': 单次核销模式，识别成功一次立即停轨并派发
+ * - 'continuous': 连续流水线模式，同码冷却防重，异码零延迟响应
+ */
+export type ScannerInteractionMode = 'single' | 'continuous';
+
+/**
  * 取景框尺寸规格定义。
  */
 export interface QrBoxDimensions {
@@ -76,6 +83,14 @@ export interface ScanResult {
 export interface StartScanOptions {
   /** 扫码模式，默认 'all' */
   scanMode?: ScanMode;
+  /** 交互模式：'single' (单次核销) 或 'continuous' (连续过机)，默认 'continuous' */
+  interactionMode?: ScannerInteractionMode;
+  /** 连续模式下同码去重冷却时间窗口 (ms)，默认 1500 */
+  duplicateIntervalMs?: number;
+  /** 扫码成功是否播放短促蜂鸣音频反馈，默认 true */
+  beepFeedback?: boolean;
+  /** 扫码成功是否触发设备震动反馈，默认 true */
+  vibrateFeedback?: boolean;
   /** 摄像头朝向，默认 'environment' */
   facingMode?: ScannerFacingMode;
   /** 指定的具体摄像头硬件设备 ID（若指定则优先于 facingMode） */
@@ -114,6 +129,10 @@ export interface UseCodeScannerReturn {
   currentCameraId: Readonly<Ref<string | null>>;
   /** 运行时异常或权限拒绝错误对象 */
   error: Readonly<Ref<Error | null>>;
+  /** 最近一次成功识别出的条码结果对象 */
+  lastScannedResult: Readonly<Ref<ScanResult | null>>;
+  /** 当前会话生命周期内累计成功解码的条码件数 */
+  totalScannedCount: Readonly<Ref<number>>;
 
   /**
    * 启动指定 DOM 容器上的摄像头扫码。
@@ -158,6 +177,19 @@ export interface UseCodeScannerReturn {
    * @returns 摄像头设备列表，无可用时保底返回 []
    */
   getCameras: () => Promise<ScannerCameraDevice[]>;
+
+  /**
+   * 对本地图片文件或二进制 Blob 进行静默解码。
+   *
+   * @param fileOrBlob 图片 File 对象或 Blob 二进制流
+   * @returns 解码结果对象
+   */
+  decodeFile: (fileOrBlob: File | Blob) => Promise<ScanResult>;
+
+  /**
+   * 重置连续扫码同码冷却滑窗记录。
+   */
+  resetDeduplication: () => void;
 }
 
 /**
@@ -166,6 +198,14 @@ export interface UseCodeScannerReturn {
 export interface AtengCodeScannerProps {
   /** 扫码识别模式，默认 'all' */
   scanMode?: ScanMode;
+  /** 交互模式：'single' (单次核销) 或 'continuous' (连续过机)，默认 'continuous' */
+  interactionMode?: ScannerInteractionMode;
+  /** 连续模式下同码去重冷却时间窗口 (ms)，默认 1500 */
+  duplicateIntervalMs?: number;
+  /** 扫码成功是否播放短促蜂鸣音频反馈，默认 true */
+  beepFeedback?: boolean;
+  /** 扫码成功是否触发设备震动反馈，默认 true */
+  vibrateFeedback?: boolean;
   /** 镜头朝向，默认 'environment' */
   facingMode?: ScannerFacingMode;
   /** 指定的摄像头硬件设备 ID */
@@ -178,6 +218,10 @@ export interface AtengCodeScannerProps {
   qrbox?: QrBoxConfig;
   /** 组件挂载后是否自动启动摄像头扫码，默认 true */
   autoStart?: boolean;
+  /** 是否允许向组件视口拖入本地图片进行解码，默认 true */
+  enableDrop?: boolean;
+  /** 是否监听剪贴板粘贴事件 (Ctrl+V) 进行图片解码，默认 true */
+  enablePaste?: boolean;
   /** 是否展示内建半透明控制工具栏，默认 true */
   showControls?: boolean;
   /** 是否展示手电筒补光按钮，默认 true */

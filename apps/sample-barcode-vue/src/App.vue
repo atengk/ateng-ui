@@ -12,13 +12,19 @@ import BarcodeTypographyView from './views/BarcodeTypographyView.vue';
 import QRCodePresetsView from './views/QRCodePresetsView.vue';
 import QRCodeLogoGuardView from './views/QRCodeLogoGuardView.vue';
 import CameraScannerView from './views/CameraScannerView.vue';
+import ContinuousAndFilesView from './views/ContinuousAndFilesView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash === 'camera-scanner' || window.location.pathname.includes('/camera-scanner')) {
+  if (
+    hash === 'continuous-and-files' ||
+    window.location.pathname.includes('/continuous-and-files')
+  ) {
+    activeTab.value = 'continuous-and-files';
+  } else if (hash === 'camera-scanner' || window.location.pathname.includes('/camera-scanner')) {
     activeTab.value = 'camera-scanner';
   } else if (
     hash === 'qrcode-logo-guard' ||
@@ -95,6 +101,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="📷 5. 摄像头扫码与构型自适应" name="camera-scanner">
           <CameraScannerView />
+        </el-tab-pane>
+        <el-tab-pane label="🔄 6. 本地图像解码与连续扫码流水线" name="continuous-and-files">
+          <ContinuousAndFilesView />
         </el-tab-pane>
       </el-tabs>
     </el-main>

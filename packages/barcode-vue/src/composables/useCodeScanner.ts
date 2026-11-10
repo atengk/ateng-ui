@@ -2,7 +2,9 @@
  * @atengk/barcode-vue useCodeScanner 无头扫码器状态机。
  *
  * 依据 ADR-0047，提供动态按需懒加载、多摄像头切换、手电筒补光、
- * 长宽比构型自适应与确定性生命周期治理（后台防发热与卸载停轨）。
+ * 长宽比构型自适应与确定性生命周期治理（后台防发热与卸载停轨）；
+ * 支持流水线连续去重冷却（1.5s 同码滑窗防重 / 异码零延迟）与单次核销双模，
+ * 以及本地文件/剪贴板静默解码与 Web Audio 原生蜂鸣反馈。
  *
  * @author Ateng
  * @since 2026-11-10
@@ -21,6 +23,7 @@ import {
   resolveFormatsForScanMode,
   resolveAdaptiveQrBox,
 } from '../utils/scannerLoader';
+import { playSuccessFeedback } from '../utils/audioFeedback';
 
 export interface UseCodeScannerOptions {
   /** 扫码成功全局通知钩子 */
@@ -43,6 +46,8 @@ interface Html5QrcodeInstanceDriver {
   clear?: () => void;
   getRunningTrackCapabilities?: () => { torch?: boolean };
   applyVideoConstraints: (constraints: unknown) => Promise<null>;
+  scanFileV2?: (file: File, showImage?: boolean) => Promise<unknown>;
+  scanFile?: (file: File, showImage?: boolean) => Promise<string>;
 }
 
 /**
@@ -60,12 +65,75 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
   const cameras = ref<ScannerCameraDevice[]>([]);
   const currentCameraId = ref<string | null>(null);
   const error = ref<Error | null>(null);
+  const lastScannedResult = ref<ScanResult | null>(null);
+  const totalScannedCount = ref(0);
 
   // 内部保持的底层实例与状态标记
   let html5QrcodeInstance: Html5QrcodeInstanceDriver | null = null;
   let currentTargetElementId: string | null = null;
   let activeOptions: StartScanOptions | null = null;
   let autoPausedByVisibility = false;
+
+  // 滑动窗口连续扫码去重状态记录
+  let lastScannedCode: string | null = null;
+  let lastScannedFormat: string | undefined = undefined;
+  let lastScannedTimestamp = 0;
+
+  /**
+   * 重置连续扫码去重滑窗状态记录。
+   */
+  const resetDeduplication = (): void => {
+    lastScannedCode = null;
+    lastScannedFormat = undefined;
+    lastScannedTimestamp = 0;
+  };
+
+  /**
+   * 处理并派发扫码成功事件，包含连续去重与单次核销生命周期判定。
+   */
+  const dispatchScanResult = async (result: ScanResult): Promise<boolean> => {
+    const interactionMode = activeOptions?.interactionMode ?? 'continuous';
+    const duplicateInterval = activeOptions?.duplicateIntervalMs ?? 1500;
+    const now = Date.now();
+
+    // 1. 单次核销模式 (single)：首次识别成功立即停止视频流并触发流转
+    if (interactionMode === 'single') {
+      playSuccessFeedback({
+        sound: activeOptions?.beepFeedback,
+        vibrate: activeOptions?.vibrateFeedback,
+      });
+      lastScannedResult.value = result;
+      totalScannedCount.value += 1;
+      hookOptions?.onScan?.(result);
+      await stop();
+      return true;
+    }
+
+    // 2. 连续过机模式 (continuous)：同码滑窗防重冷却，异码零延迟即刻响应
+    const isSameCode = result.text === lastScannedCode && result.format === lastScannedFormat;
+    const isWithinCooldown = now - lastScannedTimestamp < duplicateInterval;
+
+    if (isSameCode && isWithinCooldown) {
+      // 在同码去重冷却期内，静默丢弃
+      return false;
+    }
+
+    // 记录最新条码与时间戳
+    lastScannedCode = result.text;
+    lastScannedFormat = result.format;
+    lastScannedTimestamp = now;
+
+    // 触发原生蜂鸣音与震动
+    playSuccessFeedback({
+      sound: activeOptions?.beepFeedback,
+      vibrate: activeOptions?.vibrateFeedback,
+    });
+
+    lastScannedResult.value = result;
+    totalScannedCount.value += 1;
+    hookOptions?.onScan?.(result);
+    return true;
+  };
 
   /**
    * 枚举系统可用的摄像头设备列表。
@@ -138,6 +206,7 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
     isLoading.value = true;
     error.value = null;
     activeOptions = { ...options };
+    resetDeduplication();
 
     try {
       // 解析目标容器 elementId
@@ -219,7 +288,8 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
             format: resolvedFormat,
             rawResult,
           };
-          hookOptions?.onScan?.(result);
+
+          dispatchScanResult(result);
         },
         (_errorMessage: string) => {
           // 常规未检测到条码的帧轮询错误不向外抛出
@@ -321,6 +391,82 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
     await start(currentTargetElementId, newOptions);
   };
 
+  /**
+   * 对本地图片文件或二进制 Blob 进行静默解码。
+   */
+  const decodeFile = async (fileOrBlob: File | Blob): Promise<ScanResult> => {
+    // 若传入为纯 Blob，包装为 File 实例
+    const file =
+      fileOrBlob instanceof File
+        ? fileOrBlob
+        : new File([fileOrBlob], `barcode-${Date.now()}.png`, {
+            type: fileOrBlob.type || 'image/png',
+          });
+
+    try {
+      let instance = html5QrcodeInstance;
+      let tempContainer: HTMLElement | null = null;
+
+      // 若当前未初始化实例，构建轻量离线解码实例
+      if (!instance) {
+        const { Html5Qrcode } = await loadHtml5Qrcode();
+        const tempId = `at-scanner-file-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        if (typeof document !== 'undefined') {
+          tempContainer = document.createElement('div');
+          tempContainer.id = tempId;
+          tempContainer.style.display = 'none';
+          document.body.appendChild(tempContainer);
+        }
+        instance = new Html5Qrcode(tempId, {
+          verbose: false,
+        }) as unknown as Html5QrcodeInstanceDriver;
+      }
+
+      let text = '';
+      let resolvedFormat: string | undefined;
+      let rawResult: unknown;
+
+      if (typeof instance.scanFileV2 === 'function') {
+        const res = (await instance.scanFileV2(file, false)) as Record<string, unknown>;
+        rawResult = res;
+        text = String(res.decodedText ?? '');
+        const subResult = res.result as Record<string, unknown> | undefined;
+        const formatObj = subResult?.format as Record<string, unknown> | undefined;
+        resolvedFormat = formatObj?.formatName ? String(formatObj.formatName) : undefined;
+      } else if (typeof instance.scanFile === 'function') {
+        text = await instance.scanFile(file, false);
+      }
+
+      if (tempContainer && tempContainer.parentNode) {
+        tempContainer.parentNode.removeChild(tempContainer);
+      }
+
+      const scanResult: ScanResult = {
+        text,
+        format: resolvedFormat,
+        rawResult,
+      };
+
+      // 播放声音并记录数据
+      playSuccessFeedback({
+        sound: activeOptions?.beepFeedback,
+        vibrate: activeOptions?.vibrateFeedback,
+      });
+
+      lastScannedResult.value = scanResult;
+      totalScannedCount.value += 1;
+      hookOptions?.onScan?.(scanResult);
+
+      return scanResult;
+    } catch (err: unknown) {
+      const normalizedError =
+        err instanceof Error ? err : new Error(String(err ?? '本地文件解码失败'));
+      error.value = normalizedError;
+      hookOptions?.onError?.(normalizedError);
+      throw normalizedError;
+    }
+  };
+
   // -------------------------------------------------------------
   // 硬件生命周期治理：后台防发热与卸载自动清理 (ADR-0047 防线 2)
   // -------------------------------------------------------------
@@ -365,6 +511,8 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
     cameras: readonly(cameras),
     currentCameraId: readonly(currentCameraId),
     error: readonly(error),
+    lastScannedResult: readonly(lastScannedResult),
+    totalScannedCount: readonly(totalScannedCount),
     start,
     stop,
     pause,
@@ -372,5 +520,7 @@ export function useCodeScanner(hookOptions?: UseCodeScannerOptions): UseCodeScan
     toggleTorch,
     switchCamera,
     getCameras,
+    decodeFile,
+    resetDeduplication,
   };
 }

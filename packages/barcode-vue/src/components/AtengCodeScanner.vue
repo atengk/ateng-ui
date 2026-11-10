@@ -3,7 +3,8 @@
  * @atengk/barcode-vue AtengCodeScanner 核心表现容器。
  *
  * 依据 ADR-0047，提供摄像头视觉扫码、长宽比构型自适应、激光扫码线动画、
- * 手电筒补光与镜头翻转控制，具备确定性硬件生命周期管理。
+ * 手电筒补光与镜头翻转控制，具备确定性硬件生命周期管理；
+ * 支持流水线连续去重扫码、文件拖拽/剪贴板解码与 Web Audio 原生蜂鸣反馈。
  *
  * @author Ateng
  * @since 2026-11-10
@@ -17,12 +18,18 @@ export type { AtengCodeScannerProps };
 
 const props = withDefaults(defineProps<AtengCodeScannerProps>(), {
   scanMode: 'all',
+  interactionMode: 'continuous',
+  duplicateIntervalMs: 1500,
+  beepFeedback: true,
+  vibrateFeedback: true,
   facingMode: 'environment',
   cameraId: undefined,
   fps: 10,
   aspectRatio: undefined,
   qrbox: undefined,
   autoStart: true,
+  enableDrop: true,
+  enablePaste: true,
   showControls: true,
   showTorchButton: true,
   showSwitchCameraButton: true,
@@ -37,6 +44,9 @@ const emit = defineEmits<{
 }>();
 
 const viewportRef = ref<HTMLDivElement | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const isDragging = ref(false);
+const isPulsing = ref(false);
 
 const {
   isScanning,
@@ -47,6 +57,8 @@ const {
   cameras,
   currentCameraId,
   error,
+  lastScannedResult,
+  totalScannedCount,
   start: internalStart,
   stop,
   pause,
@@ -54,8 +66,16 @@ const {
   toggleTorch,
   switchCamera: internalSwitchCamera,
   getCameras,
+  decodeFile: internalDecodeFile,
+  resetDeduplication,
 } = useCodeScanner({
-  onScan: result => emit('scan', result),
+  onScan: result => {
+    isPulsing.value = true;
+    setTimeout(() => {
+      isPulsing.value = false;
+    }, 600);
+    emit('scan', result);
+  },
   onError: err => emit('error', err),
 });
 
@@ -66,6 +86,10 @@ const start = async (): Promise<void> => {
   }
   await internalStart(viewportRef.value, {
     scanMode: props.scanMode,
+    interactionMode: props.interactionMode,
+    duplicateIntervalMs: props.duplicateIntervalMs,
+    beepFeedback: props.beepFeedback,
+    vibrateFeedback: props.vibrateFeedback,
     facingMode: props.facingMode,
     cameraId: props.cameraId,
     fps: props.fps,
@@ -78,6 +102,62 @@ const start = async (): Promise<void> => {
 const flipCamera = async (): Promise<void> => {
   const nextFacing = props.facingMode === 'environment' ? 'user' : 'environment';
   await internalSwitchCamera(nextFacing);
+};
+
+/** 触发文件上传框选择图片 */
+const triggerFileInput = (): void => {
+  fileInputRef.value?.click();
+};
+
+/** 本地文件解码 API 透传 */
+const decodeFile = async (fileOrBlob: File | Blob): Promise<ScanResult> => {
+  return internalDecodeFile(fileOrBlob);
+};
+
+/** 处理选择本地文件事件 */
+const handleFileInputChange = async (event: Event): Promise<void> => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file) {
+    try {
+      await decodeFile(file);
+    } finally {
+      target.value = '';
+    }
+  }
+};
+
+/** 处理拖拽文件 drop 事件 */
+const handleDrop = async (event: DragEvent): Promise<void> => {
+  isDragging.value = false;
+  if (!props.enableDrop) {
+    return;
+  }
+  const file = event.dataTransfer?.files?.[0];
+  if (file && file.type.startsWith('image/')) {
+    await decodeFile(file);
+  }
+};
+
+/** 处理剪贴板粘贴 paste 事件 */
+const handlePaste = async (event: ClipboardEvent): Promise<void> => {
+  if (!props.enablePaste) {
+    return;
+  }
+  const items = event.clipboardData?.items;
+  if (!items) {
+    return;
+  }
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        await decodeFile(file);
+        break;
+      }
+    }
+  }
 };
 
 onMounted(async () => {
@@ -95,7 +175,7 @@ onMounted(async () => {
 
 // 监听 scanMode 等核心属性动态切换
 watch(
-  () => [props.scanMode, props.cameraId, props.facingMode],
+  () => [props.scanMode, props.cameraId, props.facingMode, props.interactionMode],
   async () => {
     if (isScanning.value && viewportRef.value) {
       await start();
@@ -112,6 +192,8 @@ defineExpose({
   cameras,
   currentCameraId,
   error,
+  lastScannedResult,
+  totalScannedCount,
   start,
   stop,
   pause,
@@ -120,23 +202,48 @@ defineExpose({
   switchCamera: internalSwitchCamera,
   getCameras,
   flipCamera,
+  decodeFile,
+  resetDeduplication,
+  triggerFileInput,
 });
 </script>
 
 <template>
   <div
     class="at-code-scanner"
+    tabindex="0"
     :class="[
       `at-code-scanner--${scanMode}`,
       {
         'is-scanning': isScanning,
         'is-paused': isPaused,
         'is-loading': isLoading,
+        'is-dragging': isDragging,
+        'is-pulsing': isPulsing,
       },
     ]"
+    @dragover.prevent="isDragging = true"
+    @dragleave.prevent="isDragging = false"
+    @drop.prevent="handleDrop"
+    @paste="handlePaste"
   >
+    <!-- 隐藏的文件上传 input -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept="image/*"
+      class="at-code-scanner__file-input"
+      @change="handleFileInputChange"
+    />
+
     <!-- 底层摄像头渲染视口容器 -->
     <div ref="viewportRef" class="at-code-scanner__viewport"></div>
+
+    <!-- 拖拽提示遮罩 -->
+    <div v-if="isDragging" class="at-code-scanner__drop-mask">
+      <span class="at-code-scanner__drop-icon">📥</span>
+      <p class="at-code-scanner__drop-text">释放图片以静默解码条码</p>
+    </div>
 
     <!-- 加载等待提示 -->
     <div v-if="isLoading" class="at-code-scanner__loading">
@@ -167,8 +274,16 @@ defineExpose({
       </slot>
     </div>
 
+    <!-- 扫码成功高亮脉冲框 -->
+    <div v-if="isPulsing" class="at-code-scanner__pulse-box"></div>
+
+    <!-- 累计件数徽章 -->
+    <div v-if="totalScannedCount > 0" class="at-code-scanner__badge" title="累计扫描成功件数">
+      {{ totalScannedCount }}
+    </div>
+
     <!-- 内建轻量操作工具栏 -->
-    <div v-if="showControls && isScanning" class="at-code-scanner__toolbar">
+    <div v-if="showControls" class="at-code-scanner__toolbar">
       <button
         v-if="showTorchButton && torchSupported"
         type="button"
@@ -193,6 +308,16 @@ defineExpose({
       <button
         type="button"
         class="at-code-scanner__tool-btn"
+        title="选择本地图片解码"
+        @click="triggerFileInput"
+      >
+        📁
+      </button>
+
+      <button
+        v-if="isScanning"
+        type="button"
+        class="at-code-scanner__tool-btn"
         :title="isPaused ? '恢复扫描' : '暂停扫描'"
         @click="isPaused ? resume() : pause()"
       >
@@ -213,6 +338,16 @@ defineExpose({
   border-radius: var(--at-code-scanner-radius, 8px);
   overflow: hidden;
   box-sizing: border-box;
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.at-code-scanner:focus-visible {
+  box-shadow: 0 0 0 2px var(--at-code-scanner-laser-color, #10b981);
+}
+
+.at-code-scanner__file-input {
+  display: none;
 }
 
 .at-code-scanner__viewport {
@@ -268,6 +403,66 @@ defineExpose({
   100% {
     top: 65%;
   }
+}
+
+/* 扫码成功脉冲边框与件数徽章 */
+.at-code-scanner__pulse-box {
+  position: absolute;
+  inset: 4px;
+  border: 3px solid var(--at-code-scanner-laser-color, #10b981);
+  border-radius: var(--at-code-scanner-radius, 8px);
+  pointer-events: none;
+  animation: at-scanner-pulse 0.6s ease-out forwards;
+}
+
+@keyframes at-scanner-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+.at-code-scanner__badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: var(--at-code-scanner-laser-color, #10b981);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 12;
+}
+
+/* 拖拽提示 */
+.at-code-scanner__drop-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(16, 185, 129, 0.85);
+  color: #ffffff;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.at-code-scanner__drop-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.at-code-scanner__drop-text {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
 }
 
 /* 加载与错误状态 */
