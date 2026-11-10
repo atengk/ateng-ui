@@ -6,7 +6,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolvePaperDimensions, PAPER_PRESET_MAP } from '../src/types/paper';
+import {
+  resolvePaperDimensions,
+  PAPER_PRESET_MAP,
+  mmToPx,
+  pxToMm,
+  parseLengthToPx,
+} from '../src/types/paper';
 
 describe('resolvePaperDimensions', () => {
   it('默认解析 A4 纸张尺寸为 210mm x 297mm', () => {
@@ -70,5 +76,19 @@ describe('resolvePaperDimensions', () => {
       'continuous-241-140',
       'continuous-241-93',
     ]);
+  });
+
+  it('准确实现毫米与像素的双向转换与单位解析', () => {
+    // 25.4mm = 1 inch = 96px
+    expect(mmToPx(25.4)).toBeCloseTo(96, 4);
+    expect(pxToMm(96)).toBeCloseTo(25.4, 4);
+
+    expect(parseLengthToPx(25.4)).toBeCloseTo(96, 4);
+    expect(parseLengthToPx('25.4mm')).toBeCloseTo(96, 4);
+    expect(parseLengthToPx('1in')).toBe(96);
+    expect(parseLengthToPx('100px')).toBe(100);
+    expect(parseLengthToPx('2.54cm')).toBeCloseTo(96, 4);
+    expect(parseLengthToPx('auto')).toBe(0);
+    expect(parseLengthToPx(undefined, 50)).toBe(50);
   });
 });

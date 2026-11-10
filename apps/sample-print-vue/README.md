@@ -10,7 +10,7 @@
 | :------: | :------------------------- | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
 |  **01**  | **多驱动与样式保真调试**   | `src/views/DriverDebugView.vue`    | 验证无头隐藏 iframe 浏览器打印、StyleHarvester 样式深抓取、表单输入值实时克隆、页眉页脚净化与指令/Hook 双模触发              |
 |  **02**  | **多规格纸张与排版仿真**   | `src/views/StandardSheetsView.vue` | 验证 A4/A5/小票/多联单预设、物理毫米标尺 `<AtengPrintRuler />`、视口 1:1 缩放、毫米微调偏移与 `<AtengPrintBreak />` 强制换页 |
-|  **03**  | **长单据分页防撕裂截断**   | _(待接入 Ticket 3)_                | 验证 `autoPaginate` 动态分页引擎、`vPrintNoSplit` 行块保护与 `{ pageIndex, totalPages }` 动态页码注入                        |
+|  **03**  | **长单据分页防撕裂截断**   | `src/views/PaginationView.vue`     | 验证 `autoPaginate` 动态分页引擎、`vPrintNoSplit` 行块保护、100 行表格跨页续表头与 `{ pageIndex, totalPages }` 动态页码注入  |
 |  **04**  | **PDF 矢量导出与防爆切片** | _(待接入 Ticket 4)_                | 验证 `PdfExportDriver` 逐页切片光栅化、Canvas 显存释放与跨域图片防污损                                                       |
 |  **05**  | **批量并发打印队列调度**   | _(待接入 Ticket 5)_                | 验证 `PrintQueueCoordinator` 并发限流、进度响应式条、暂停/继续与失败重试                                                     |
 

@@ -23,6 +23,24 @@
   display: none !important;
 }
 
+/* 声明式防截断行/块规则 */
+.at-print-no-split,
+[data-print-no-split='true'] {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* 声明式分页断点容器 */
+.at-print-page {
+  break-after: page;
+  page-break-after: always;
+}
+
+.at-print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
 @media print {
   .at-print-hide-print {
     display: none !important;

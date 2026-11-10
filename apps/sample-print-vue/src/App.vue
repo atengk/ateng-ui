@@ -6,12 +6,28 @@
  * @since 2026-11-10
  */
 
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import DriverDebugView from './views/DriverDebugView.vue';
 import StandardSheetsView from './views/StandardSheetsView.vue';
+import PaginationView from './views/PaginationView.vue';
 
-const activeTab = ref('sheets');
+const activeTab = ref('pagination');
 const isDark = ref(false);
+
+onMounted(() => {
+  const hash = window.location.hash.replace('#/', '').replace('#', '');
+  if (hash === 'pagination' || window.location.pathname.includes('/pagination')) {
+    activeTab.value = 'pagination';
+  } else if (hash === 'sheets') {
+    activeTab.value = 'sheets';
+  } else if (hash === 'drivers') {
+    activeTab.value = 'drivers';
+  }
+});
+
+watch(activeTab, tab => {
+  window.location.hash = `#/${tab}`;
+});
 
 const toggleDark = () => {
   isDark.value = !isDark.value;
@@ -45,6 +61,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="2. 多规格纸张与排版仿真" name="sheets">
           <StandardSheetsView />
+        </el-tab-pane>
+        <el-tab-pane label="3. 长单据动态分页防撕裂" name="pagination">
+          <PaginationView />
         </el-tab-pane>
       </el-tabs>
     </main>

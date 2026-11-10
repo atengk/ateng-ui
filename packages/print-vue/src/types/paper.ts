@@ -107,3 +107,69 @@ export function resolvePaperDimensions(
     isContinuous,
   };
 }
+
+/** 1 英寸换算毫米常数 */
+export const MM_PER_INCH = 25.4;
+
+/** 标准 96 DPI 下每毫米对应的像素比率 */
+export const PX_PER_MM = 96 / MM_PER_INCH;
+
+/**
+ * 将毫米数值转为标准 96 DPI 下的像素数值。
+ *
+ * @param mm 毫米数值
+ * @returns 像素数值（保留精确浮点）
+ */
+export function mmToPx(mm: number): number {
+  return mm * PX_PER_MM;
+}
+
+/**
+ * 将像素数值转为毫米数值。
+ *
+ * @param px 像素数值
+ * @returns 毫米数值
+ */
+export function pxToMm(px: number): number {
+  return px / PX_PER_MM;
+}
+
+/**
+ * 将长度表示（支持纯数字毫米、'210mm'、'100px'、'1in'、'2cm'、'12pt'）解析为像素值。
+ *
+ * @param val 长度值
+ * @param defaultPx 默认回退像素
+ * @returns 解析出的像素值
+ */
+export function parseLengthToPx(val: number | string | undefined | null, defaultPx = 0): number {
+  if (val === undefined || val === null || val === '') return defaultPx;
+  if (typeof val === 'number') return mmToPx(val);
+
+  const trimmed = val.trim();
+  if (trimmed === 'auto') return 0;
+
+  if (trimmed.endsWith('mm')) {
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? defaultPx : mmToPx(num);
+  }
+  if (trimmed.endsWith('cm')) {
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? defaultPx : mmToPx(num * 10);
+  }
+  if (trimmed.endsWith('in')) {
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? defaultPx : num * 96;
+  }
+  if (trimmed.endsWith('pt')) {
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? defaultPx : num * (96 / 72);
+  }
+  if (trimmed.endsWith('px')) {
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? defaultPx : num;
+  }
+
+  // 纯数字字符串默认按毫米处理
+  const num = parseFloat(trimmed);
+  return isNaN(num) ? defaultPx : mmToPx(num);
+}

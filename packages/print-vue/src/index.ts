@@ -12,6 +12,7 @@ import AtengPrintSheet from './components/AtengPrintSheet.vue';
 import AtengPrintRuler from './components/AtengPrintRuler.vue';
 import AtengPrintBreak from './components/AtengPrintBreak.vue';
 import { vPrint } from './directives/vPrint';
+import { vPrintNoSplit } from './directives/vPrintNoSplit';
 
 import './style/index.css';
 
@@ -20,8 +21,25 @@ export { AtengPrintSheet, AtengPrintRuler, AtengPrintBreak };
 export type { AtengPrintSheetProps, AtengPrintRulerProps } from './types/components';
 
 // 纸张尺寸与预设导出
-export { resolvePaperDimensions, PAPER_PRESET_MAP } from './types/paper';
+export {
+  resolvePaperDimensions,
+  PAPER_PRESET_MAP,
+  mmToPx,
+  pxToMm,
+  parseLengthToPx,
+  MM_PER_INCH,
+  PX_PER_MM,
+} from './types/paper';
 export type { PaperPreset, PaperOrientation, ResolvedPaperDimensions } from './types/paper';
+
+// 分页引擎与切片导出
+export {
+  PaginationEngine,
+  getElementHeight,
+  isNoSplitElement,
+  isBreakElement,
+} from './services/PaginationEngine';
+export type { PaginationOptions, PageSlice, PaginationResult } from './services/PaginationEngine';
 
 // 异常与错误码导出
 export { PrintException, PrintErrorCode } from './errors/PrintException';
@@ -41,16 +59,18 @@ export type { UsePrintReturn } from './composables/usePrint';
 
 // 指令导出
 export { vPrint } from './directives/vPrint';
+export { vPrintNoSplit } from './directives/vPrintNoSplit';
 
 /**
  * Vue 插件安装器。
- * 注册 AtengPrintSheet、AtengPrintRuler、AtengPrintBreak 与 v-print 指令。
+ * 注册 AtengPrintSheet、AtengPrintRuler、AtengPrintBreak 与 v-print、v-print-no-split 指令。
  */
 export function install(app: App): void {
   app.component('AtengPrintSheet', AtengPrintSheet);
   app.component('AtengPrintRuler', AtengPrintRuler);
   app.component('AtengPrintBreak', AtengPrintBreak);
   app.directive('print', vPrint);
+  app.directive('print-no-split', vPrintNoSplit);
 }
 
 export default {
