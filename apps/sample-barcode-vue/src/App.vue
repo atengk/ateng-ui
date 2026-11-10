@@ -10,13 +10,16 @@ import { ref, onMounted, watch } from 'vue';
 import BarcodeBasicView from './views/BarcodeBasicView.vue';
 import BarcodeTypographyView from './views/BarcodeTypographyView.vue';
 import QRCodePresetsView from './views/QRCodePresetsView.vue';
+import QRCodeLogoGuardView from './views/QRCodeLogoGuardView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash === 'qrcode-presets' || window.location.pathname.includes('/qrcode-presets')) {
+  if (hash === 'qrcode-logo-guard' || window.location.pathname.includes('/qrcode-logo-guard')) {
+    activeTab.value = 'qrcode-logo-guard';
+  } else if (hash === 'qrcode-presets' || window.location.pathname.includes('/qrcode-presets')) {
     activeTab.value = 'qrcode-presets';
   } else if (
     hash === 'barcode-typography' ||
@@ -80,6 +83,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="🎨 3. 艺术二维码与企业主题" name="qrcode-presets">
           <QRCodePresetsView />
+        </el-tab-pane>
+        <el-tab-pane label="🛡️ 4. Logo 护栏与防污损" name="qrcode-logo-guard">
+          <QRCodeLogoGuardView />
         </el-tab-pane>
       </el-tabs>
     </el-main>

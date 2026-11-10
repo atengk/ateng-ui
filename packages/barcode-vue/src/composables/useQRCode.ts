@@ -19,6 +19,7 @@ import {
 import QRCodeStyling from 'qr-code-styling';
 import type { Options as RawQRCodeStylingOptions } from 'qr-code-styling';
 import { resolveQRCodePreset } from '../constants/presets';
+import { elevateErrorCorrectionLevel, clampLogoSize, loadSafeImage } from '../utils/corsGuard';
 import { exportQRCodeAsImage, downloadQRCodeImage } from '../utils/exportQRCode';
 import type {
   QRCodeOptions,
@@ -54,17 +55,18 @@ export function useQRCode(
   const qrCodeInstance = shallowRef<QRCodeStyling | null>(null);
   const isRendered = ref<boolean>(false);
   const error = ref<Error | null>(null);
+  const logoError = ref<Error | null>(null);
 
   /**
    * 规范化并组装 QRCodeStyling 所需的最终配置。
    */
-  function compileOptions(): {
+  async function compileOptions(): Promise<{
     stylingOptions: RawQRCodeStylingOptions;
     logicalWidth: number;
     logicalHeight: number;
     isCanvas: boolean;
     autoDpr: boolean;
-  } {
+  }> {
     const rawVal = toValue(value) || '';
     const rawOpts = toValue(options) || {};
     const preset = rawOpts.preset || 'standard';
@@ -93,15 +95,44 @@ export function useQRCode(
       shape: merged.shape ?? 'square',
     };
 
-    if (merged.image) {
-      stylingOptions.image = merged.image;
-    }
-    if (merged.qrOptions) {
-      stylingOptions.qrOptions = merged.qrOptions;
-    }
-    if (merged.imageOptions) {
+    // 3. Logo 与容错自动提升安全护栏
+    const rawLogo = merged.logo || merged.image;
+    const hasLogo = !!rawLogo;
+    const autoElevate = merged.autoElevateErrorCorrection !== false;
+
+    const currentLevel = merged.qrOptions?.errorCorrectionLevel;
+    const safeErrorLevel = elevateErrorCorrectionLevel(currentLevel, hasLogo, autoElevate);
+
+    stylingOptions.qrOptions = {
+      ...(merged.qrOptions || {}),
+      errorCorrectionLevel: safeErrorLevel,
+    };
+
+    // 4. Logo 安全防干扰保护与跨域预检
+    logoError.value = null;
+    if (hasLogo && rawLogo) {
+      const userImageOpts = merged.imageOptions || {};
+      const safeImageOpts = {
+        hideBackgroundDots: userImageOpts.hideBackgroundDots !== false,
+        margin: userImageOpts.margin ?? 4,
+        imageSize: clampLogoSize(userImageOpts.imageSize, 0.25, 0.3),
+        crossOrigin: userImageOpts.crossOrigin || 'anonymous',
+        saveAsBlob: userImageOpts.saveAsBlob,
+      };
+
+      stylingOptions.imageOptions = safeImageOpts;
+
+      // CORS 跨域防污损守卫
+      const checkResult = await loadSafeImage(rawLogo, safeImageOpts.crossOrigin);
+      if (checkResult.success && checkResult.src) {
+        stylingOptions.image = checkResult.src;
+      } else {
+        logoError.value = checkResult.error || new Error('Logo 加载失败');
+      }
+    } else if (merged.imageOptions) {
       stylingOptions.imageOptions = merged.imageOptions;
     }
+
     if (merged.dotsOptions) {
       stylingOptions.dotsOptions = merged.dotsOptions;
     }
@@ -151,7 +182,7 @@ export function useQRCode(
 
     try {
       error.value = null;
-      const { stylingOptions, logicalWidth, logicalHeight, isCanvas } = compileOptions();
+      const { stylingOptions, logicalWidth, logicalHeight, isCanvas } = await compileOptions();
 
       if (!qrCodeInstance.value) {
         // 首次构建实例并挂载
@@ -255,6 +286,7 @@ export function useQRCode(
     qrCodeInstance,
     isRendered,
     error,
+    logoError,
     refresh,
     update,
     exportAsImage,

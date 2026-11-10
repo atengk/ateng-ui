@@ -86,6 +86,24 @@ export interface QRCodeImageOptions {
 }
 
 /**
+ * 跨域安全图片加载结果。
+ */
+export interface SafeImageResult {
+  /**
+   * 是否安全加载成功。
+   */
+  success: boolean;
+  /**
+   * 最终可安全赋给 Canvas 渲染的图片 URL（若失败则为 null）。
+   */
+  src: string | null;
+  /**
+   * 失败原因或错误对象。
+   */
+  error?: Error;
+}
+
+/**
  * 二维码底层编码配置。
  */
 export interface QRCodeEncodingOptions {
@@ -104,6 +122,15 @@ export interface QRCodeOptions {
   type?: DrawType;
   shape?: ShapeType;
   image?: string;
+  /**
+   * 中心 Logo 地址（等价于 image）。
+   */
+  logo?: string;
+  /**
+   * 是否在传入 Logo 时自动将容错率提升至 Q 或 H（最低提升至 Q 级别，杜绝遮挡导致扫码失败）。
+   * @default true
+   */
+  autoElevateErrorCorrection?: boolean;
   autoDpr?: boolean;
   qrOptions?: QRCodeEncodingOptions;
   imageOptions?: QRCodeImageOptions;
@@ -147,6 +174,10 @@ export interface UseQRCodeReturn {
    * 渲染异常对象（若有）。
    */
   readonly error: import('vue').Ref<Error | null>;
+  /**
+   * Logo 图片跨域或加载异常（若有，不阻断二维码本身渲染）。
+   */
+  readonly logoError: import('vue').Ref<Error | null>;
   /**
    * 手动触发重绘刷新。
    */

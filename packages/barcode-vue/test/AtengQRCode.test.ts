@@ -109,4 +109,36 @@ describe('AtengQRCode.vue', () => {
 
     expect(wrapper.find('.test-desc').text()).toBe('微信扫码关注公众号');
   });
+
+  it('支持传入 logo 并正常渲染', async () => {
+    wrapper = mount(AtengQRCode, {
+      props: {
+        value: 'https://atengk.com/with-logo',
+        logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        logoSize: 0.2,
+      },
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    expect(wrapper.classes()).toContain('at-qrcode');
+    expect(wrapper.emitted('render-success')).toBeTruthy();
+  });
+
+  it('支持渲染中心富媒体插槽 (#logo)', async () => {
+    wrapper = mount(AtengQRCode, {
+      props: {
+        value: 'https://atengk.com/center-slot',
+      },
+      slots: {
+        logo: '<div class="custom-center-badge">VIP</div>',
+      },
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    const centerOverlay = wrapper.find('.at-qrcode__center-overlay');
+    expect(centerOverlay.exists()).toBe(true);
+    expect(centerOverlay.find('.custom-center-badge').text()).toBe('VIP');
+  });
 });

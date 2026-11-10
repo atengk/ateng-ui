@@ -33,6 +33,9 @@ export type { BarcodeExportFormat, BarcodeExportOptions } from './utils/export';
 export { QR_CODE_PRESETS, resolveQRCodePreset } from './constants/presets';
 export { exportQRCodeAsImage, downloadQRCodeImage } from './utils/exportQRCode';
 
+// 二维码 Logo 容错提升与 CORS 跨域防污损守卫
+export { elevateErrorCorrectionLevel, clampLogoSize, loadSafeImage } from './utils/corsGuard';
+
 // 类型契约
 export type {
   BarcodeFormat,
@@ -56,6 +59,7 @@ export type {
   ExportQRCodeOptions,
   DownloadQRCodeOptions,
   UseQRCodeReturn,
+  SafeImageResult,
   DotType,
   CornerDotType,
   CornerSquareType,

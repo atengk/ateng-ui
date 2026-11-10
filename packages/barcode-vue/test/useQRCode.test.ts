@@ -102,4 +102,53 @@ describe('useQRCode()', () => {
     expect(qrReturn?.isRendered.value).toBe(false);
     expect(qrReturn?.qrCodeInstance.value).toBeNull();
   });
+
+  it('传入 Logo 且容错为 L 时，内部应自动保底提升至 Q 级别', async () => {
+    const value = ref('https://atengk.com/logo-test');
+    const options = ref<UseQRCodeOptions>({
+      preset: 'standard',
+      logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      qrOptions: {
+        errorCorrectionLevel: 'L',
+      },
+    });
+
+    const { isRendered, qrCodeInstance } = useQRCode(container, value, options);
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(isRendered.value).toBe(true);
+    // @ts-expect-error 读取内部 options 验证安全纠错级别
+    expect(qrCodeInstance.value?._options?.qrOptions?.errorCorrectionLevel).toBe('Q');
+  });
+
+  it('远程 Logo 加载失败时不应阻断二维码渲染，应记录 logoError', async () => {
+    // 模拟 Image 加载异常
+    const originalImage = global.Image;
+    // @ts-expect-error 模拟构造函数
+    global.Image = class {
+      crossOrigin = '';
+      src = '';
+      set onload(_fn: () => void) {
+        // do nothing
+      }
+      set onerror(fn: () => void) {
+        setTimeout(fn, 10);
+      }
+    };
+
+    const value = ref('https://atengk.com/cors-fail');
+    const options = ref<UseQRCodeOptions>({
+      preset: 'tech-blue',
+      logo: 'https://bad-cors-domain.com/logo.png',
+    });
+
+    const { isRendered, logoError } = useQRCode(container, value, options);
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    expect(isRendered.value).toBe(true);
+    expect(logoError.value).not.toBeNull();
+    expect(logoError.value?.message).toContain('Logo 图片跨域放行失败');
+
+    global.Image = originalImage;
+  });
 });

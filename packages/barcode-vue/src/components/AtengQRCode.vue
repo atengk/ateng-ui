@@ -72,6 +72,25 @@ interface AtengQRCodeProps {
    */
   image?: string;
   /**
+   * 中心 Logo 地址（与 image 等价）。
+   */
+  logo?: string;
+  /**
+   * 是否在内嵌 Logo 时自动将容错率提升至 Q 或 H（最低提升至 Q 级别，杜绝遮挡导致扫码失败）。
+   * @default true
+   */
+  autoElevateErrorCorrection?: boolean;
+  /**
+   * Logo 保护外边距（像素）。
+   * @default 4
+   */
+  logoMargin?: number;
+  /**
+   * Logo 尺寸占二维码总宽高的比例（默认 0.25，最大 0.30）。
+   * @default 0.25
+   */
+  logoSize?: number;
+  /**
    * 码点微观形态与色彩选项。
    */
   dotsOptions?: QRCodeDotsOptions;
@@ -106,6 +125,10 @@ const props = withDefaults(defineProps<AtengQRCodeProps>(), {
   shape: 'square',
   autoDpr: true,
   image: undefined,
+  logo: undefined,
+  autoElevateErrorCorrection: true,
+  logoMargin: 4,
+  logoSize: 0.25,
   dotsOptions: undefined,
   cornersSquareOptions: undefined,
   cornersDotOptions: undefined,
@@ -117,32 +140,40 @@ const props = withDefaults(defineProps<AtengQRCodeProps>(), {
 const emit = defineEmits<{
   (e: 'render-success', instance: QRCodeStyling): void;
   (e: 'render-error', error: Error): void;
+  (e: 'logo-error', error: Error): void;
 }>();
 
 const qrContainerRef = ref<HTMLDivElement | null>(null);
 
-const resolvedOptions = computed(() => ({
-  preset: props.preset,
-  type: props.type,
-  width: props.width,
-  height: props.height,
-  margin: props.margin,
-  shape: props.shape,
-  autoDpr: props.autoDpr,
-  image: props.image,
-  dotsOptions: props.dotsOptions,
-  cornersSquareOptions: props.cornersSquareOptions,
-  cornersDotOptions: props.cornersDotOptions,
-  backgroundOptions: props.backgroundOptions,
-  imageOptions: props.imageOptions,
-  qrOptions: props.qrOptions,
-}));
+const resolvedOptions = computed(() => {
+  const mergedImageOpts = {
+    margin: props.logoMargin,
+    imageSize: props.logoSize,
+    ...props.imageOptions,
+  };
 
-const { qrCodeInstance, isRendered, error, refresh, exportAsImage, download } = useQRCode(
-  qrContainerRef,
-  () => props.value,
-  resolvedOptions,
-);
+  return {
+    preset: props.preset,
+    type: props.type,
+    width: props.width,
+    height: props.height,
+    margin: props.margin,
+    shape: props.shape,
+    autoDpr: props.autoDpr,
+    image: props.logo || props.image,
+    logo: props.logo || props.image,
+    autoElevateErrorCorrection: props.autoElevateErrorCorrection,
+    dotsOptions: props.dotsOptions,
+    cornersSquareOptions: props.cornersSquareOptions,
+    cornersDotOptions: props.cornersDotOptions,
+    backgroundOptions: props.backgroundOptions,
+    imageOptions: mergedImageOpts,
+    qrOptions: props.qrOptions,
+  };
+});
+
+const { qrCodeInstance, isRendered, error, logoError, refresh, exportAsImage, download } =
+  useQRCode(qrContainerRef, () => props.value, resolvedOptions);
 
 watch(
   () => isRendered.value,
@@ -158,6 +189,15 @@ watch(
   err => {
     if (err) {
       emit('render-error', err);
+    }
+  },
+);
+
+watch(
+  () => logoError.value,
+  err => {
+    if (err) {
+      emit('logo-error', err);
     }
   },
 );
@@ -198,6 +238,11 @@ defineExpose({
         height: `${height}px`,
       }"
     />
+
+    <!-- 中心富媒体插槽 (短文本徽章或 SVG 状态图标) -->
+    <div v-if="$slots.logo" class="at-qrcode__center-overlay">
+      <slot name="logo" />
+    </div>
 
     <div v-if="!isRendered && !error" class="at-qrcode__loading">
       <slot name="loading">
@@ -254,6 +299,21 @@ defineExpose({
   color: var(--at-color-danger, #ef4444);
   padding: 4px 8px;
   text-align: center;
+}
+
+.at-qrcode__center-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--at-bg-color-overlay, #ffffff);
+  border-radius: var(--at-border-radius-base, 4px);
+  padding: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
 }
 
 .at-qrcode__extra {
