@@ -108,7 +108,33 @@ describe('双轨数据绑定与 SheetDataMapper 适配', () => {
       spreadsheet.destroy();
     });
 
-    it('防抖机制：setSnapshot 触发后应在指定 debounceWait 后通知回调', async () => {
+    it('单向数据流防死循环：默认 setSnapshot 不应触发变更通知，防止与 v-model 形成死循环', async () => {
+      const onSnapshotChange = vi.fn();
+      const onDataChange = vi.fn();
+
+      const spreadsheet = useSpreadsheet({
+        container,
+        debounceWait: 50,
+        onSnapshotChange,
+        onDataChange,
+      });
+
+      const snapshot: SpreadsheetSnapshot = SheetDataMapper.recordsToSnapshot([
+        { title: 'Default Safe' },
+      ]);
+
+      spreadsheet.setSnapshot(snapshot);
+
+      // 等待 100ms
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(onSnapshotChange).not.toHaveBeenCalled();
+      expect(onDataChange).not.toHaveBeenCalled();
+
+      spreadsheet.destroy();
+    });
+
+    it('防抖机制：显式传参 setSnapshot(..., true) 触发后应在指定 debounceWait 后通知回调', async () => {
       const onSnapshotChange = vi.fn();
       const onDataChange = vi.fn();
 
@@ -123,7 +149,7 @@ describe('双轨数据绑定与 SheetDataMapper 适配', () => {
         { title: 'Task 1', done: false },
       ]);
 
-      spreadsheet.setSnapshot(snapshot);
+      spreadsheet.setSnapshot(snapshot, true);
 
       // 防抖等待前不应立即触发
       expect(onSnapshotChange).not.toHaveBeenCalled();

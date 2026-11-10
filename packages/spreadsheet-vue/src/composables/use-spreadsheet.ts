@@ -43,6 +43,7 @@ import type {
 import { SpreadsheetResizeGuard } from '../guards/spreadsheet-resize-guard';
 import { SheetDataMapper } from '../mappers/sheet-data-mapper';
 import { SpreadsheetExporter } from '../exporters/spreadsheet-exporter';
+import { ExcelExchangeManager } from '../spi/excel-exchange-spi';
 
 type FWorkbook = ReturnType<FUniver['createWorkbook']>;
 
@@ -211,8 +212,11 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
 
   /**
    * 设置/重载工作簿快照。
+   *
+   * @param snapshot 目标电子表格快照
+   * @param emitChange 是否调度防抖变更通知（默认 false，防止与外部响应式绑定形成死循环）
    */
-  const setSnapshot = (snapshot: SpreadsheetSnapshot): void => {
+  const setSnapshot = (snapshot: SpreadsheetSnapshot, emitChange = false): void => {
     if (!univerAPIInstance) return;
     try {
       loading.value = true;
@@ -239,7 +243,9 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
       );
       syncSheetInfo();
       isDirty.value = false;
-      scheduleEmitChange();
+      if (emitChange) {
+        scheduleEmitChange();
+      }
     } catch (err) {
       console.error('Failed to load snapshot:', err);
     } finally {
@@ -303,6 +309,27 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
     if (!snapshot) return;
 
     SpreadsheetExporter.exportJsonFromSnapshot(snapshot, filename);
+  };
+
+  /**
+   * 导出当前电子表格为二进制 Excel 文件 (.xlsx)。
+   *
+   * 依托 ExcelExchangeManager SPI 驱动实现，若未注册外部驱动将提示快速失败。
+   */
+  const exportExcel = async (filename = 'spreadsheet.xlsx'): Promise<Blob | null> => {
+    if (!ExcelExchangeManager.hasDriver()) {
+      throw new Error(
+        'ExcelExchangeSPI driver not registered. Please register a driver via ExcelExchangeManager.registerDriver() first.',
+      );
+    }
+
+    const snapshot = getSnapshot();
+    if (!snapshot) return null;
+
+    const finalName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+    const blob = await ExcelExchangeManager.export(snapshot, finalName);
+    SpreadsheetExporter.downloadBlob(blob, finalName);
+    return blob;
   };
 
   /**
@@ -505,6 +532,7 @@ export function useSpreadsheet(options: UseSpreadsheetOptions = {}): UseSpreadsh
     setData,
     exportCsv,
     exportJson,
+    exportExcel,
     addSheet,
     removeSheet,
     activateSheet,

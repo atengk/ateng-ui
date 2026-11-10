@@ -58,6 +58,26 @@ const isShowToolbar = computed(() => {
   return props.mode !== 'compact';
 });
 
+// 双向绑定防回环回火锁 (Reentrancy Lock)
+let isInternalEmitting = false;
+
+const emitDataChange = (latestData: SpreadsheetRecord[]): void => {
+  isInternalEmitting = true;
+  emit('update:data', latestData);
+  Promise.resolve().then(() => {
+    isInternalEmitting = false;
+  });
+};
+
+const emitSnapshotChange = (latestSnapshot: SpreadsheetSnapshot): void => {
+  isInternalEmitting = true;
+  emit('update:snapshot', latestSnapshot);
+  emit('change', latestSnapshot);
+  Promise.resolve().then(() => {
+    isInternalEmitting = false;
+  });
+};
+
 // 初始化无头状态机
 const spreadsheet = useSpreadsheet({
   container: null,
@@ -74,11 +94,10 @@ const spreadsheet = useSpreadsheet({
   worker: props.worker,
   debounceWait: props.debounceWait,
   onDataChange: latestData => {
-    emit('update:data', latestData);
+    emitDataChange(latestData);
   },
   onSnapshotChange: latestSnapshot => {
-    emit('update:snapshot', latestSnapshot);
-    emit('change', latestSnapshot);
+    emitSnapshotChange(latestSnapshot);
   },
 });
 
@@ -92,6 +111,9 @@ const containerStyle = computed(() => ({
 watch(
   () => props.snapshot,
   newSnapshot => {
+    if (isInternalEmitting) {
+      return;
+    }
     if (newSnapshot && spreadsheet.ready.value) {
       spreadsheet.setSnapshot(newSnapshot);
     }
@@ -103,6 +125,9 @@ watch(
 watch(
   () => props.data,
   newData => {
+    if (isInternalEmitting) {
+      return;
+    }
     if (newData && spreadsheet.ready.value) {
       spreadsheet.setData(newData, props.columns);
     }
@@ -169,16 +194,25 @@ defineExpose({
   init: spreadsheet.init,
   getSnapshot: spreadsheet.getSnapshot,
   setSnapshot: (snapshot: SpreadsheetSnapshot) => {
+    isInternalEmitting = true;
     spreadsheet.setSnapshot(snapshot);
     emit('update:snapshot', snapshot);
+    Promise.resolve().then(() => {
+      isInternalEmitting = false;
+    });
   },
   getData: spreadsheet.getData,
   setData: (data: SpreadsheetRecord[], columns?: SpreadsheetColumn[]) => {
+    isInternalEmitting = true;
     spreadsheet.setData(data, columns);
     emit('update:data', spreadsheet.getData());
+    Promise.resolve().then(() => {
+      isInternalEmitting = false;
+    });
   },
   exportCsv: spreadsheet.exportCsv,
   exportJson: spreadsheet.exportJson,
+  exportExcel: spreadsheet.exportExcel,
   addSheet: spreadsheet.addSheet,
   removeSheet: spreadsheet.removeSheet,
   activateSheet: spreadsheet.activateSheet,
@@ -246,5 +280,16 @@ defineExpose({
   position: relative;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.at-spreadsheet__container {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 </style>

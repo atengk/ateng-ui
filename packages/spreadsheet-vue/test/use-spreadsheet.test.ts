@@ -37,7 +37,9 @@ describe('useSpreadsheet Composable', () => {
     expect(typeof spreadsheet.setSnapshot).toBe('function');
     expect(typeof spreadsheet.getData).toBe('function');
     expect(typeof spreadsheet.setData).toBe('function');
-    expect(typeof spreadsheet.addSheet).toBe('function');
+    expect(typeof spreadsheet.exportCsv).toBe('function');
+    expect(typeof spreadsheet.exportJson).toBe('function');
+    expect(typeof spreadsheet.exportExcel).toBe('function');
     expect(typeof spreadsheet.removeSheet).toBe('function');
     expect(typeof spreadsheet.activateSheet).toBe('function');
     expect(typeof spreadsheet.setReadOnly).toBe('function');

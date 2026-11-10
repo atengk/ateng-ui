@@ -235,7 +235,7 @@ export interface UseSpreadsheetReturn {
   /** 获取当前工作簿完整 JSON 快照 */
   getSnapshot: () => SpreadsheetSnapshot | null;
   /** 设置/替换当前工作簿全量快照 */
-  setSnapshot: (snapshot: SpreadsheetSnapshot) => void;
+  setSnapshot: (snapshot: SpreadsheetSnapshot, emitChange?: boolean) => void;
   /** 获取当前工作表的扁平对象记录数组 */
   getData: () => SpreadsheetRecord[];
   /** 设置当前工作表的扁平对象记录数组 */
@@ -244,6 +244,8 @@ export interface UseSpreadsheetReturn {
   exportCsv: (filename?: string) => void;
   /** 导出当前工作簿全量快照为 JSON 文件并触发下载 */
   exportJson: (filename?: string) => void;
+  /** 导出当前工作簿为二进制 Excel (.xlsx) 文件并触发下载 (需注册 ExcelExchangeSPI 驱动) */
+  exportExcel: (filename?: string) => Promise<Blob | null>;
   /** 新增工作表 */
   addSheet: (name?: string) => string | null;
   /** 删除指定工作表 */
