@@ -58,6 +58,24 @@ describe('AtengCropperModal 表现组件', () => {
 
     wrapper.unmount();
   });
+
+  it('当 modelValue 为 true 且传入 src 时，展示 AtengCropper 裁剪画布而非 Dropzone', async () => {
+    const mockDataUri =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const wrapper = mount(AtengCropperModal, {
+      props: {
+        modelValue: true,
+        src: mockDataUri,
+      },
+    });
+
+    const modal = document.body.querySelector('.at-cropper-modal');
+    expect(modal).not.toBeNull();
+    expect(modal?.querySelector('.at-cropper-dropzone')).toBeNull();
+    expect(modal?.querySelector('.at-cropper')).not.toBeNull();
+
+    wrapper.unmount();
+  });
 });
 
 describe('AtengCropperPreview 预览组件', () => {

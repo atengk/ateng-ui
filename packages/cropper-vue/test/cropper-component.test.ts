@@ -104,9 +104,46 @@ describe('AtengCropper 表现组件', () => {
     // 验证确定性释放
     expect(revokedUrls).toContain(managedUrl);
   });
+
+  it('支持通过 src 别名属性传入图片并正确识别为有效源', async () => {
+    const mockDataUri =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const wrapper = mount(AtengCropper, {
+      props: {
+        src: mockDataUri,
+      },
+    });
+
+    await nextTick();
+    expect(wrapper.find('.at-cropper__wrapper').exists()).toBe(true);
+    expect(wrapper.find('.at-cropper__empty').exists()).toBe(false);
+
+    // 动态置空触发空状态
+    await wrapper.setProps({ src: null });
+    expect(wrapper.find('.at-cropper__empty').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
 });
 
 describe('useCropper 无头状态机', () => {
+  it('exportResult 支持直接以 options 作为首参或以 (fileName, options) 调用', async () => {
+    const imageEl = document.createElement('img');
+    const imageRef = ref<HTMLImageElement | null>(imageEl);
+
+    const cropper = useCropper(imageRef, {
+      aspectRatio: 1,
+      viewMode: 1,
+    });
+
+    // 即使在 mock 环境未完整生成真实 canvas，调用不应因 fileName.includes 抛出 TypeError
+    await expect(cropper.exportResult({ format: 'image/png', quality: 0.8 })).rejects.not.toThrow(
+      TypeError,
+    );
+
+    cropper.destroy();
+  });
+
   it('提供只读响应式几何度量与对称操作方法', () => {
     const imageEl = document.createElement('img');
     const imageRef = ref<HTMLImageElement | null>(imageEl);

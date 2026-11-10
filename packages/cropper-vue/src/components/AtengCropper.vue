@@ -15,6 +15,7 @@ import { useCropper } from '../composables/use-cropper';
 import '../styles/index.css';
 
 const props = withDefaults(defineProps<AtengCropperProps>(), {
+  src: undefined,
   source: undefined,
   aspectRatio: NaN,
   viewMode: 1,
@@ -37,6 +38,10 @@ const containerRef = ref<HTMLDivElement | null>(null);
 const imageRef = ref<HTMLImageElement | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 
+// 计算有效图片输入源（双轨兼容 src 与 source）
+const effectiveSource = computed(() => props.src ?? props.source);
+const hasSource = computed(() => Boolean(effectiveSource.value));
+
 // 初始化无头状态机
 const cropper = useCropper(imageRef, {
   aspectRatio: props.aspectRatio,
@@ -54,19 +59,14 @@ const cropper = useCropper(imageRef, {
   },
 });
 
-const hasSource = computed(() => Boolean(props.source));
-
 // 监听源变动自动重载
-watch(
-  () => props.source,
-  newSource => {
-    if (newSource) {
-      cropper.replace(newSource);
-    } else {
-      cropper.destroy();
-    }
-  },
-);
+watch(effectiveSource, newSource => {
+  if (newSource) {
+    cropper.replace(newSource);
+  } else {
+    cropper.destroy();
+  }
+});
 
 // 监听宽高比变动
 watch(
@@ -85,8 +85,8 @@ watch(
 );
 
 onMounted(() => {
-  if (props.source) {
-    cropper.replace(props.source);
+  if (effectiveSource.value) {
+    cropper.replace(effectiveSource.value);
   }
 
   // 几何自愈监听

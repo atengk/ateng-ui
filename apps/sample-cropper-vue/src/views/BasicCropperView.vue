@@ -8,7 +8,7 @@
  * @since 2026-11-10
  */
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   AtengCropper,
@@ -37,21 +37,35 @@ const exportResult = ref<CropperResult | null>(null);
 const exportFormat = ref<'image/png' | 'image/jpeg' | 'image/webp'>('image/png');
 const exportQuality = ref<number>(0.92);
 
-// 比例预设列表
+// 比例预设列表与当前选中 key
+const selectedRatioKey = ref<string>('16:9');
 const ratioPresets = [
-  { label: '自由', value: undefined },
-  { label: '1:1', value: 1 },
-  { label: '4:3', value: 4 / 3 },
-  { label: '16:9', value: 16 / 9 },
-  { label: '2:3', value: 2 / 3 },
+  { label: '自由', key: 'free', value: NaN },
+  { label: '1:1', key: '1:1', value: 1 },
+  { label: '4:3', key: '4:3', value: 4 / 3 },
+  { label: '16:9', key: '16:9', value: 16 / 9 },
+  { label: '2:3', key: '2:3', value: 2 / 3 },
 ];
+
+let localBlobUrl: string | null = null;
 
 onMounted(() => {
   currentSrc.value = createOfficeLandscapeImage(1200, 800);
 });
 
+onUnmounted(() => {
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+    localBlobUrl = null;
+  }
+});
+
 // 切换图片源
 function handlePresetChange(type: 'office' | 'product') {
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+    localBlobUrl = null;
+  }
   currentSrc.value =
     type === 'office' ? createOfficeLandscapeImage(1200, 800) : createProductSampleImage(900, 900);
 }
@@ -61,13 +75,25 @@ function handleFileUpload(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
   const file = input.files[0];
-  currentSrc.value = URL.createObjectURL(file);
+
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+  }
+  localBlobUrl = URL.createObjectURL(file);
+  currentSrc.value = localBlobUrl;
+
+  input.value = '';
+  ElMessage.success(`本地图片「${file.name}」已成功载入画布`);
 }
 
 // 比例切换
-function handleRatioChange(val: number | undefined) {
-  aspectRatio.value = val;
-  cropperRef.value?.setAspectRatio(val ?? NaN);
+function handleRatioChange(key: string | number | boolean | undefined) {
+  const strKey = String(key ?? '16:9');
+  selectedRatioKey.value = strKey;
+  const item = ratioPresets.find(p => p.key === strKey);
+  const val = item ? item.value : NaN;
+  aspectRatio.value = Number.isNaN(val) ? undefined : val;
+  cropperRef.value?.setAspectRatio(val);
 }
 
 // 几何变换操作
@@ -97,8 +123,9 @@ function handleReset() {
 }
 
 // 调平滑块微调
-function handleLevelChange(val: number) {
-  cropperRef.value?.rotateTo(val);
+function handleLevelChange(val: number | number[]) {
+  const numVal = typeof val === 'number' ? val : (val[0] ?? 0);
+  cropperRef.value?.rotateTo(numVal);
   syncLiveMetrics();
 }
 
@@ -186,7 +213,7 @@ function handleDownload() {
             :step="1"
             size="small"
             style="width: 140px"
-            @input="handleLevelChange as any"
+            @input="handleLevelChange"
           />
         </div>
       </div>
@@ -215,8 +242,8 @@ function handleDownload() {
           <span class="card-title">裁剪比例模式</span>
         </template>
         <div class="ratio-group">
-          <el-radio-group v-model="aspectRatio" size="small" @change="handleRatioChange">
-            <el-radio-button v-for="item in ratioPresets" :key="item.label" :value="item.value">
+          <el-radio-group v-model="selectedRatioKey" size="small" @change="handleRatioChange">
+            <el-radio-button v-for="item in ratioPresets" :key="item.key" :value="item.key">
               {{ item.label }}
             </el-radio-button>
           </el-radio-group>

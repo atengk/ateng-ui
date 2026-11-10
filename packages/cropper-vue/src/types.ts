@@ -126,6 +126,8 @@ export interface CropperResult {
  * `<AtengCropper />` 基础容器组件 Props 契约。
  */
 export interface AtengCropperProps {
+  /** 图片数据源（别名 src，支持 HTTP URL、Data URL、Blob URL、Blob、File） */
+  src?: CropperSource;
   /** 图片数据源（支持 HTTP URL、Data URL、Blob URL、Blob、File） */
   source?: CropperSource;
   /** 裁剪框宽高比（如 1、16/9、4/3），为 NaN 时不锁定自由裁剪 */
@@ -174,6 +176,8 @@ export interface AtengCropperModalProps extends AtengCropperProps {
   confirmText?: string;
   /** 取消按钮文本，默认 "取消" */
   cancelText?: string;
+  /** 圆形模式下是否执行物理透明 Alpha 切片，默认 true */
+  clipCircle?: boolean;
 }
 
 /**
@@ -234,8 +238,72 @@ export interface UseCropperReturn {
   exportDataUrl: (options?: CropperExportOptions) => string;
   /** 多轨导出：HTMLCanvasElement */
   exportCanvas: (options?: CropperExportOptions) => HTMLCanvasElement;
-  /** 导出完整结构体结果 */
-  exportResult: (fileName?: string, options?: CropperExportOptions) => Promise<CropperResult>;
+  /** 导出完整结构体结果（支持 options 或 (fileName, options) 调用） */
+  exportResult: (
+    fileNameOrOptions?: string | CropperExportOptions,
+    options?: CropperExportOptions,
+  ) => Promise<CropperResult>;
   /** 销毁实例与释放跟踪的所有临时资源 */
   destroy: () => void;
+}
+
+/**
+ * `<AtengCropper />` 实例通过 defineExpose 暴露的公共方法与响应式状态契约。
+ */
+export interface AtengCropperExpose {
+  /** 实例是否已完成初始化并就绪 */
+  ready: Readonly<Ref<boolean>>;
+  /** 图片加载、异步压缩或导出中状态 */
+  loading: Readonly<Ref<boolean>>;
+  /** 当前物理像素级裁切区域几何坐标 */
+  data: Readonly<Ref<CropperCropData>>;
+  /** 视口容器内裁切框物理坐标 */
+  cropBoxData: Readonly<Ref<CropperBoxData>>;
+  /** 当前缩放倍率 */
+  zoomRatio: Readonly<Ref<number>>;
+  /** 当前旋转角度 */
+  rotateAngle: Readonly<Ref<number>>;
+  /** 缩放指定比例 */
+  zoom: (ratio: number) => void;
+  /** 绝对缩放到指定比例 */
+  zoomTo: (ratio: number) => void;
+  /** 旋转指定角度（度） */
+  rotate: (degree: number) => void;
+  /** 绝对旋转到指定角度（度） */
+  rotateTo: (degree: number) => void;
+  /** 水平镜像翻转 */
+  flipX: () => void;
+  /** 垂直镜像翻转 */
+  flipY: () => void;
+  /** 动态设置裁切长宽比 */
+  setAspectRatio: (aspectRatio: number) => void;
+  /** 设置拖拽模式 */
+  setDragMode: (mode: CropperDragMode) => void;
+  /** 动态替换图片源 */
+  replace: (source: CropperSource) => Promise<void>;
+  /** 重置裁剪状态与位置至初始值 */
+  reset: () => void;
+  /** 清除裁剪区域 */
+  clear: () => void;
+  /** 多轨导出：二进制 Blob */
+  exportBlob: (options?: CropperExportOptions) => Promise<Blob>;
+  /** 多轨导出：带类型 File */
+  exportFile: (fileName?: string, options?: CropperExportOptions) => Promise<File>;
+  /** 多轨导出：Base64 DataURL */
+  exportDataUrl: (options?: CropperExportOptions) => string;
+  /** 多轨导出：HTMLCanvasElement */
+  exportCanvas: (options?: CropperExportOptions) => HTMLCanvasElement;
+  /** 多轨导出：HTMLCanvasElement（别名） */
+  getCroppedCanvas: (options?: CropperExportOptions) => HTMLCanvasElement;
+  /** 导出完整结构体结果（支持 options 或 (fileName, options) 调用） */
+  exportResult: (
+    fileNameOrOptions?: string | CropperExportOptions,
+    options?: CropperExportOptions,
+  ) => Promise<CropperResult>;
+  /** 销毁实例与释放跟踪的所有临时资源 */
+  destroy: () => void;
+  /** 获取当前物理像素级裁切区域几何坐标快照 */
+  getData: () => CropperCropData;
+  /** 获取当前裁切框物理坐标快照 */
+  getCropBoxData: () => CropperBoxData;
 }

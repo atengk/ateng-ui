@@ -68,4 +68,21 @@ describe('CanvasTaintGuard', () => {
       }),
     ).toThrow(TypeError);
   });
+
+  it('guard 支持直接接收 HTMLCanvasElement 实例进行跨域污损探测', () => {
+    const dummyCanvas = document.createElement('canvas');
+    dummyCanvas.width = 10;
+    dummyCanvas.height = 10;
+    expect(() => CanvasTaintGuard.guard(dummyCanvas)).not.toThrow();
+
+    const mockTaintedCanvas = {
+      toDataURL() {
+        throw new DOMException('Tainted canvases may not be exported', 'SecurityError');
+      },
+      width: 10,
+      height: 10,
+    } as unknown as HTMLCanvasElement;
+
+    expect(() => CanvasTaintGuard.guard(mockTaintedCanvas)).toThrow(BusinessException);
+  });
 });

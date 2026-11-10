@@ -49,13 +49,19 @@ export class CanvasTaintGuard {
   }
 
   /**
-   * 同步包装执行 Canvas 导出操作，自动拦截跨域污染异常。
+   * 同步包装执行 Canvas 导出操作或直接探测 Canvas 实例是否受污染，自动拦截跨域污染异常。
    *
-   * @param action 同步导出执行逻辑
+   * @param target 同步导出执行逻辑或 HTMLCanvasElement 画布实例
    */
-  public static guard<T>(action: () => T): T {
+  public static guard<T = unknown>(target: (() => T) | HTMLCanvasElement): T {
     try {
-      return action();
+      if (typeof target === 'function') {
+        return target();
+      }
+      if (target && typeof (target as HTMLCanvasElement).toDataURL === 'function') {
+        return (target as HTMLCanvasElement).toDataURL() as unknown as T;
+      }
+      return target as unknown as T;
     } catch (error) {
       if (CanvasTaintGuard.isTaintError(error)) {
         throw CanvasTaintGuard.createTaintException(error);

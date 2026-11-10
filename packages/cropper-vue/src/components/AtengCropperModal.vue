@@ -23,6 +23,10 @@ import AtengCropperPreview from './AtengCropperPreview.vue';
 import { ClipboardReceiver } from '../utils/clipboard-receiver';
 import '../styles/index.css';
 
+defineOptions({
+  inheritAttrs: false,
+});
+
 interface Props {
   /** 模态弹窗显隐状态双向绑定 */
   modelValue?: boolean;
@@ -30,6 +34,8 @@ interface Props {
   title?: string;
   /** 弹窗宽度，默认 "840px" */
   width?: string;
+  /** 图片数据源（别名 src，支持 HTTP URL、Base64、Blob、File） */
+  src?: CropperSource;
   /** 图片数据源（支持 HTTP URL、Base64、Blob、File） */
   source?: CropperSource;
   /** 裁剪框宽高比（如 1、16/9），默认 NaN 自由比例 */
@@ -38,6 +44,8 @@ interface Props {
   shape?: CropperShape;
   /** 快捷场景预设 */
   preset?: CropperPreset;
+  /** 是否在圆形模式下执行物理透明切片，默认 true */
+  clipCircle?: boolean;
   /** 是否在右侧展示多尺寸缩略预览面板，默认 true */
   showPreview?: boolean;
   /** 预览面板规格列表，默认 [128, 64, 32] */
@@ -64,10 +72,12 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: false,
   title: '图片裁剪',
   width: '840px',
+  src: undefined,
   source: undefined,
   aspectRatio: NaN,
   shape: 'rect',
   preset: undefined,
+  clipCircle: true,
   showPreview: true,
   previewSizes: () => [128, 64, 32],
   pasteable: true,
@@ -88,7 +98,8 @@ const emit = defineEmits<{
 
 const cropperRef = ref<InstanceType<typeof AtengCropper> | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const internalSource = ref<CropperSource>(props.source);
+const effectiveSource = computed(() => props.src ?? props.source);
+const internalSource = ref<CropperSource>(effectiveSource.value);
 const currentAspectRatio = ref<number>(props.aspectRatio);
 const currentShape = ref<CropperShape>(props.shape);
 const angleSlider = ref<number>(0);
@@ -126,10 +137,18 @@ watch(
   { immediate: true },
 );
 
+// 监听外部源变动
+watch(effectiveSource, newSource => {
+  internalSource.value = newSource;
+});
+
+// 弹窗开启时同步最新外部源
 watch(
-  () => props.source,
-  newSource => {
-    internalSource.value = newSource;
+  () => props.modelValue,
+  isOpen => {
+    if (isOpen && effectiveSource.value) {
+      internalSource.value = effectiveSource.value;
+    }
   },
 );
 
@@ -258,7 +277,7 @@ const handleConfirm = async (): Promise<void> => {
   try {
     const result = await cropperRef.value.exportResult(props.fileName, {
       ...props.exportOptions,
-      clipCircle: currentShape.value === 'circle',
+      clipCircle: props.clipCircle ?? currentShape.value === 'circle',
     });
     emit('confirm', result);
     emit('update:modelValue', false);
@@ -270,7 +289,7 @@ const handleConfirm = async (): Promise<void> => {
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="at-cropper-modal">
+    <div v-if="modelValue" class="at-cropper-modal" v-bind="$attrs">
       <!-- 半透明暗黑遮罩 -->
       <div class="at-cropper-modal__mask" @click="handleMaskClick"></div>
 

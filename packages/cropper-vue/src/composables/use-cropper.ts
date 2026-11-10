@@ -441,11 +441,12 @@ export function useCropper(
       options?.format ??
       (optShape === 'circle' && options?.clipCircle !== false ? 'image/png' : 'image/png');
     const ext = format === 'image/jpeg' ? '.jpg' : format === 'image/webp' ? '.webp' : '.png';
-    const finalName = fileName
-      ? fileName.includes('.')
-        ? fileName
-        : `${fileName}${ext}`
-      : `cropped-${Date.now()}${ext}`;
+    const finalName =
+      fileName && typeof fileName === 'string'
+        ? fileName.includes('.')
+          ? fileName
+          : `${fileName}${ext}`
+        : `cropped-${Date.now()}${ext}`;
 
     return new File([blob], finalName, { type: blob.type });
   };
@@ -468,9 +469,20 @@ export function useCropper(
    * 导出完整结构体结果。
    */
   const exportResult = async (
-    fileName?: string,
-    options?: CropperExportOptions,
+    fileNameOrOptions?: string | CropperExportOptions,
+    rawOptions?: CropperExportOptions,
   ): Promise<CropperResult> => {
+    let fileName: string | undefined;
+    let options: CropperExportOptions | undefined;
+
+    if (typeof fileNameOrOptions === 'string') {
+      fileName = fileNameOrOptions;
+      options = rawOptions;
+    } else {
+      fileName = undefined;
+      options = fileNameOrOptions ?? rawOptions;
+    }
+
     const [blob, file] = await Promise.all([exportBlob(options), exportFile(fileName, options)]);
     const dataUrl = exportDataUrl(options);
 

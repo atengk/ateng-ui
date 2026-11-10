@@ -70,6 +70,37 @@ function updateBlobStats() {
   blobStats.revokedCount = blobGuard.totalRevokedCount;
 }
 
+// 本地文件选取与高压防御实测
+function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+
+  const url = blobGuard.create(file);
+  currentSrc.value = url;
+  updateBlobStats();
+
+  const img = new Image();
+  img.onload = () => {
+    giantMetrics.originalWidth = img.naturalWidth;
+    giantMetrics.originalHeight = img.naturalHeight;
+    const maxDim = 4096;
+    let w = img.naturalWidth;
+    let h = img.naturalHeight;
+    if (w > maxDim || h > maxDim) {
+      const scale = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    giantMetrics.clampedWidth = w;
+    giantMetrics.clampedHeight = h;
+  };
+  img.src = url;
+
+  input.value = '';
+  ElMessage.success(`本地图片「${file.name}」已载入！体积: ${(file.size / 1024).toFixed(1)} KB`);
+}
+
 // 模拟加载超大尺寸位图 (5000 x 4000)
 function handleLoadGiantImage() {
   isGiantLoading.value = true;
@@ -119,25 +150,26 @@ function handleCleanAllHandles() {
 function handleSimulateCORSDefense() {
   taintAlert.value = '';
   try {
-    // 创建一个受污染的模拟 Canvas（在跨域异常时 toDataURL 会抛出 SecurityError）
+    // 1. 干净合法的 Canvas 实例：CanvasTaintGuard 探测正常透明放行
     const dummyCanvas = document.createElement('canvas');
     dummyCanvas.width = 100;
     dummyCanvas.height = 100;
-
-    // 使用 CanvasTaintGuard 守卫检查
     CanvasTaintGuard.guard(dummyCanvas);
 
-    // 人工构造一个带有跨域错误的探测来演示 BusinessException 转译
+    // 2. 模拟跨域污染导致的浏览器 SecurityError 异常
     const mockTaintedCanvas = {
       toDataURL() {
-        const err = new Error('The operation is insecure (CORS taint)');
-        err.name = 'SecurityError';
+        const err = new DOMException(
+          'Failed to execute toDataURL on HTMLCanvasElement: Tainted canvases may not be exported.',
+          'SecurityError',
+        );
         throw err;
       },
       width: 100,
       height: 100,
     } as unknown as HTMLCanvasElement;
 
+    // 守卫拦截并转译为标准因果异常 BusinessException (code=40301)
     CanvasTaintGuard.guard(mockTaintedCanvas);
   } catch (err: unknown) {
     if (err && typeof err === 'object' && 'code' in err) {
@@ -175,15 +207,21 @@ function handleSimulateCORSDefense() {
           <span class="card-title">4096 像素尺寸护栏防爆验证</span>
         </template>
         <p class="desc">防止移动端或大屏加载 8K/10K 巨幅位图导致 Canvas 崩溃与 GPU 内存耗尽。</p>
-        <el-button
-          type="danger"
-          plain
-          size="small"
-          :loading="isGiantLoading"
-          @click="handleLoadGiantImage"
-        >
-          载入 5000×4000 超大像素位图
-        </el-button>
+        <div class="actions-row">
+          <el-button
+            type="danger"
+            plain
+            size="small"
+            :loading="isGiantLoading"
+            @click="handleLoadGiantImage"
+          >
+            载入 5000×4000 超大像素位图
+          </el-button>
+          <label class="custom-upload-btn el-button el-button--small el-button--primary is-plain">
+            本地图片上传实测
+            <input type="file" accept="image/*" class="hide-input" @change="handleFileUpload" />
+          </label>
+        </div>
         <div v-if="giantMetrics.originalWidth > 0" class="giant-info">
           <div>
             原始分辨率: {{ giantMetrics.originalWidth }} × {{ giantMetrics.originalHeight }} px
@@ -381,5 +419,14 @@ function handleSimulateCORSDefense() {
 
 .text-danger {
   color: var(--el-color-danger);
+}
+
+.custom-upload-btn {
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.hide-input {
+  display: none;
 }
 </style>

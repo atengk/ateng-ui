@@ -8,7 +8,7 @@
  * @since 2026-11-10
  */
 
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   AtengCropper,
@@ -18,10 +18,11 @@ import {
   type CropperWatermarkOptions,
   type CropperExportOptions,
 } from '@atengk/cropper-vue';
-import { createProductSampleImage } from '../utils/mock-images';
+import { createProductSampleImage, createOfficeLandscapeImage } from '../utils/mock-images';
 
 const cropperRef = ref<AtengCropperExpose>();
 const currentSrc = ref<string>('');
+let localBlobUrl: string | null = null;
 
 // 预设比例
 const activeRatio = ref<number>(1);
@@ -65,6 +66,37 @@ const stats = reactive({
 onMounted(() => {
   currentSrc.value = createProductSampleImage(900, 900);
 });
+
+onUnmounted(() => {
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+    localBlobUrl = null;
+  }
+});
+
+function handlePresetImage(type: 'product' | 'office') {
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+    localBlobUrl = null;
+  }
+  currentSrc.value =
+    type === 'product' ? createProductSampleImage(900, 900) : createOfficeLandscapeImage(1200, 800);
+}
+
+function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+
+  if (localBlobUrl) {
+    URL.revokeObjectURL(localBlobUrl);
+  }
+  localBlobUrl = URL.createObjectURL(file);
+  currentSrc.value = localBlobUrl;
+
+  input.value = '';
+  ElMessage.success(`商品图片「${file.name}」已载入画布`);
+}
 
 function handleRatioSelect(ratio: number) {
   activeRatio.value = ratio;
@@ -177,6 +209,21 @@ async function handleProcessAndExport() {
 
     <!-- 右侧配置控制台 -->
     <div class="right-config-col">
+      <!-- 商品图片输入源 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <span class="title">商品图片输入源</span>
+        </template>
+        <div class="source-action-row">
+          <el-button size="small" @click="handlePresetImage('product')">电商商品图</el-button>
+          <el-button size="small" @click="handlePresetImage('office')">横幅场景图</el-button>
+          <label class="custom-upload-btn el-button el-button--small el-button--primary is-plain">
+            本地上传
+            <input type="file" accept="image/*" class="hide-input" @change="handleFileUpload" />
+          </label>
+        </div>
+      </el-card>
+
       <!-- 预设电商比例 -->
       <el-card shadow="never" class="config-card">
         <template #header>
@@ -431,5 +478,21 @@ async function handleProcessAndExport() {
 .action-btn {
   width: 100%;
   margin-top: 4px;
+}
+
+.source-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.custom-upload-btn {
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.hide-input {
+  display: none;
 }
 </style>

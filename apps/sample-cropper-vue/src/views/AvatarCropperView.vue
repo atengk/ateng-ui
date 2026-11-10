@@ -8,7 +8,7 @@
  * @since 2026-11-10
  */
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { AtengCropperModal, type CropperResult } from '@atengk/cropper-vue';
 import { createAvatarSampleImage } from '../utils/mock-images';
@@ -32,6 +32,12 @@ onMounted(() => {
   savedAvatar.value = initial;
 });
 
+onUnmounted(() => {
+  if (modalSrc.value.startsWith('blob:')) {
+    URL.revokeObjectURL(modalSrc.value);
+  }
+});
+
 // 打开更换头像弹窗
 function openAvatarModal() {
   modalVisible.value = true;
@@ -42,8 +48,12 @@ function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
   const file = input.files[0];
+  if (modalSrc.value.startsWith('blob:')) {
+    URL.revokeObjectURL(modalSrc.value);
+  }
   modalSrc.value = URL.createObjectURL(file);
   modalVisible.value = true;
+  input.value = '';
 }
 
 // 模拟头像上传异步流水线
