@@ -24,6 +24,17 @@ export type { UseQRCodeOptions } from './composables/useQRCode';
 export { useCodeScanner } from './composables/useCodeScanner';
 export type { UseCodeScannerOptions } from './composables/useCodeScanner';
 
+export { useHardwareScanner } from './composables/useHardwareScanner';
+
+// 靶向接收输入框指令
+export {
+  vHardwareScannerReceiver,
+  registerReceiver,
+  unregisterReceiver,
+  isReceiverElement,
+  dispatchCodeToReceivers,
+} from './directives/vHardwareScannerReceiver';
+
 // 校验工具
 export { validateBarcode } from './utils/validator';
 
@@ -82,6 +93,12 @@ export type {
   UseCodeScannerReturn,
   AtengCodeScannerProps,
 } from './types/scanner';
+
+export type {
+  HardwareScannerOptions,
+  UseHardwareScannerReturn,
+  HardwareScannerReceiverDirective,
+} from './types/hardware';
 
 export type {
   QRCodePreset,

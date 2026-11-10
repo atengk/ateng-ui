@@ -13,13 +13,16 @@ import QRCodePresetsView from './views/QRCodePresetsView.vue';
 import QRCodeLogoGuardView from './views/QRCodeLogoGuardView.vue';
 import CameraScannerView from './views/CameraScannerView.vue';
 import ContinuousAndFilesView from './views/ContinuousAndFilesView.vue';
+import HardwareScannerView from './views/HardwareScannerView.vue';
 
 const activeTab = ref('barcode-basic');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (
+  if (hash === 'hardware-scanner' || window.location.pathname.includes('/hardware-scanner')) {
+    activeTab.value = 'hardware-scanner';
+  } else if (
     hash === 'continuous-and-files' ||
     window.location.pathname.includes('/continuous-and-files')
   ) {
@@ -104,6 +107,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="🔄 6. 本地图像解码与连续扫码流水线" name="continuous-and-files">
           <ContinuousAndFilesView />
+        </el-tab-pane>
+        <el-tab-pane label="🔫 7. 物理扫码枪与表单防污染" name="hardware-scanner">
+          <HardwareScannerView />
         </el-tab-pane>
       </el-tabs>
     </el-main>
