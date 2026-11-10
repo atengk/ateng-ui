@@ -44,6 +44,8 @@
   面向现代 Web 应用与企业级系统的大屏仪表盘、千人千面工作台与可视化拖拽网格布局基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 GridStack 10.x，严格中立并与具体 UI 库解耦。提供 `<AtengGridLayout />`、`<AtengGridItem />`、`<AtengGridPaletteItem />` 表现容器与 `useGridLayout()` / `useGridItem()` 无头状态机；支持双向 JSON 布局同步与原子互斥锁防死循环更新；支持垂直重力紧凑（GravityCompacting）与自由浮动（FloatLayout）双模切换、碰撞避让（CollisionPush）、静态锁定、响应式多列断点与外部物料拖入；内置 `ResizeObserver` 尺寸感知总线无缝广播下游图表（`@atengk/echarts-vue`）自愈，确立保留 DOM 的确定性生命周期清理。
 - **[PrintVue 专业打印调度与精准排版扩展](./packages/print-vue/CONTEXT.md)**（`@atengk/print-vue`，当前活跃）：
   面向现代 Web 应用与企业级系统的专业打印调度、多规格纸张精准排版、分页防撕裂截断与高保真 PDF 矢量导出扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`)、`jspdf` 与 `html2canvas`，严格中立并与具体 UI 库解耦。提供 `<AtengPrintSheet />`、`<AtengPrintRuler />`、`<AtengPrintBreak />`、`<AtengPrintSeal />`、`<AtengPrintCalibrator />` 表现容器，4 大高频单据预设（发票结算单 `<AtengInvoiceSheet />`、热敏小票 `<AtengReceiptSheet />`、快递面单 `<AtengWaybillSheet />`、仓储标签 `<AtengLabelSheet />`）以及 `usePrint()` / `useLodop()` 无头状态机；内置标准纸张预设（A4/A5/小票/连续打孔多联单）与毫米物理尺寸模型；确立 `PrintDriver` SPI 驱动架构（覆盖浏览器无头 iframe、高保真 PDF 导出与 C-Lodop 硬件静默直连）；提供 `PrintQueueCoordinator` 批量并发调度器、`vPrint` 一键打印与 `vPrintNoSplit` 防撕裂截断指令。
+- **[BarcodeVue 条码二维码与按需扫码扩展](./packages/barcode-vue/CONTEXT.md)**（`@atengk/barcode-vue`，当前活跃）：
+  面向现代 Web 应用、仓储物流（WMS/TMS）、零售收银、智能制造与标签单据套打的工业级条码、艺术二维码与动态扫码扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`)、`jsbarcode`、`qr-code-styling` 与按需动态懒加载的 `html5-qrcode`，严格中立并与具体 UI 库解耦。提供 `<AtengBarcode />`（一维条码统领容器 / 严格离线校验 / 静区保护 / 肉眼防错文本分组）、`<AtengQRCode />`（艺术二维码统领容器 / 6 大企业预设 / 容错自动提升 / CORS 安全守卫）、`<AtengCodeScanner />`（自适应长宽比摄像头扫码器 / 连续去重冷却 / 蜂鸣震动反馈）、`<AtengCodeScannerModal />`（轻量脱壳扫码弹窗）表现容器；提供 `useBarcode()`、`useQRCode()`、`useCodeScanner()`、`useHardwareScanner()` 无头状态机与 `vHardwareScannerReceiver` 硬件扫码枪防表单污染指令。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -69,6 +71,7 @@
 - **[Sample FormDesignerVue 动态表单自验展厅](./apps/sample-form-designer-vue/README.md)**（`sample-form-designer-vue`）：动态表单沙箱，1:1 对标 `@atengk/form-designer-vue`，固定端口 3012，验证可视化拖拽排版、三段式 AST 解析、流程节点权限协同、动态安全规则联动、分步向导与子表单双模填报。
 - **[Sample GridLayoutVue 拖拽网格布局自验展厅](./apps/sample-grid-layout-vue/README.md)**（`sample-grid-layout-vue`）：网格沙箱，1:1 对标 `@atengk/grid-layout-vue`，固定端口 3013，验证基础栅格双向 JSON 绑定、紧凑与浮动物理双模、ECharts 驾驶舱联动自适应重绘、外部物料抽屉拖拽与持久化草稿重置。
 - **[Sample PrintVue 打印调度与单据排版自验展厅](./apps/sample-print-vue/README.md)**（`sample-print-vue`）：打印沙箱，1:1 对标 `@atengk/print-vue`，固定端口 3014，验证多规格纸张标尺排版、无头打印调度、分页防撕裂截断、批量并发打印队列与 C-Lodop 硬件直连模拟。
+- **[Sample BarcodeVue 条码二维码与扫码自验展厅](./apps/sample-barcode-vue/README.md)**（`sample-barcode-vue`）：条码扫码沙箱，1:1 对标 `@atengk/barcode-vue`，固定端口 3015，验证一维码/二维码 SVG 与 Canvas 双模渲染、离线防崩溃校验、6 大艺术主题与 Logo CORS 守卫、摄像头长宽比自适应扫码、流水线同码去重冷却与手持扫码枪防表单污染守卫。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -102,6 +105,7 @@ flowchart TD
         FORM["@atengk/form-designer-vue<br/>(动态表单设计器与Schema引擎)"]
         GRID["@atengk/grid-layout-vue<br/>(仪表盘与拖拽网格布局扩展)"]
         PRINT["@atengk/print-vue<br/>(专业打印调度与精准排版扩展)"]
+        BAR["@atengk/barcode-vue<br/>(条码/二维码与按需扫码扩展)"]
         EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -128,6 +132,7 @@ flowchart TD
         S_FORM["apps/sample-form-designer-vue"]
         S_GRID["apps/sample-grid-layout-vue"]
         S_PRINT["apps/sample-print-vue"]
+        S_BAR["apps/sample-barcode-vue"]
         S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
@@ -153,6 +158,7 @@ flowchart TD
     FORM --> S_FORM
     GRID --> S_GRID
     PRINT --> S_PRINT
+    BAR --> S_BAR
     EP --> S_EP
 ```
 

@@ -1,0 +1,19 @@
+/**
+ * sample-barcode-vue Vite 开发与构建配置。
+ *
+ * 固定分配端口 3015。
+ *
+ * @author Ateng
+ * @since 2026-11-10
+ */
+
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+
+export default defineConfig({
+  plugins: [vue()],
+  server: {
+    host: '0.0.0.0',
+    port: 3015,
+  },
+});

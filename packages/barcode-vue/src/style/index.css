@@ -1,0 +1,34 @@
+/**
+ * @atengk/barcode-vue 基础样式库。
+ *
+ * 遵循 BEM 命名规范（.at-barcode-*、.at-qrcode-*、.at-code-scanner-*），
+ * 颜色与尺寸 100% 绑定 CSS 变量，确保主题与暗黑模式无损适配。
+ *
+ * @author Ateng
+ * @since 2026-11-10
+ */
+
+:root {
+  --at-barcode-bg: transparent;
+  --at-barcode-line-color: #000000;
+  --at-barcode-error-bg: rgba(239, 68, 68, 0.08);
+  --at-barcode-error-border: rgba(239, 68, 68, 0.35);
+  --at-barcode-error-color: #ef4444;
+
+  --at-qrcode-bg: #ffffff;
+  --at-qrcode-border-color: #e2e8f0;
+
+  --at-code-scanner-bg: #000000;
+  --at-code-scanner-laser-color: #10b981;
+  --at-code-scanner-corner-color: #10b981;
+  --at-code-scanner-overlay: rgba(0, 0, 0, 0.55);
+}
+
+.dark {
+  --at-barcode-error-bg: rgba(239, 68, 68, 0.15);
+  --at-barcode-error-border: rgba(239, 68, 68, 0.5);
+  --at-barcode-error-color: #f87171;
+
+  --at-qrcode-bg: #1e293b;
+  --at-qrcode-border-color: #334155;
+}

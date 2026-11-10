@@ -1,0 +1,25 @@
+{
+  "name": "sample-barcode-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/barcode-vue 条码二维码与扫码自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/barcode-vue": "workspace:*",
+    "@atengk/core": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "element-plus": "^2.14.7",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

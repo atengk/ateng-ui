@@ -94,6 +94,34 @@ importers:
         specifier: ^6.0.0
         version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
 
+  apps/sample-barcode-vue:
+    dependencies:
+      '@atengk/barcode-vue':
+        specifier: workspace:*
+        version: link:../../packages/barcode-vue
+      '@atengk/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@atengk/vue':
+        specifier: workspace:*
+        version: link:../../packages/vue
+      element-plus:
+        specifier: ^2.14.7
+        version: 2.14.7(vue@3.5.44(typescript@5.9.3))
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.44(typescript@5.9.3)
+    devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: ^5.2.1
+        version: 5.2.4(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
+
   apps/sample-code-editor-vue:
     dependencies:
       '@atengk/code-editor-vue':
@@ -515,6 +543,37 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@26.6.6)(happy-dom@15.11.7)(sass@1.106.0)
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.44(typescript@5.9.3)
+
+  packages/barcode-vue:
+    dependencies:
+      '@atengk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@atengk/vue':
+        specifier: workspace:*
+        version: link:../vue
+      jsbarcode:
+        specifier: ^3.11.6
+        version: 3.12.3
+    devDependencies:
+      '@types/jsbarcode':
+        specifier: ^3.11.4
+        version: 3.11.4
+      '@vitejs/plugin-vue':
+        specifier: ^5.2.1
+        version: 5.2.4(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
+      vite-plugin-dts:
+        specifier: ^4.3.0
+        version: 4.5.4(@types/node@26.6.6)(rollup@4.64.10)(typescript@5.9.3)(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))
       vue:
         specifier: ^3.5.13
         version: 3.5.44(typescript@5.9.3)
@@ -2435,6 +2494,9 @@ packages:
   '@types/hast@3.0.5':
     resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
 
+  '@types/jsbarcode@3.11.4':
+    resolution: {integrity: sha512-VBcpTAnEMH0Gbh8JpV14CgOtJjCYjsvR2FoDRyoYPE0gUxtApf8N4c+HKEOyz/iiIZkMzqrzBA3XX7+KgKxxsA==}
+
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -3836,6 +3898,9 @@ packages:
   js-yaml@4.3.2:
     resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
+
+  jsbarcode@3.12.3:
+    resolution: {integrity: sha512-CuHU9hC6dPsHF5oVFMo8NW76uQVjH4L22CsP4hW+dNnGywJHC/B0ThA1CTDVLnxKLrrpYdicBLnd2xsgTfRnvg==}
 
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
@@ -6506,6 +6571,10 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
+  '@types/jsbarcode@3.11.4':
+    dependencies:
+      '@types/node': 22.20.5
+
   '@types/json-schema@7.0.15': {}
 
   '@types/katex@0.16.8': {}
@@ -8073,6 +8142,8 @@ snapshots:
   js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
+
+  jsbarcode@3.12.3: {}
 
   json-buffer@3.0.1: {}
 
