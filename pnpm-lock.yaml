@@ -558,6 +558,9 @@ importers:
       jsbarcode:
         specifier: ^3.11.6
         version: 3.12.3
+      qr-code-styling:
+        specifier: ^1.9.2
+        version: 1.9.2
     devDependencies:
       '@types/jsbarcode':
         specifier: ^3.11.4
@@ -4517,6 +4520,13 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  qr-code-styling@1.9.2:
+    resolution: {integrity: sha512-RgJaZJ1/RrXJ6N0j7a+pdw3zMBmzZU4VN2dtAZf8ZggCfRB5stEQ3IoDNGaNhYY3nnZKYlYSLl5YkfWN5dPutg==}
+    engines: {node: '>=18.18.0'}
+
+  qrcode-generator@1.5.2:
+    resolution: {integrity: sha512-pItrW0Z9HnDBnFmgiNrY1uxRdri32Uh9EjNYLPVC2zZ3ZRIIEqBoDgm4DkvDwNNDHTK7FNkmr8zAa77BYc9xNw==}
+
   quansync@0.2.11:
     resolution: {integrity: sha512-AifT7QEbW9Nri4tAwR5M/uzpBuqfZf+zwaEM/QkzEjj7NBuFD2rBuy0K3dE+8wltbezDV7JMA0WfnCPYRSYbXA==}
 
@@ -6763,14 +6773,6 @@ snapshots:
     optionalDependencies:
       vite: 5.4.21(@types/node@22.20.5)(sass@1.106.0)
 
-  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@26.6.6)(sass@1.106.0))':
-    dependencies:
-      '@vitest/spy': 2.1.9
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 5.4.21(@types/node@26.6.6)(sass@1.106.0)
-
   '@vitest/pretty-format@2.1.9':
     dependencies:
       tinyrainbow: 1.2.0
@@ -8773,6 +8775,12 @@ snapshots:
 
   punycode@2.3.1: {}
 
+  qr-code-styling@1.9.2:
+    dependencies:
+      qrcode-generator: 1.5.2
+
+  qrcode-generator@1.5.2: {}
+
   quansync@0.2.11: {}
 
   queue-microtask@1.2.3: {}
@@ -9367,7 +9375,7 @@ snapshots:
   vitest@2.1.9(@types/node@26.6.6)(happy-dom@15.11.7)(sass@1.106.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@26.6.6)(sass@1.106.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.5)(sass@1.106.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

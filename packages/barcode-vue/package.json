@@ -34,7 +34,8 @@
   "dependencies": {
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
-    "jsbarcode": "^3.11.6"
+    "jsbarcode": "^3.11.6",
+    "qr-code-styling": "^1.9.2"
   },
   "devDependencies": {
     "@atengk/core": "workspace:*",
