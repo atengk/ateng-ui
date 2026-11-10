@@ -10,6 +10,9 @@
 import './styles/index.css';
 
 export * from './types';
+export * from './guards/spreadsheet-resize-guard';
+export * from './composables/use-spreadsheet';
+export { default as AtengSpreadsheet } from './components/AtengSpreadsheet.vue';
 
 /**
  * 当前包发布版本标识。
