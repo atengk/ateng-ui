@@ -80,6 +80,14 @@ export interface PrintOptions {
   copies?: number;
   /** 纸张方向（'portrait' 纵向，'landscape' 横向） */
   orientation?: 'portrait' | 'landscape';
+  /** 纸张规格预设（如 'a4'、'receipt-80'、'continuous-241-140' 等） */
+  preset?: PaperPreset;
+  /** 自定义纸张物理宽度（如 '241mm' 或数字 241） */
+  paperWidth?: number | string;
+  /** 自定义纸张物理高度（如 '140mm' 或数字 140） */
+  paperHeight?: number | string;
+  /** 打印任务名称（默认为 'ATENG_PRINT_JOB'） */
+  taskName?: string;
   /** 是否开启长单据动态分页防撕裂引擎（默认为 false） */
   autoPaginate?: boolean;
   /** 额外追加注入打印环境的 CSS 规则字符串或外链样式 URL 列表 */
@@ -137,6 +145,22 @@ export interface PdfExportOptions extends PrintOptions {
   orientation?: PaperOrientation;
   /** 背景色（默认为 '#ffffff'） */
   backgroundColor?: string;
+}
+
+/**
+ * C-Lodop 硬件静默直连驱动配置参数契约。
+ */
+export interface LodopDriverOptions {
+  /** 探针探测超时时间（毫秒，默认 2000ms） */
+  timeoutMs?: number;
+  /** 自定义探测主机列表，默认 ['localhost', '127.0.0.1'] */
+  hosts?: string[];
+  /** 自定义探测端口列表，默认 [8443, 8000, 18000] */
+  ports?: number[];
+  /** 当 C-Lodop 离线时是否自动降级为浏览器打印（默认 false） */
+  fallbackToBrowser?: boolean;
+  /** 自定义获取 LODOP 实例的钩子（用于测试桩或自研代理注入） */
+  getLodop?: () => unknown;
 }
 
 /**

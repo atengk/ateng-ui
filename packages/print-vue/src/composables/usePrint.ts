@@ -11,6 +11,7 @@ import { ref, type Ref } from 'vue';
 import { PrintErrorCode, PrintException } from '../errors/PrintException';
 import { BrowserIframeDriver } from '../drivers/BrowserIframeDriver';
 import { PdfExportDriver } from '../drivers/PdfExportDriver';
+import { LodopDriver } from '../drivers/LodopDriver';
 import { PrintQueueCoordinator } from '../services/PrintQueueCoordinator';
 import type {
   PrintDriver,
@@ -25,11 +26,13 @@ import type {
 /** 全局驱动单例注册表 */
 const driverRegistry = new Map<string, PrintDriver>();
 
-// 默认注册浏览器无头 iframe 驱动与 PDF 导出驱动
+// 默认注册浏览器无头 iframe 驱动、PDF 导出驱动与 C-Lodop 静默驱动
 const defaultBrowserDriver = new BrowserIframeDriver();
 const defaultPdfDriver = new PdfExportDriver();
+const defaultLodopDriver = new LodopDriver({ fallbackToBrowser: true });
 driverRegistry.set(defaultBrowserDriver.name, defaultBrowserDriver);
 driverRegistry.set(defaultPdfDriver.name, defaultPdfDriver);
+driverRegistry.set(defaultLodopDriver.name, defaultLodopDriver);
 
 export interface UsePrintReturn {
   /** 当前是否正在执行打印任务 */

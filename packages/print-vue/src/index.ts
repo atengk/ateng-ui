@@ -52,6 +52,7 @@ export type {
   PrintProgress,
   PrintBindingValue,
   PdfExportOptions,
+  LodopDriverOptions,
   BatchPrintProgress,
   BatchPrintStatus,
   BatchPrintItemError,
@@ -63,12 +64,16 @@ export type {
 export { StyleHarvester } from './services/StyleHarvester';
 export type { HarvestStylesOptions } from './services/StyleHarvester';
 export { PrintQueueCoordinator } from './services/PrintQueueCoordinator';
+export { PrinterManager } from './services/PrinterManager';
 export { BrowserIframeDriver } from './drivers/BrowserIframeDriver';
 export { PdfExportDriver } from './drivers/PdfExportDriver';
+export { LodopDriver } from './drivers/LodopDriver';
 
 // Composables 导出
 export { usePrint } from './composables/usePrint';
 export type { UsePrintReturn } from './composables/usePrint';
+export { useLodop } from './composables/useLodop';
+export type { UseLodopReturn } from './composables/useLodop';
 
 // 指令导出
 export { vPrint } from './directives/vPrint';

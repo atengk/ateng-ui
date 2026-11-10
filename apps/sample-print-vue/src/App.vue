@@ -11,13 +11,20 @@ import DriverDebugView from './views/DriverDebugView.vue';
 import StandardSheetsView from './views/StandardSheetsView.vue';
 import PaginationView from './views/PaginationView.vue';
 import BatchQueueView from './views/BatchQueueView.vue';
+import LodopTerminalView from './views/LodopTerminalView.vue';
 
-const activeTab = ref('batch-queue');
+const activeTab = ref('lodop-terminal');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
   if (
+    hash === 'lodop-terminal' ||
+    hash === 'lodop' ||
+    window.location.pathname.includes('/lodop-terminal')
+  ) {
+    activeTab.value = 'lodop-terminal';
+  } else if (
     hash === 'batch-queue' ||
     hash === 'batch' ||
     window.location.pathname.includes('/batch-queue')
@@ -74,6 +81,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="4. 批量并发队列调度大盘" name="batch-queue">
           <BatchQueueView />
+        </el-tab-pane>
+        <el-tab-pane label="5. C-Lodop 硬件直连与模拟控制台" name="lodop-terminal">
+          <LodopTerminalView />
         </el-tab-pane>
       </el-tabs>
     </main>
