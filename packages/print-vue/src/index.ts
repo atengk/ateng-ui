@@ -13,19 +13,44 @@ import AtengPrintRuler from './components/AtengPrintRuler.vue';
 import AtengPrintBreak from './components/AtengPrintBreak.vue';
 import AtengPrintSeal from './components/AtengPrintSeal.vue';
 import AtengPrintCalibrator from './components/AtengPrintCalibrator.vue';
+import AtengInvoiceSheet from './components/presets/AtengInvoiceSheet.vue';
+import AtengReceiptSheet from './components/presets/AtengReceiptSheet.vue';
+import AtengWaybillSheet from './components/presets/AtengWaybillSheet.vue';
+import AtengLabelSheet from './components/presets/AtengLabelSheet.vue';
 import { vPrint } from './directives/vPrint';
 import { vPrintNoSplit } from './directives/vPrintNoSplit';
 
 import './style/index.css';
 
 // 核心组件导出
-export { AtengPrintSheet, AtengPrintRuler, AtengPrintBreak, AtengPrintSeal, AtengPrintCalibrator };
+export {
+  AtengPrintSheet,
+  AtengPrintRuler,
+  AtengPrintBreak,
+  AtengPrintSeal,
+  AtengPrintCalibrator,
+  AtengInvoiceSheet,
+  AtengReceiptSheet,
+  AtengWaybillSheet,
+  AtengLabelSheet,
+};
 export type {
   AtengPrintSheetProps,
   AtengPrintRulerProps,
   AtengPrintSealProps,
   AtengPrintCalibratorProps,
 } from './types/components';
+export type {
+  AtengInvoiceSheetProps,
+  InvoiceItem,
+  AtengReceiptSheetProps,
+  ReceiptItem,
+  AtengWaybillSheetProps,
+  AtengLabelSheetProps,
+} from './types/presets';
+
+// 金额与格式化工具导出
+export { digitUppercase } from './utils/currency';
 
 // 纸张尺寸与预设导出
 export {
@@ -96,6 +121,10 @@ export function install(app: App): void {
   app.component('AtengPrintBreak', AtengPrintBreak);
   app.component('AtengPrintSeal', AtengPrintSeal);
   app.component('AtengPrintCalibrator', AtengPrintCalibrator);
+  app.component('AtengInvoiceSheet', AtengInvoiceSheet);
+  app.component('AtengReceiptSheet', AtengReceiptSheet);
+  app.component('AtengWaybillSheet', AtengWaybillSheet);
+  app.component('AtengLabelSheet', AtengLabelSheet);
   app.directive('print', vPrint);
   app.directive('print-no-split', vPrintNoSplit);
 }

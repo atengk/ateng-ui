@@ -3,7 +3,8 @@
  * 多规格纸张与排版仿真看板。
  *
  * 验证 A4、A5、58/80mm 热敏连续卷纸、241mm 针式多联单预设、
- * 毫米网格标尺 AtengPrintRuler、十字准星感知、视口仿真缩放与 AtengPrintBreak 强制分页。
+ * 毫米网格标尺 AtengPrintRuler、十字准星感知、视口仿真缩放、AtengPrintBreak 强制分页
+ * 以及 4 大企业高频单据预设（发票结算单、热敏小票、快递面单、仓储货架标签）。
  *
  * @author Ateng
  * @since 2026-11-10
@@ -15,11 +16,19 @@ import {
   AtengPrintSheet,
   AtengPrintRuler,
   AtengPrintBreak,
+  AtengInvoiceSheet,
+  AtengReceiptSheet,
+  AtengWaybillSheet,
+  AtengLabelSheet,
   usePrint,
   type PaperPreset,
   type PaperOrientation,
 } from '@atengk/print-vue';
 
+// 视图模式：通用仿真 或 4 大企业高频单据预设
+const sheetMode = ref<'custom' | 'invoice' | 'receipt' | 'waybill' | 'label'>('custom');
+
+// 通用纸张设置
 const selectedPreset = ref<PaperPreset>('a4');
 const selectedOrientation = ref<PaperOrientation>('portrait');
 const padding = ref('12mm');
@@ -29,6 +38,10 @@ const offsetY = ref(0);
 const showRuler = ref(true);
 const showCrosshair = ref(true);
 const gridLines = ref(false);
+
+// 小票与标签特定配置
+const receiptPreset = ref<'receipt-80' | 'receipt-58'>('receipt-80');
+const labelSizePreset = ref<'small' | 'medium' | 'large'>('large');
 
 const { isPrinting, print } = usePrint();
 
@@ -53,9 +66,9 @@ const handlePrint = async () => {
     <el-card shadow="never" class="control-panel">
       <template #header>
         <div class="panel-header">
-          <span class="panel-title">📐 物理纸张排版规格与毫米网格标尺控制台</span>
+          <span class="panel-title">📐 物理纸张排版规格与单据预设控制台</span>
           <div class="panel-actions">
-            <el-tag size="small" type="info">当前预设: {{ selectedPreset }}</el-tag>
+            <el-tag size="small" type="info">当前模式: {{ sheetMode }}</el-tag>
             <el-button type="primary" size="small" :loading="isPrinting" @click="handlePrint">
               🖨️ 打印当前单据
             </el-button>
@@ -63,74 +76,116 @@ const handlePrint = async () => {
         </div>
       </template>
 
-      <el-form label-width="100px" size="default">
+      <el-form label-width="110px" size="default">
         <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="纸张预设">
-              <el-select v-model="selectedPreset" style="width: 100%">
-                <el-option label="A4 标准单据 (210×297mm)" value="a4" />
-                <el-option label="A5 便携票据 (148×210mm)" value="a5" />
-                <el-option label="80mm 热敏连续卷纸" value="receipt-80" />
-                <el-option label="58mm 热敏连续卷纸" value="receipt-58" />
-                <el-option label="241×140mm 针式二等分单" value="continuous-241-140" />
-                <el-option label="241×93mm 针式三等分单" value="continuous-241-93" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="6">
-            <el-form-item label="纸张方向">
-              <el-radio-group v-model="selectedOrientation">
-                <el-radio-button value="portrait">纵向 (Portrait)</el-radio-button>
-                <el-radio-button value="landscape">横向 (Landscape)</el-radio-button>
+          <el-col :span="24">
+            <el-form-item label="单据场景选择">
+              <el-radio-group v-model="sheetMode">
+                <el-radio-button value="custom">通用单据与标尺仿真</el-radio-button>
+                <el-radio-button value="invoice">销售结算发票 (Invoice)</el-radio-button>
+                <el-radio-button value="receipt">热敏收银小票 (Receipt)</el-radio-button>
+                <el-radio-button value="waybill">三段码快递面单 (Waybill)</el-radio-button>
+                <el-radio-button value="label">仓储物料标签 (Label)</el-radio-button>
               </el-radio-group>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="6">
-            <el-form-item label="物理页边距">
-              <el-select v-model="padding" style="width: 100%">
-                <el-option label="紧凑 (5mm)" value="5mm" />
-                <el-option label="标准 (10mm)" value="10mm" />
-                <el-option label="开阔 (15mm)" value="15mm" />
-                <el-option label="宽松 (20mm)" value="20mm" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="6">
-            <el-form-item label="缩放倍率">
-              <el-slider
-                v-model="scale"
-                :min="0.5"
-                :max="1.5"
-                :step="0.05"
-                :format-tooltip="v => `${Math.round(v * 100)}%`"
-              />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="X 轴微调偏移">
-              <el-input-number v-model="offsetX" :min="-20" :max="20" :step="1">
-                <template #suffix>mm</template>
-              </el-input-number>
+        <!-- 通用模式专属设置 -->
+        <template v-if="sheetMode === 'custom'">
+          <el-row :gutter="20">
+            <el-col :span="6">
+              <el-form-item label="纸张预设">
+                <el-select v-model="selectedPreset" style="width: 100%">
+                  <el-option label="A4 标准单据 (210×297mm)" value="a4" />
+                  <el-option label="A5 便携票据 (148×210mm)" value="a5" />
+                  <el-option label="80mm 热敏连续卷纸" value="receipt-80" />
+                  <el-option label="58mm 热敏连续卷纸" value="receipt-58" />
+                  <el-option label="241×140mm 针式二等分单" value="continuous-241-140" />
+                  <el-option label="241×93mm 针式三等分单" value="continuous-241-93" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="6">
+              <el-form-item label="纸张方向">
+                <el-radio-group v-model="selectedOrientation">
+                  <el-radio-button value="portrait">纵向</el-radio-button>
+                  <el-radio-button value="landscape">横向</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="6">
+              <el-form-item label="物理页边距">
+                <el-select v-model="padding" style="width: 100%">
+                  <el-option label="紧凑 (5mm)" value="5mm" />
+                  <el-option label="标准 (10mm)" value="10mm" />
+                  <el-option label="开阔 (15mm)" value="15mm" />
+                  <el-option label="宽松 (20mm)" value="20mm" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="6">
+              <el-form-item label="缩放倍率">
+                <el-slider
+                  v-model="scale"
+                  :min="0.5"
+                  :max="1.5"
+                  :step="0.05"
+                  :format-tooltip="v => `${Math.round(v * 100)}%`"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="20">
+            <el-col :span="6">
+              <el-form-item label="X 轴微调偏移">
+                <el-input-number v-model="offsetX" :min="-20" :max="20" :step="1">
+                  <template #suffix>mm</template>
+                </el-input-number>
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="Y 轴微调偏移">
+                <el-input-number v-model="offsetY" :min="-20" :max="20" :step="1">
+                  <template #suffix>mm</template>
+                </el-input-number>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="标尺辅助选项">
+                <el-checkbox v-model="showRuler">启用毫米标尺</el-checkbox>
+                <el-checkbox v-model="showCrosshair">鼠标十字准星</el-checkbox>
+                <el-checkbox v-model="gridLines">10mm 网格辅助线</el-checkbox>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
+
+        <!-- 热敏小票特定设置 -->
+        <el-row v-if="sheetMode === 'receipt'" :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="卷纸宽度预设">
+              <el-radio-group v-model="receiptPreset">
+                <el-radio-button value="receipt-80">80mm 标准型</el-radio-button>
+                <el-radio-button value="receipt-58">58mm 紧凑便携型</el-radio-button>
+              </el-radio-group>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="Y 轴微调偏移">
-              <el-input-number v-model="offsetY" :min="-20" :max="20" :step="1">
-                <template #suffix>mm</template>
-              </el-input-number>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="标尺辅助选项">
-              <el-checkbox v-model="showRuler">启用毫米标尺</el-checkbox>
-              <el-checkbox v-model="showCrosshair">鼠标十字准星</el-checkbox>
-              <el-checkbox v-model="gridLines">10mm 网格辅助线</el-checkbox>
+        </el-row>
+
+        <!-- 标签特定设置 -->
+        <el-row v-if="sheetMode === 'label'" :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="标签尺寸预设">
+              <el-radio-group v-model="labelSizePreset">
+                <el-radio-button value="small">小型 40×30mm</el-radio-button>
+                <el-radio-button value="medium">中型 60×40mm</el-radio-button>
+                <el-radio-button value="large">大型 80×50mm</el-radio-button>
+              </el-radio-group>
             </el-form-item>
           </el-col>
         </el-row>
@@ -140,13 +195,15 @@ const handlePrint = async () => {
     <div class="sheet-viewport-box">
       <!-- 带有标尺包裹的预览 -->
       <component
-        :is="showRuler ? AtengPrintRuler : 'div'"
+        :is="showRuler && sheetMode === 'custom' ? AtengPrintRuler : 'div'"
         class="ruler-outer"
         :show-crosshair="showCrosshair"
         :grid-lines="gridLines"
         :scale="scale"
       >
+        <!-- 1. 通用标尺仿真 -->
         <AtengPrintSheet
+          v-if="sheetMode === 'custom'"
           id="standard-sheet-preview"
           :preset="selectedPreset"
           :orientation="selectedOrientation"
@@ -221,6 +278,26 @@ const handlePrint = async () => {
             </div>
           </template>
         </AtengPrintSheet>
+
+        <!-- 2. 销售结算发票预设 -->
+        <div v-else-if="sheetMode === 'invoice'" id="standard-sheet-preview" class="preset-wrapper">
+          <AtengInvoiceSheet />
+        </div>
+
+        <!-- 3. 热敏收银小票预设 -->
+        <div v-else-if="sheetMode === 'receipt'" id="standard-sheet-preview" class="preset-wrapper">
+          <AtengReceiptSheet :width-preset="receiptPreset" />
+        </div>
+
+        <!-- 4. 三段码快递面单预设 -->
+        <div v-else-if="sheetMode === 'waybill'" id="standard-sheet-preview" class="preset-wrapper">
+          <AtengWaybillSheet />
+        </div>
+
+        <!-- 5. 仓储物料标签预设 -->
+        <div v-else-if="sheetMode === 'label'" id="standard-sheet-preview" class="preset-wrapper">
+          <AtengLabelSheet :size-preset="labelSizePreset" />
+        </div>
       </component>
     </div>
   </div>
@@ -262,6 +339,12 @@ const handlePrint = async () => {
 
 .ruler-outer {
   max-width: 100%;
+}
+
+.preset-wrapper {
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
 }
 
 .sheet-inner-card {
