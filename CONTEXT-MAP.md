@@ -50,6 +50,8 @@
   面向现代 Web 应用、电子商务、内容创作与政企审核认证的工业级图片裁剪与图像处理扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与第三方核心 `cropperjs 1.6.x`，严格中立并与具体 UI 库解耦。提供 `<AtengCropper />`（核心画布容器 / 多源输入适配 / 比例锁定 / 尺寸自愈）、`<AtengCropperModal />`（脱壳模态弹窗 / 原生 Teleport 驱动 / 空态 Dropzone / 剪贴板自动嗅探）、`<AtengCropperPreview />`（多规格实时缩略预览组件）表现容器与 `useCropper()` 无头状态机；确立 `BlobUrlGuard` 对内部临时 ObjectURL 100% 确定性销毁闭环；提供物理圆形透明 Alpha 切片与自动收敛 PNG；提供 4096 尺寸护栏与目标文件大小 `maxByteSize` 二分逼近自动压缩管道；提供离屏 Canvas 倾斜防伪水印合成引擎（`WatermarkEngine`）与精细角度调平滑块。
 - **[SpreadsheetVue 专业在线电子表格与批量填报扩展](./packages/spreadsheet-vue/CONTEXT.md)**（`@atengk/spreadsheet-vue`，当前活跃）：
   面向现代 Web 应用与企业级系统的高性能在线电子表格、公式联动与批量填报扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与 Univer 1.4.x（`@univerjs/presets` + `@univerjs/preset-sheets-core`），严格中立并与具体 UI 库解耦。提供 `<AtengSpreadsheet />`（核心表现容器 / 多 Sheet 切换 / 300+ 公式实时联动 / 三态场景分级 / 插槽反转）、`<AtengSpreadsheetModal />`（轻量脱壳模态弹窗 / 原生 Teleport 驱动 / 视口全屏 / 0x0 几何自愈）表现容器与 `useSpreadsheet()` 无头状态机；确立全量快照（`v-model:snapshot`）与扁平行记录（`v-model:data`）双轨绑定契约；内置 `SheetDataMapper` 提供动态列推断、防抖回写与未展示属性保全；提供 `SpreadsheetResizeGuard` 0x0 视口几何自愈；提供中文优先双轨国际化与 CSV/JSON 原生轻量导出管道。
+- **[GanttVue 企业级甘特图与资源排程扩展](./packages/gantt-vue/CONTEXT.md)**（`@atengk/gantt-vue`，当前孵化入驻）：
+  面向现代 Web 应用与企业级系统的高性能甘特图、资源排程与基线偏差比对扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与 VisActor VTable-Gantt 1.26.x，严格中立并与具体 UI 库解耦。提供 `<AtengGantt />`（核心表现容器 / 双栏像素级同步 / 多时间粒度刻度 / 插槽反转）、`<AtengGanttModal />`（轻量脱壳模态弹窗 / 原生 Teleport 驱动 / 视口真全屏 / 0x0 几何自愈）表现容器与 `useGantt()` / `useGanttThemeSync()` 无头状态机；确立扁平与树形嵌套自适应双模数据契约与 `v-model:tasks` 双向回写；内置 `GanttRollup` 自底向上工期/进度加权汇总算法与 `GanttValidator` 拓扑判环有向无环图（DAG）校验守卫；提供计划基线（Baseline）对比、延误预警标红与里程碑菱形渲染；提供 0x0 视口几何自愈守卫 `GanttResizeGuard` 与 Canvas 高清防虚全景导出引擎 `GanttExporter`。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -78,6 +80,7 @@
 - **[Sample BarcodeVue 条码二维码与扫码自验展厅](./apps/sample-barcode-vue/README.md)**（`sample-barcode-vue`）：条码扫码沙箱，1:1 对标 `@atengk/barcode-vue`，固定端口 3015，验证一维码/二维码 SVG 与 Canvas 双模渲染、离线防崩溃校验、6 大艺术主题与 Logo CORS 守卫、摄像头长宽比自适应扫码、流水线同码去重冷却与手持扫码枪防表单污染守卫。
 - **[Sample CropperVue 图片裁剪与处理自验展厅](./apps/sample-cropper-vue/README.md)**（`sample-cropper-vue`）：图片裁剪沙箱，1:1 对标 `@atengk/cropper-vue`，固定端口 3016，验证基础控制台交互、圆形透明 Alpha 头像切片、商品与证件倾斜防伪水印合成、1MB 二分自动压缩、超大图防爆限制与销毁内存自净。
 - **[Sample SpreadsheetVue 电子表格与填报自验展厅](./apps/sample-spreadsheet-vue/README.md)**（`sample-spreadsheet-vue`）：电子表格沙箱，1:1 对标 `@atengk/spreadsheet-vue`，固定端口 3017，验证全功能工作簿、紧凑行数据双向填报、只读审计计算、模态弹窗脱壳与 0x0 几何自愈。
+- **[Sample GanttVue 甘特图与排程自验展厅](./apps/sample-gantt-vue/README.md)**（`sample-gantt-vue`）：甘特图排程沙箱，1:1 对标 `@atengk/gantt-vue`，固定端口 3018，验证敏捷研发 WBS 多级排程与 FS/SS 依赖连线、工程排产基线对比与延误标红预警、日/周/月/季/年五档缩放与今天定位标线、模态弹窗脱壳全屏与 Canvas 高清导出。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -114,6 +117,7 @@ flowchart TD
         BAR["@atengk/barcode-vue<br/>(条码/二维码与按需扫码扩展)"]
         CROP["@atengk/cropper-vue<br/>(图片裁剪与处理扩展)"]
         SHEET["@atengk/spreadsheet-vue<br/>(专业电子表格与批量填报扩展)"]
+        GANTT["@atengk/gantt-vue<br/>(企业级甘特图与资源排程扩展)"]
         EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -143,6 +147,7 @@ flowchart TD
         S_BAR["apps/sample-barcode-vue"]
         S_CROP["apps/sample-cropper-vue"]
         S_SHEET["apps/sample-spreadsheet-vue"]
+        S_GANTT["apps/sample-gantt-vue"]
         S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
@@ -171,6 +176,7 @@ flowchart TD
     BAR --> S_BAR
     CROP --> S_CROP
     SHEET --> S_SHEET
+    GANTT --> S_GANTT
     EP --> S_EP
 ```
 
