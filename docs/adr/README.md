@@ -52,6 +52,7 @@
 | [ADR-0046](./0046-print-vue-l2-architecture-and-governance.md)                                     | PrintVue L2 扩展层架构、多驱动打印调度与精准单据排版治理规范              | Accepted | 确立 @atengk/print-vue L2 定位与零 UI 依赖，多驱动 SPI 架构，AtengPrintSheet 物理纸张与标尺，动态分页防撕裂截断，PDF 逐页切片防爆，批量并发调度，C-Lodop 探针与降级，预印校准与电子印章             |
 | [ADR-0047](./0047-barcode-vue-l2-architecture-and-governance.md)                                   | BarcodeVue L2 扩展层架构、全场景条码生成与按需扫码治理规范                | Accepted | 确立 @atengk/barcode-vue L2 定位与零 UI 依赖，SVG 优先双模，离线防崩溃校验，6 大艺术主题预设与 CORS 守卫，按需懒加载扫码与确定性清理，长宽比构型，流水线去重，手持扫码枪防污染守卫                  |
 | [ADR-0048](./0048-cropper-vue-l2-architecture-and-governance.md)                                   | CropperVue L2 扩展层架构、物理透明切片与多轨导出治理规范                  | Accepted | 确立 @atengk/cropper-vue L2 定位与零 UI 依赖，AtengCropperModal 脱壳弹窗，BlobUrlGuard 内存闭环，物理圆形透明 Alpha 切片，4096 护栏与 maxByteSize 二分压缩，WatermarkEngine 离屏防伪水印与 4 大看板 |
+| [ADR-0049](./0049-spreadsheet-vue-l2-architecture-and-governance.md)                               | SpreadsheetVue L2 扩展层架构、双轨数据驱动与 Univer 电子表格治理规范      | Accepted | 确立 @atengk/spreadsheet-vue L2 定位与零 UI 依赖，Presets 架构与 React 隐式自洽，双轨数据契约（snapshot/records）与 SheetDataMapper，三态交互模式分级，严格浅响应持有，0x0 几何自愈与 4 大看板      |
 
 ---
 

@@ -1,0 +1,236 @@
+/**
+ * @atengk/spreadsheet-vue 全局样式定义。
+ *
+ * 遵循 ADR-0021、ADR-0029 与 ADR-0049，确立 .at-spreadsheet-* 命名空间与 CSS 变量级联驱动。
+ *
+ * @author Ateng
+ * @since 2026-11-10
+ */
+
+@import '@univerjs/preset-sheets-core/lib/index.css';
+
+:root {
+  --at-spreadsheet-bg: var(--el-bg-color, #ffffff);
+  --at-spreadsheet-bg-secondary: var(--el-bg-color-page, #f5f7fa);
+  --at-spreadsheet-text-color: var(--el-text-color-primary, #303133);
+  --at-spreadsheet-text-secondary: var(--el-text-color-regular, #606266);
+  --at-spreadsheet-border-color: var(--el-border-color, #dcdfe6);
+  --at-spreadsheet-border-light: var(--el-border-color-light, #e4e7ed);
+  --at-spreadsheet-primary-color: var(--el-color-primary, #409eff);
+  --at-spreadsheet-radius: var(--el-border-radius-base, 4px);
+  --at-spreadsheet-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  --at-spreadsheet-modal-mask: rgba(0, 0, 0, 0.5);
+  --at-spreadsheet-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html.dark,
+.dark {
+  --at-spreadsheet-bg: var(--el-bg-color, #141414);
+  --at-spreadsheet-bg-secondary: var(--el-bg-color-page, #0a0a0a);
+  --at-spreadsheet-text-color: var(--el-text-color-primary, #e5eaf3);
+  --at-spreadsheet-text-secondary: var(--el-text-color-regular, #a3a6ad);
+  --at-spreadsheet-border-color: var(--el-border-color, #363637);
+  --at-spreadsheet-border-light: var(--el-border-color-light, #2b2b2c);
+  --at-spreadsheet-primary-color: var(--el-color-primary, #409eff);
+  --at-spreadsheet-modal-mask: rgba(0, 0, 0, 0.7);
+}
+
+/* 核心容器 */
+.at-spreadsheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--at-spreadsheet-bg);
+  border: 1px solid var(--at-spreadsheet-border-color);
+  border-radius: var(--at-spreadsheet-radius);
+  color: var(--at-spreadsheet-text-color);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.at-spreadsheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--at-spreadsheet-border-light);
+  background-color: var(--at-spreadsheet-bg-secondary);
+}
+
+.at-spreadsheet__extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-spreadsheet__container {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.at-spreadsheet__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--at-spreadsheet-border-light);
+  background-color: var(--at-spreadsheet-bg-secondary);
+  font-size: 12px;
+  color: var(--at-spreadsheet-text-secondary);
+}
+
+.at-spreadsheet__loading,
+.at-spreadsheet__empty {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--at-spreadsheet-bg);
+  z-index: 10;
+  color: var(--at-spreadsheet-text-secondary);
+}
+
+/* 紧凑模式隐藏顶部工具栏 */
+.at-spreadsheet--compact .univer-ribbon-bar,
+.at-spreadsheet--compact .univer-toolbar {
+  display: none !important;
+}
+
+/* 只读模式屏蔽操作指示 */
+.at-spreadsheet--readonly {
+  user-select: text;
+}
+
+/* 脱壳模态弹窗 */
+.at-spreadsheet-modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--at-spreadsheet-modal-mask);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  transition: opacity var(--at-spreadsheet-transition);
+}
+
+.at-spreadsheet-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--at-spreadsheet-bg);
+  border-radius: var(--at-spreadsheet-radius);
+  box-shadow: var(--at-spreadsheet-shadow);
+  border: 1px solid var(--at-spreadsheet-border-color);
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: var(--at-spreadsheet-transition);
+}
+
+.at-spreadsheet-modal--fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0;
+  border: none;
+}
+
+.at-spreadsheet-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--at-spreadsheet-border-light);
+  background-color: var(--at-spreadsheet-bg-secondary);
+}
+
+.at-spreadsheet-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--at-spreadsheet-text-color);
+}
+
+.at-spreadsheet-modal__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-spreadsheet-modal__btn-icon {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--at-spreadsheet-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.at-spreadsheet-modal__btn-icon:hover {
+  background-color: var(--at-spreadsheet-border-light);
+  color: var(--at-spreadsheet-text-color);
+}
+
+.at-spreadsheet-modal__body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.at-spreadsheet-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--at-spreadsheet-border-light);
+  background-color: var(--at-spreadsheet-bg-secondary);
+}
+
+.at-spreadsheet-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid var(--at-spreadsheet-border-color);
+  background-color: var(--at-spreadsheet-bg);
+  color: var(--at-spreadsheet-text-color);
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: var(--at-spreadsheet-radius);
+  transition: var(--at-spreadsheet-transition);
+}
+
+.at-spreadsheet-btn:hover {
+  color: var(--at-spreadsheet-primary-color);
+  border-color: var(--at-spreadsheet-primary-color);
+}
+
+.at-spreadsheet-btn--primary {
+  background-color: var(--at-spreadsheet-primary-color);
+  border-color: var(--at-spreadsheet-primary-color);
+  color: #ffffff;
+}
+
+.at-spreadsheet-btn--primary:hover {
+  opacity: 0.9;
+  color: #ffffff;
+}
