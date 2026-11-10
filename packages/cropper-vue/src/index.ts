@@ -9,5 +9,7 @@
 
 export * from './types';
 export * from './guards/blob-url-guard';
+export * from './guards/canvas-taint-guard';
+export * from './utils/circle-clip';
 export * from './composables/use-cropper';
 export { default as AtengCropper } from './components/AtengCropper.vue';

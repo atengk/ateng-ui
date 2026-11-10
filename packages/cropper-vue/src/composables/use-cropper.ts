@@ -12,6 +12,8 @@ import { ref, shallowRef, toValue, getCurrentScope, onScopeDispose, nextTick } f
 import type { Ref, MaybeRefOrGetter } from 'vue';
 import Cropper from 'cropperjs';
 import { BlobUrlGuard } from '../guards/blob-url-guard';
+import { CanvasTaintGuard } from '../guards/canvas-taint-guard';
+import { clipCircleCanvas } from '../utils/circle-clip';
 import type {
   CropperSource,
   CropperCropData,
@@ -385,12 +387,20 @@ export function useCropper(
       fillColor: options?.fillColor ?? (options?.format === 'image/jpeg' ? '#ffffff' : undefined),
     };
 
-    const canvas = cropperInstance.value.getCroppedCanvas(opt);
-    if (!canvas) {
-      throw new Error('Canvas 导出失败：未能获取到有效的 CroppedCanvas。');
-    }
+    return CanvasTaintGuard.guard(() => {
+      const rawCanvas = cropperInstance.value!.getCroppedCanvas(opt);
+      if (!rawCanvas) {
+        throw new Error('Canvas 导出失败：未能获取到有效的 CroppedCanvas。');
+      }
 
-    return canvas;
+      const optShape = toValue(rawOptions)?.shape;
+      // 物理圆形裁切：当配置为 circle 且未显式关闭 clipCircle 时执行
+      if (optShape === 'circle' && options?.clipCircle !== false) {
+        return clipCircleCanvas(rawCanvas);
+      }
+
+      return rawCanvas;
+    });
   };
 
   /**
@@ -398,22 +408,29 @@ export function useCropper(
    */
   const exportBlob = async (options?: CropperExportOptions): Promise<Blob> => {
     const canvas = exportCanvas(options);
-    const format = options?.format ?? 'image/png';
+    const optShape = toValue(rawOptions)?.shape;
+    // 当为圆形裁切且未显式指定 format 时，自动收敛为 PNG 格式以保留透明 Alpha 通道
+    const format =
+      options?.format ??
+      (optShape === 'circle' && options?.clipCircle !== false ? 'image/png' : 'image/png');
     const quality = options?.quality ?? 0.92;
 
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        blob => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Canvas 转 Blob 失败。'));
-          }
-        },
-        format,
-        quality,
-      );
-    });
+    return CanvasTaintGuard.guardAsync(
+      () =>
+        new Promise((resolve, reject) => {
+          canvas.toBlob(
+            blob => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Canvas 转 Blob 失败。'));
+              }
+            },
+            format,
+            quality,
+          );
+        }),
+    );
   };
 
   /**
@@ -421,7 +438,10 @@ export function useCropper(
    */
   const exportFile = async (fileName?: string, options?: CropperExportOptions): Promise<File> => {
     const blob = await exportBlob(options);
-    const format = options?.format ?? 'image/png';
+    const optShape = toValue(rawOptions)?.shape;
+    const format =
+      options?.format ??
+      (optShape === 'circle' && options?.clipCircle !== false ? 'image/png' : 'image/png');
     const ext = format === 'image/jpeg' ? '.jpg' : format === 'image/webp' ? '.webp' : '.png';
     const finalName = fileName
       ? fileName.includes('.')
@@ -437,9 +457,13 @@ export function useCropper(
    */
   const exportDataUrl = (options?: CropperExportOptions): string => {
     const canvas = exportCanvas(options);
-    const format = options?.format ?? 'image/png';
+    const optShape = toValue(rawOptions)?.shape;
+    const format =
+      options?.format ??
+      (optShape === 'circle' && options?.clipCircle !== false ? 'image/png' : 'image/png');
     const quality = options?.quality ?? 0.92;
-    return canvas.toDataURL(format, quality);
+
+    return CanvasTaintGuard.guard(() => canvas.toDataURL(format, quality));
   };
 
   /**
