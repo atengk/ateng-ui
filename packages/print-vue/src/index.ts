@@ -11,14 +11,21 @@ import type { App } from 'vue';
 import AtengPrintSheet from './components/AtengPrintSheet.vue';
 import AtengPrintRuler from './components/AtengPrintRuler.vue';
 import AtengPrintBreak from './components/AtengPrintBreak.vue';
+import AtengPrintSeal from './components/AtengPrintSeal.vue';
+import AtengPrintCalibrator from './components/AtengPrintCalibrator.vue';
 import { vPrint } from './directives/vPrint';
 import { vPrintNoSplit } from './directives/vPrintNoSplit';
 
 import './style/index.css';
 
 // 核心组件导出
-export { AtengPrintSheet, AtengPrintRuler, AtengPrintBreak };
-export type { AtengPrintSheetProps, AtengPrintRulerProps } from './types/components';
+export { AtengPrintSheet, AtengPrintRuler, AtengPrintBreak, AtengPrintSeal, AtengPrintCalibrator };
+export type {
+  AtengPrintSheetProps,
+  AtengPrintRulerProps,
+  AtengPrintSealProps,
+  AtengPrintCalibratorProps,
+} from './types/components';
 
 // 纸张尺寸与预设导出
 export {
@@ -87,6 +94,8 @@ export function install(app: App): void {
   app.component('AtengPrintSheet', AtengPrintSheet);
   app.component('AtengPrintRuler', AtengPrintRuler);
   app.component('AtengPrintBreak', AtengPrintBreak);
+  app.component('AtengPrintSeal', AtengPrintSeal);
+  app.component('AtengPrintCalibrator', AtengPrintCalibrator);
   app.directive('print', vPrint);
   app.directive('print-no-split', vPrintNoSplit);
 }

@@ -11,7 +11,13 @@
 
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { useLodop, usePrint, type PaperPreset } from '@atengk/print-vue';
+import {
+  useLodop,
+  usePrint,
+  AtengPrintSeal,
+  AtengPrintCalibrator,
+  type PaperPreset,
+} from '@atengk/print-vue';
 
 // 模拟 C-Lodop 硬件设备池
 const mockPrintersList = [
@@ -98,6 +104,22 @@ const selectedChannel = ref('continuous');
 const copies = ref(1);
 const fallbackToBrowser = ref(true);
 const lastLog = ref<string>('系统已就绪，等待操作...');
+
+// 电子印章配置
+const showSeal = ref(true);
+const sealRotate = ref(-14);
+const sealCompany = ref('上海智能工业机器人制造中心');
+const sealTitle = ref('发货核准专用章');
+const sealCode = ref('91310115MA1H234567');
+
+// 预印套打走纸校准参数
+const calibratorX = ref(0);
+const calibratorY = ref(0);
+const showCalibrator = ref(false);
+
+const activePrinterName = computed(() => {
+  return channelBindings.value[selectedChannel.value] || 'DASCOM DS-620';
+});
 
 // 连续打孔三联单演示数据
 const waybillData = ref({
@@ -203,6 +225,20 @@ const handleBrowserDirectPrint = async () => {
     });
   } catch (err: unknown) {
     ElMessage.error(err instanceof Error ? err.message : '打印异常');
+  }
+};
+
+// 打印校准测试标尺页
+const handlePrintTestRuler = async () => {
+  try {
+    await print('#at-print-calibration-sheet', {
+      fallbackToBrowser: true,
+      onSuccess: () => {
+        ElMessage.success('已成功唤起套打毫米标尺测试页打印');
+      },
+    });
+  } catch (err: unknown) {
+    ElMessage.error(err instanceof Error ? err.message : '打印测试页失败');
   }
 };
 
@@ -347,14 +383,37 @@ const serviceStatusTag = computed(() => {
           </div>
         </template>
 
+        <!-- 印章与套打位移控制条 -->
+        <div class="seal-controls-bar">
+          <div class="seal-controls-left">
+            <el-checkbox v-model="showSeal">加盖高保真电子印章</el-checkbox>
+            <span class="label">印章倾斜:</span>
+            <el-slider
+              v-model="sealRotate"
+              :min="-30"
+              :max="30"
+              style="width: 90px; margin: 0 8px"
+            />
+            <span class="unit">{{ sealRotate }}°</span>
+          </div>
+          <el-button size="small" type="primary" plain @click="showCalibrator = !showCalibrator">
+            🎯 {{ showCalibrator ? '收起套打校准器' : '预印套打走纸校准' }} ({{ calibratorX }}mm,
+            {{ calibratorY }}mm)
+          </el-button>
+        </div>
+
         <div class="perforated-paper-outer">
           <!-- 左右模拟打孔带 -->
           <div class="tractor-holes left-holes">
             <span v-for="i in 10" :key="`l-${i}`" class="hole"></span>
           </div>
 
-          <!-- 单据内容正文 -->
-          <div id="continuous-sheet-preview" class="triplicate-bill">
+          <!-- 单据内容正文（响应校准偏移平移） -->
+          <div
+            id="continuous-sheet-preview"
+            class="triplicate-bill"
+            :style="{ transform: `translate(${calibratorX}mm, ${calibratorY}mm)` }"
+          >
             <!-- 联次标识与标题 -->
             <div class="bill-header">
               <div class="bill-badge">第二联：随货提货核对联（绿复写联）</div>
@@ -418,11 +477,34 @@ const serviceStatusTag = computed(() => {
               [得实 DASCOM DS-620 针式打印机连续走纸测试 — 走纸高度 140mm
               遇切刀自动定格，绝不空跳整页 A4]
             </div>
+
+            <!-- 电子印章悬浮覆盖 -->
+            <AtengPrintSeal
+              v-if="showSeal"
+              :company="sealCompany"
+              :title="sealTitle"
+              :code="sealCode"
+              :rotate="sealRotate"
+              :size="110"
+              color="#dc2626"
+              bottom="16px"
+              right="40px"
+            />
           </div>
 
           <div class="tractor-holes right-holes">
             <span v-for="i in 10" :key="`r-${i}`" class="hole"></span>
           </div>
+        </div>
+
+        <!-- 预印套打毫米校准器抽屉/卡片 -->
+        <div v-if="showCalibrator" class="calibrator-card-wrapper">
+          <AtengPrintCalibrator
+            v-model:offset-x="calibratorX"
+            v-model:offset-y="calibratorY"
+            :printer-name="activePrinterName"
+            @print-test="handlePrintTestRuler"
+          />
         </div>
       </el-card>
     </div>
@@ -581,6 +663,7 @@ const serviceStatusTag = computed(() => {
 }
 
 .triplicate-bill {
+  position: relative;
   flex: 1;
   background-color: #f0fdf4; /* 模拟二联绿色复写纸底色 */
   border: 1px dashed #86efac;
@@ -589,6 +672,38 @@ const serviceStatusTag = computed(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #14532d;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease-out;
+}
+
+.seal-controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.seal-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seal-controls-left .label {
+  font-size: 12px;
+  color: #475569;
+}
+
+.seal-controls-left .unit {
+  font-size: 11px;
+  color: #64748b;
+  min-width: 28px;
+}
+
+.calibrator-card-wrapper {
+  margin-top: 16px;
 }
 
 .bill-header {
