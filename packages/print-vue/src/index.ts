@@ -52,11 +52,17 @@ export type {
   PrintProgress,
   PrintBindingValue,
   PdfExportOptions,
+  BatchPrintProgress,
+  BatchPrintStatus,
+  BatchPrintItemError,
+  BatchPrintResult,
+  BatchPrintOptions,
 } from './types';
 
 // 服务与驱动导出
 export { StyleHarvester } from './services/StyleHarvester';
 export type { HarvestStylesOptions } from './services/StyleHarvester';
+export { PrintQueueCoordinator } from './services/PrintQueueCoordinator';
 export { BrowserIframeDriver } from './drivers/BrowserIframeDriver';
 export { PdfExportDriver } from './drivers/PdfExportDriver';
 

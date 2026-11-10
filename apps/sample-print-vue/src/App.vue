@@ -10,13 +10,20 @@ import { ref, onMounted, watch } from 'vue';
 import DriverDebugView from './views/DriverDebugView.vue';
 import StandardSheetsView from './views/StandardSheetsView.vue';
 import PaginationView from './views/PaginationView.vue';
+import BatchQueueView from './views/BatchQueueView.vue';
 
-const activeTab = ref('pagination');
+const activeTab = ref('batch-queue');
 const isDark = ref(false);
 
 onMounted(() => {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash === 'pagination' || window.location.pathname.includes('/pagination')) {
+  if (
+    hash === 'batch-queue' ||
+    hash === 'batch' ||
+    window.location.pathname.includes('/batch-queue')
+  ) {
+    activeTab.value = 'batch-queue';
+  } else if (hash === 'pagination' || window.location.pathname.includes('/pagination')) {
     activeTab.value = 'pagination';
   } else if (hash === 'sheets') {
     activeTab.value = 'sheets';
@@ -64,6 +71,9 @@ const toggleDark = () => {
         </el-tab-pane>
         <el-tab-pane label="3. 长单据动态分页防撕裂" name="pagination">
           <PaginationView />
+        </el-tab-pane>
+        <el-tab-pane label="4. 批量并发队列调度大盘" name="batch-queue">
+          <BatchQueueView />
         </el-tab-pane>
       </el-tabs>
     </main>

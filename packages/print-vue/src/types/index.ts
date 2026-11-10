@@ -29,6 +29,46 @@ export interface PrintProgress {
 }
 
 /**
+ * 批量打印进度状态契约别名。
+ */
+export type BatchPrintProgress = PrintProgress;
+
+/**
+ * 批量打印队列调度生命周期状态。
+ */
+export type BatchPrintStatus = 'idle' | 'running' | 'paused' | 'cancelled' | 'completed';
+
+/**
+ * 批量打印单项异常明细契约。
+ */
+export interface BatchPrintItemError<T = unknown> {
+  /** 发生错误的单据数据项 */
+  item: T;
+  /** 单据在原数据集合中的索引位置 */
+  index: number;
+  /** 捕获的具体异常信息 */
+  error: Error | PrintException;
+}
+
+/**
+ * 批量打印最终聚合结果契约。
+ */
+export interface BatchPrintResult<T = unknown> {
+  /** 任务总数量 */
+  total: number;
+  /** 成功完成的任务数 */
+  successCount: number;
+  /** 失败的任务数 */
+  failedCount: number;
+  /** 原始传入的全部单据项 */
+  items: T[];
+  /** 发生失败的单据项及其错误明细列表 */
+  failedItems: BatchPrintItemError<T>[];
+  /** 队列终态 */
+  status: BatchPrintStatus;
+}
+
+/**
  * 统一打印参数配置契约。
  */
 export interface PrintOptions {
@@ -54,6 +94,29 @@ export interface PrintOptions {
   onError?: (error: PrintException) => void;
   /** 当发生硬件向浏览器打印降级时的钩子 */
   onFallback?: (reason: string) => void;
+}
+
+/**
+ * 批量打印并发调度参数配置契约。
+ */
+export interface BatchPrintOptions extends PrintOptions {
+  /** 最大并发执行数（默认为 1，即严格串行调度，防止驱动或浏览器崩溃） */
+  concurrency?: number;
+  /** 批量进度更新回调 */
+  onProgress?: (progress: BatchPrintProgress) => void;
+  /** 当队列生命周期状态发生流转时的回调 */
+  onStatusChange?: (status: BatchPrintStatus) => void;
+  /** 当单项任务发生异常时是否继续执行后续任务（默认为 true，错误隔离） */
+  continueOnError?: boolean;
+  /** 两次相邻任务调度间的缓冲延迟毫秒数（默认为 0） */
+  delayBetweenTasks?: number;
+  /** 自定义单项打印执行器（若不提供，则使用当前活跃驱动） */
+  executeItem?: (
+    target: HTMLElement | string,
+    item: unknown,
+    index: number,
+    options?: PrintOptions,
+  ) => Promise<void>;
 }
 
 /**
