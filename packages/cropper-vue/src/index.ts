@@ -8,3 +8,6 @@
  */
 
 export * from './types';
+export * from './guards/blob-url-guard';
+export * from './composables/use-cropper';
+export { default as AtengCropper } from './components/AtengCropper.vue';

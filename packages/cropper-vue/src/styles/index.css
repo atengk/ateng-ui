@@ -1,0 +1,103 @@
+/**
+ * @atengk/cropper-vue 统一样式入口。
+ *
+ * 遵循 ADR-0021、ADR-0029 与 ADR-0048 规范，
+ * 封装基础 Cropper.js 样式并提供 --at-cropper-* CSS 变量支持与圆形遮罩隔离。
+ *
+ * @author Ateng
+ * @since 2026-11-10
+ */
+
+@import 'cropperjs/dist/cropper.css';
+
+:root {
+  --at-cropper-bg: #f8fafc;
+  --at-cropper-border-color: #e2e8f0;
+  --at-cropper-border-radius: 8px;
+  --at-cropper-mask-bg: rgba(15, 23, 42, 0.55);
+  --at-cropper-view-box-outline: rgba(59, 130, 246, 0.85);
+  --at-cropper-point-color: #3b82f6;
+  --at-cropper-text-color: #334155;
+  --at-cropper-empty-bg: #f1f5f9;
+}
+
+/* 暗黑模式自适应 */
+.dark,
+[data-theme='dark'] {
+  --at-cropper-bg: #0f172a;
+  --at-cropper-border-color: #1e293b;
+  --at-cropper-mask-bg: rgba(0, 0, 0, 0.75);
+  --at-cropper-view-box-outline: rgba(96, 165, 250, 0.9);
+  --at-cropper-point-color: #60a5fa;
+  --at-cropper-text-color: #94a3b8;
+  --at-cropper-empty-bg: #1e293b;
+}
+
+/* 核心容器 */
+.at-cropper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  background-color: var(--at-cropper-bg);
+  border: 1px solid var(--at-cropper-border-color);
+  border-radius: var(--at-cropper-border-radius);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.at-cropper--disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.at-cropper__wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.at-cropper__image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.at-cropper__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  background-color: var(--at-cropper-empty-bg);
+  color: var(--at-cropper-text-color);
+  font-size: 14px;
+}
+
+/* 圆形裁切框遮罩形态 */
+.at-cropper--circle .cropper-view-box,
+.at-cropper--circle .cropper-face {
+  border-radius: 50% !important;
+}
+
+/* 裁切框边框高反差加固 */
+.at-cropper .cropper-view-box {
+  outline: 2px solid var(--at-cropper-view-box-outline);
+  outline-color: var(--at-cropper-view-box-outline);
+}
+
+.at-cropper .cropper-point {
+  background-color: var(--at-cropper-point-color);
+}
+
+.at-cropper .cropper-modal {
+  background-color: var(--at-cropper-mask-bg);
+}
