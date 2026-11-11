@@ -19,11 +19,36 @@
   --at-gantt-bar-progress-color: #1d4ed8;
   --at-gantt-baseline-color: #9ca3af;
   --at-gantt-delay-color: #ef4444;
+  --at-gantt-warning-color: #f59e0b;
   --at-gantt-milestone-color: #f59e0b;
   --at-gantt-dependency-line-color: #60a5fa;
   --at-gantt-today-line-color: #ef4444;
   --at-gantt-weekend-bg: rgba(243, 244, 246, 0.6);
+  --at-gantt-grid-line-color: #f3f4f6;
   --at-gantt-toolbar-bg: #f9fafb;
+
+  /* 模态弹窗与操作组件 Tokens */
+  --at-gantt-modal-mask-bg: rgba(0, 0, 0, 0.45);
+  --at-gantt-modal-bg: #ffffff;
+  --at-gantt-modal-header-border: #e5e7eb;
+  --at-gantt-modal-footer-border: #e5e7eb;
+  --at-gantt-modal-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --at-gantt-modal-radius: 8px;
+  --at-gantt-action-btn-hover-bg: rgba(0, 0, 0, 0.06);
+
+  /* 通用按钮 Tokens */
+  --at-gantt-btn-primary-bg: #3b82f6;
+  --at-gantt-btn-primary-hover-bg: #2563eb;
+  --at-gantt-btn-primary-color: #ffffff;
+  --at-gantt-btn-default-bg: #ffffff;
+  --at-gantt-btn-default-hover-bg: #f3f4f6;
+  --at-gantt-btn-default-color: #374151;
+  --at-gantt-btn-default-border: #d1d5db;
+
+  /* 提示卡片 Tokens */
+  --at-gantt-tooltip-bg: rgba(31, 41, 55, 0.95);
+  --at-gantt-tooltip-color: #ffffff;
 }
 
 html.dark {
@@ -36,11 +61,34 @@ html.dark {
   --at-gantt-bar-progress-color: #1d4ed8;
   --at-gantt-baseline-color: #4b5563;
   --at-gantt-delay-color: #f87171;
+  --at-gantt-warning-color: #fbbf24;
   --at-gantt-milestone-color: #fbbf24;
   --at-gantt-dependency-line-color: #3b82f6;
   --at-gantt-today-line-color: #f87171;
   --at-gantt-weekend-bg: rgba(31, 41, 55, 0.5);
+  --at-gantt-grid-line-color: #374151;
   --at-gantt-toolbar-bg: #1f2937;
+
+  /* 模态弹窗与操作组件 Tokens (Dark) */
+  --at-gantt-modal-mask-bg: rgba(0, 0, 0, 0.7);
+  --at-gantt-modal-bg: #1f2937;
+  --at-gantt-modal-header-border: #374151;
+  --at-gantt-modal-footer-border: #374151;
+  --at-gantt-modal-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --at-gantt-action-btn-hover-bg: rgba(255, 255, 255, 0.1);
+
+  /* 通用按钮 Tokens (Dark) */
+  --at-gantt-btn-primary-bg: #2563eb;
+  --at-gantt-btn-primary-hover-bg: #1d4ed8;
+  --at-gantt-btn-primary-color: #ffffff;
+  --at-gantt-btn-default-bg: #374151;
+  --at-gantt-btn-default-hover-bg: #4b5563;
+  --at-gantt-btn-default-color: #e5e7eb;
+  --at-gantt-btn-default-border: #4b5563;
+
+  /* 提示卡片 Tokens (Dark) */
+  --at-gantt-tooltip-bg: rgba(17, 24, 39, 0.98);
+  --at-gantt-tooltip-color: #f9fafb;
 }
 
 .at-gantt {

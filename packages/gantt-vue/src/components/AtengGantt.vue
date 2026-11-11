@@ -12,13 +12,10 @@
 import { ref, computed } from 'vue';
 import type {
   GanttTaskRecord,
-  GanttColumn,
   GanttScale,
   GanttMode,
-  GanttTheme,
-  GanttMarkLine,
   GanttChangeType,
-  GanttDependencyLink,
+  AtengGanttProps,
 } from '../types';
 import { useGantt } from '../composables/use-gantt';
 import { GanttValidator } from '../engines/gantt-validator';
@@ -27,40 +24,7 @@ defineOptions({
   name: 'AtengGantt',
 });
 
-interface Props {
-  /** 任务记录数据集 */
-  tasks?: GanttTaskRecord[];
-  /** 左侧任务树表列定义 */
-  columns?: GanttColumn[];
-  /** 时间轴刻度 */
-  scale?: GanttScale;
-  /** 交互模式 */
-  mode?: GanttMode;
-  /** 左侧表格宽度（像素） */
-  splitWidth?: number;
-  /** 最小左表分栏宽度 */
-  minSplitWidth?: number;
-  /** 最大左表分栏宽度 */
-  maxSplitWidth?: number;
-  /** 是否开启父任务自底向上工期/进度汇总 */
-  rollup?: boolean;
-  /** 主题模式 */
-  theme?: GanttTheme;
-  /** 是否展示顶部微工具栏 */
-  showToolbar?: boolean;
-  /** 是否展示今日指示垂线 */
-  showTodayLine?: boolean;
-  /** 是否高亮周末非工作日 */
-  showWeekend?: boolean;
-  /** 自定义时间标线列表 */
-  markLines?: GanttMarkLine[];
-  /** 任务前后置依赖连线列表 */
-  dependencies?: GanttDependencyLink[];
-  /** 底层 VTable-Gantt 原始逃生配置项 */
-  vtableOptions?: Record<string, unknown>;
-}
-
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<AtengGanttProps>(), {
   tasks: () => [],
   columns: undefined,
   scale: 'day',
@@ -150,6 +114,7 @@ const {
   minSplitWidth: props.minSplitWidth,
   maxSplitWidth: props.maxSplitWidth,
   rollup: props.rollup,
+  theme: () => props.theme,
   showToolbar: props.showToolbar,
   showTodayLine: props.showTodayLine,
   showWeekend: props.showWeekend,

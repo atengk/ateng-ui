@@ -198,6 +198,8 @@ export interface UseGanttOptions {
   minSplitWidth?: number;
   /** 最大左表分栏宽度 */
   maxSplitWidth?: number;
+  /** 主题模式：'auto' | 'light' | 'dark' */
+  theme?: MaybeRefOrGetter<GanttTheme | undefined>;
   /** 是否开启父任务自动汇总 */
   rollup?: boolean;
   /** 是否展示微工具栏 */
@@ -313,3 +315,155 @@ export const GANTT_EVENTS = {
 } as const;
 
 export type GanttEventType = (typeof GANTT_EVENTS)[keyof typeof GANTT_EVENTS];
+
+/**
+ * useGanttThemeSync 入参选项契约。
+ */
+export interface UseGanttThemeSyncOptions {
+  /** 甘特图底盘原生实例或获取器 */
+  gantt?: MaybeRefOrGetter<Gantt | null | undefined>;
+  /** 主题模式：'auto' | 'light' | 'dark'，缺省为 'auto' */
+  theme?: MaybeRefOrGetter<GanttTheme | undefined>;
+  /** 主题计算或切换完成后的回调函数 */
+  onThemeChange?: (isDark: boolean) => void;
+}
+
+/**
+ * useGanttThemeSync 返回方法与状态契约。
+ */
+export interface UseGanttThemeSyncReturn {
+  /** 当前计算解析出的实际暗黑模式状态（true 为 dark，false 为 light） */
+  isDark: Readonly<Ref<boolean>>;
+  /** 主动触发同步主题至甘特图实例 */
+  syncTheme: (customDark?: boolean) => void;
+  /** 销毁监听器与观察者 */
+  dispose: () => void;
+}
+
+/**
+ * AtengGanttModal 模态弹窗组件公开实例暴露契约。
+ */
+export interface AtengGanttModalExpose {
+  /** 打开模态弹窗 */
+  open: () => void;
+  /** 关闭/取消模态弹窗 */
+  close: () => void;
+  /** 取消并关闭模态弹窗 */
+  cancel: () => void;
+  /** 保存并关闭模态弹窗 */
+  save: () => void;
+  /** 切换全屏状态 */
+  toggleFullscreen: () => void;
+  /** 当前是否处于全屏模式 */
+  isFullscreen: Readonly<Ref<boolean>>;
+  /** 内部甘特图表现组件引用 */
+  ganttRef: Ref<unknown>;
+  /** 滚动至指定日期 */
+  scrollToDate: (date: string | Date) => void;
+  /** 滚动至今天 */
+  scrollToToday: () => void;
+  /** 滚动至指定任务 */
+  scrollToTask: (taskId: string | number) => void;
+  /** 放大刻度 */
+  zoomIn: () => void;
+  /** 缩小刻度 */
+  zoomOut: () => void;
+  /** 展开全部节点 */
+  expandAll: () => void;
+  /** 折叠全部节点 */
+  collapseAll: () => void;
+  /** 设置时间轴刻度 */
+  setScale: (scale: GanttScale) => void;
+  /** 设置交互模式 */
+  setMode: (mode: GanttMode) => void;
+  /** 切换交互/只读模式 */
+  toggleMode: () => void;
+  /** 设置任务数据 */
+  setTasks: (tasks: GanttTaskRecord[]) => void;
+  /** 获取当前标准化任务列表 */
+  getTasks: () => GanttTaskRecord[];
+  /** 根据 ID 获取指定任务 */
+  getTask: (taskId: string | number) => GanttTaskRecord | null;
+  /** 获取当前依赖连线列表 */
+  getDependencies: () => GanttDependencyLink[];
+  /** 添加依赖连线 */
+  addDependency: (link: GanttDependencyLink) => GanttValidationResult;
+  /** 删除依赖连线 */
+  deleteDependency: (sourceId: string | number, targetId: string | number) => void;
+  /** 导出图片 Base64 DataURL */
+  exportImage: (options?: GanttExportOptions) => Promise<string>;
+  /** 下载图片 */
+  downloadImage: (options?: GanttExportOptions) => Promise<void>;
+  /** 获取底盘原生实例 */
+  getRawGanttInstance: () => Gantt | null;
+  /** 手动触发尺寸自愈 */
+  resize: () => void;
+}
+
+/**
+ * AtengGantt 核心甘特图表现组件 Props 契约。
+ */
+export interface AtengGanttProps {
+  /** 任务记录数据集 */
+  tasks?: GanttTaskRecord[];
+  /** 左侧任务树表列定义 */
+  columns?: GanttColumn[];
+  /** 时间轴刻度 */
+  scale?: GanttScale;
+  /** 交互模式 */
+  mode?: GanttMode;
+  /** 左侧表格宽度（像素） */
+  splitWidth?: number;
+  /** 最小左表分栏宽度 */
+  minSplitWidth?: number;
+  /** 最大左表分栏宽度 */
+  maxSplitWidth?: number;
+  /** 是否开启父任务自底向上工期/进度汇总 */
+  rollup?: boolean;
+  /** 主题模式 */
+  theme?: GanttTheme;
+  /** 是否展示顶部微工具栏 */
+  showToolbar?: boolean;
+  /** 是否展示今日指示垂线 */
+  showTodayLine?: boolean;
+  /** 是否高亮周末非工作日 */
+  showWeekend?: boolean;
+  /** 自定义时间标线列表 */
+  markLines?: GanttMarkLine[];
+  /** 任务前后置依赖连线列表 */
+  dependencies?: GanttDependencyLink[];
+  /** 底层 VTable-Gantt 原始逃生配置项 */
+  vtableOptions?: Record<string, unknown>;
+}
+
+/**
+ * AtengGanttModal 脱壳模态弹窗组件 Props 契约。
+ */
+export interface AtengGanttModalProps extends AtengGanttProps {
+  /** 模态弹窗显隐状态 (v-model) */
+  modelValue?: boolean;
+  /** 弹窗标题 */
+  title?: string;
+  /** 弹窗宽度，默认 '90%' */
+  width?: string | number;
+  /** 弹窗高度，默认 '80vh' */
+  height?: string | number;
+  /** 是否处于全屏模式 (支持 v-model:fullscreen) */
+  fullscreen?: boolean;
+  /** 脱壳传送门目标，默认 'body' */
+  teleportTo?: string | HTMLElement;
+  /** 点击遮罩层是否自动关闭，默认 true */
+  closeOnClickModal?: boolean;
+  /** 按下 ESC 键是否自动关闭，默认 true */
+  closeOnPressEscape?: boolean;
+  /** 是否展示全屏切换按钮，默认 true */
+  showFullscreenBtn?: boolean;
+  /** 是否展示底部操作按钮栏，默认 true */
+  showFooter?: boolean;
+  /** 取消按钮文案，默认 '取消' */
+  cancelText?: string;
+  /** 确定/保存按钮文案，默认 '保存' */
+  confirmText?: string;
+  /** 关闭后是否销毁内部 DOM，默认 false */
+  destroyOnClose?: boolean;
+}

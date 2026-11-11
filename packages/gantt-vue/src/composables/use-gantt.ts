@@ -44,6 +44,7 @@ import { GanttDataMapper } from '../engines/gantt-data-mapper';
 import { GanttRollup } from '../engines/gantt-rollup';
 import { GanttValidator } from '../engines/gantt-validator';
 import { GanttExporter } from '../engines/gantt-exporter';
+import { useGanttThemeSync, getGanttThemePalette } from './use-gantt-theme-sync';
 
 /**
  * 默认左侧任务树列表列定义。
@@ -287,6 +288,12 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   let ganttInstance: Gantt | null = null;
   let resizeGuard: GanttResizeGuard | null = null;
 
+  // 响应式暗黑主题热跟随
+  const themeSync = useGanttThemeSync({
+    gantt: () => ganttInstance,
+    theme: () => toValue(options.theme) ?? 'auto',
+  });
+
   // 数据适配与汇总引擎
   const mapper = new GanttDataMapper();
   const rollupEngine = new GanttRollup({ enabled: options.rollup !== false });
@@ -395,6 +402,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
       }
     }
 
+    const palette = getGanttThemePalette(themeSync.isDark.value);
+
     const baseOptions: GanttConstructorOptions = {
       records: tasks,
       taskListTable: {
@@ -406,8 +415,9 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
       timelineHeader: {
         colWidth: getTimelineColWidth(scale),
         scales: createTimelineScales(scale),
-        verticalLine: { lineColor: '#e5e7eb', lineWidth: 1 },
-        horizontalLine: { lineColor: '#e5e7eb', lineWidth: 1 },
+        backgroundColor: palette.headerBg,
+        verticalLine: { lineColor: palette.headerBorder, lineWidth: 1 },
+        horizontalLine: { lineColor: palette.headerBorder, lineWidth: 1 },
       },
       taskBar: {
         startDateField: 'startDate',
@@ -429,8 +439,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
             };
           }
           return {
-            barColor: '#3b82f6',
-            completedBarColor: '#1d4ed8',
+            barColor: palette.barColor,
+            completedBarColor: palette.barProgressColor,
             cornerRadius: 4,
           };
         },
@@ -453,10 +463,9 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         linkLineStyle: { lineColor: '#60a5fa', lineWidth: 1.5 },
       },
       grid: {
-        weekendBackgroundColor:
-          options.showWeekend !== false ? 'rgba(243, 244, 246, 0.6)' : undefined,
-        horizontalLine: { lineColor: '#f3f4f6', lineWidth: 1 },
-        verticalLine: { lineColor: '#f3f4f6', lineWidth: 1 },
+        weekendBackgroundColor: options.showWeekend !== false ? palette.weekendBg : undefined,
+        horizontalLine: { lineColor: palette.gridLine, lineWidth: 1 },
+        verticalLine: { lineColor: palette.gridLine, lineWidth: 1 },
       },
       markLine: markLines.length > 0 ? markLines : undefined,
       minDate: bounds.minDate,
@@ -464,6 +473,7 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
       taskKeyField: 'id',
       tasksShowMode: TYPES.TasksShowMode?.Tasks_Separate ?? (0 as unknown as TYPES.TasksShowMode),
       pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+      underlayBackgroundColor: palette.underlayBg,
     };
 
     if (options.vtableOptions) {
@@ -639,6 +649,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
       resizeGuard.disconnect();
       resizeGuard = null;
     }
+
+    themeSync.dispose();
 
     if (ganttInstance) {
       try {

@@ -13,9 +13,17 @@ export const GANTT_VUE_VERSION = '1.0.0';
 
 // 表现组件
 export { default as AtengGantt } from './components/AtengGantt.vue';
+export { default as AtengGanttModal } from './components/AtengGanttModal.vue';
 
 // 状态机与守卫
 export { useGantt } from './composables/use-gantt';
+export {
+  useGanttThemeSync,
+  getGanttThemePalette,
+  detectHostIsDark,
+  resolveThemeIsDark,
+  type GanttThemePalette,
+} from './composables/use-gantt-theme-sync';
 export { GanttResizeGuard, type GanttResizeGuardOptions } from './guards/gantt-resize-guard';
 
 // 驱动引擎与算法
