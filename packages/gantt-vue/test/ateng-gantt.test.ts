@@ -251,4 +251,58 @@ describe('AtengGantt Component', () => {
     expect(task?.baselineStartDate).toBe('2026-11-18');
     expect(task?.baselineEndDate).toBe('2026-11-18');
   });
+
+  it('点击微工具栏模式切换按钮应当在 interactive 与 readonly 间切换并触发 update:mode 事件', async () => {
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: sampleTasks,
+        mode: 'interactive',
+      },
+    });
+
+    const modeBtn = wrapper.find('.at-gantt__mode-btn');
+    expect(modeBtn.exists()).toBe(true);
+    expect(modeBtn.text()).toBe('编辑');
+
+    // 第一次点击：切换为只读
+    await modeBtn.trigger('click');
+    expect(wrapper.emitted('update:mode')?.[0]).toEqual(['readonly']);
+    expect(modeBtn.text()).toBe('只读');
+
+    // 第二次点击：切换回编辑
+    await modeBtn.trigger('click');
+    expect(wrapper.emitted('update:mode')?.[1]).toEqual(['interactive']);
+    expect(modeBtn.text()).toBe('编辑');
+  });
+
+  it('应当正确暴露 exportImage、downloadImage 与 toggleMode 实例方法', async () => {
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: sampleTasks,
+      },
+    });
+
+    const vm = wrapper.vm as unknown as Record<string, unknown>;
+    expect(typeof vm.exportImage).toBe('function');
+    expect(typeof vm.downloadImage).toBe('function');
+    expect(typeof vm.toggleMode).toBe('function');
+
+    const dataUrl = await (vm.exportImage as () => Promise<string | null>)();
+    expect(typeof dataUrl).toBe('string');
+  });
+
+  it('支持自定义 toolbar-extra 插槽拓展操作区', () => {
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: sampleTasks,
+        showToolbar: true,
+      },
+      slots: {
+        'toolbar-extra': '<button class="custom-extra-btn">导出报表</button>',
+      },
+    });
+
+    expect(wrapper.find('.custom-extra-btn').exists()).toBe(true);
+    expect(wrapper.find('.custom-extra-btn').text()).toBe('导出报表');
+  });
 });

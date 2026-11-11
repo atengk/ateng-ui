@@ -37,11 +37,13 @@ import {
   type GanttDependencyType,
   type GanttDependencyLink,
   type GanttValidationResult,
+  type GanttExportOptions,
 } from '../types';
 import { GanttResizeGuard } from '../guards/gantt-resize-guard';
 import { GanttDataMapper } from '../engines/gantt-data-mapper';
 import { GanttRollup } from '../engines/gantt-rollup';
 import { GanttValidator } from '../engines/gantt-validator';
+import { GanttExporter } from '../engines/gantt-exporter';
 
 /**
  * 默认左侧任务树列表列定义。
@@ -534,6 +536,17 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         }
       });
 
+      ganttInstance.on(GANTT_EVENTS.MOUSEENTER_TASK_BAR, (args: unknown) => {
+        const payload = args as { taskRecord?: GanttTaskRecord };
+        if (payload?.taskRecord) {
+          options.onTaskHover?.(payload.taskRecord, payload);
+        }
+      });
+
+      ganttInstance.on(GANTT_EVENTS.MOUSELEAVE_TASK_BAR, () => {
+        options.onTaskHover?.(null);
+      });
+
       ganttInstance.on(GANTT_EVENTS.CREATE_DEPENDENCY_LINK, (args: unknown) => {
         const payload = args as {
           sourceKey?: string | number;
@@ -871,6 +884,20 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     options.onDependencyDelete?.({ sourceId, targetId });
   };
 
+  /**
+   * 将当前甘特图导出为图片 Base64 DataURL。
+   */
+  const exportImage = async (exportOpts?: GanttExportOptions): Promise<string> => {
+    return GanttExporter.exportDataURL(ganttInstance, exportOpts);
+  };
+
+  /**
+   * 将当前甘特图导出并触发浏览器下载。
+   */
+  const downloadImage = async (exportOpts?: GanttExportOptions): Promise<void> => {
+    return GanttExporter.downloadImage(ganttInstance, exportOpts);
+  };
+
   // 监听动态 Props 变化
   watch(
     () => toValue(options.tasks),
@@ -943,6 +970,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     getDependencies,
     addDependency,
     deleteDependency,
+    exportImage,
+    downloadImage,
     getRawGanttInstance,
   };
 }

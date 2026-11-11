@@ -226,6 +226,8 @@ export interface UseGanttOptions {
     targetId: string | number;
     reason: string;
   }) => void;
+  /** 任务条鼠标悬停/离开状态回调 */
+  onTaskHover?: (task: GanttTaskRecord | null, eventArgs?: unknown) => void;
 }
 
 /**
@@ -280,6 +282,10 @@ export interface UseGanttReturn {
   addDependency: (link: GanttDependencyLink) => GanttValidationResult;
   /** 动态删除依赖连线 */
   deleteDependency: (sourceId: string | number, targetId: string | number) => void;
+  /** 将当前甘特图导出为图片 Base64 DataURL */
+  exportImage: (options?: GanttExportOptions) => Promise<string>;
+  /** 将当前甘特图导出并触发浏览器下载 */
+  downloadImage: (options?: GanttExportOptions) => Promise<void>;
   /** 获取底层的 VTable-Gantt 原生实例（逃生门） */
   getRawGanttInstance: () => Gantt | null;
 }

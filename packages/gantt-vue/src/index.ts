@@ -22,6 +22,7 @@ export { GanttResizeGuard, type GanttResizeGuardOptions } from './guards/gantt-r
 export { GanttDataMapper, type GanttDataMapperOptions } from './engines/gantt-data-mapper';
 export { GanttRollup, type GanttRollupOptions } from './engines/gantt-rollup';
 export { GanttValidator } from './engines/gantt-validator';
+export { GanttExporter } from './engines/gantt-exporter';
 
 // 强类型契约
 export * from './types';

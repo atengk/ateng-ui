@@ -9,7 +9,7 @@
  * @since 2026-11-11
  */
 
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import type {
   GanttTaskRecord,
   GanttColumn,
@@ -21,6 +21,7 @@ import type {
   GanttDependencyLink,
 } from '../types';
 import { useGantt } from '../composables/use-gantt';
+import { GanttValidator } from '../engines/gantt-validator';
 
 defineOptions({
   name: 'AtengGantt',
@@ -80,6 +81,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'update:tasks', tasks: GanttTaskRecord[]): void;
   (e: 'update:scale', scale: GanttScale): void;
+  (e: 'update:mode', mode: GanttMode): void;
   (e: 'taskChange', payload: { task: GanttTaskRecord; changeType: GanttChangeType }): void;
   (e: 'taskClick', task: GanttTaskRecord, event: MouseEvent): void;
   (
@@ -92,6 +94,23 @@ const emit = defineEmits<{
     payload: { sourceId: string | number; targetId: string | number; reason: string },
   ): void;
 }>();
+
+const hoveredTask = ref<GanttTaskRecord | null>(null);
+const tooltipPos = ref({ x: 0, y: 0, visible: false });
+
+const onMouseMove = (event: MouseEvent) => {
+  if (tooltipPos.value.visible) {
+    tooltipPos.value.x = event.offsetX + 16;
+    tooltipPos.value.y = event.offsetY + 16;
+  }
+};
+
+const hoveredTaskDelayStatus = computed(() => {
+  if (!hoveredTask.value) {
+    return { delayed: false, delayDays: 0 };
+  }
+  return GanttValidator.isTaskDelayed(hoveredTask.value);
+});
 
 const {
   containerRef,
@@ -111,13 +130,15 @@ const {
   expandAll,
   collapseAll,
   setScale: internalSetScale,
-  setMode,
+  setMode: internalSetMode,
   setTasks,
   getTasks,
   getTask,
   getDependencies,
   addDependency,
   deleteDependency,
+  exportImage,
+  downloadImage,
   getRawGanttInstance,
 } = useGantt({
   tasks: () => props.tasks ?? [],
@@ -138,6 +159,10 @@ const {
     emit('taskChange', payload);
     emit('update:tasks', getTasks());
   },
+  onTaskHover: task => {
+    hoveredTask.value = task;
+    tooltipPos.value.visible = Boolean(task);
+  },
   onDependencyCreate: payload => {
     emit('dependencyCreate', payload);
   },
@@ -148,6 +173,22 @@ const {
     emit('dependencyInvalid', payload);
   },
 });
+
+/**
+ * 包装交互模式切换并派发双向绑定事件。
+ */
+const setMode = (mode: GanttMode): void => {
+  internalSetMode(mode);
+  emit('update:mode', mode);
+};
+
+/**
+ * 交互/只读模式快速切换。
+ */
+const toggleMode = (): void => {
+  const next = currentMode.value === 'readonly' ? 'interactive' : 'readonly';
+  setMode(next);
+};
 
 const scaleOptions: Array<{ value: GanttScale; label: string }> = [
   { value: 'day', label: '日' },
@@ -184,12 +225,15 @@ defineExpose({
   collapseAll,
   setScale,
   setMode,
+  toggleMode,
   setTasks,
   getTasks,
   getTask,
   getDependencies,
   addDependency,
   deleteDependency,
+  exportImage,
+  downloadImage,
   getRawGanttInstance,
   resize,
   dispose,
@@ -198,17 +242,23 @@ defineExpose({
 </script>
 
 <template>
-  <div class="at-gantt" :class="{ 'at-gantt--readonly': mode === 'readonly' }">
+  <div class="at-gantt" :class="{ 'at-gantt--readonly': currentMode === 'readonly' }">
     <!-- 顶部微工具栏 -->
     <div v-if="showToolbar" class="at-gantt__toolbar">
       <slot
         name="toolbar"
         :scale="currentScale"
+        :mode="currentMode"
+        :set-scale="setScale"
+        :set-mode="setMode"
+        :toggle-mode="toggleMode"
         :zoom-in="zoomIn"
         :zoom-out="zoomOut"
         :scroll-to-today="scrollToToday"
         :expand-all="expandAll"
         :collapse-all="collapseAll"
+        :export-image="exportImage"
+        :download-image="downloadImage"
       >
         <div class="at-gantt__toolbar-left">
           <div class="at-gantt__scale-group">
@@ -236,21 +286,66 @@ defineExpose({
           <button type="button" class="at-gantt__btn" title="折叠全部节点" @click="collapseAll">
             折叠全部
           </button>
+          <button
+            type="button"
+            class="at-gantt__btn at-gantt__mode-btn"
+            :class="{ 'at-gantt__mode-btn--active': currentMode === 'readonly' }"
+            @click="toggleMode"
+          >
+            {{ currentMode === 'readonly' ? '只读' : '编辑' }}
+          </button>
         </div>
         <div class="at-gantt__toolbar-right">
-          <slot name="toolbar-extra" />
+          <slot name="toolbar-extra" :export-image="exportImage" :download-image="downloadImage" />
         </div>
       </slot>
     </div>
 
     <!-- 甘特图核心 Canvas 挂载容器 -->
-    <div ref="containerRef" class="at-gantt__canvas-container">
+    <div ref="containerRef" class="at-gantt__canvas-container" @mousemove="onMouseMove">
       <div v-if="isEmpty" class="at-gantt__empty">
         <slot name="empty">
           <div class="at-gantt__empty-content">
             <span class="at-gantt__empty-text">暂无排程任务</span>
           </div>
         </slot>
+      </div>
+
+      <!-- 任务条自定义悬浮卡片 -->
+      <div
+        v-if="hoveredTask && tooltipPos.visible"
+        class="at-gantt__tooltip"
+        :style="{
+          left: `${tooltipPos.x}px`,
+          top: `${tooltipPos.y}px`,
+        }"
+      >
+        <slot
+          name="tooltip"
+          :task="hoveredTask"
+          :delayed="hoveredTaskDelayStatus.delayed"
+          :delay-days="hoveredTaskDelayStatus.delayDays"
+        >
+          <div class="at-gantt__tooltip-card">
+            <div class="at-gantt__tooltip-title">{{ hoveredTask.name }}</div>
+            <div class="at-gantt__tooltip-row">
+              <span>起止:</span>
+              <span>{{ hoveredTask.startDate }} ~ {{ hoveredTask.endDate }}</span>
+            </div>
+            <div class="at-gantt__tooltip-row">
+              <span>进度:</span>
+              <span>{{ Math.round((hoveredTask.progress ?? 0) * 100) }}%</span>
+            </div>
+            <div v-if="hoveredTaskDelayStatus.delayed" class="at-gantt__tooltip-warning">
+              延误 {{ hoveredTaskDelayStatus.delayDays }} 天
+            </div>
+          </div>
+        </slot>
+      </div>
+
+      <!-- 预留单元格插槽声明锚点 -->
+      <div v-if="false">
+        <slot name="cell" :record="hoveredTask" :field="''" :value="null" />
       </div>
     </div>
   </div>
@@ -372,5 +467,49 @@ defineExpose({
 
 .at-gantt--readonly {
   opacity: 0.96;
+}
+
+.at-gantt__mode-btn--active {
+  border-color: var(--at-gantt-warning-color, #e6a23c);
+  color: var(--at-gantt-warning-color, #e6a23c);
+}
+
+.at-gantt__tooltip {
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+  transform: translate(0, 0);
+  transition: opacity 0.15s ease;
+}
+
+.at-gantt__tooltip-card {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  background: var(--at-gantt-tooltip-bg, rgba(31, 41, 55, 0.95));
+  color: var(--at-gantt-tooltip-color, #ffffff);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.at-gantt__tooltip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.at-gantt__tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.at-gantt__tooltip-warning {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.2);
+  color: var(--at-gantt-delay-color, #ef4444);
+  font-weight: 500;
 }
 </style>
