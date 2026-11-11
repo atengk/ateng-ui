@@ -18,5 +18,9 @@ export { default as AtengGantt } from './components/AtengGantt.vue';
 export { useGantt } from './composables/use-gantt';
 export { GanttResizeGuard, type GanttResizeGuardOptions } from './guards/gantt-resize-guard';
 
+// 驱动引擎与算法
+export { GanttDataMapper, type GanttDataMapperOptions } from './engines/gantt-data-mapper';
+export { GanttRollup, type GanttRollupOptions } from './engines/gantt-rollup';
+
 // 强类型契约
 export * from './types';

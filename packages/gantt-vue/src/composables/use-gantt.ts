@@ -33,8 +33,11 @@ import {
   type GanttColumn,
   type GanttScale,
   type GanttMode,
+  type GanttChangeType,
 } from '../types';
 import { GanttResizeGuard } from '../guards/gantt-resize-guard';
+import { GanttDataMapper } from '../engines/gantt-data-mapper';
+import { GanttRollup } from '../engines/gantt-rollup';
 
 /**
  * 默认左侧任务树列表列定义。
@@ -239,10 +242,26 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   // 原始闭包持有，严禁被 Vue ref / reactive 深层代理
   let ganttInstance: Gantt | null = null;
   let resizeGuard: GanttResizeGuard | null = null;
-  let currentTasks: GanttTaskRecord[] = toValue(options.tasks)
+
+  // 数据适配与汇总引擎
+  const mapper = new GanttDataMapper();
+  const rollupEngine = new GanttRollup({ enabled: options.rollup !== false });
+
+  let rawTasks: GanttTaskRecord[] = toValue(options.tasks)
     ? [...(toValue(options.tasks) ?? [])]
     : [];
-  taskCount.value = currentTasks.length;
+  let isInputFlat = GanttDataMapper.isFlatStructure(rawTasks);
+
+  /**
+   * 将原始任务数据集映射归一化并执行自底向上 Rollup 汇总。
+   */
+  const processTasksForRendering = (tasks: GanttTaskRecord[]): GanttTaskRecord[] => {
+    const tree = mapper.normalize(tasks);
+    return rollupEngine.rollupTree(tree);
+  };
+
+  let renderedTasks: GanttTaskRecord[] = processTasksForRendering(rawTasks);
+  taskCount.value = renderedTasks.length;
 
   /**
    * 构建 VTable-Gantt 构造配置对象。
@@ -356,6 +375,29 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   };
 
   /**
+   * 响应并分发任务变更，触发增量回写、Rollup 推算与外部回调。
+   */
+  const notifyTaskChange = (changedTask: GanttTaskRecord, changeType: GanttChangeType): void => {
+    // 1. 增量更新原始输入数据（100% 保全未在列展示的扩展字段）
+    rawTasks = mapper.updateTaskInList(rawTasks, changedTask);
+
+    // 2. 重新进行自底向上 Rollup 汇总计算
+    renderedTasks = processTasksForRendering(rawTasks);
+    taskCount.value = renderedTasks.length;
+
+    // 3. 动态刷新甘特图底层绘制记录
+    if (ganttInstance) {
+      ganttInstance.setRecords(renderedTasks);
+    }
+
+    // 4. 派发回调给外部（如 <AtengGantt /> 进行 v-model:tasks 与 @taskChange 同步）
+    options.onTaskChange?.({
+      task: changedTask,
+      changeType,
+    });
+  };
+
+  /**
    * 挂载并初始化甘特图。
    */
   const mount = (targetContainer?: HTMLElement): void => {
@@ -370,37 +412,28 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     loading.value = true;
 
     try {
-      const vtableOpts = buildGanttOptions(currentTasks);
+      const vtableOpts = buildGanttOptions(renderedTasks);
       ganttInstance = new Gantt(target, vtableOpts);
 
       // 绑定核心交互事件
       ganttInstance.on(GANTT_EVENTS.CLICK_TASK_BAR, (args: unknown) => {
         const payload = args as { taskRecord?: GanttTaskRecord };
         if (payload?.taskRecord) {
-          options.onTaskChange?.({
-            task: payload.taskRecord,
-            changeType: 'table_edit',
-          });
+          notifyTaskChange(payload.taskRecord, 'table_edit');
         }
       });
 
       ganttInstance.on(GANTT_EVENTS.MOVE_END_TASK_BAR, (args: unknown) => {
         const payload = args as { taskRecord?: GanttTaskRecord };
         if (payload?.taskRecord) {
-          options.onTaskChange?.({
-            task: payload.taskRecord,
-            changeType: 'move',
-          });
+          notifyTaskChange(payload.taskRecord, 'move');
         }
       });
 
       ganttInstance.on(GANTT_EVENTS.PROGRESS_UPDATE, (args: unknown) => {
         const payload = args as { taskRecord?: GanttTaskRecord };
         if (payload?.taskRecord) {
-          options.onTaskChange?.({
-            task: payload.taskRecord,
-            changeType: 'progress',
-          });
+          notifyTaskChange(payload.taskRecord, 'progress');
         }
       });
 
@@ -553,12 +586,25 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   };
 
   /**
+   * 递归更新树形节点展开/折叠状态。
+   */
+  const updateCollapseState = (nodes: GanttTaskRecord[], collapsed: boolean): GanttTaskRecord[] => {
+    return nodes.map(item => ({
+      ...item,
+      collapsed,
+      children: Array.isArray(item.children)
+        ? updateCollapseState(item.children, collapsed)
+        : undefined,
+    }));
+  };
+
+  /**
    * 展开全部树形任务节点。
    */
   const expandAll = (): void => {
     if (!ganttInstance) return;
-    currentTasks = currentTasks.map(t => ({ ...t, collapsed: false }));
-    setTasks(currentTasks);
+    renderedTasks = updateCollapseState(renderedTasks, false);
+    ganttInstance.setRecords(renderedTasks);
   };
 
   /**
@@ -566,8 +612,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
    */
   const collapseAll = (): void => {
     if (!ganttInstance) return;
-    currentTasks = currentTasks.map(t => ({ ...t, collapsed: true }));
-    setTasks(currentTasks);
+    renderedTasks = updateCollapseState(renderedTasks, true);
+    ganttInstance.setRecords(renderedTasks);
   };
 
   /**
@@ -587,7 +633,7 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   const setMode = (mode: GanttMode): void => {
     currentMode.value = mode;
     if (!ganttInstance) return;
-    ganttInstance.updateOption(buildGanttOptions(currentTasks));
+    ganttInstance.updateOption(buildGanttOptions(renderedTasks));
     resize();
   };
 
@@ -595,24 +641,38 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
    * 重新设置任务数据集。
    */
   const setTasks = (tasks: GanttTaskRecord[]): void => {
-    currentTasks = [...tasks];
-    taskCount.value = currentTasks.length;
+    rawTasks = [...tasks];
+    isInputFlat = GanttDataMapper.isFlatStructure(rawTasks);
+    renderedTasks = processTasksForRendering(rawTasks);
+    taskCount.value = renderedTasks.length;
     if (!ganttInstance) return;
-    ganttInstance.setRecords(currentTasks);
+    ganttInstance.setRecords(renderedTasks);
   };
 
   /**
-   * 获取当前全部任务。
+   * 获取当前全部任务（自适应保持原始输入形态：扁平 vs 树形）。
    */
   const getTasks = (): GanttTaskRecord[] => {
-    return [...currentTasks];
+    return isInputFlat ? mapper.toFlat(renderedTasks) : [...renderedTasks];
   };
 
   /**
-   * 根据 ID 检索任务。
+   * 递归在多层树形数据中按 ID 检索任务。
    */
   const getTask = (taskId: string | number): GanttTaskRecord | null => {
-    return currentTasks.find(t => String(t.id) === String(taskId)) ?? null;
+    const findNode = (nodes: GanttTaskRecord[]): GanttTaskRecord | null => {
+      for (const node of nodes) {
+        if (String(node.id) === String(taskId)) {
+          return node;
+        }
+        if (Array.isArray(node.children) && node.children.length > 0) {
+          const found = findNode(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return findNode(renderedTasks);
   };
 
   /**

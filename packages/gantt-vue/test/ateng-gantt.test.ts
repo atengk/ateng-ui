@@ -152,4 +152,46 @@ describe('AtengGantt Component', () => {
     expect(wrapper.emitted('update:scale')).toBeTruthy();
     expect(wrapper.emitted('update:scale')?.[0]).toEqual(['week']);
   });
+
+  it('支持接收扁平带 parentId 数组并自适应映射与自底向上 rollup 汇总', () => {
+    const flatWithParent: GanttTaskRecord[] = [
+      {
+        id: 'parent',
+        name: '父级工程',
+        progress: 0,
+      },
+      {
+        id: 'child-1',
+        parentId: 'parent',
+        name: '子任务 1',
+        startDate: '2026-11-01',
+        endDate: '2026-11-05',
+        progress: 100,
+      },
+      {
+        id: 'child-2',
+        parentId: 'parent',
+        name: '子任务 2',
+        startDate: '2026-11-06',
+        endDate: '2026-11-15',
+        progress: 50,
+      },
+    ];
+
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: flatWithParent,
+        rollup: true,
+      },
+    });
+
+    const vm = wrapper.vm as unknown as Record<string, unknown>;
+    const parentTask = (vm.getTask as (id: string) => GanttTaskRecord | null)('parent');
+
+    expect(parentTask).not.toBeNull();
+    // 验证 rollup 后的父级起止时间与加权进度 (5*100 + 10*50)/15 = 1000/15 ≈ 67%
+    expect(parentTask?.startDate).toBe('2026-11-01');
+    expect(parentTask?.endDate).toBe('2026-11-15');
+    expect(parentTask?.progress).toBe(67);
+  });
 });
