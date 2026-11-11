@@ -7,6 +7,8 @@
  * @since 2026-11-11
  */
 
+import type { TilePreset } from '../constants';
+
 /**
  * 坐标系标准类型。
  *
@@ -211,4 +213,75 @@ export interface MapExportOptions {
   fileName?: string;
   /** 导出高分屏像素比，默认 2 */
   pixelRatio?: number;
+}
+
+/**
+ * AtengMap 核心容器 Props 契约。
+ */
+export interface AtengMapProps {
+  /** 中心点坐标 (支持 v-model:center 双向绑定) */
+  center?: MapCoordinate;
+  /** 缩放等级 (支持 v-model:zoom 双向绑定) */
+  zoom?: number;
+  /** 最小缩放等级，默认 3 */
+  minZoom?: number;
+  /** 最大缩放等级，默认 18 */
+  maxZoom?: number;
+  /** 标准瓦片预设枚举，默认 TilePreset.OSM */
+  tilePreset?: TilePreset | string;
+  /** 自定义瓦片服务模板 URL (例如内网离线 XYZ 切片) */
+  tileUrl?: string;
+  /** 渲染引擎标识，默认 'leaflet' */
+  engine?: 'leaflet' | 'amap' | 'baidu';
+  /** 自定义底层驱动适配器 SPI (最高优先级) */
+  driver?: MapDriverAdapter;
+  /** 当前坐标系类型，默认 'GCJ02' */
+  coordType?: CoordType;
+  /** 暗黑模式开关或跟随宿主 'auto'，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 是否开启地图交互（拖拽、滚轮缩放等），默认 true */
+  interactive?: boolean;
+  /** 是否开启 ResizeObserver 自动尺寸几何自愈，默认 true */
+  autoResize?: boolean;
+  /** 初始标记点集合 */
+  markers?: MapMarker[];
+  /** 自定义根容器样式类 */
+  customClass?: string;
+}
+
+/**
+ * AtengMap 核心容器 Emits 契约。
+ */
+export interface AtengMapEmits {
+  (e: 'update:center', center: MapCoordinate): void;
+  (e: 'update:zoom', zoom: number): void;
+  (e: 'ready', driver: MapDriverAdapter): void;
+  (e: 'mapClick', payload: { coordinate: MapCoordinate; originalEvent: MouseEvent }): void;
+  (e: 'mapDblClick', payload: { coordinate: MapCoordinate; originalEvent: MouseEvent }): void;
+  (e: 'mapMoveEnd', center: MapCoordinate): void;
+  (e: 'mapZoomEnd', zoom: number): void;
+}
+
+/**
+ * AtengMap 组件实例暴露方法与引用契约 (defineExpose)。
+ */
+export interface AtengMapInstance {
+  /** 底层驱动适配器实例 */
+  driver: MapDriverAdapter | null;
+  /** 地图 DOM 挂载容器 */
+  container: HTMLElement | null;
+  /** 视口重算与几何自愈 */
+  invalidateSize: () => void;
+  /** 设置中心点 */
+  setCenter: (coord: MapCoordinate, animate?: boolean) => void;
+  /** 设置缩放等级 */
+  setZoom: (zoom: number, animate?: boolean) => void;
+  /** 添加标记点 */
+  addMarker: (marker: MapMarker) => void;
+  /** 移除指定标记点 */
+  removeMarker: (id: string | number) => void;
+  /** 清空标记点 */
+  clearMarkers: () => void;
+  /** 视口自适应包围盒 */
+  fitBounds: (bounds: MapBounds, padding?: [number, number]) => void;
 }
