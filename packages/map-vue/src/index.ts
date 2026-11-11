@@ -13,6 +13,9 @@ import './styles/index.css';
 export { default as AtengMap } from './components/AtengMap.vue';
 export { default as AtengMapPicker } from './components/AtengMapPicker.vue';
 export { default as AtengMapFence } from './components/AtengMapFence.vue';
+export { default as AtengMapTrack } from './components/AtengMapTrack.vue';
+export { default as AtengMapCluster } from './components/AtengMapCluster.vue';
+export { default as AtengMapMask } from './components/AtengMapMask.vue';
 
 // 核心类型契约
 export * from './types';
@@ -28,12 +31,15 @@ export * from './engines/coord-transform';
 
 // 空间几何算法引擎
 export * from './engines/geo-math';
+export * from './engines/cluster-engine';
+export * from './engines/mask-engine';
 
 // 无头响应式状态机
 export * from './composables/use-map-theme-sync';
 export * from './composables/use-map';
 export * from './composables/use-map-picker';
 export * from './composables/use-map-fence';
+export * from './composables/use-map-track';
 
 // 底座驱动适配器 SPI
 export * from './adapters/leaflet-driver-adapter';

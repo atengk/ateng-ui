@@ -463,3 +463,248 @@ export interface AtengMapFenceInstance {
   /** 对指定点位执行越界报警判定 */
   checkPoint: (point: MapCoordinate) => FenceAlarmPayload[];
 }
+
+/**
+ * 轨迹回放状态枚举。
+ */
+export type TrackPlaybackStatus = 'idle' | 'playing' | 'paused' | 'finished';
+
+/**
+ * AtengMapTrack 轨迹回放容器 Props 契约。
+ */
+export interface AtengMapTrackProps {
+  /** 轨迹节点序列 (支持空数组兜底) */
+  trackPoints?: TrackPoint[];
+  /** 初始播放倍速 (0.5x, 1x, 2x, 4x, 8x)，默认 1 */
+  speedRate?: number;
+  /** 播放进度 (0 ~ 1，支持 v-model:progress 双向绑定) */
+  progress?: number;
+  /** 是否循环播放，默认 false */
+  loop?: boolean;
+  /** 是否就绪后自动开始播放，默认 false */
+  autoPlay?: boolean;
+  /** 已行驶路线颜色，默认 '#10b981' (绿色) */
+  passedPathColor?: string;
+  /** 待行驶路线颜色，默认 '#94a3b8' (石板灰) */
+  pendingPathColor?: string;
+  /** 轨迹折线宽度 (像素)，默认 4 */
+  pathWidth?: number;
+  /** 自定义移动载具/人物图标 (URL 或 MapMarkerIcon) */
+  carIcon?: string | MapMarkerIcon;
+  /** 是否渲染停靠驻留点标记图钉，默认 true */
+  showStopMarkers?: boolean;
+  /** 是否展示内置回放控制底栏，默认 true */
+  showControlBar?: boolean;
+  /** 地图中心点坐标 */
+  center?: MapCoordinate;
+  /** 缩放等级，默认 14 */
+  zoom?: number;
+  /** 瓦片源预设枚举或自定义模板 URL */
+  tilePreset?: TilePreset | string;
+  /** 暗黑模式开关或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 容器高度，默认 '520px' */
+  height?: string;
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapTrack 轨迹回放容器 Emits 契约。
+ */
+export interface AtengMapTrackEmits {
+  (e: 'update:progress', progress: number): void;
+  (e: 'update:speedRate', rate: number): void;
+  (e: 'statusChange', status: TrackPlaybackStatus): void;
+  (
+    e: 'pointChange',
+    payload: { point: TrackPoint; index: number; coordinate: MapCoordinate; heading: number },
+  ): void;
+  (e: 'finish'): void;
+}
+
+/**
+ * AtengMapTrack 实例暴露方法 (defineExpose)。
+ */
+export interface AtengMapTrackInstance {
+  /** 当前播放状态 */
+  status: TrackPlaybackStatus;
+  /** 当前进度 (0 ~ 1) */
+  progress: number;
+  /** 当前瞬时坐标 */
+  currentCoordinate: MapCoordinate | null;
+  /** 当前瞬时航向角 (0 ~ 360 度) */
+  currentHeading: number;
+  /** 当前所在轨迹段索引 */
+  currentIndex: number;
+  /** 播放倍速 */
+  speedRate: number;
+  /** 启动播放 */
+  play: () => void;
+  /** 暂停播放 */
+  pause: () => void;
+  /** 停止并重置至起点 */
+  stop: () => void;
+  /** 跳转指定进度 (0 ~ 1) */
+  seek: (progress: number) => void;
+  /** 设置播放倍速 */
+  setSpeedRate: (rate: number) => void;
+}
+
+/**
+ * 海量点聚合标记点契约。
+ */
+export interface ClusterMarker {
+  /** 点位唯一标识 */
+  id: string | number;
+  /** 经纬度坐标 */
+  coordinate: MapCoordinate;
+  /** 标题或悬停提示 */
+  title?: string;
+  /** 自定义图标 */
+  icon?: string | MapMarkerIcon;
+  /** 自定义业务数据载荷 */
+  data?: Record<string, unknown>;
+}
+
+/**
+ * 聚合簇实体契约。
+ */
+export interface ClusterGroup {
+  /** 簇唯一标识 */
+  id: string;
+  /** 簇质心经纬度坐标 */
+  center: MapCoordinate;
+  /** 簇包含的点位总数 */
+  count: number;
+  /** 簇内包含的所有标记点列表 */
+  markers: ClusterMarker[];
+  /** 簇空间矩形外包围盒 */
+  bounds: MapBounds;
+}
+
+/**
+ * AtengMapCluster 海量点聚合容器 Props 契约。
+ */
+export interface AtengMapClusterProps {
+  /** 待聚合点位集合 (支持 50,000+ 点位) */
+  markers?: ClusterMarker[];
+  /** 聚合网格单元像素大小 (像素)，默认 60 */
+  gridSize?: number;
+  /** 最大聚合缩放等级 (超过此层级不再聚合，呈散开点)，默认 17 */
+  maxClusterZoom?: number;
+  /** 最大缩放层级下重叠点是否启用蜘蛛网散开扩散 (Spiderfy)，默认 true */
+  spiderfyOnMaxZoom?: boolean;
+  /** 渲染模式：'dom' 标牌渲染或 'canvas' 纯画布极致性能，默认 'dom' */
+  renderMode?: 'dom' | 'canvas';
+  /** 聚合圈主色调，默认 '#3b82f6' */
+  clusterColor?: string;
+  /** 地图中心点坐标 */
+  center?: MapCoordinate;
+  /** 缩放等级，默认 12 */
+  zoom?: number;
+  /** 瓦片源预设枚举或自定义模板 URL */
+  tilePreset?: TilePreset | string;
+  /** 暗黑模式开关或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 容器高度，默认 '520px' */
+  height?: string;
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapCluster 海量点聚合容器 Emits 契约。
+ */
+export interface AtengMapClusterEmits {
+  (e: 'clusterClick', cluster: ClusterGroup): void;
+  (e: 'markerClick', marker: ClusterMarker): void;
+}
+
+/**
+ * AtengMapCluster 实例暴露方法 (defineExpose)。
+ */
+export interface AtengMapClusterInstance {
+  /** 当前聚合簇列表 */
+  clusters: ClusterGroup[];
+  /** 触发重新网格聚合计算与图层重绘 */
+  refresh: () => void;
+}
+
+/**
+ * 行政区划 GeoJSON 多边形几何数据联合类型。
+ */
+export type GeoJSONGeometryData =
+  | {
+      type: 'Polygon';
+      coordinates: number[][][]; // [ [ [lng, lat], ... ] ]
+    }
+  | {
+      type: 'MultiPolygon';
+      coordinates: number[][][][]; // [ [ [ [lng, lat], ... ] ] ]
+    }
+  | {
+      type: 'Feature';
+      geometry: {
+        type: 'Polygon' | 'MultiPolygon';
+        coordinates: unknown;
+      };
+      properties?: Record<string, unknown>;
+    }
+  | {
+      type: 'FeatureCollection';
+      features: Array<{
+        type: 'Feature';
+        geometry: {
+          type: 'Polygon' | 'MultiPolygon';
+          coordinates: unknown;
+        };
+        properties?: Record<string, unknown>;
+      }>;
+    };
+
+/**
+ * AtengMapMask 行政区划反向遮罩容器 Props 契约。
+ */
+export interface AtengMapMaskProps {
+  /** 行政区划 GeoJSON 数据 (Polygon / MultiPolygon / Feature / FeatureCollection) */
+  geoData?: GeoJSONGeometryData | null;
+  /** 反向遮罩全局压暗填充色 (支持 rgba/hex)，默认 'rgba(15, 23, 42, 0.72)' */
+  maskColor?: string;
+  /** 行政边界高亮描边颜色，默认 '#38bdf8' */
+  boundaryColor?: string;
+  /** 行政边界描边线宽 (像素)，默认 2.5 */
+  boundaryWidth?: number;
+  /** 行政边界描边虚线模式 (如 '5, 5') */
+  dashArray?: string;
+  /** 地图中心点坐标 */
+  center?: MapCoordinate;
+  /** 缩放等级，默认 11 */
+  zoom?: number;
+  /** 瓦片源预设枚举或自定义模板 URL */
+  tilePreset?: TilePreset | string;
+  /** 暗黑模式开关或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 容器高度，默认 '520px' */
+  height?: string;
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapMask 行政区划反向遮罩容器 Emits 契约。
+ */
+export interface AtengMapMaskEmits {
+  (e: 'ready', driver: MapDriverAdapter): void;
+  (e: 'maskClick', payload: { coordinate: MapCoordinate; originalEvent: MouseEvent }): void;
+}
+
+/**
+ * AtengMapMask 实例暴露方法 (defineExpose)。
+ */
+export interface AtengMapMaskInstance {
+  /** 视口自动平移缩放至行政区划外包围盒 (fitBounds) */
+  fitMaskBounds: () => void;
+  /** 重新生成并绘制反向掩膜 */
+  refresh: () => void;
+}
