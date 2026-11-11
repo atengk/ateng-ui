@@ -143,6 +143,40 @@ export interface GanttExportOptions {
 }
 
 /**
+ * 画布端点依赖连线实体契约。
+ */
+export interface GanttDependencyLink {
+  /** 起始任务 ID */
+  sourceId: string | number;
+  /** 目标任务 ID */
+  targetId: string | number;
+  /** 连线类型：FS / SS / FF / SF */
+  type?: GanttDependencyType;
+}
+
+/**
+ * 依赖校验结果契约。
+ */
+export interface GanttValidationResult {
+  /** 是否合法通过 */
+  valid: boolean;
+  /** 校验失败原因代码：'self_dependency' | 'circular_dependency' 等 */
+  reason?: 'self_dependency' | 'circular_dependency' | 'invalid_id';
+  /** 循环回路路径节点 ID 列表（供诊断排查） */
+  cyclePath?: (string | number)[];
+}
+
+/**
+ * 任务延误判定结果契约。
+ */
+export interface GanttDelayStatus {
+  /** 是否发生滞后延误 */
+  delayed: boolean;
+  /** 延误滞后天数（非延误为 0） */
+  delayDays: number;
+}
+
+/**
  * useGantt 状态机入参配置选项。
  */
 export interface UseGanttOptions {
@@ -152,6 +186,8 @@ export interface UseGanttOptions {
   tasks?: MaybeRefOrGetter<GanttTaskRecord[] | undefined>;
   /** 任务树表列配置 */
   columns?: MaybeRefOrGetter<GanttColumn[] | undefined>;
+  /** 前后置依赖连线列表 */
+  dependencies?: MaybeRefOrGetter<GanttDependencyLink[] | undefined>;
   /** 时间轴刻度 */
   scale?: MaybeRefOrGetter<GanttScale | undefined>;
   /** 交互模式 */
@@ -238,6 +274,12 @@ export interface UseGanttReturn {
   getTasks: () => GanttTaskRecord[];
   /** 根据 ID 获取指定任务实体 */
   getTask: (taskId: string | number) => GanttTaskRecord | null;
+  /** 获取当前全部依赖连线列表 */
+  getDependencies: () => GanttDependencyLink[];
+  /** 动态添加依赖连线（内置 DAG 判环校验） */
+  addDependency: (link: GanttDependencyLink) => GanttValidationResult;
+  /** 动态删除依赖连线 */
+  deleteDependency: (sourceId: string | number, targetId: string | number) => void;
   /** 获取底层的 VTable-Gantt 原生实例（逃生门） */
   getRawGanttInstance: () => Gantt | null;
 }

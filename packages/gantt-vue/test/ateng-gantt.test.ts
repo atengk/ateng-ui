@@ -194,4 +194,61 @@ describe('AtengGantt Component', () => {
     expect(parentTask?.endDate).toBe('2026-11-15');
     expect(parentTask?.progress).toBe(67);
   });
+
+  it('应当通过 addDependency 动态增加依赖连线，并精准拦截循环回路与派发事件', async () => {
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: sampleTasks,
+      },
+    });
+
+    const vm = wrapper.vm as unknown as Record<string, unknown>;
+    const addDep = vm.addDependency as (link: {
+      sourceId: string | number;
+      targetId: string | number;
+      type?: 'FS';
+    }) => { valid: boolean; reason?: string };
+
+    // 1. 添加合法的前后置连线 1 -> 2
+    const res1 = addDep({ sourceId: 1, targetId: 2, type: 'FS' });
+    expect(res1.valid).toBe(true);
+
+    // 2. 尝试添加反向回路 2 -> 1，应当被 DAG 快速失败拦截
+    const res2 = addDep({ sourceId: 2, targetId: 1, type: 'FS' });
+    expect(res2.valid).toBe(false);
+    expect(res2.reason).toBe('circular_dependency');
+
+    // 验证派发了 dependencyInvalid 事件
+    expect(wrapper.emitted('dependencyInvalid')).toBeTruthy();
+  });
+
+  it('支持任务计划基准线 (baseline) 与里程碑 (milestone) 属性注入与查询', () => {
+    const tasksWithBaseline: GanttTaskRecord[] = [
+      {
+        id: 'milestone-1',
+        name: '首期版本发布',
+        startDate: '2026-11-20',
+        endDate: '2026-11-20',
+        type: 'milestone',
+        baseline: {
+          startDate: '2026-11-18',
+          endDate: '2026-11-18',
+        },
+      },
+    ];
+
+    wrapper = mount(AtengGantt, {
+      props: {
+        tasks: tasksWithBaseline,
+      },
+    });
+
+    const vm = wrapper.vm as unknown as Record<string, unknown>;
+    const task = (vm.getTask as (id: string) => GanttTaskRecord | null)('milestone-1');
+
+    expect(task).toBeDefined();
+    expect(task?.type).toBe('milestone');
+    expect(task?.baselineStartDate).toBe('2026-11-18');
+    expect(task?.baselineEndDate).toBe('2026-11-18');
+  });
 });

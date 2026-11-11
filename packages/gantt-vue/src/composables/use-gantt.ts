@@ -34,10 +34,14 @@ import {
   type GanttScale,
   type GanttMode,
   type GanttChangeType,
+  type GanttDependencyType,
+  type GanttDependencyLink,
+  type GanttValidationResult,
 } from '../types';
 import { GanttResizeGuard } from '../guards/gantt-resize-guard';
 import { GanttDataMapper } from '../engines/gantt-data-mapper';
 import { GanttRollup } from '../engines/gantt-rollup';
+import { GanttValidator } from '../engines/gantt-validator';
 
 /**
  * 默认左侧任务树列表列定义。
@@ -226,6 +230,44 @@ function getTimelineColWidth(scale: GanttScale): number {
   }
 }
 
+/**
+ * 将业务前后置依赖类型转换为 VTable 原生枚举类型。
+ */
+function toVTableDependencyType(type?: GanttDependencyType): TYPES.DependencyType {
+  switch (type) {
+    case 'SS':
+      return TYPES.DependencyType?.StartToStart ?? ('start_to_start' as TYPES.DependencyType);
+    case 'FF':
+      return TYPES.DependencyType?.FinishToFinish ?? ('finish_to_finish' as TYPES.DependencyType);
+    case 'SF':
+      return TYPES.DependencyType?.StartToFinish ?? ('start_to_finish' as TYPES.DependencyType);
+    case 'FS':
+    default:
+      return TYPES.DependencyType?.FinishToStart ?? ('finish_to_start' as TYPES.DependencyType);
+  }
+}
+
+/**
+ * 将 VTable 原生依赖类型安全转译为业务标准类型。
+ */
+function fromVTableDependencyType(type?: unknown): GanttDependencyType {
+  switch (type) {
+    case 'start_to_start':
+    case 'SS':
+      return 'SS';
+    case 'finish_to_finish':
+    case 'FF':
+      return 'FF';
+    case 'start_to_finish':
+    case 'SF':
+      return 'SF';
+    case 'finish_to_start':
+    case 'FS':
+    default:
+      return 'FS';
+  }
+}
+
 export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
   const initialContainer = toValue(options.container);
   const containerRef = ref<HTMLElement | null>(initialContainer ?? null);
@@ -252,12 +294,48 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     : [];
   let isInputFlat = GanttDataMapper.isFlatStructure(rawTasks);
 
+  let dependencyLinks: GanttDependencyLink[] = toValue(options.dependencies)
+    ? [...(toValue(options.dependencies) ?? [])]
+    : [];
+
+  /**
+   * 将任务中的 baseline 嵌套对象归一化为 baselineStartDate / baselineEndDate，
+   * 并识别里程碑节点 (type: 'milestone')。
+   */
+  const normalizeBaselineAndMilestone = (nodes: GanttTaskRecord[]): GanttTaskRecord[] => {
+    return nodes.map(task => {
+      const bStart = task.baseline?.startDate ?? task.baselineStartDate;
+      const bEnd = task.baseline?.endDate ?? task.baselineEndDate;
+
+      const isMilestone =
+        task.type === 'milestone' ||
+        (Boolean(task.startDate) &&
+          Boolean(task.endDate) &&
+          String(task.startDate) === String(task.endDate) &&
+          task.type !== 'summary');
+
+      const normalized: GanttTaskRecord = {
+        ...task,
+        baselineStartDate: bStart ? GanttRollup.formatDate(bStart as string | Date) : undefined,
+        baselineEndDate: bEnd ? GanttRollup.formatDate(bEnd as string | Date) : undefined,
+        type: isMilestone ? 'milestone' : task.type,
+      };
+
+      if (Array.isArray(task.children) && task.children.length > 0) {
+        normalized.children = normalizeBaselineAndMilestone(task.children);
+      }
+
+      return normalized;
+    });
+  };
+
   /**
    * 将原始任务数据集映射归一化并执行自底向上 Rollup 汇总。
    */
   const processTasksForRendering = (tasks: GanttTaskRecord[]): GanttTaskRecord[] => {
     const tree = mapper.normalize(tasks);
-    return rollupEngine.rollupTree(tree);
+    const rolledTree = rollupEngine.rollupTree(tree);
+    return normalizeBaselineAndMilestone(rolledTree);
   };
 
   let renderedTasks: GanttTaskRecord[] = processTasksForRendering(rawTasks);
@@ -335,20 +413,39 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         progressField: 'progress',
         baselineStartDateField: 'baselineStartDate',
         baselineEndDateField: 'baselineEndDate',
+        baselinePosition: 'bottom',
         moveable: !isReadonly,
         resizable: !isReadonly,
         progressAdjustable: !isReadonly,
-        barStyle: {
-          barColor: '#3b82f6',
-          completedBarColor: '#1d4ed8',
-          cornerRadius: 4,
+        barStyle: (interactionArgs: unknown) => {
+          const rec = (interactionArgs as { taskRecord?: GanttTaskRecord })?.taskRecord;
+          if (rec && GanttValidator.isTaskDelayed(rec).delayed) {
+            return {
+              barColor: '#ef4444',
+              completedBarColor: '#dc2626',
+              cornerRadius: 4,
+            };
+          }
+          return {
+            barColor: '#3b82f6',
+            completedBarColor: '#1d4ed8',
+            cornerRadius: 4,
+          };
+        },
+        baselineStyle: {
+          barColor: 'rgba(156, 163, 175, 0.45)',
+          cornerRadius: 2,
         },
         milestoneStyle: {
           fillColor: '#f59e0b',
         },
       },
       dependency: {
-        links: [],
+        links: dependencyLinks.map(l => ({
+          type: toVTableDependencyType(l.type),
+          linkedFromTaskKey: l.sourceId,
+          linkedToTaskKey: l.targetId,
+        })),
         linkCreatable: !isReadonly,
         linkDeletable: !isReadonly,
         linkLineStyle: { lineColor: '#60a5fa', lineWidth: 1.5 },
@@ -445,17 +542,45 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
           targetId?: string | number;
           type?: 'FS' | 'FF' | 'SS' | 'SF';
         };
-        if (payload) {
-          const sourceId = payload.sourceKey ?? payload.sourceId;
-          const targetId = payload.targetKey ?? payload.targetId;
-          if (sourceId !== undefined && targetId !== undefined) {
-            options.onDependencyCreate?.({
-              sourceId,
-              targetId,
-              type: payload.type ?? 'FS',
-            });
+        if (!payload) return;
+        const sourceId = payload.sourceKey ?? payload.sourceId;
+        const targetId = payload.targetKey ?? payload.targetId;
+        if (sourceId === undefined || targetId === undefined) return;
+
+        const newLink: GanttDependencyLink = {
+          sourceId,
+          targetId,
+          type: fromVTableDependencyType(payload.type),
+        };
+
+        // 前置有向无环图 (DAG) 快速失败校验
+        const valResult = GanttValidator.validateNewLink(dependencyLinks, newLink);
+        if (!valResult.valid) {
+          // 拦截并从画布中移除无效连线
+          if (ganttInstance) {
+            try {
+              (ganttInstance as unknown as { deleteLink: (arg: unknown) => void }).deleteLink({
+                sourceKey: sourceId,
+                targetKey: targetId,
+              });
+            } catch {
+              // 容灾忽略
+            }
           }
+          options.onDependencyInvalid?.({
+            sourceId,
+            targetId,
+            reason: valResult.reason ?? 'circular_dependency',
+          });
+          return;
         }
+
+        dependencyLinks.push(newLink);
+        options.onDependencyCreate?.({
+          sourceId: newLink.sourceId,
+          targetId: newLink.targetId,
+          type: newLink.type ?? 'FS',
+        });
       });
 
       ganttInstance.on(GANTT_EVENTS.DELETE_DEPENDENCY_LINK, (args: unknown) => {
@@ -465,16 +590,19 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
           targetKey?: string | number;
           targetId?: string | number;
         };
-        if (payload) {
-          const sourceId = payload.sourceKey ?? payload.sourceId;
-          const targetId = payload.targetKey ?? payload.targetId;
-          if (sourceId !== undefined && targetId !== undefined) {
-            options.onDependencyDelete?.({
-              sourceId,
-              targetId,
-            });
-          }
-        }
+        if (!payload) return;
+        const sourceId = payload.sourceKey ?? payload.sourceId;
+        const targetId = payload.targetKey ?? payload.targetId;
+        if (sourceId === undefined || targetId === undefined) return;
+
+        dependencyLinks = dependencyLinks.filter(
+          l =>
+            !(String(l.sourceId) === String(sourceId) && String(l.targetId) === String(targetId)),
+        );
+        options.onDependencyDelete?.({
+          sourceId,
+          targetId,
+        });
       });
 
       // 挂载尺寸自愈守卫
@@ -682,6 +810,67 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     return ganttInstance;
   };
 
+  /**
+   * 获取当前全部依赖连线列表。
+   */
+  const getDependencies = (): GanttDependencyLink[] => {
+    return [...dependencyLinks];
+  };
+
+  /**
+   * 动态添加一条依赖连线（内置有向无环图 DAG 快速失败拦截）。
+   */
+  const addDependency = (link: GanttDependencyLink): GanttValidationResult => {
+    const valResult = GanttValidator.validateNewLink(dependencyLinks, link);
+    if (!valResult.valid) {
+      options.onDependencyInvalid?.({
+        sourceId: link.sourceId,
+        targetId: link.targetId,
+        reason: valResult.reason ?? 'circular_dependency',
+      });
+      return valResult;
+    }
+
+    dependencyLinks.push({ ...link });
+    if (ganttInstance) {
+      try {
+        (ganttInstance as unknown as { addLink: (arg: unknown) => void }).addLink({
+          type: toVTableDependencyType(link.type),
+          linkedFromTaskKey: link.sourceId,
+          linkedToTaskKey: link.targetId,
+        });
+      } catch {
+        // 容错
+      }
+    }
+    options.onDependencyCreate?.({
+      sourceId: link.sourceId,
+      targetId: link.targetId,
+      type: link.type ?? 'FS',
+    });
+    return { valid: true };
+  };
+
+  /**
+   * 动态删除一条依赖连线。
+   */
+  const deleteDependency = (sourceId: string | number, targetId: string | number): void => {
+    dependencyLinks = dependencyLinks.filter(
+      l => !(String(l.sourceId) === String(sourceId) && String(l.targetId) === String(targetId)),
+    );
+    if (ganttInstance) {
+      try {
+        (ganttInstance as unknown as { deleteLink: (arg: unknown) => void }).deleteLink({
+          sourceKey: sourceId,
+          targetKey: targetId,
+        });
+      } catch {
+        // 容错
+      }
+    }
+    options.onDependencyDelete?.({ sourceId, targetId });
+  };
+
   // 监听动态 Props 变化
   watch(
     () => toValue(options.tasks),
@@ -751,6 +940,9 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     setTasks,
     getTasks,
     getTask,
+    getDependencies,
+    addDependency,
+    deleteDependency,
     getRawGanttInstance,
   };
 }

@@ -18,6 +18,7 @@ import type {
   GanttTheme,
   GanttMarkLine,
   GanttChangeType,
+  GanttDependencyLink,
 } from '../types';
 import { useGantt } from '../composables/use-gantt';
 
@@ -52,6 +53,8 @@ interface Props {
   showWeekend?: boolean;
   /** 自定义时间标线列表 */
   markLines?: GanttMarkLine[];
+  /** 任务前后置依赖连线列表 */
+  dependencies?: GanttDependencyLink[];
   /** 底层 VTable-Gantt 原始逃生配置项 */
   vtableOptions?: Record<string, unknown>;
 }
@@ -70,6 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
   showTodayLine: true,
   showWeekend: true,
   markLines: () => [],
+  dependencies: () => [],
   vtableOptions: undefined,
 });
 
@@ -111,10 +115,14 @@ const {
   setTasks,
   getTasks,
   getTask,
+  getDependencies,
+  addDependency,
+  deleteDependency,
   getRawGanttInstance,
 } = useGantt({
   tasks: () => props.tasks ?? [],
   columns: () => props.columns ?? [],
+  dependencies: () => props.dependencies,
   scale: () => props.scale,
   mode: () => props.mode,
   splitWidth: () => props.splitWidth,
@@ -179,6 +187,9 @@ defineExpose({
   setTasks,
   getTasks,
   getTask,
+  getDependencies,
+  addDependency,
+  deleteDependency,
   getRawGanttInstance,
   resize,
   dispose,

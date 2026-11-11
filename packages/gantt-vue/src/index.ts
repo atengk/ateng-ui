@@ -21,6 +21,7 @@ export { GanttResizeGuard, type GanttResizeGuardOptions } from './guards/gantt-r
 // 驱动引擎与算法
 export { GanttDataMapper, type GanttDataMapperOptions } from './engines/gantt-data-mapper';
 export { GanttRollup, type GanttRollupOptions } from './engines/gantt-rollup';
+export { GanttValidator } from './engines/gantt-validator';
 
 // 强类型契约
 export * from './types';
