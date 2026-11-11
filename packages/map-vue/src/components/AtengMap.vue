@@ -101,16 +101,19 @@ watch(
   { deep: true },
 );
 
+let isUnmounted = false;
+
 onMounted(async () => {
   if (viewportRef.value) {
     await mount(viewportRef.value);
-    if (props.markers?.length) {
+    if (!isUnmounted && props.markers?.length) {
       syncMarkers(props.markers);
     }
   }
 });
 
 onBeforeUnmount(() => {
+  isUnmounted = true;
   dispose();
 });
 

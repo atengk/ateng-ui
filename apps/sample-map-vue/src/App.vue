@@ -12,9 +12,13 @@ import {
   TilePreset,
   DEFAULT_MAP_CENTER,
   AtengMap,
+  AtengMapPicker,
   type MapCoordinate,
   type MapDriverAdapter,
   type AtengMapInstance,
+  type PickerResult,
+  type PickerMode,
+  type CoordType,
 } from '@atengk/map-vue';
 
 const activeTab = ref('board1');
@@ -80,6 +84,40 @@ function setCity(pt: MapCoordinate) {
 function handleInvalidateSize() {
   mapRef.value?.invalidateSize();
   logEvent('主动触发视口尺寸几何自愈 (invalidateSize)');
+}
+
+// 看板 2: 坐标拾取与逆地理纠偏状态
+const pickerCoord = ref<MapCoordinate>({ lng: 116.4074, lat: 39.9042, coordType: 'GCJ02' });
+const pickerMode = ref<PickerMode>('marker');
+const pickerCoordType = ref<CoordType>('GCJ02');
+const pickerDark = ref<boolean>(false);
+const lastPickerResult = ref<PickerResult | null>(null);
+const pickerLogs = ref<string[]>([]);
+
+function logPickerEvent(msg: string) {
+  const time = new Date().toLocaleTimeString();
+  pickerLogs.value.unshift(`[${time}] ${msg}`);
+  if (pickerLogs.value.length > 20) {
+    pickerLogs.value.pop();
+  }
+}
+
+function onPickerChange(result: PickerResult) {
+  logPickerEvent(
+    `选点变化: [${result.coordinate.lng.toFixed(6)}, ${result.coordinate.lat.toFixed(6)}] - ${result.address?.formattedAddress || '未解析'}`,
+  );
+}
+
+function onPickerConfirm(result: PickerResult) {
+  lastPickerResult.value = result;
+  logPickerEvent(
+    `★ 确认选点: [${result.coordinate.lng.toFixed(6)}, ${result.coordinate.lat.toFixed(6)}] - ${result.address?.formattedAddress || '未解析'}`,
+  );
+}
+
+function onPickerReset() {
+  lastPickerResult.value = null;
+  logPickerEvent('选点器状态已重置');
 }
 </script>
 
@@ -183,10 +221,105 @@ function handleInvalidateSize() {
         </div>
       </section>
 
-      <!-- 看板 2 -->
+      <!-- 看板 2: 坐标拾取与逆地理纠偏 -->
       <section v-else-if="activeTab === 'board2'" class="board-card">
-        <h2>坐标拾取与逆地理纠偏看板</h2>
-        <p>待挂载 AtengMapPicker 交互沙箱（工单 #357 交付）</p>
+        <div class="card-header">
+          <h2>坐标拾取与逆地理纠偏看板</h2>
+          <div class="toolbar">
+            <label class="control-label">基准坐标系：</label>
+            <select v-model="pickerCoordType" class="select-box">
+              <option value="GCJ02">GCJ02 (国测局火星坐标)</option>
+              <option value="WGS84">WGS84 (GPS/通用标准)</option>
+              <option value="BD09">BD09 (百度加密坐标)</option>
+            </select>
+
+            <button
+              class="btn-toggle"
+              :class="{ active: pickerDark }"
+              @click="pickerDark = !pickerDark"
+            >
+              {{ pickerDark ? '🌙 暗黑模式' : '☀️ 浅色模式' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="map-container-layout">
+          <div class="map-wrapper picker-box">
+            <AtengMapPicker
+              v-model="pickerCoord"
+              v-model:mode="pickerMode"
+              :coord-type="pickerCoordType"
+              :dark="pickerDark"
+              height="540px"
+              @change="onPickerChange"
+              @confirm="onPickerConfirm"
+              @reset="onPickerReset"
+            />
+          </div>
+
+          <div class="log-panel">
+            <div class="log-header">
+              <h3>拾取结果交付卡片</h3>
+              <span class="status-indicator ready">● 选点器就绪</span>
+            </div>
+
+            <div v-if="lastPickerResult" class="result-card">
+              <div class="result-title">🎯 确认交付结果</div>
+              <div class="result-row">
+                <span class="k">详细地址：</span>
+                <span class="v highlight">{{
+                  lastPickerResult.address?.formattedAddress || '无结构化地址'
+                }}</span>
+              </div>
+              <div class="result-row">
+                <span class="k">行政区划：</span>
+                <span class="v">
+                  {{ lastPickerResult.address?.province || '' }}
+                  {{ lastPickerResult.address?.city || '' }}
+                  {{ lastPickerResult.address?.district || '' }}
+                </span>
+              </div>
+              <div class="coords-box">
+                <div class="coords-header">三维坐标防漂移对照 (CoordTransform)</div>
+                <div class="coord-line">
+                  <span class="tag">GCJ02</span>
+                  <code
+                    >{{ lastPickerResult.coords.gcj02.lng.toFixed(6) }},
+                    {{ lastPickerResult.coords.gcj02.lat.toFixed(6) }}</code
+                  >
+                </div>
+                <div class="coord-line">
+                  <span class="tag">WGS84</span>
+                  <code
+                    >{{ lastPickerResult.coords.wgs84.lng.toFixed(6) }},
+                    {{ lastPickerResult.coords.wgs84.lat.toFixed(6) }}</code
+                  >
+                </div>
+                <div class="coord-line">
+                  <span class="tag">BD09</span>
+                  <code
+                    >{{ lastPickerResult.coords.bd09.lng.toFixed(6) }},
+                    {{ lastPickerResult.coords.bd09.lat.toFixed(6) }}</code
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="result-empty">
+              请在地图上搜索或点击选点，随后点击底部【确定选择】查看解析载荷
+            </div>
+
+            <div class="log-header" style="margin-top: 14px">
+              <h3>选点实时事件流</h3>
+            </div>
+            <div class="log-list">
+              <div v-for="(log, idx) in pickerLogs" :key="idx" class="log-item">
+                {{ log }}
+              </div>
+              <div v-if="pickerLogs.length === 0" class="log-empty">等待选点事件触发...</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 看板 3 -->
@@ -370,7 +503,7 @@ function handleInvalidateSize() {
 
 .map-container-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 360px;
   gap: 16px;
 }
 
@@ -379,8 +512,13 @@ function handleInvalidateSize() {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   overflow: hidden;
-  height: 520px;
+  height: 540px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.picker-box {
+  border: none;
+  box-shadow: none;
 }
 
 .log-panel {
@@ -426,7 +564,7 @@ function handleInvalidateSize() {
 .log-list {
   flex: 1;
   overflow-y: auto;
-  max-height: 400px;
+  max-height: 280px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -447,5 +585,74 @@ function handleInvalidateSize() {
   color: #94a3b8;
   text-align: center;
   padding: 20px 0;
+}
+
+.result-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.result-title {
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 8px;
+}
+
+.result-row {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.result-row .k {
+  color: #64748b;
+}
+
+.result-row .v.highlight {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coords-box {
+  margin-top: 10px;
+  background: #ffffff;
+  border: 1px solid #dcfce7;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.coords-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: #15803d;
+  margin-bottom: 6px;
+}
+
+.coord-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.coord-line .tag {
+  background: #e2e8f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.result-empty {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.5;
 }
 </style>

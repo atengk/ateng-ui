@@ -285,3 +285,90 @@ export interface AtengMapInstance {
   /** 视口自适应包围盒 */
   fitBounds: (bounds: MapBounds, padding?: [number, number]) => void;
 }
+
+/**
+ * 选点模式枚举类型。
+ * - `marker`: 拖拽/点击 Marker 选点
+ * - `crosshair`: 中心十字准星移动地图选点
+ */
+export type PickerMode = 'marker' | 'crosshair';
+
+/**
+ * 坐标与地址拾取器交付结果契约。
+ */
+export interface PickerResult {
+  /** 当前选中的坐标（遵循 targetCoordType，默认 GCJ02） */
+  coordinate: MapCoordinate;
+  /** 逆地理编码解析得到的结构化地址 */
+  address?: GeocodeResult;
+  /** 多坐标系防漂移换算对照表 (WGS84 ⇄ GCJ02 ⇄ BD09) */
+  coords: {
+    wgs84: MapCoordinate;
+    gcj02: MapCoordinate;
+    bd09: MapCoordinate;
+  };
+}
+
+/**
+ * AtengMapPicker 选点器 Props 契约。
+ */
+export interface AtengMapPickerProps {
+  /** 当前选中的坐标 (支持 v-model 或 v-model:modelValue) */
+  modelValue?: MapCoordinate;
+  /** 默认中心点坐标 */
+  defaultCenter?: MapCoordinate;
+  /** 初始缩放等级，默认 15 */
+  zoom?: number;
+  /** 瓦片源预设枚举或自定义模板 URL */
+  tilePreset?: TilePreset | string;
+  /** 坐标系类型，默认 'GCJ02' */
+  coordType?: CoordType;
+  /** 初始选点模式，默认 'marker' */
+  mode?: PickerMode;
+  /** 自定义地理与逆地理反查解析 Provider */
+  geocodeProvider?: GeocodeProvider;
+  /** 搜索输入防抖延时 (毫秒)，默认 300 */
+  searchDebounceMs?: number;
+  /** 是否启用暗黑模式或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 容器高度，默认 '480px' */
+  height?: string;
+  /** 是否显示模式切换按键，默认 true */
+  showModeSwitch?: boolean;
+  /** 是否显示快速复制按键，默认 true */
+  showCopyButton?: boolean;
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapPicker 选点器 Emits 契约。
+ */
+export interface AtengMapPickerEmits {
+  (e: 'update:modelValue', coordinate: MapCoordinate): void;
+  (e: 'change', result: PickerResult): void;
+  (e: 'confirm', result: PickerResult): void;
+  (e: 'reset'): void;
+}
+
+/**
+ * AtengMapPicker 选点器组件实例暴露方法 (defineExpose)。
+ */
+export interface AtengMapPickerInstance {
+  /** 当前选中坐标 */
+  selectedCoord: MapCoordinate;
+  /** 当前逆地理反查结果 */
+  selectedAddress: GeocodeResult | null;
+  /** 当前选点模式 */
+  mode: PickerMode;
+  /** 切换选点模式 */
+  setMode: (mode: PickerMode) => void;
+  /** 主动定位并选中指定坐标 */
+  pickCoord: (coord: MapCoordinate, triggerGeocode?: boolean) => Promise<void>;
+  /** 执行关键词检索 */
+  search: (keyword: string) => Promise<GeocodeResult[]>;
+  /** 获取当前完整拾取结果 */
+  getPickerResult: () => PickerResult;
+  /** 重置选点与搜索状态 */
+  reset: () => void;
+}

@@ -11,6 +11,7 @@ import './styles/index.css';
 
 // 表现容器组件
 export { default as AtengMap } from './components/AtengMap.vue';
+export { default as AtengMapPicker } from './components/AtengMapPicker.vue';
 
 // 核心类型契约
 export * from './types';
@@ -30,6 +31,7 @@ export * from './engines/geo-math';
 // 无头响应式状态机
 export * from './composables/use-map-theme-sync';
 export * from './composables/use-map';
+export * from './composables/use-map-picker';
 
 // 底座驱动适配器 SPI
 export * from './adapters/leaflet-driver-adapter';

@@ -227,6 +227,7 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
       };
 
       await driverInstance.init(container, initOptions);
+      if (!driverInstance) return;
 
       // 绑定交互事件监听
       const raw = driverInstance.getRawInstance();
@@ -240,7 +241,9 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
       }
 
       ready.value = true;
-      options.onReady?.(driverInstance);
+      if (driverInstance) {
+        options.onReady?.(driverInstance);
+      }
     } finally {
       loading.value = false;
     }
