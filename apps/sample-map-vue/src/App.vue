@@ -13,12 +13,16 @@ import {
   DEFAULT_MAP_CENTER,
   AtengMap,
   AtengMapPicker,
+  AtengMapFence,
   type MapCoordinate,
   type MapDriverAdapter,
   type AtengMapInstance,
   type PickerResult,
   type PickerMode,
   type CoordType,
+  type FenceRecord,
+  type FenceDrawMode,
+  type FenceAlarmPayload,
 } from '@atengk/map-vue';
 
 const activeTab = ref('board1');
@@ -118,6 +122,86 @@ function onPickerConfirm(result: PickerResult) {
 function onPickerReset() {
   lastPickerResult.value = null;
   logPickerEvent('选点器状态已重置');
+}
+
+// 看板 3: 空间电子围栏与越界告警状态
+const demoFences = ref<FenceRecord[]>([
+  {
+    id: 'fence-circle-01',
+    name: '天安门特级安防圈',
+    shape: 'circle',
+    center: { lng: 116.4074, lat: 39.9042 },
+    radius: 800,
+    strokeColor: '#ef4444',
+    fillColor: '#ef4444',
+  },
+  {
+    id: 'fence-poly-02',
+    name: '王府井商业步行区多边形',
+    shape: 'polygon',
+    points: [
+      { lng: 116.411, lat: 39.916 },
+      { lng: 116.417, lat: 39.916 },
+      { lng: 116.417, lat: 39.908 },
+      { lng: 116.411, lat: 39.908 },
+    ],
+    strokeColor: '#3b82f6',
+    fillColor: '#3b82f6',
+  },
+]);
+
+const fenceDrawMode = ref<FenceDrawMode>('none');
+const activeFenceId = ref<string | number | null>('fence-circle-01');
+const fenceDark = ref<boolean>(false);
+const patrolPoint = ref<MapCoordinate>({ lng: 116.395, lat: 39.9042 });
+const isPatrolling = ref<boolean>(false);
+let patrolInterval: ReturnType<typeof setInterval> | null = null;
+const fenceAlarmLogs = ref<
+  Array<{ time: string; type: 'enter' | 'leave' | 'inside'; text: string }>
+>([]);
+
+function logFenceAlarm(type: 'enter' | 'leave' | 'inside', text: string) {
+  const time = new Date().toLocaleTimeString();
+  fenceAlarmLogs.value.unshift({ time, type, text });
+  if (fenceAlarmLogs.value.length > 20) {
+    fenceAlarmLogs.value.pop();
+  }
+}
+
+function onPointEnter(p: FenceAlarmPayload) {
+  logFenceAlarm(
+    'enter',
+    `🚨 [进入告警] 巡检目标侵入围栏【${p.fence.name}】，坐标 [${p.point.lng.toFixed(5)}, ${p.point.lat.toFixed(5)}]`,
+  );
+}
+
+function onPointInside(p: FenceAlarmPayload) {
+  logFenceAlarm('inside', `⏱️ [内部滞留] 巡检目标在围栏【${p.fence.name}】内部活动中...`);
+}
+
+function onPointLeave(p: FenceAlarmPayload) {
+  logFenceAlarm('leave', `🟢 [移出提示] 巡检目标已离开围栏【${p.fence.name}】`);
+}
+
+function togglePatrolSimulation() {
+  if (isPatrolling.value) {
+    if (patrolInterval) clearInterval(patrolInterval);
+    patrolInterval = null;
+    isPatrolling.value = false;
+  } else {
+    isPatrolling.value = true;
+    patrolPoint.value = { lng: 116.395, lat: 39.9042 };
+    let step = 0;
+    patrolInterval = setInterval(() => {
+      step++;
+      // 沿经度东向移动：从 116.3950 穿越至 116.4250
+      const currentLng = 116.395 + step * 0.002;
+      patrolPoint.value = { lng: currentLng, lat: 39.9042 };
+      if (step > 16) {
+        step = 0;
+      }
+    }, 1200);
+  }
 }
 </script>
 
@@ -322,10 +406,78 @@ function onPickerReset() {
         </div>
       </section>
 
-      <!-- 看板 3 -->
+      <!-- 看板 3: 空间电子围栏与越界告警 -->
       <section v-else-if="activeTab === 'board3'" class="board-card">
-        <h2>空间电子围栏与越界告警看板</h2>
-        <p>待挂载 AtengMapFence 交互沙箱（工单 #358 交付）</p>
+        <div class="card-header">
+          <h2>空间电子围栏与越界告警看板</h2>
+          <div class="toolbar">
+            <button
+              class="btn-action"
+              :class="{ 'btn-active': isPatrolling }"
+              @click="togglePatrolSimulation"
+            >
+              {{ isPatrolling ? '⏸ 停止巡检模拟' : '▶ 启动目标巡检模拟 (穿越围栏)' }}
+            </button>
+            <button
+              class="btn-toggle"
+              :class="{ active: fenceDark }"
+              @click="fenceDark = !fenceDark"
+            >
+              {{ fenceDark ? '🌙 暗黑模式' : '☀️ 浅色模式' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="map-container-layout">
+          <div class="map-wrapper picker-box">
+            <AtengMapFence
+              v-model:fences="demoFences"
+              v-model:draw-mode="fenceDrawMode"
+              v-model:active-id="activeFenceId"
+              :check-points="patrolPoint"
+              :dark="fenceDark"
+              height="540px"
+              @point-enter="onPointEnter"
+              @point-inside="onPointInside"
+              @point-leave="onPointLeave"
+            />
+          </div>
+
+          <div class="log-panel">
+            <div class="log-header">
+              <h3>空间入侵与告警感知看板</h3>
+              <span class="status-indicator ready">
+                {{ isPatrolling ? '● 模拟目标巡航中' : '○ 待机' }}
+              </span>
+            </div>
+
+            <div class="patrol-info">
+              <div>
+                当前模拟目标坐标：<code
+                  >[{{ patrolPoint.lng.toFixed(5) }}, {{ patrolPoint.lat.toFixed(5) }}]</code
+                >
+              </div>
+              <div class="patrol-tip">目标自西向东移动，自动触发电子围栏穿透进入与离开告警</div>
+            </div>
+
+            <div class="log-header" style="margin-top: 12px">
+              <h3>越界判定实时报警流</h3>
+            </div>
+            <div class="log-list">
+              <div
+                v-for="(item, idx) in fenceAlarmLogs"
+                :key="idx"
+                class="log-item"
+                :class="'alarm-' + item.type"
+              >
+                <span class="log-time">[{{ item.time }}]</span> {{ item.text }}
+              </div>
+              <div v-if="fenceAlarmLogs.length === 0" class="log-empty">
+                点击上方【启动目标巡检模拟】或在地图上手动绘制围栏产生告警...
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 看板 4 -->
@@ -462,16 +614,27 @@ function onPickerReset() {
 }
 
 .btn-action {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: 1px solid #cbd5e1;
   background: #f1f5f9;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action.btn-active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
 }
 
 .btn-action:hover {
   background: #e2e8f0;
+}
+
+.btn-action.btn-active:hover {
+  background: #059669;
 }
 
 .city-selector {
@@ -580,6 +743,24 @@ function onPickerReset() {
   word-break: break-all;
 }
 
+.log-item.alarm-enter {
+  background: #fef2f2;
+  color: #dc2626;
+  border-left: 3px solid #ef4444;
+}
+
+.log-item.alarm-inside {
+  background: #eff6ff;
+  color: #2563eb;
+  border-left: 3px solid #3b82f6;
+}
+
+.log-item.alarm-leave {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-left: 3px solid #22c55e;
+}
+
 .log-empty {
   font-size: 12px;
   color: #94a3b8;
@@ -654,5 +835,20 @@ function onPickerReset() {
   color: #64748b;
   text-align: center;
   line-height: 1.5;
+}
+
+.patrol-info {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.patrol-tip {
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 4px;
 }
 </style>

@@ -372,3 +372,94 @@ export interface AtengMapPickerInstance {
   /** 重置选点与搜索状态 */
   reset: () => void;
 }
+
+/**
+ * 围栏绘制模式枚举。
+ */
+export type FenceDrawMode = 'none' | 'circle' | 'polygon' | 'rectangle';
+
+/**
+ * 电子围栏进出与滞留告警载荷契约。
+ */
+export interface FenceAlarmPayload {
+  /** 触发告警的地理点位 */
+  point: MapCoordinate;
+  /** 关联的电子围栏实体 */
+  fence: FenceRecord;
+  /** 告警动作：enter(进入)、leave(离开)、inside(内部滞留) */
+  action: 'enter' | 'leave' | 'inside';
+  /** 告警时间戳 (毫秒) */
+  timestamp: number;
+}
+
+/**
+ * AtengMapFence 围栏表现容器 Props 契约。
+ */
+export interface AtengMapFenceProps {
+  /** 围栏记录集合 (支持 v-model:fences 双向绑定) */
+  fences?: FenceRecord[];
+  /** 地图中心点坐标 */
+  center?: MapCoordinate;
+  /** 缩放等级，默认 14 */
+  zoom?: number;
+  /** 瓦片源预设枚举或自定义模板 URL */
+  tilePreset?: TilePreset | string;
+  /** 暗黑模式开关或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 容器高度，默认 '480px' */
+  height?: string;
+  /** 当前选中的围栏 ID (支持 v-model:activeId 双向绑定) */
+  activeId?: string | number | null;
+  /** 当前标绘绘制模式 (支持 v-model:drawMode 双向绑定)，默认 'none' */
+  drawMode?: FenceDrawMode;
+  /** 是否开启顶点可编辑微调，默认 true */
+  editable?: boolean;
+  /** 是否在图层上渲染面积/半径标尺浮层，默认 true */
+  showRuler?: boolean;
+  /** 外部动态巡检点位流 (单点或批量)，自动触发越界报警判定 */
+  checkPoints?: MapCoordinate | MapCoordinate[];
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapFence 围栏表现容器 Emits 契约。
+ */
+export interface AtengMapFenceEmits {
+  (e: 'update:fences', fences: FenceRecord[]): void;
+  (e: 'update:activeId', id: string | number | null): void;
+  (e: 'update:drawMode', mode: FenceDrawMode): void;
+  (e: 'fenceCreate', fence: FenceRecord): void;
+  (e: 'fenceUpdate', fence: FenceRecord): void;
+  (e: 'fenceDelete', id: string | number): void;
+  (e: 'fenceSelect', fence: FenceRecord | null): void;
+  (e: 'pointEnter', payload: FenceAlarmPayload): void;
+  (e: 'pointLeave', payload: FenceAlarmPayload): void;
+  (e: 'pointInside', payload: FenceAlarmPayload): void;
+}
+
+/**
+ * AtengMapFence 实例暴露接口 (defineExpose)。
+ */
+export interface AtengMapFenceInstance {
+  /** 围栏列表 */
+  fences: FenceRecord[];
+  /** 当前选中的围栏 ID */
+  activeId: string | number | null;
+  /** 当前绘制模式 */
+  drawMode: FenceDrawMode;
+  /** 切换绘制模式 */
+  setDrawMode: (mode: FenceDrawMode) => void;
+  /** 添加新围栏 */
+  addFence: (fence: Omit<FenceRecord, 'id'> & { id?: string | number }) => FenceRecord;
+  /** 更新指定围栏 */
+  updateFence: (id: string | number, partial: Partial<FenceRecord>) => FenceRecord | null;
+  /** 删除指定围栏 */
+  removeFence: (id: string | number) => boolean;
+  /** 清空所有围栏 */
+  clearFences: () => void;
+  /** 选中指定围栏 */
+  selectFence: (id: string | number | null) => void;
+  /** 对指定点位执行越界报警判定 */
+  checkPoint: (point: MapCoordinate) => FenceAlarmPayload[];
+}
