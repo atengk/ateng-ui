@@ -22,9 +22,26 @@ import {
 import {
   Gantt,
   TYPES,
+  VTable,
+  TABLE_EVENT_TYPE,
   type GanttConstructorOptions,
   type ColumnsDefine,
 } from '@visactor/vtable-gantt';
+import { InputEditor, DateInputEditor } from '@visactor/vtable-editors';
+
+// 安全注册全局默认单元格输入编辑器
+if (typeof window !== 'undefined' && VTable?.register?.editor) {
+  try {
+    if (!VTable.register.editor('input')) {
+      VTable.register.editor('input', new InputEditor());
+    }
+    if (!VTable.register.editor('date-input')) {
+      VTable.register.editor('date-input', new DateInputEditor());
+    }
+  } catch {
+    // 忽略在非浏览器沙箱或测试环境下的降级异常
+  }
+}
 import {
   GANTT_EVENTS,
   type UseGanttOptions,
@@ -125,7 +142,7 @@ function resolveDateBounds(tasks: GanttTaskRecord[]): { minDate: string; maxDate
 /**
  * 将业务列配置映射为 VTable 列定义。
  */
-function mapColumnsToVTable(columns?: GanttColumn[]): ColumnsDefine {
+function mapColumnsToVTable(columns?: GanttColumn[], isReadonly = false): ColumnsDefine {
   if (!columns || columns.length === 0) {
     return DEFAULT_COLUMNS;
   }
@@ -139,7 +156,12 @@ function mapColumnsToVTable(columns?: GanttColumn[]): ColumnsDefine {
     align: col.align,
     sort: col.sortable,
     tree: col.field === 'name',
-    editor: col.editor ? (typeof col.editor === 'string' ? col.editor : 'input') : undefined,
+    editor:
+      !isReadonly && col.editor
+        ? typeof col.editor === 'string'
+          ? col.editor
+          : 'input'
+        : undefined,
   }));
 }
 
@@ -321,13 +343,20 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         (Boolean(task.startDate) &&
           Boolean(task.endDate) &&
           String(task.startDate) === String(task.endDate) &&
-          task.type !== 'summary');
+          task.type !== 'summary' &&
+          task.type !== 'project' &&
+          (!task.children || task.children.length === 0));
+
+      const isSummary =
+        task.type === 'summary' ||
+        task.type === 'project' ||
+        (Array.isArray(task.children) && task.children.length > 0);
 
       const normalized: GanttTaskRecord = {
         ...task,
         baselineStartDate: bStart ? GanttRollup.formatDate(bStart as string | Date) : undefined,
         baselineEndDate: bEnd ? GanttRollup.formatDate(bEnd as string | Date) : undefined,
-        type: isMilestone ? 'milestone' : task.type,
+        type: isMilestone ? 'milestone' : isSummary ? 'project' : task.type,
       };
 
       if (Array.isArray(task.children) && task.children.length > 0) {
@@ -410,7 +439,8 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         tableWidth: splitWidth,
         minTableWidth: options.minSplitWidth ?? 200,
         maxTableWidth: options.maxSplitWidth ?? 600,
-        columns: mapColumnsToVTable(columns),
+        columns: mapColumnsToVTable(columns, isReadonly),
+        hierarchyExpandLevel: 2,
       },
       timelineHeader: {
         colWidth: getTimelineColWidth(scale),
@@ -433,22 +463,32 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
           const rec = (interactionArgs as { taskRecord?: GanttTaskRecord })?.taskRecord;
           if (rec && GanttValidator.isTaskDelayed(rec).delayed) {
             return {
+              width: 22,
               barColor: '#ef4444',
               completedBarColor: '#dc2626',
               cornerRadius: 4,
             };
           }
           return {
+            width: 22,
             barColor: palette.barColor,
             completedBarColor: palette.barProgressColor,
             cornerRadius: 4,
           };
         },
+        projectStyle: {
+          width: 14,
+          barColor: palette.barColor,
+          completedBarColor: palette.barProgressColor,
+          cornerRadius: 2,
+        },
         baselineStyle: {
+          width: 8,
           barColor: 'rgba(156, 163, 175, 0.45)',
           cornerRadius: 2,
         },
         milestoneStyle: {
+          width: 18,
           fillColor: '#f59e0b',
         },
       },
@@ -628,6 +668,29 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
         });
       });
 
+      // 绑定左侧树表行单元格即时就地编辑事件
+      if (ganttInstance.taskListTableInstance) {
+        ganttInstance.taskListTableInstance.on(
+          TABLE_EVENT_TYPE.CHANGE_CELL_VALUE,
+          (args: unknown) => {
+            const payload = args as {
+              col: number;
+              row: number;
+              field?: string;
+              changedValue?: unknown;
+            };
+            const record = (
+              ganttInstance?.taskListTableInstance as unknown as {
+                getCellRawRecord?: (col: number, row: number) => GanttTaskRecord;
+              }
+            )?.getCellRawRecord?.(payload.col, payload.row);
+            if (record) {
+              notifyTaskChange(record, 'table_edit');
+            }
+          },
+        );
+      }
+
       // 挂载尺寸自愈守卫
       if (!resizeGuard) {
         resizeGuard = new GanttResizeGuard(target, () => {
@@ -758,6 +821,16 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     if (!ganttInstance) return;
     renderedTasks = updateCollapseState(renderedTasks, false);
     ganttInstance.setRecords(renderedTasks);
+    try {
+      const listTable = (
+        ganttInstance as unknown as {
+          taskListTableInstance?: { expandAllTreeNode?: () => void };
+        }
+      ).taskListTableInstance;
+      listTable?.expandAllTreeNode?.();
+    } catch {
+      // 容灾忽略
+    }
   };
 
   /**
@@ -767,6 +840,16 @@ export function useGantt(options: UseGanttOptions = {}): UseGanttReturn {
     if (!ganttInstance) return;
     renderedTasks = updateCollapseState(renderedTasks, true);
     ganttInstance.setRecords(renderedTasks);
+    try {
+      const listTable = (
+        ganttInstance as unknown as {
+          taskListTableInstance?: { collapseAllTreeNode?: () => void };
+        }
+      ).taskListTableInstance;
+      listTable?.collapseAllTreeNode?.();
+    } catch {
+      // 容灾忽略
+    }
   };
 
   /**

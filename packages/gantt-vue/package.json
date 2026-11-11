@@ -35,6 +35,7 @@
   "dependencies": {
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
+    "@visactor/vtable-editors": "^1.26.8",
     "@visactor/vtable-gantt": "^1.26.8"
   },
   "devDependencies": {

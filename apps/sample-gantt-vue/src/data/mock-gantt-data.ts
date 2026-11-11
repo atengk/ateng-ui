@@ -105,12 +105,12 @@ export const agileWbsTasks: GanttTaskRecord[] = [
  */
 export const agileColumns: GanttColumn[] = [
   { field: 'id', title: '序号', width: 60, align: 'center' },
-  { field: 'name', title: '任务 / 需求项', width: 240, sortable: true },
-  { field: 'owner', title: '负责人', width: 100, align: 'center' },
-  { field: 'priority', title: '优先级', width: 80, align: 'center' },
-  { field: 'progress', title: '进度', width: 90, align: 'center' },
-  { field: 'startDate', title: '计划开始', width: 110, align: 'center' },
-  { field: 'endDate', title: '计划交付', width: 110, align: 'center' },
+  { field: 'name', title: '任务 / 需求项', width: 240, sortable: true, editor: 'input' },
+  { field: 'owner', title: '负责人', width: 100, align: 'center', editor: 'input' },
+  { field: 'priority', title: '优先级', width: 80, align: 'center', editor: 'input' },
+  { field: 'progress', title: '进度', width: 90, align: 'center', editor: 'input' },
+  { field: 'startDate', title: '计划开始', width: 110, align: 'center', editor: 'input' },
+  { field: 'endDate', title: '计划交付', width: 110, align: 'center', editor: 'input' },
 ];
 
 /**

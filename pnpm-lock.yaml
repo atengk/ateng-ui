@@ -1051,6 +1051,9 @@ importers:
       '@atengk/vue':
         specifier: workspace:*
         version: link:../vue
+      '@visactor/vtable-editors':
+        specifier: ^1.26.8
+        version: 1.26.8
       '@visactor/vtable-gantt':
         specifier: ^1.26.8
         version: 1.26.8

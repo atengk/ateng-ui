@@ -84,8 +84,8 @@ export interface GanttTaskRecord {
   baseline?: GanttBaseline;
   /** 树形节点是否折叠 */
   collapsed?: boolean;
-  /** 节点类型：普通任务、里程碑或汇总任务 */
-  type?: 'task' | 'milestone' | 'summary';
+  /** 节点类型：普通任务、里程碑或汇总/项目任务 */
+  type?: 'task' | 'milestone' | 'summary' | 'project';
   /** 允许携带任意业务私有扩展属性（回写时保全） */
   [key: string]: unknown;
 }
