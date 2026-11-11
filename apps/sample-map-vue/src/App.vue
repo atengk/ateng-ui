@@ -17,6 +17,8 @@ import {
   AtengMapTrack,
   AtengMapCluster,
   AtengMapMask,
+  AtengMapToolbar,
+  AtengMapModal,
   type MapCoordinate,
   type MapDriverAdapter,
   type AtengMapInstance,
@@ -31,6 +33,7 @@ import {
   type ClusterMarker,
   type ClusterGroup,
   type GeoJSONGeometryData,
+  type MeasureResult,
 } from '@atengk/map-vue';
 
 const activeTab = ref('board1');
@@ -43,6 +46,29 @@ const darkTheme = ref<boolean>(false);
 const mapReady = ref<boolean>(false);
 const eventLogs = ref<string[]>([]);
 const mapRef = ref<AtengMapInstance | null>(null);
+
+// 弹窗脱壳体验状态
+const showModalPicker = ref<boolean>(false);
+const modalPickerCoord = ref<MapCoordinate>({ ...DEFAULT_MAP_CENTER });
+
+function onMeasureFinish(res: MeasureResult) {
+  if (res.mode === 'distance') {
+    logEvent(
+      `📏 连续测距完成: 共 ${res.points.length} 个节点，总长 ${((res.totalDistance || 0) / 1000).toFixed(2)} km`,
+    );
+  } else if (res.mode === 'area') {
+    logEvent(
+      `📐 多边形测面完成: 共 ${res.points.length} 顶点，总面积 ${Math.round(res.area || 0)} ㎡`,
+    );
+  }
+}
+
+function handleModalConfirm() {
+  logEvent(
+    `★ 模态弹窗确认选点: [${modalPickerCoord.value.lng.toFixed(5)}, ${modalPickerCoord.value.lat.toFixed(5)}]`,
+  );
+  showModalPicker.value = false;
+}
 
 const presetOptions = [
   { label: 'OpenStreetMap (内置免费)', value: TilePreset.OSM },
@@ -404,7 +430,8 @@ function handleFitMask() {
               {{ darkTheme ? '🌙 暗黑滤镜开启' : '☀️ 浅色明亮模式' }}
             </button>
 
-            <button class="btn-action" @click="handleInvalidateSize">📐 视口几何自愈</button>
+            <button class="btn-action" @click="handleInvalidateSize">📐 视口自愈</button>
+            <button class="btn-action" @click="showModalPicker = true">🗔 脱壳模态弹窗</button>
           </div>
         </div>
 
@@ -432,7 +459,16 @@ function handleFitMask() {
               @map-click="onMapClick"
               @map-move-end="onMapMoveEnd"
               @map-zoom-end="onMapZoomEnd"
-            />
+            >
+              <template #toolbar="{ driver }">
+                <AtengMapToolbar
+                  :driver="driver"
+                  :default-center="currentCenter"
+                  :default-zoom="currentZoom"
+                  @measure-finish="onMeasureFinish"
+                />
+              </template>
+            </AtengMap>
           </div>
 
           <div class="log-panel">
@@ -896,6 +932,19 @@ function handleFitMask() {
         </div>
       </section>
     </main>
+
+    <!-- 脱壳模态弹窗体验 (AtengMapModal) -->
+    <AtengMapModal
+      v-model="showModalPicker"
+      title="脱壳模态弹窗选点体验 (AtengMapModal + Teleport)"
+      width="960px"
+      height="640px"
+      @confirm="handleModalConfirm"
+    >
+      <div style="flex: 1; height: 100%; position: relative">
+        <AtengMapPicker v-model="modalPickerCoord" height="100%" @confirm="handleModalConfirm" />
+      </div>
+    </AtengMapModal>
   </div>
 </template>
 

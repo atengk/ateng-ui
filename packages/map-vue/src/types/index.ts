@@ -708,3 +708,140 @@ export interface AtengMapMaskInstance {
   /** 重新生成并绘制反向掩膜 */
   refresh: () => void;
 }
+
+/**
+ * 测量工具工作模式。
+ */
+export type MeasureMode = 'none' | 'distance' | 'area';
+
+/**
+ * 测距过程点位信息契约。
+ */
+export interface MeasurePoint {
+  /** 点位坐标 */
+  coordinate: MapCoordinate;
+  /** 与上一节点的单段物理距离 (单位：米) */
+  segmentDistance: number;
+  /** 截止当前节点的累计物理距离 (单位：米) */
+  totalDistance: number;
+}
+
+/**
+ * 空间测量结算结果契约。
+ */
+export interface MeasureResult {
+  /** 测量模式 */
+  mode: MeasureMode;
+  /** 测量所有顶点序列 */
+  points: MapCoordinate[];
+  /** 连续折线总距离 (单位：米) */
+  totalDistance?: number;
+  /** 封闭多边形地表物理面积 (单位：平方米) */
+  area?: number;
+}
+
+/**
+ * 微工具栏支持的操作按钮动作枚举。
+ */
+export type ToolbarAction =
+  'zoomIn' | 'zoomOut' | 'reset' | 'measureDistance' | 'measureArea' | 'fullscreen' | 'clear';
+
+/**
+ * AtengMapToolbar 悬浮微工具栏 Props 契约。
+ */
+export interface AtengMapToolbarProps {
+  /** 地图底层驱动适配器 SPI */
+  driver?: MapDriverAdapter | null;
+  /** 启用的工具按钮列表，默认全开 */
+  actions?: ToolbarAction[];
+  /** 悬浮浮层方位，默认 'top-right' */
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  /** 复位初始中心点 */
+  defaultCenter?: MapCoordinate;
+  /** 复位初始缩放等级，默认 13 */
+  defaultZoom?: number;
+  /** 自定义容器 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapToolbar 悬浮微工具栏 Emits 契约。
+ */
+export interface AtengMapToolbarEmits {
+  (e: 'measureChange', result: MeasureResult): void;
+  (e: 'measureFinish', result: MeasureResult): void;
+  (e: 'action', action: ToolbarAction): void;
+  (e: 'fullscreenChange', isFullscreen: boolean): void;
+}
+
+/**
+ * AtengMapToolbar 实例暴露接口 (defineExpose)。
+ */
+export interface AtengMapToolbarInstance {
+  /** 当前测量模式 */
+  measureMode: MeasureMode;
+  /** 切换测量模式 */
+  setMeasureMode: (mode: MeasureMode) => void;
+  /** 清空测量图层与结果 */
+  clearMeasurement: () => void;
+  /** 切换全屏状态 */
+  toggleFullscreen: () => void;
+}
+
+/**
+ * AtengMapModal 轻量脱壳模态弹窗 Props 契约。
+ */
+export interface AtengMapModalProps {
+  /** 弹窗显隐状态 (支持 v-model) */
+  modelValue?: boolean;
+  /** 弹窗头部标题，默认 '地图窗口' */
+  title?: string;
+  /** 弹窗宽度，默认 '920px' */
+  width?: string;
+  /** 弹窗高度，默认 '620px' */
+  height?: string;
+  /** 是否处于全屏状态 (支持 v-model:fullscreen) */
+  fullscreen?: boolean;
+  /** 是否展示全屏切换按钮，默认 true */
+  showFullscreenBtn?: boolean;
+  /** 是否展示右上角关闭按钮，默认 true */
+  showCloseBtn?: boolean;
+  /** 是否展示底部操作底栏，默认 true */
+  showFooter?: boolean;
+  /** 确认按钮文本，默认 '确定' */
+  confirmText?: string;
+  /** 取消按钮文本，默认 '取消' */
+  cancelText?: string;
+  /** Teleport 目标挂载 DOM 选择器或元素，默认 'body' */
+  teleportTo?: string | HTMLElement;
+  /** 点击遮罩层是否触发关闭，默认 false */
+  closeOnClickOverlay?: boolean;
+  /** 暗黑模式开关或跟随宿主，默认 'auto' */
+  dark?: boolean | 'auto';
+  /** 自定义模态框 CSS 类名 */
+  customClass?: string;
+}
+
+/**
+ * AtengMapModal 轻量脱壳模态弹窗 Emits 契约。
+ */
+export interface AtengMapModalEmits {
+  (e: 'update:modelValue', visible: boolean): void;
+  (e: 'update:fullscreen', isFullscreen: boolean): void;
+  (e: 'confirm'): void;
+  (e: 'cancel'): void;
+  (e: 'close'): void;
+  (e: 'open'): void;
+}
+
+/**
+ * AtengMapModal 实例暴露接口 (defineExpose)。
+ */
+export interface AtengMapModalInstance {
+  /** 主动打开模态弹窗 */
+  open: () => void;
+  /** 主动关闭模态弹窗 */
+  close: () => void;
+  /** 切换全屏放大状态 */
+  toggleFullscreen: () => void;
+}

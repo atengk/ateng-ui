@@ -16,6 +16,8 @@ export { default as AtengMapFence } from './components/AtengMapFence.vue';
 export { default as AtengMapTrack } from './components/AtengMapTrack.vue';
 export { default as AtengMapCluster } from './components/AtengMapCluster.vue';
 export { default as AtengMapMask } from './components/AtengMapMask.vue';
+export { default as AtengMapToolbar } from './components/AtengMapToolbar.vue';
+export { default as AtengMapModal } from './components/AtengMapModal.vue';
 
 // 核心类型契约
 export * from './types';
