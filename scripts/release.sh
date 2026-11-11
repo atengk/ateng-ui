@@ -189,14 +189,14 @@ if [ -n "$DIRTY_FILES" ]; then
 fi
 log_success "工作区状态检查通过: 干净无未提交代码"
 
-# 1.5 校验与远端仓库同步状态 (防漏拉远端代码与超前提交检测)
-log_info "正在拉取远端最新状态 (git fetch origin)..."
+# 1.5 校验与远端仓库同步状态 (防漏拉远端代码与超前提交检测，超时防假死)
+log_info "正在拉取远端最新状态 (git fetch origin ${CURRENT_BRANCH})..."
 AHEAD_COUNT=0
-if git fetch origin >/dev/null 2>&1; then
+if git -c http.timeout=5 fetch origin "$CURRENT_BRANCH" >/dev/null 2>&1; then
   BEHIND_COUNT=$(git rev-list "HEAD..origin/$CURRENT_BRANCH" --count 2>/dev/null || echo "0")
   if [ "$BEHIND_COUNT" -gt 0 ]; then
     log_error "本地分支落后于远端 origin/$CURRENT_BRANCH ($BEHIND_COUNT 个提交未合并)！"
-    log_error "发版前必须合并远端最新代码，请先执行: git pull origin $CURRENT_BRANCH"
+    log_error "发版前必须合并远端最新代码，发版流程严格禁止自动变基！请先手动同步: git pull origin $CURRENT_BRANCH"
     exit 1
   fi
   AHEAD_COUNT=$(git rev-list "origin/$CURRENT_BRANCH..HEAD" --count 2>/dev/null || echo "0")
@@ -206,7 +206,7 @@ if git fetch origin >/dev/null 2>&1; then
     log_success "与远程分支状态同步: 本地主干与远端完全一致"
   fi
 else
-  log_warn "无法连接远程仓库进行同步校验（可能处于离线环境），跳过远端拉取校验。"
+  log_warn "无法连接远程仓库或网络探测超时 (5s)，可能处于离线环境，跳过远端拉取校验。"
 fi
 
 # 1.6 多模块代码类型自检 (防带类型错误代码发版打脏标签)
