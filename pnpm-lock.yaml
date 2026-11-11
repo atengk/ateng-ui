@@ -442,6 +442,34 @@ importers:
         specifier: ^6.0.0
         version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
 
+  apps/sample-map-vue:
+    dependencies:
+      '@atengk/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@atengk/map-vue':
+        specifier: workspace:*
+        version: link:../../packages/map-vue
+      '@atengk/vue':
+        specifier: workspace:*
+        version: link:../../packages/vue
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
+      vue:
+        specifier: ^3.5.44
+        version: 3.5.44(typescript@5.9.3)
+    devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: ^5.2.1
+        version: 5.2.4(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
+
   apps/sample-monitor:
     dependencies:
       '@atengk/core':
@@ -1111,6 +1139,49 @@ importers:
         specifier: ^3.5.13
         version: 3.5.44(typescript@5.9.3)
 
+  packages/map-vue:
+    dependencies:
+      '@atengk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@atengk/vue':
+        specifier: workspace:*
+        version: link:../vue
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
+    devDependencies:
+      '@amap/amap-jsapi-loader':
+        specifier: ^1.0.1
+        version: 1.0.1
+      '@types/leaflet':
+        specifier: ^1.9.14
+        version: 1.9.22
+      '@vitejs/plugin-vue':
+        specifier: ^5.2.1
+        version: 5.2.4(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
+      '@vue/test-utils':
+        specifier: ^2.4.6
+        version: 2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@5.9.3))
+      happy-dom:
+        specifier: ^15.11.7
+        version: 15.11.7
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1)
+      vite-plugin-dts:
+        specifier: ^4.3.0
+        version: 4.5.4(@types/node@26.6.6)(rollup@4.64.10)(typescript@5.9.3)(vite@6.4.4(@types/node@26.6.6)(sass@1.106.0)(yaml@2.9.1))
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@26.6.6)(happy-dom@15.11.7)(sass@1.106.0)
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.44(typescript@5.9.3)
+
   packages/monitor:
     devDependencies:
       happy-dom:
@@ -1272,6 +1343,9 @@ importers:
         version: 3.5.44(typescript@5.9.3)
 
 packages:
+
+  '@amap/amap-jsapi-loader@1.0.1':
+    resolution: {integrity: sha512-nPyLKt7Ow/ThHLkSvn2etQlUzqxmTVgK7bIgwdBRTg2HK5668oN7xVxkaiRe3YZEzGzfV2XgH5Jmu2T73ljejw==}
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -3189,6 +3263,9 @@ packages:
   '@types/katex@0.16.8':
     resolution: {integrity: sha512-trgaNyfU+Xh2Tc+ABIb44a5AYUpicB3uwirOioeOkNPPbmgRNtcWyDeeFRzjPZENO9Vq8gvVqfhaaXWLlevVwg==}
 
+  '@types/leaflet@1.9.22':
+    resolution: {integrity: sha512-h3lhECYEKDasG7LFHu+GiHqAvsgLuQvlJvVZzJDGONo3sEL+wUOqSFLnwkZlK0qVxnxbuGFW8iBlJNYs5wgndA==}
+
   '@types/linkify-it@3.0.5':
     resolution: {integrity: sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==}
 
@@ -4939,6 +5016,9 @@ packages:
   layout-base@2.0.1:
     resolution: {integrity: sha512-dp3s92+uNI1hWIpPGH3jK2kxE2lMjdXdr+DH8ynZHpd6PUlH6x6cbuXnoMmiNumznqaNO31xu9e79F0uuZ0JFg==}
 
+  leaflet@1.9.4:
+    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
+
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
@@ -6426,6 +6506,8 @@ packages:
     resolution: {integrity: sha512-OFXkDJKcrlx5su2XbzJvj/34Q3m6PvyCZkVPHGYpcCJ52ek4U/ymZyfuV1nKE23AyBJ51E/6Yr0mhZ7xGTO4ag==}
 
 snapshots:
+
+  '@amap/amap-jsapi-loader@1.0.1': {}
 
   '@ampproject/remapping@2.3.0':
     dependencies:
@@ -8148,6 +8230,10 @@ snapshots:
   '@types/json-schema@7.0.15': {}
 
   '@types/katex@0.16.8': {}
+
+  '@types/leaflet@1.9.22':
+    dependencies:
+      '@types/geojson': 7946.0.16
 
   '@types/linkify-it@3.0.5': {}
 
@@ -10278,6 +10364,8 @@ snapshots:
   layout-base@1.0.2: {}
 
   layout-base@2.0.1: {}
+
+  leaflet@1.9.4: {}
 
   levn@0.4.1:
     dependencies:

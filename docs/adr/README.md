@@ -54,6 +54,7 @@
 | [ADR-0048](./0048-cropper-vue-l2-architecture-and-governance.md)                                   | CropperVue L2 扩展层架构、物理透明切片与多轨导出治理规范                  | Accepted | 确立 @atengk/cropper-vue L2 定位与零 UI 依赖，AtengCropperModal 脱壳弹窗，BlobUrlGuard 内存闭环，物理圆形透明 Alpha 切片，4096 护栏与 maxByteSize 二分压缩，WatermarkEngine 离屏防伪水印与 4 大看板 |
 | [ADR-0049](./0049-spreadsheet-vue-l2-architecture-and-governance.md)                               | SpreadsheetVue L2 扩展层架构、双轨数据驱动与 Univer 电子表格治理规范      | Accepted | 确立 @atengk/spreadsheet-vue L2 定位与零 UI 依赖，Presets 架构与 React 隐式自洽，双轨数据契约（snapshot/records）与 SheetDataMapper，三态交互模式分级，严格浅响应持有，0x0 几何自愈与 4 大看板      |
 | [ADR-0050](./0050-gantt-vue-l2-architecture-and-governance.md)                                     | GanttVue L2 扩展层架构、VTable-Gantt Canvas 引擎协同与企业级排程治理规范  | Accepted | 确立 @atengk/gantt-vue L2 定位与零 UI 依赖，双模数据契约与 GanttDataMapper，WBS 父子任务联动加权汇总，DAG 判环防呆，基线延误对比与里程碑菱形渲染，0x0 几何自愈与 4 大看板                           |
+| [ADR-0051](./0051-map-vue-l2-architecture-and-governance.md)                                       | MapVue L2 扩展层架构、多源驱动 SPI 与空间地理治理规范                     | Accepted | 确立 @atengk/map-vue L2 定位与零 UI 依赖，Leaflet 1.9.x 内置与动态高德/百度 SPI，CoordTransform 零依赖坐标防漂移，GeoMath 空间算法，轨迹回放与海量点聚合，0x0 自愈与 4 大看板                       |
 
 ---
 

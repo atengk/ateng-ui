@@ -52,6 +52,8 @@
   面向现代 Web 应用与企业级系统的高性能在线电子表格、公式联动与批量填报扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与 Univer 1.4.x（`@univerjs/presets` + `@univerjs/preset-sheets-core`），严格中立并与具体 UI 库解耦。提供 `<AtengSpreadsheet />`（核心表现容器 / 多 Sheet 切换 / 300+ 公式实时联动 / 三态场景分级 / 插槽反转）、`<AtengSpreadsheetModal />`（轻量脱壳模态弹窗 / 原生 Teleport 驱动 / 视口全屏 / 0x0 几何自愈）表现容器与 `useSpreadsheet()` 无头状态机；确立全量快照（`v-model:snapshot`）与扁平行记录（`v-model:data`）双轨绑定契约；内置 `SheetDataMapper` 提供动态列推断、防抖回写与未展示属性保全；提供 `SpreadsheetResizeGuard` 0x0 视口几何自愈；提供中文优先双轨国际化与 CSV/JSON 原生轻量导出管道。
 - **[GanttVue 企业级甘特图与资源排程扩展](./packages/gantt-vue/CONTEXT.md)**（`@atengk/gantt-vue`，当前孵化入驻）：
   面向现代 Web 应用与企业级系统的高性能甘特图、资源排程与基线偏差比对扩展基础设施，纯 Vue 3 驱动，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与 VisActor VTable-Gantt 1.26.x，严格中立并与具体 UI 库解耦。提供 `<AtengGantt />`（核心表现容器 / 双栏像素级同步 / 多时间粒度刻度 / 插槽反转）、`<AtengGanttModal />`（轻量脱壳模态弹窗 / 原生 Teleport 驱动 / 视口真全屏 / 0x0 几何自愈）表现容器与 `useGantt()` / `useGanttThemeSync()` 无头状态机；确立扁平与树形嵌套自适应双模数据契约与 `v-model:tasks` 双向回写；内置 `GanttRollup` 自底向上工期/进度加权汇总算法与 `GanttValidator` 拓扑判环有向无环图（DAG）校验守卫；提供计划基线（Baseline）对比、延误预警标红与里程碑菱形渲染；提供 0x0 视口几何自愈守卫 `GanttResizeGuard` 与 Canvas 高清防虚全景导出引擎 `GanttExporter`。
+- **[MapVue 通用多源地图与空间选点扩展](./packages/map-vue/CONTEXT.md)**（`@atengk/map-vue`，当前孵化入驻）：
+  面向现代 Web 应用与企业级系统的工业级多源地图、坐标拾取、空间电子围栏与轨迹回放扩展基础设施，纯 Vue 3 驱动，基于 Leaflet 1.9.x 默认离线免密引擎与多源商业驱动 SPI（高德地图 2.0 / 百度地图）解耦架构封装，仅依赖 L0 (`@atengk/core`)、L1 (`@atengk/vue`) 与底层 `leaflet`，严格中立并与具体 UI 库解耦。提供 `<AtengMap />`（核心地图表现容器 / 多源底图切换 / 0x0 视口几何自愈 / 暗黑模式无损反色滤镜 / 插槽反转）、`<AtengMapPicker />`（坐标与 POI 拾取器 / 逆地理编码反查 / 坐标防漂移）、`<AtengMapFence />`（空间电子围栏容器 / 圆形多边形矩形绘制 / 实时越界碰撞感知）、`<AtengMapTrack />`（历史轨迹流转回放 / 平滑插值 / 航向角平滑旋转 / 倍速与进度控制）、`<AtengMapCluster />`（海量点位四叉树网格聚合 / Canvas 高性能渲染图层）、`<AtengMapMask />`（行政区划反向遮罩 / GeoJSON 镂空掩膜）、`<AtengMapToolbar />`（轻量悬浮微工具栏 / 折线测距 / 面积测面 / 视图复位）与 `<AtengMapModal />`（轻量脱壳模态弹窗 / 原生 Teleport 驱动 / 视口全屏 / 0x0 几何自愈）表现容器；提供 `useMap()`、`useMapPicker()`、`useMapFence()`、`useMapTrack()` 与 `useMapThemeSync()` 无头状态机；确立 `MapDriverAdapter` SPI 驱动架构、纯数学零依赖高精度坐标转换引擎 `CoordTransform`（WGS-84 ⇄ GCJ-02 ⇄ BD-09）、轻量纯 TS 空间几何算法引擎 `GeoMath`（Ray-Casting 射线法 / Haversine 大圆测距 / Shoelace 面积推导）、`TilePreset` 瓦片预设矩阵（OSM / 天地图 / CartoDB / 内网 XYZ 模板）与 `MapResizeGuard` 视口自愈守卫。
 - **其他领域引擎适配与专业能力扩展包**（未来扩展）：
   封装特定富文本、流程图等专用引擎，仅依赖 L0/L1 与对应的第三方专业核心，保持领域高内聚。
 
@@ -81,6 +83,7 @@
 - **[Sample CropperVue 图片裁剪与处理自验展厅](./apps/sample-cropper-vue/README.md)**（`sample-cropper-vue`）：图片裁剪沙箱，1:1 对标 `@atengk/cropper-vue`，固定端口 3016，验证基础控制台交互、圆形透明 Alpha 头像切片、商品与证件倾斜防伪水印合成、1MB 二分自动压缩、超大图防爆限制与销毁内存自净。
 - **[Sample SpreadsheetVue 电子表格与填报自验展厅](./apps/sample-spreadsheet-vue/README.md)**（`sample-spreadsheet-vue`）：电子表格沙箱，1:1 对标 `@atengk/spreadsheet-vue`，固定端口 3017，验证全功能工作簿、紧凑行数据双向填报、只读审计计算、模态弹窗脱壳与 0x0 几何自愈。
 - **[Sample GanttVue 甘特图与排程自验展厅](./apps/sample-gantt-vue/README.md)**（`sample-gantt-vue`）：甘特图排程沙箱，1:1 对标 `@atengk/gantt-vue`，固定端口 3018，验证敏捷研发 WBS 多级排程与 FS/SS 依赖连线、工程排产基线对比与延误标红预警、日/周/月/季/年五档缩放与今天定位标线、模态弹窗脱壳全屏与 Canvas 高清导出。
+- **[Sample MapVue 多源地图与空间选点自验展厅](./apps/sample-map-vue/README.md)**（`sample-map-vue`）：地图沙箱，1:1 对标 `@atengk/map-vue`，固定端口 3019，验证 Leaflet/天地图/CartoDB/高德多底图热插拔与暗黑热切换、坐标拾取与逆地理纠偏、电子围栏绘制与越界碰撞报警、历史轨迹倍速回放与 20,000+ 点位网格聚合。
 - **[Sample Element Plus 全特性体验展厅](./apps/sample-element-plus/README.md)**（`sample-element-plus`）：交互展厅，1:1 对标 `@atengk/element-plus`，搭配 Mock 服务验证组件、弹窗与指令交互。
 
 ---
@@ -118,6 +121,7 @@ flowchart TD
         CROP["@atengk/cropper-vue<br/>(图片裁剪与处理扩展)"]
         SHEET["@atengk/spreadsheet-vue<br/>(专业电子表格与批量填报扩展)"]
         GANTT["@atengk/gantt-vue<br/>(企业级甘特图与资源排程扩展)"]
+        MAP["@atengk/map-vue<br/>(通用多源地图与空间选点扩展)"]
         EXT["未来的领域引擎扩展...<br/>(专用领域引擎高内聚适配)"]
     end
 
@@ -148,6 +152,7 @@ flowchart TD
         S_CROP["apps/sample-cropper-vue"]
         S_SHEET["apps/sample-spreadsheet-vue"]
         S_GANTT["apps/sample-gantt-vue"]
+        S_MAP["apps/sample-map-vue"]
         S_MONITOR["apps/sample-monitor"]
         S_EP["apps/sample-element-plus"]
     end
@@ -177,6 +182,7 @@ flowchart TD
     CROP --> S_CROP
     SHEET --> S_SHEET
     GANTT --> S_GANTT
+    MAP --> S_MAP
     EP --> S_EP
 ```
 

@@ -1,0 +1,62 @@
+/**
+ * @atengk/map-vue 统一样式入口。
+ *
+ * 遵循 ADR-0021、ADR-0029 与 ADR-0051 规范，
+ * 封装基础 Leaflet 样式，并提供 --at-map-* Design Tokens 支持与暗黑模式瓦片无损反色滤镜。
+ *
+ * @author Ateng
+ * @since 2026-11-11
+ */
+
+@import 'leaflet/dist/leaflet.css';
+
+:root {
+  --at-map-bg: #f8fafc;
+  --at-map-border-color: #e2e8f0;
+  --at-map-border-radius: 8px;
+  --at-map-text-color: #1e293b;
+  --at-map-toolbar-bg: rgba(255, 255, 255, 0.92);
+  --at-map-toolbar-border: #e2e8f0;
+  --at-map-toolbar-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --at-map-primary-color: #3b82f6;
+  --at-map-primary-hover: #2563eb;
+  --at-map-danger-color: #ef4444;
+  --at-map-tiles-filter: none;
+}
+
+/* 暗黑模式自适应 */
+.dark,
+[data-theme='dark'] {
+  --at-map-bg: #0f172a;
+  --at-map-border-color: #1e293b;
+  --at-map-text-color: #f1f5f9;
+  --at-map-toolbar-bg: rgba(15, 23, 42, 0.92);
+  --at-map-toolbar-border: #334155;
+  --at-map-toolbar-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --at-map-tiles-filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* 核心基础地图容器 */
+.at-map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  background-color: var(--at-map-bg);
+  border-radius: var(--at-map-border-radius);
+  overflow: hidden;
+}
+
+/* Leaflet 实例挂载视口 */
+.at-map-viewport {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* 暗黑模式瓦片无损反色滤镜 */
+.dark .leaflet-tile-pane,
+[data-theme='dark'] .leaflet-tile-pane {
+  filter: var(--at-map-tiles-filter);
+  transition: filter 0.3s ease;
+}

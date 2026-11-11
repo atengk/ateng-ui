@@ -1,0 +1,25 @@
+{
+  "name": "sample-map-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "@atengk/map-vue 通用多源地图与空间选点自验展厅",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@atengk/core": "workspace:*",
+    "@atengk/map-vue": "workspace:*",
+    "@atengk/vue": "workspace:*",
+    "leaflet": "^1.9.4",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
