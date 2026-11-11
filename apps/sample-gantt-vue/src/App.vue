@@ -8,32 +8,54 @@
  * @since 2026-11-11
  */
 
-import { ref } from 'vue';
+import { ref, computed, type Component } from 'vue';
 import { GANTT_VUE_VERSION } from '@atengk/gantt-vue';
+import AgileWbsScenario from './scenarios/AgileWbsScenario.vue';
+import EngineeringBaselineScenario from './scenarios/EngineeringBaselineScenario.vue';
+import ScaleControlScenario from './scenarios/ScaleControlScenario.vue';
+import ModalExportScenario from './scenarios/ModalExportScenario.vue';
 
 type ScenarioTab = 'agile' | 'baseline' | 'scale' | 'modal';
 
 const activeTab = ref<ScenarioTab>('agile');
 const isDarkMode = ref(false);
 
-const tabs: Array<{ key: ScenarioTab; label: string; desc: string }> = [
+const tabs: Array<{
+  key: ScenarioTab;
+  label: string;
+  desc: string;
+  component: Component;
+}> = [
   {
     key: 'agile',
     label: '敏捷研发 WBS 排程',
     desc: '树形折叠、FS/SS 依赖连线、里程碑、单元格插槽',
+    component: AgileWbsScenario,
   },
   {
     key: 'baseline',
     label: '工程排产与基线偏差',
     desc: '计划基线对比、工期延误标红、今天指示垂线',
+    component: EngineeringBaselineScenario,
   },
-  { key: 'scale', label: '多粒度缩放与控制', desc: '日/周/月/季/年切换、平滑定位、左右分栏拖拽' },
+  {
+    key: 'scale',
+    label: '多粒度缩放与控制',
+    desc: '日/周/月/季/年切换、平滑定位、左右分栏拖拽',
+    component: ScaleControlScenario,
+  },
   {
     key: 'modal',
     label: '脱壳模态弹窗与导出',
     desc: 'Teleport 全屏排程、0x0 自愈、Retina 高清图片导出',
+    component: ModalExportScenario,
   },
 ];
+
+const currentScenarioComponent = computed<Component>(() => {
+  const target = tabs.find(t => t.key === activeTab.value);
+  return target ? target.component : AgileWbsScenario;
+});
 
 /**
  * 切换宿主 HTML 暗黑模式。
@@ -59,7 +81,7 @@ const toggleDarkMode = (): void => {
         >
       </div>
       <div class="header-actions">
-        <button class="theme-toggle-btn" @click="toggleDarkMode">
+        <button type="button" class="theme-toggle-btn" @click="toggleDarkMode">
           {{ isDarkMode ? '☀️ 切换明亮' : '🌙 切换暗黑' }}
         </button>
       </div>
@@ -70,6 +92,7 @@ const toggleDarkMode = (): void => {
       <button
         v-for="tab in tabs"
         :key="tab.key"
+        type="button"
         class="nav-tab-btn"
         :class="{ active: activeTab === tab.key }"
         @click="activeTab = tab.key"
@@ -81,14 +104,9 @@ const toggleDarkMode = (): void => {
 
     <!-- 主展示区 -->
     <main class="app-main">
-      <div class="placeholder-card">
-        <h2>{{ tabs.find(t => t.key === activeTab)?.label }}</h2>
-        <p>{{ tabs.find(t => t.key === activeTab)?.desc }}</p>
-        <div class="placeholder-meta">
-          <span>子包脚手架已就绪</span>
-          <span>基础类型契约与 VisActor Canvas 引擎已对齐</span>
-        </div>
-      </div>
+      <KeepAlive>
+        <component :is="currentScenarioComponent" />
+      </KeepAlive>
     </main>
   </div>
 </template>
