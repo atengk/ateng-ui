@@ -7,6 +7,9 @@
  * @since 2026-11-11
  */
 
+import type { Ref, MaybeRefOrGetter } from 'vue';
+import type { Gantt } from '@visactor/vtable-gantt';
+
 /**
  * 甘特图时间轴刻度联合类型。
  */
@@ -138,3 +141,127 @@ export interface GanttExportOptions {
   /** 是否包含左侧任务树表，默认 true */
   includeTable?: boolean;
 }
+
+/**
+ * useGantt 状态机入参配置选项。
+ */
+export interface UseGanttOptions {
+  /** 挂载的目标 DOM 容器元素或其 Ref/Getter */
+  container?: MaybeRefOrGetter<HTMLElement | null>;
+  /** 任务数据集 */
+  tasks?: MaybeRefOrGetter<GanttTaskRecord[] | undefined>;
+  /** 任务树表列配置 */
+  columns?: MaybeRefOrGetter<GanttColumn[] | undefined>;
+  /** 时间轴刻度 */
+  scale?: MaybeRefOrGetter<GanttScale | undefined>;
+  /** 交互模式 */
+  mode?: MaybeRefOrGetter<GanttMode | undefined>;
+  /** 左侧表格宽度 */
+  splitWidth?: MaybeRefOrGetter<number | undefined>;
+  /** 最小左表分栏宽度 */
+  minSplitWidth?: number;
+  /** 最大左表分栏宽度 */
+  maxSplitWidth?: number;
+  /** 是否开启父任务自动汇总 */
+  rollup?: boolean;
+  /** 是否展示微工具栏 */
+  showToolbar?: boolean;
+  /** 是否展示今日指示红线 */
+  showTodayLine?: boolean;
+  /** 是否高亮周末非工作日 */
+  showWeekend?: boolean;
+  /** 自定义时间标线列表 */
+  markLines?: GanttMarkLine[];
+  /** 底层 VTable-Gantt 原始逃生配置项 */
+  vtableOptions?: Record<string, unknown>;
+  /** 任务变动回调 */
+  onTaskChange?: (payload: { task: GanttTaskRecord; changeType: GanttChangeType }) => void;
+  /** 依赖连线创建回调 */
+  onDependencyCreate?: (payload: {
+    sourceId: string | number;
+    targetId: string | number;
+    type: string;
+  }) => void;
+  /** 依赖连线删除回调 */
+  onDependencyDelete?: (payload: { sourceId: string | number; targetId: string | number }) => void;
+  /** 依赖连线无效回调 */
+  onDependencyInvalid?: (payload: {
+    sourceId: string | number;
+    targetId: string | number;
+    reason: string;
+  }) => void;
+}
+
+/**
+ * useGantt 状态机返回方法与只读度量门面。
+ */
+export interface UseGanttReturn {
+  /** 挂载的 DOM 容器引用 */
+  containerRef: Ref<HTMLElement | null>;
+  /** 甘特图引擎是否已初始化就绪 */
+  ready: Readonly<Ref<boolean>>;
+  /** 当前数据加载/渲染中状态 */
+  loading: Readonly<Ref<boolean>>;
+  /** 当前任务总数 */
+  taskCount: Readonly<Ref<number>>;
+  /** 当前激活的时间轴刻度 */
+  currentScale: Readonly<Ref<GanttScale>>;
+  /** 当前交互模式 */
+  currentMode: Readonly<Ref<GanttMode>>;
+  /** 挂载并初始化甘特图实例 */
+  mount: (targetContainer?: HTMLElement) => void;
+  /** 销毁并释放甘特图实例与事件监听 */
+  dispose: () => void;
+  /** 手动触发尺寸计算自愈重绘 */
+  resize: () => void;
+  /** 时间轴滚动至目标日期居中 */
+  scrollToDate: (date: string | Date) => void;
+  /** 时间轴快速居中定位至今天 */
+  scrollToToday: () => void;
+  /** 视口滚动定位至指定任务行 */
+  scrollToTask: (taskId: string | number) => void;
+  /** 步进放大时间轴刻度 */
+  zoomIn: () => void;
+  /** 步进缩小时间轴刻度 */
+  zoomOut: () => void;
+  /** 展开所有任务树节点 */
+  expandAll: () => void;
+  /** 折叠所有任务树节点 */
+  collapseAll: () => void;
+  /** 切换时间轴刻度粒度 */
+  setScale: (scale: GanttScale) => void;
+  /** 切换交互模式 (interactive / readonly) */
+  setMode: (mode: GanttMode) => void;
+  /** 更新/重设任务数据集 */
+  setTasks: (tasks: GanttTaskRecord[]) => void;
+  /** 获取当前标准化任务列表 */
+  getTasks: () => GanttTaskRecord[];
+  /** 根据 ID 获取指定任务实体 */
+  getTask: (taskId: string | number) => GanttTaskRecord | null;
+  /** 获取底层的 VTable-Gantt 原生实例（逃生门） */
+  getRawGanttInstance: () => Gantt | null;
+}
+
+/**
+ * VTable-Gantt 内部核心交互事件枚举常量。
+ */
+export const GANTT_EVENTS = {
+  SCROLL: 'scroll',
+  CHANGE_DATE_RANGE: 'change_date_range',
+  CLICK_TASK_BAR: 'click_task_bar',
+  CONTEXTMENU_TASK_BAR: 'contextmenu_task_bar',
+  MOUSEENTER_TASK_BAR: 'mouseenter_task_bar',
+  MOUSELEAVE_TASK_BAR: 'mouseleave_task_bar',
+  CREATE_TASK_SCHEDULE: 'create_task_schedule',
+  CREATE_DEPENDENCY_LINK: 'create_dependency_link',
+  DELETE_DEPENDENCY_LINK: 'delete_dependency_link',
+  CLICK_DEPENDENCY_LINK_POINT: 'click_dependency_link_point',
+  CONTEXTMENU_DEPENDENCY_LINK: 'contextmenu_dependency_link',
+  CLICK_MARKLINE_CREATE: 'click_markline_create',
+  CLICK_MARKLINE_CONTENT: 'click_markline_content',
+  MOVE_END_TASK_BAR: 'move_end_task_bar',
+  PROGRESS_UPDATE: 'progress_update',
+  ZOOM: 'zoom',
+} as const;
+
+export type GanttEventType = (typeof GANTT_EVENTS)[keyof typeof GANTT_EVENTS];
