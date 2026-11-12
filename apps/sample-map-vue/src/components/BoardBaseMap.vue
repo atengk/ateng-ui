@@ -78,8 +78,11 @@ function onMapZoomEnd(zoom: number) {
 }
 
 function setCity(pt: MapCoordinate) {
-  currentCenter.value = { ...pt };
-  mapRef.value?.setCenter(pt);
+  if (mapRef.value) {
+    mapRef.value.panTo(pt, true);
+  } else {
+    currentCenter.value = { ...pt };
+  }
   logEvent(`切换城市中心: [${pt.lng}, ${pt.lat}]`);
 }
 
@@ -147,7 +150,7 @@ function handleModalConfirm() {
           ref="mapRef"
           v-model:center="currentCenter"
           v-model:zoom="currentZoom"
-          :tile-url="selectedPreset"
+          :tile-preset="selectedPreset"
           :dark="darkTheme"
           @ready="onMapReady"
           @map-click="onMapClick"

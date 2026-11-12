@@ -117,6 +117,18 @@ export class AmapDriverAdapter implements MapDriverAdapter {
   }
 
   /**
+   * 原子更新地图中心点与缩放等级。
+   */
+  public setView(coord: MapCoordinate, zoom?: number): void {
+    if (!this.map) return;
+    if (zoom !== undefined) {
+      this.map.setZoomAndCenter(zoom, [coord.lng, coord.lat]);
+    } else {
+      this.setCenter(coord);
+    }
+  }
+
+  /**
    * 缩放以自适应包含指定矩形范围。
    */
   public fitBounds(bounds: MapBounds): void {

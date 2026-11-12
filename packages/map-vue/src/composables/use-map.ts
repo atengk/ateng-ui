@@ -89,6 +89,8 @@ export interface UseMapReturn {
   setCenter: (coord: MapCoordinate, animate?: boolean) => void;
   /** 设置地图缩放等级 */
   setZoom: (zoom: number, animate?: boolean) => void;
+  /** 原子设置地图中心点与缩放等级 */
+  setView: (coord: MapCoordinate, zoom?: number, animate?: boolean) => void;
   /** 平移动画至指定点 */
   panTo: (coord: MapCoordinate, animate?: boolean) => void;
   /** 缩放以包含指定矩形边界 */
@@ -129,7 +131,12 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
 
   const resolveTileUrl = (): string => {
     const customUrl = toValue(options.tileUrl);
-    if (customUrl) return customUrl;
+    if (customUrl) {
+      if (customUrl in TILE_URL_TEMPLATES) {
+        return TILE_URL_TEMPLATES[customUrl as TilePreset];
+      }
+      return customUrl;
+    }
     const preset = (toValue(options.tilePreset) ?? TilePreset.OSM) as TilePreset;
     return TILE_URL_TEMPLATES[preset] ?? TILE_URL_TEMPLATES[TilePreset.OSM];
   };
@@ -284,6 +291,21 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
     driverInstance?.setZoom(zoom, animate);
   };
 
+  const setView = (coord: MapCoordinate, zoom?: number, animate = true): void => {
+    currentCenter.value = { ...coord };
+    if (zoom !== undefined) {
+      currentZoom.value = zoom;
+    }
+    if (driverInstance?.setView) {
+      driverInstance.setView(coord, zoom, animate);
+    } else if (driverInstance) {
+      driverInstance.setCenter(coord, animate);
+      if (zoom !== undefined) {
+        driverInstance.setZoom(zoom, animate);
+      }
+    }
+  };
+
   const panTo = (coord: MapCoordinate, animate = true): void => {
     setCenter(coord, animate);
   };
@@ -340,6 +362,14 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
     },
   );
 
+  // 监听瓦片预设与自定义瓦片 URL 响应式变更
+  watch([() => toValue(options.tilePreset), () => toValue(options.tileUrl)], () => {
+    if (driverInstance && typeof driverInstance.updateTileUrl === 'function') {
+      const nextUrl = resolveTileUrl();
+      driverInstance.updateTileUrl(nextUrl);
+    }
+  });
+
   if (getCurrentScope()) {
     onScopeDispose(dispose);
   }
@@ -354,6 +384,7 @@ export function useMap(options: UseMapOptions = {}): UseMapReturn {
     dispose,
     setCenter,
     setZoom,
+    setView,
     panTo,
     fitBounds,
     addMarker,

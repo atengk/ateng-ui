@@ -270,7 +270,7 @@ defineExpose({
         :center="selectedCoord"
         :zoom="zoom"
         :dark="dark"
-        :tile-url="typeof tilePreset === 'string' ? tilePreset : undefined"
+        :tile-preset="tilePreset"
         :coord-type="coordType"
         :markers="markers"
         @map-click="handleMapClick"

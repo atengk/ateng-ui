@@ -19,6 +19,25 @@ import type {
 } from '../types';
 import { DEFAULT_MAP_ATTRIBUTION, TILE_URL_TEMPLATES, TilePreset } from '../constants';
 
+/**
+ * 防御 Leaflet 缩放动画中由于图层移除/状态竞态产生的 _latLngToNewLayerPoint 空指针异常。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const patchAnimateZoom = (targetProto: any) => {
+  if (targetProto && typeof targetProto._animateZoom === 'function') {
+    const orig = targetProto._animateZoom;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    targetProto._animateZoom = function (this: any, opt: any) {
+      if (!this._map) return;
+      return orig.call(this, opt);
+    };
+  }
+};
+
+patchAnimateZoom(L.Marker?.prototype);
+patchAnimateZoom(L.Popup?.prototype);
+patchAnimateZoom(L.Tooltip?.prototype);
+
 export class LeafletDriverAdapter implements MapDriverAdapter {
   public readonly engineName = 'leaflet';
 
@@ -96,6 +115,24 @@ export class LeafletDriverAdapter implements MapDriverAdapter {
   public setZoom(zoom: number, animate = true): void {
     if (!this.map) return;
     this.map.setZoom(zoom, { animate });
+  }
+
+  /**
+   * 原子更新地图中心点与缩放等级（避免平移与缩放动画重叠冲突）。
+   */
+  public setView(coord: MapCoordinate, zoom?: number, animate = true): void {
+    if (!this.map) return;
+    const targetZoom = zoom !== undefined ? zoom : this.map.getZoom();
+    this.map.setView([coord.lat, coord.lng], targetZoom, { animate });
+  }
+
+  /**
+   * 动态更新底图瓦片 URL 模板。
+   */
+  public updateTileUrl(url: string): void {
+    if (this.tileLayer) {
+      this.tileLayer.setUrl(url);
+    }
   }
 
   /**

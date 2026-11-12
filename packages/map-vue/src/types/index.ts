@@ -189,6 +189,10 @@ export interface MapDriverAdapter {
   setCenter(coord: MapCoordinate, animate?: boolean): void;
   /** 设置缩放等级 */
   setZoom(zoom: number, animate?: boolean): void;
+  /** 原子设置地图中心点与缩放等级（避免平移与缩放动画重叠冲突） */
+  setView?(coord: MapCoordinate, zoom?: number, animate?: boolean): void;
+  /** 动态更新底图瓦片 URL 模板 */
+  updateTileUrl?(url: string): void;
   /** 缩放平移以自适应包含指定矩形边界 */
   fitBounds(bounds: MapBounds, padding?: [number, number]): void;
   /** 添加标记点 */
@@ -276,6 +280,8 @@ export interface AtengMapInstance {
   setCenter: (coord: MapCoordinate, animate?: boolean) => void;
   /** 设置缩放等级 */
   setZoom: (zoom: number, animate?: boolean) => void;
+  /** 原子设置中心点与缩放等级 */
+  setView?: (coord: MapCoordinate, zoom?: number, animate?: boolean) => void;
   /** 添加标记点 */
   addMarker: (marker: MapMarker) => void;
   /** 移除指定标记点 */

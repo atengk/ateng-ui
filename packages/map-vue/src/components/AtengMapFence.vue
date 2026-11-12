@@ -244,7 +244,7 @@ defineExpose({
         :center="center"
         :zoom="zoom"
         :dark="dark"
-        :tile-url="typeof tilePreset === 'string' ? tilePreset : undefined"
+        :tile-preset="tilePreset"
         @map-click="handleMapClick"
       />
 
