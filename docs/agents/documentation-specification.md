@@ -2,7 +2,7 @@
 
 ## 1. 核心定位与设计哲学 (Mission & Scope)
 
-在 `ateng-ui` 基础设施套件中，**文档与场景样例工程（Sample）是连接前端底层工程能力与终端业务开发者的第一生命线**。本规范确立框架所有子包文档（`packages/*/README.md`）与配套样例工程（`apps/sample-*`）的工业级标准、Sample-First 双向锚定体系与 **15 项交付前强制自检清单**（[ADR-0039](../adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md)），作为代码审查（`/code-review`）的一票否决红线（Red Card Block）。
+在 `ateng-ui` 基础设施套件中，**子包文档、根目录门面（`README.md` 与 `llms.txt`）与场景样例工程（Sample）是连接前端底层工程能力与终端业务开发者（及 AI 编程助手）的第一生命线**。本规范确立框架所有子包文档（`packages/*/README.md`）、仓库根目录门面与 AI 索引及配套样例工程（`apps/sample-*`）的工业级标准、Sample-First 双向锚定体系与 **15 项交付前强制自检清单**（[ADR-0039](../adr/0039-documentation-specification-and-sample-visual-dashboard-architecture.md)），作为代码审查（`/code-review`）的一票否决红线（Red Card Block）。
 
 ---
 
@@ -70,6 +70,20 @@
 3. **表格结构严整**：表头与对齐分隔行（`| :--- |`）列数必须严格一致；单元格内严禁直接硬回车换行（多行内容使用 `<br>`），单元格内包含 TypeScript 联合类型管道符 `|` 时必须转义为 `\|`。
 4. **Mermaid 图表语法安全**：节点文本包含括号 `()`、方括号 `[]`、斜杠 `/`、冒号 `:` 时，**必须使用双引号包裹节点标签**（如 `A["L1 无头状态机 (@atengk/vue)"]`）。
 5. **文档内零绝对路径**：文档间互链 100% 使用相对路径（`./`、`../`），严禁写入 `file:///` 或本地盘符路径。
+
+---
+
+### 2.6 根目录门面文档 (`Root Storefront README.md`) 与 AI 索引 (`llms.txt`) 边界规范
+
+根目录 [`README.md`](../../README.md) 与 [`llms.txt`](../../llms.txt) 是面向前端选型开发者与外部 AI 编程助手的**“第一入口与机读全景导航地图”**，严禁堆砌内部评审流程细则或全量 ADR 目录：
+
+1. **19+ 包全覆盖与 L2 场景聚类**：
+   - 根目录 `README.md` 的四层拓扑图与生态清单必须 **100% 覆盖全部已纳管子包（L0 / L1 / L2 / L3）及其 1:1 `apps/sample-*` 展厅直达链接**，彻底消除新增 L2 扩展包后门面表格失同步的问题；
+   - 当 L2 领域扩展包数量较多时，Mermaid 与目录表须按语义场景收敛分组（如 **AI 与协同创作**、**可视化与低代码引擎**、**文档影像与专业表格**、**地图空间与工业识别**），兼顾可读性与零拥挤排版。
+2. **机读 AI 索引 (`llms.txt`) 三铁律**：
+   - **纯仓内相对路径**：遵循 [llmstxt.org](https://llmstxt.org/) 分组规范，100% 使用 `./...` 相对路径索引全局文档与每个子包的 `README.md` / `CONTEXT.md` / `apps/sample-*/README.md`，**严禁跨仓库链接（如 `../ateng-boot`）**或绝对盘符路径。
+   - **免硬编码版本号**：`llms.txt` 严禁写死 Vue、Element Plus 或 `@atengk/*` 具体版本号，统一引导 AI 读取根 [`package.json`](../../package.json) 与目标 `packages/<name>/package.json`（及各自 `README.md` 的 `peerDependencies`）。
+   - **高危前端红线前置**：首屏明确四层洋葱单向流红线（L0 零框架、L1 零 UI 弹窗、L2 禁逆向依赖 L3）、`Result<T>` / `PageResult<T>`（`pageNum` / `pageSize`）/ 雪花 ID `string` 契约、Blob 双态嗅探与 `onScopeDispose` 确定性清理。
 
 ---
 

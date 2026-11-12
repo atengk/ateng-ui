@@ -1,0 +1,69 @@
+# ateng-ui
+
+> 面向现代 Web 应用与企业级中后台的 Vue 3.5 + TypeScript 基础设施套件，严格遵循四层洋葱单向拓扑（`L3 ➔ L2 ➔ L1 ➔ L0`）、零臃肿依赖与前后端强类型契约对称设计；与 `ateng-boot` / `ateng-cloud` 后端协议原生对齐，涵盖 19 个职责正交的功能子包（2 个 L0 纯原生底座、1 个 L1 无头响应式层、15 个 L2 领域扩展套件、1 个 L3 Element Plus 增强组件库）与 19 个 1:1 可运行交互自验展厅。
+
+## AI 编程助手必读约定 (Instructions for AI Agents)
+
+- **版本与依赖基线真源**：Node.js、pnpm、TypeScript、Vue、Element Plus 及各 `@atengk/*` 子包的实际版本号不在此硬编码。安装、引用或升级依赖前，请直接读取 [根 package.json](./package.json) 与目标子包 `packages/<name>/package.json`（及各自 `README.md` 中的 `peerDependencies` 声明）。
+- **四层洋葱单向依赖红线 (`L3 ➔ L2 ➔ L1 ➔ L0`)**：
+  - **L0 纯原生底座 (`@atengk/core`, `@atengk/monitor`)**：100% 纯 TypeScript 与 Web 标准 API 封装，跨框架平台中立，**严禁引入 Vue、React 或任何 UI 组件库依赖**。
+  - **L1 无头响应式层 (`@atengk/vue`)**：纯无头 Composables / Hooks 状态机，**严禁直接调用 `ElMessage`、`ElNotification` 等具体 UI 弹窗**；失败与业务异常通过只读响应式状态或回调交由上层接管。
+  - **L2 专业领域扩展层（15 个套件）**：仅合法单向依赖 L0、L1 及所属领域的轻量/按需懒加载专业内核（如 ECharts、Monaco、TipTap、Leaflet 等），**绝对严禁逆向依赖 L3 (`@atengk/element-plus`)**。
+  - **L3 表现与高阶组件层 (`@atengk/element-plus`)**：组装 L0/L1 能力呈现企业级表单、分页表格、框架布局与 Theme Pro 多主题系统（统一样式入口 `@atengk/element-plus/style.css`）。
+- **前后端对称与前端高危红线（严禁幻觉偏离）**：
+  - **统一响应信封与雪花 Long ID**：默认对接 `Result<T>`（`code`, `data`, `msg`, `traceId`）与分页契约 `PageQuery`（`pageNum`, `pageSize`）/ `PageResult<T>`（`list`, `total`）；HTTP `transformResponse` 阶段前置将 16 位以上无引号雪花大数正则加引号转为 `string`，业务模型的主键 ID 统一使用 `string`。
+  - **Blob 下载双态识别与安全重试**：二进制导出下载响应须通过 `checkBlobForJsonError` 前置辨识 `application/json` 业务异常并抛 `BusinessException`，严禁把报错 JSON 当成损坏文件保存；幂等重试仅限只读 `GET`/`HEAD`，`POST`/`PUT`/`DELETE` 严禁自动重试。
+  - **异步竞态、生命周期与内存真明文**：高频搜索与切换标配 `useLatest` + `AbortSignal`；前端内存状态始终保持真明文，脱敏仅在渲染态调用 `formatMask*`；Vue 3.5 Composables 参数使用 `MaybeRefOrGetter<T>` + `toValue()`，状态通过 `readonly()` 暴露；事件监听、定时器、`Observer`、WebSocket/SSE 与 `URL.createObjectURL` 句柄须在 `onScopeDispose` / `onUnmounted` 100% 清理。
+  - **样式隔离与代码约束**：组件根类名强制 `at-` 前缀 + `<style scoped>` + `--el-*`/`--at-*` CSS Design Tokens（严禁硬编码固定 Hex 色值破坏暗黑模式）；严禁裸 `any` 与 `lodash`/`moment` 重型依赖；查询列表无数据保底返回空数组 `[]`。
+- **代码生成检索顺序**：对接任何子包前，先读取目标包 `packages/<name>/README.md`（第 0 节全景速查矩阵汇总全部对外组件、Composables、指令与核心类型）及 `packages/<name>/CONTEXT.md` 术语契约；完整页面联调与双模 Mock 写法直接参考对应的 `apps/sample-<name>` 源码。
+
+## 全局索引与工程治理
+
+- [项目门面 README](./README.md): 四层洋葱拓扑图、19 包生态目录与 60 秒快速起步
+- [领域限界上下文地图](./CONTEXT-MAP.md): 全仓 19 个业务包与 19 个 1:1 展厅的层级职责、端口与依赖铁律
+- [架构决策记录看板 (ADR)](./docs/adr/README.md): 工具链基线、雪花 ID 防截断、L0~L3 演进与各 L2 架构决策索引
+- [Agent 开发行为契约](./AGENTS.md): 12 道工业级前端成熟度防线、单测自洽规范与提交准则
+- [文档与样例规范](./docs/agents/documentation-specification.md): 子包 5D 文档标准、多场景看板规范与 15 项自检清单
+- [新子包孵化 SOP](./docs/agents/modular-extensibility.md): 工业级六件套孵化与准出门禁
+- [贡献与提交规范](./CONTRIBUTING.md): 分支模型、Prettier/ESLint 门禁与 Conventional Commits
+- [Workspace 拓扑配置](./pnpm-workspace.yaml): `packages/*` 与 `apps/*` Monorepo 工作空间清单
+
+## L0 纯原生核心底座 (Core Layer — Zero Framework)
+
+- [@atengk/core 文档](./packages/core/README.md) | [上下文词汇表](./packages/core/CONTEXT.md) | [示例展厅](./apps/sample-core/README.md): `Result<T>`、`PageQuery`/`PageResult<T>`、`BusinessException`、雪花 ID 防截断、多路由 `HttpClient`、幂等重试/去重/签名、`AuthManager`/`TenantManager`、`StreamClient`/SSE、`WebSocketClient`、分片上传协调与真明文脱敏
+- [@atengk/monitor 文档](./packages/monitor/README.md) | [上下文词汇表](./packages/monitor/CONTEXT.md) | [示例展厅](./apps/sample-monitor/README.md): 微内核前端可观测性底座、JS/Promise/资源/Vue 异常收集、3×3 视口白屏双阶段感知、Web Vitals 与长任务采样、FNV-1a 去重熔断与 `sendBeacon`/Fetch 三阶防丢传输
+
+## L1 无头响应式层 (Headless Layer — Vue 3.5 Composables)
+
+- [@atengk/vue 文档](./packages/vue/README.md) | [上下文词汇表](./packages/vue/CONTEXT.md) | [示例展厅](./apps/sample-vue/README.md): 无头状态机与受管原语：`useRequest`、`usePagination`、`useSelection`、`useLatest`、`useIdempotent`、`useAuth`/`useTenant`、`useExcel`、`useUpload`、`useStream`、`useWebSocket`、`useAntiFlicker`、`useTabsNav`
+
+## L3 企业级 UI 表现与增强套件 (UI & Suite Layer)
+
+- [@atengk/element-plus 文档](./packages/element-plus/README.md) | [上下文词汇表](./packages/element-plus/CONTEXT.md) | [示例展厅](./apps/sample-element-plus/README.md): `AtengTable` / `AtengQueryForm` 协同、`AtengProLayout` / `AtengTabsNav` / `AtengPageContainer` / `AtengSplitLayout` / `AtengDialog` / `AtengDrawer`、权限/防重/水印/骨架指令与 Theme Pro 多主题引擎
+
+## L2 专业扩展：AI 与协同创作 (AI & Content Creation)
+
+- [@atengk/ai-chat-vue 文档](./packages/ai-chat-vue/README.md) | [上下文词汇表](./packages/ai-chat-vue/CONTEXT.md) | [示例展厅](./apps/sample-ai-chat-vue/README.md): AI 智能体多轮会话、思考链折叠、工具调用卡片与 Artifacts 产物侧边栏协同容器（`AiChat` / `ChatMessage`）
+- [@atengk/editor-vue 文档](./packages/editor-vue/README.md) | [上下文词汇表](./packages/editor-vue/CONTEXT.md) | [示例展厅](./apps/sample-editor-vue/README.md): 基于 TipTap / ProseMirror 的企业级现代富文本与内容创作容器（`AtengEditor`）
+- [@atengk/code-editor-vue 文档](./packages/code-editor-vue/README.md) | [上下文词汇表](./packages/code-editor-vue/CONTEXT.md) | [示例展厅](./apps/sample-code-editor-vue/README.md): 基于 Monaco Editor 的 SQL/配置代码编辑与结构化 Diff 差异比对扩展
+
+## L2 专业扩展：可视化与低代码引擎 (Visualization & Low-Code)
+
+- [@atengk/echarts-vue 文档](./packages/echarts-vue/README.md) | [上下文词汇表](./packages/echarts-vue/CONTEXT.md) | [示例展厅](./apps/sample-echarts-vue/README.md): ECharts 5 响应式可视化、几何尺寸自愈、暗黑无损热切换、高频业务预设图表与 GeoJSON 地图下钻
+- [@atengk/flow-vue 文档](./packages/flow-vue/README.md) | [上下文词汇表](./packages/flow-vue/CONTEXT.md) | [示例展厅](./apps/sample-flow-vue/README.md): 企业级审批流与状态机可视化流程编排设计器（`FlowDesigner`）与只读流转运行态视图（`FlowViewer`）
+- [@atengk/form-designer-vue 文档](./packages/form-designer-vue/README.md) | [上下文词汇表](./packages/form-designer-vue/CONTEXT.md) | [示例展厅](./apps/sample-form-designer-vue/README.md): 动态表单可视化编排设计器（`FormDesigner`）、JSON Schema 运行态渲染引擎（`FormRenderer`）与流程权限联动
+- [@atengk/grid-layout-vue 文档](./packages/grid-layout-vue/README.md) | [上下文词汇表](./packages/grid-layout-vue/CONTEXT.md) | [示例展厅](./apps/sample-grid-layout-vue/README.md): 基于 GridStack 10.x 的可拖拽响应式网格布局引擎（`AtengGridLayout` / `AtengGridItem`），适配大屏与千人千面工作台
+- [@atengk/gantt-vue 文档](./packages/gantt-vue/README.md) | [上下文词汇表](./packages/gantt-vue/CONTEXT.md) | [示例展厅](./apps/sample-gantt-vue/README.md): 基于 VisActor VTable-Gantt 引擎的高性能项目甘特图、资源排程、依赖连线与基线偏差比对（`AtengGantt`）
+
+## L2 专业扩展：文档影像与专业表格 (Documents, Media & Spreadsheet)
+
+- [@atengk/file-viewer-vue 文档](./packages/file-viewer-vue/README.md) | [上下文词汇表](./packages/file-viewer-vue/CONTEXT.md) | [示例展厅](./apps/sample-file-viewer-vue/README.md): Word/Excel/PPT/PDF/OFD/CAD/3D 纯前端多格式文档离线渲染、三阶智能嗅探、DLP 水印与弹窗预览（`AtengFileViewer`）
+- [@atengk/video-player-vue 文档](./packages/video-player-vue/README.md) | [上下文词汇表](./packages/video-player-vue/CONTEXT.md) | [示例展厅](./apps/sample-video-player-vue/README.md): 点播、HLS/FLV 低延迟直播、1~16 路安防分屏矩阵、云台控制、矢量水印与 Blob-JSON 双态防错（`AtengVideoPlayer`）
+- [@atengk/spreadsheet-vue 文档](./packages/spreadsheet-vue/README.md) | [上下文词汇表](./packages/spreadsheet-vue/CONTEXT.md) | [示例展厅](./apps/sample-spreadsheet-vue/README.md): 基于 Univer 1.4.x 的在线电子表格、多 Sheet 协同、公式实时计算与批量填报容器（`AtengSpreadsheet`）
+- [@atengk/print-vue 文档](./packages/print-vue/README.md) | [上下文词汇表](./packages/print-vue/CONTEXT.md) | [示例展厅](./apps/sample-print-vue/README.md): 静默打印调度、标准纸张与热敏小票排版、分页防撕裂截断与高保真 PDF 导出（`AtengPrintSheet`）
+- [@atengk/cropper-vue 文档](./packages/cropper-vue/README.md) | [上下文词汇表](./packages/cropper-vue/CONTEXT.md) | [示例展厅](./apps/sample-cropper-vue/README.md): 基于 `cropperjs` 的企业级多源图片裁剪、比例锁定、旋转缩放与弹窗裁剪容器（`AtengCropper`）
+
+## L2 专业扩展：地图空间与工业识别 (Spatial & Industrial Identification)
+
+- [@atengk/map-vue 文档](./packages/map-vue/README.md) | [上下文词汇表](./packages/map-vue/CONTEXT.md) | [示例展厅](./apps/sample-map-vue/README.md): 基于 Leaflet 默认离线免密引擎与高德/百度 SPI 解耦的多源地图、坐标拾取、电子围栏与轨迹回放（`AtengMap` / `AtengMapPicker`）
+- [@atengk/barcode-vue 文档](./packages/barcode-vue/README.md) | [上下文词汇表](./packages/barcode-vue/CONTEXT.md) | [示例展厅](./apps/sample-barcode-vue/README.md): 基于 `jsbarcode`/`qr-code-styling`/`html5-qrcode` 的仓储/制造一维条码、艺术二维码与按需扫码套件（`AtengBarcode` / `AtengQRCode`）

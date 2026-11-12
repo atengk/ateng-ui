@@ -22,7 +22,8 @@ _(注：既有存量子包从 1 到 N 的深度体检、能力补齐与加固重
 4. **1:1 可视化多场景展厅与双模自验 (1:1 Visual Sample Gate)**：
    - 在 `apps/sample-<name>` 配套 1:1 独立体验展厅（标配 `"private": true` 与 `.env.example`），严格遵循 [`documentation-specification.md`](./documentation-specification.md) 第 3 章的分层可视化看板规范與全自洽前端单测三铁律。
 5. **Sample-First 五维文档与体验卡 (5D Documentation Gate)**：
-   - 先跑通 Sample 可视化看板与自动化单测，再按 [`documentation-specification.md`](./documentation-specification.md) 1:1 逆向提取生成子包五维 `README.md`（100% 全景速查矩阵、“类型-代码-原理”三要素就近闭环、能力大章收敛）与 Sample 四段式体验卡 `README.md`。
+   - 先跑通 Sample 可视化看板与自动化单测，再按 [`documentation-specification.md`](./documentation-specification.md) 1:1 逆向提取生成子包五维 `README.md`（100% 全景速查矩阵、“类型-代码-原理”三要素就近闭环、能力大章收敛）与 Sample 四段式体验卡 `README.md`；
+   - 同步在根目录 [`README.md`](../../README.md) 的对应层级/领域表格与根目录 AI 索引 [`llms.txt`](../../llms.txt) 中补齐新子包与 `apps/sample-*` 的一行简洁索引。
 6. **领域词汇表与 ADR 架构记录 (Domain & ADR Gate)**：
    - 按 [`domain.md`](./domain.md) 新建 `packages/<name>/CONTEXT.md` 纯领域词汇表，新增编号递增的 `docs/adr/NNNN-*.md` 架构决策记录（严禁重号），并同步注册至 [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md) 与 [`docs/adr/README.md`](../adr/README.md)。
 
