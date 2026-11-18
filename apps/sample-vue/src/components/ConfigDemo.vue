@@ -18,12 +18,12 @@ const config = useAtengConfig();
     <h2>1. 全局配置注入自验 (createAtengVue & useAtengConfig)</h2>
     <p class="desc">
       主应用入口已通过
-      <code>app.use(createAtengVue({ defaultPageSize: 20 }))</code> 注册全局插件。
+      <code>app.use(createAtengVue({ defaultSize: 20 }))</code> 注册全局插件。
     </p>
     <div class="config-grid">
       <div class="config-item">
-        <span class="label">全局默认分页大小 (defaultPageSize):</span>
-        <span class="value">{{ config.defaultPageSize }} 条/页</span>
+        <span class="label">全局默认分页大小 (defaultSize):</span>
+        <span class="value">{{ config.defaultSize }} 条/页</span>
       </div>
       <div class="config-item">
         <span class="label">流式客户端自动挂载 (autoConnectStream):</span>

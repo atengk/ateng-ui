@@ -6,7 +6,7 @@
  */
 
 import type { DeepReadonly, MaybeRefOrGetter, Ref, WatchSource } from 'vue';
-import type { PageQuery, PageResult } from '@atengk/core';
+import type { PageQuery, PageResult, SortDirection, SortItem } from '@atengk/core';
 import type { MutateUpdater } from '../request/types';
 
 /**
@@ -23,22 +23,17 @@ export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQue
   /**
    * 默认初始页码。未指定时默认为 1。支持传入 Ref 或 Getter。
    */
-  defaultPageNum?: MaybeRefOrGetter<number>;
+  defaultCurrent?: MaybeRefOrGetter<number>;
 
   /**
-   * 默认每页记录数。未指定时优先读取 defaultParams.pageSize，若仍未指定则回退至全局配置 defaultPageSize（默认 10）。支持传入 Ref 或 Getter。
+   * 默认每页记录数。未指定时优先读取 defaultParams.size，若仍未指定则回退至全局配置 defaultSize（默认 10）。支持传入 Ref 或 Getter。
    */
-  defaultPageSize?: MaybeRefOrGetter<number>;
+  defaultSize?: MaybeRefOrGetter<number>;
 
   /**
-   * 默认初始排序字段。支持传入 Ref 或 Getter。
+   * 默认初始排序规则列表。支持传入 Ref 或 Getter。
    */
-  defaultSortField?: MaybeRefOrGetter<string | undefined>;
-
-  /**
-   * 默认初始升降序标识。true 为升序，false 为降序。支持传入 Ref 或 Getter。
-   */
-  defaultSortAsc?: MaybeRefOrGetter<boolean | undefined>;
+  defaultSorts?: MaybeRefOrGetter<SortItem[] | undefined>;
 
   /**
    * 初始默认查询与筛选参数。支持传入 Ref 或 Getter。
@@ -97,6 +92,14 @@ export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQue
 }
 
 /**
+ * usePagination 排序变更函数签名（支持 SortItem[] 多字段排序与单字段简写）。
+ */
+export interface ChangeSortFn<TItem> {
+  (sorts?: SortItem[]): Promise<PageResult<TItem> | undefined>;
+  (property: string, direction?: SortDirection): Promise<PageResult<TItem> | undefined>;
+}
+
+/**
  * usePagination 返回的只读状态机与五维原子操作门面。
  */
 export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuery> {
@@ -108,22 +111,17 @@ export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuer
   /**
    * 当前生效的页码，受到 readonly 只读保护。
    */
-  pageNum: DeepReadonly<Ref<number>>;
+  current: DeepReadonly<Ref<number>>;
 
   /**
    * 当前生效的每页记录数，受到 readonly 只读保护。
    */
-  pageSize: DeepReadonly<Ref<number>>;
+  size: DeepReadonly<Ref<number>>;
 
   /**
-   * 当前生效的排序字段，受到 readonly 只读保护。
+   * 当前生效的多字段排序规则列表，受到 readonly 只读保护（空排序时保底为 []）。
    */
-  sortField: DeepReadonly<Ref<string | undefined>>;
-
-  /**
-   * 当前生效的排序升降序标识，受到 readonly 只读保护。
-   */
-  sortAsc: DeepReadonly<Ref<boolean | undefined>>;
+  sorts: DeepReadonly<Ref<SortItem[]>>;
 
   /**
    * 总记录数，受到 readonly 只读保护（空数据或异常时保底为 0）。
@@ -133,7 +131,7 @@ export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuer
   /**
    * 当前页数据集合，受到 readonly 只读保护（空数据或异常时 100% 保底为空数组 []）。
    */
-  list: DeepReadonly<Ref<TItem[]>>;
+  records: DeepReadonly<Ref<TItem[]>>;
 
   /**
    * 当前是否处于请求执行中状态，受到 readonly 只读保护。
@@ -163,30 +161,27 @@ export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuer
   changePage: (page: number) => Promise<PageResult<TItem> | undefined>;
 
   /**
-   * 修改每页条数原子动作：修改 pageSize，自动将 pageNum 归 1 并重新发起请求。
+   * 修改每页条数原子动作：修改 size，自动将 current 归 1 并重新发起请求。
    *
-   * @param size 目标每页条数
+   * @param nextSize 目标每页条数
    */
-  changePageSize: (size: number) => Promise<PageResult<TItem> | undefined>;
+  changePageSize: (nextSize: number) => Promise<PageResult<TItem> | undefined>;
 
   /**
-   * 列排序原子动作：更新排序字段与升降序标识，自动将 pageNum 归 1 并重新发起请求。
-   * 若 field 为空或未传，则清除当前排序。
-   *
-   * @param field 目标排序字段
-   * @param asc 是否升序（默认为 true）
+   * 列排序原子动作：更新排序规则列表，自动将 current 归 1 并重新发起请求。
+   * 支持传入 SortItem[] 数组或单字段 (property, direction)，传入空数组或 undefined 则清空排序。
    */
-  changeSort: (field?: string, asc?: boolean) => Promise<PageResult<TItem> | undefined>;
+  changeSort: ChangeSortFn<TItem>;
 
   /**
-   * 条件搜索原子动作：合并新的筛选参数，自动将 pageNum 归 1 并重新发起请求。
+   * 条件搜索原子动作：合并新的筛选参数，自动将 current 归 1 并重新发起请求。
    *
    * @param extraParams 附加的筛选参数
    */
   search: (extraParams?: Partial<TParams>) => Promise<PageResult<TItem> | undefined>;
 
   /**
-   * 重置原子动作：清空额外筛选条件，恢复为初始 defaultParams，并将 pageNum 归 1 重新发起请求。
+   * 重置原子动作：清空额外筛选条件，恢复为初始 defaultParams 与 defaultSorts，并将 current 归 1 重新发起请求。
    */
   reset: () => Promise<PageResult<TItem> | undefined>;
 

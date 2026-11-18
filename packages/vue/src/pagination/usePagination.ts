@@ -17,11 +17,42 @@ import {
   type DeepReadonly,
   type Ref,
 } from 'vue';
-import type { PageQuery, PageResult } from '@atengk/core';
+import type { PageQuery, PageResult, SortDirection, SortItem } from '@atengk/core';
 import { useAtengConfig } from '../context';
 import { useRequest } from '../request';
 import { tryOnScopeDispose } from '../utils/lifecycle';
-import type { UsePaginationOptions, UsePaginationResult, UsePaginationService } from './types';
+import type {
+  ChangeSortFn,
+  UsePaginationOptions,
+  UsePaginationResult,
+  UsePaginationService,
+} from './types';
+
+/**
+ * 规范化多字段排序规则列表，过滤空白字段并生成防御性副本。
+ */
+function normalizeSorts(raw?: SortItem[] | null): SortItem[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [];
+  }
+  return raw
+    .filter(item => item && typeof item.property === 'string' && item.property.trim().length > 0)
+    .map(item => ({
+      property: item.property.trim(),
+      direction: item.direction === 'DESC' ? 'DESC' : 'ASC',
+    }));
+}
+
+/**
+ * 将规范化后的排序规则写入请求参数字典；为空时移除 sorts 字段避免冗余空数组透传。
+ */
+function applySortsParam(target: Record<string, unknown>, sortList: SortItem[]): void {
+  if (sortList.length > 0) {
+    target.sorts = sortList.map(item => ({ ...item }));
+  } else {
+    delete target.sorts;
+  }
+}
 
 /**
  * 契约分页状态机调度 Hook。
@@ -39,26 +70,20 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
   const globalConfig = useAtengConfig();
 
   // 1. Vue 3.5 响应式解构入参解析：toValue 解包初始分页、排序与筛选参数
-  const resolvedDefaultPageNum = toValue(options.defaultPageNum);
-  const resolvedDefaultPageSize = toValue(options.defaultPageSize);
+  const resolvedDefaultCurrent = toValue(options.defaultCurrent);
+  const resolvedDefaultSize = toValue(options.defaultSize);
   const resolvedDefaultParams = toValue(options.defaultParams);
-  const resolvedDefaultSortField = toValue(options.defaultSortField);
-  const resolvedDefaultSortAsc = toValue(options.defaultSortAsc);
+  const resolvedDefaultSorts = toValue(options.defaultSorts);
 
-  const initialPageNum = Math.max(1, resolvedDefaultPageNum ?? 1);
-  const initialPageSize =
-    resolvedDefaultPageSize ??
-    resolvedDefaultParams?.pageSize ??
-    globalConfig.defaultPageSize ??
-    10;
-  const initialSortField = resolvedDefaultSortField ?? resolvedDefaultParams?.sortField;
-  const initialSortAsc = resolvedDefaultSortAsc ?? resolvedDefaultParams?.sortAsc;
+  const initialCurrent = Math.max(1, resolvedDefaultCurrent ?? resolvedDefaultParams?.current ?? 1);
+  const initialSize =
+    resolvedDefaultSize ?? resolvedDefaultParams?.size ?? globalConfig.defaultSize ?? 10;
+  const initialSorts = normalizeSorts(resolvedDefaultSorts ?? resolvedDefaultParams?.sorts);
   const initialExtraParams = { ...(resolvedDefaultParams || {}) } as Partial<TParams>;
 
-  const pageNum = ref<number>(initialPageNum);
-  const pageSize = ref<number>(initialPageSize);
-  const sortField = ref<string | undefined>(initialSortField);
-  const sortAsc = ref<boolean | undefined>(initialSortAsc);
+  const current = ref<number>(initialCurrent);
+  const size = ref<number>(initialSize);
+  const sorts = ref<SortItem[]>(initialSorts);
   const extraParams = ref<Partial<TParams>>({ ...initialExtraParams });
   const query = reactive<Record<string, unknown>>({ ...initialExtraParams }) as Partial<TParams>;
 
@@ -66,15 +91,21 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
    * 构建当前生效的完整分页请求入参（override 优先级最高）。
    */
   const buildCurrentParams = (override?: Partial<TParams>): TParams => {
-    return {
+    const merged: Record<string, unknown> = {
       ...extraParams.value,
       ...query,
-      pageNum: pageNum.value,
-      pageSize: pageSize.value,
-      sortField: sortField.value,
-      sortAsc: sortAsc.value,
+      current: current.value,
+      size: size.value,
       ...override,
-    } as TParams;
+    };
+
+    if (override && 'sorts' in override) {
+      applySortsParam(merged, normalizeSorts(override.sorts));
+    } else {
+      applySortsParam(merged, sorts.value);
+    }
+
+    return merged as TParams;
   };
 
   /**
@@ -82,17 +113,14 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
    */
   const applyOverrideParams = (override?: Partial<TParams>): void => {
     if (!override) return;
-    if (override.pageNum !== undefined) {
-      pageNum.value = Math.max(1, Math.floor(override.pageNum));
+    if (override.current !== undefined) {
+      current.value = Math.max(1, Math.floor(override.current));
     }
-    if (override.pageSize !== undefined) {
-      pageSize.value = Math.max(1, Math.floor(override.pageSize));
+    if (override.size !== undefined) {
+      size.value = Math.max(1, Math.floor(override.size));
     }
-    if ('sortField' in override) {
-      sortField.value = override.sortField;
-    }
-    if ('sortAsc' in override) {
-      sortAsc.value = override.sortAsc;
+    if ('sorts' in override) {
+      sorts.value = normalizeSorts(override.sorts);
     }
     extraParams.value = {
       ...extraParams.value,
@@ -107,15 +135,16 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
   const request = useRequest<PageResult<TItem>, [TParams]>(
     async (params: TParams): Promise<PageResult<TItem>> => {
       const res = await service(params);
-      // 空安全硬性保底：无论服务端返回 null、undefined 还是缺少 list 属性，100% 保底返回 []
-      const safeList = Array.isArray(res?.list) ? res.list : [];
+      // 空安全硬性保底：无论服务端返回 null、undefined 还是缺少 records 属性，100% 保底返回 []
+      const safeRecords = Array.isArray(res?.records) ? res.records : [];
       const safeTotal =
         typeof res?.total === 'number' && !Number.isNaN(res.total) && res.total >= 0
           ? res.total
-          : safeList.length;
+          : safeRecords.length;
 
       return {
-        list: safeList,
+        ...res,
+        records: safeRecords,
         total: safeTotal,
       };
     },
@@ -141,53 +170,61 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
     return request.data.value?.total ?? 0;
   });
 
-  const list = computed(() => {
+  const records = computed(() => {
     if (request.error.value) {
       return [];
     }
-    return request.data.value?.list ?? [];
+    return request.data.value?.records ?? [];
   });
 
   // 4. 五维原子语义动作定义
 
   /**
-   * 翻页动作：修改 pageNum 并发起请求。
+   * 翻页动作：修改 current 并发起请求。
    */
   const changePage = (page: number): Promise<PageResult<TItem> | undefined> => {
     const safePage = Math.max(1, Math.floor(page || 1));
-    pageNum.value = safePage;
-    return request.run(buildCurrentParams({ pageNum: safePage } as Partial<TParams>));
+    current.value = safePage;
+    return request.run(buildCurrentParams({ current: safePage } as Partial<TParams>));
   };
 
   /**
-   * 修改每页条数动作：更新 pageSize，将 pageNum 归 1 并重新发起请求。
+   * 修改每页条数动作：更新 size，将 current 归 1 并重新发起请求。
    */
-  const changePageSize = (size: number): Promise<PageResult<TItem> | undefined> => {
-    const safeSize = Math.max(1, Math.floor(size || 10));
-    pageSize.value = safeSize;
-    pageNum.value = 1;
-    return request.run(buildCurrentParams({ pageNum: 1, pageSize: safeSize } as Partial<TParams>));
+  const changePageSize = (nextSize: number): Promise<PageResult<TItem> | undefined> => {
+    const safeSize = Math.max(1, Math.floor(nextSize || 10));
+    size.value = safeSize;
+    current.value = 1;
+    return request.run(buildCurrentParams({ current: 1, size: safeSize } as Partial<TParams>));
   };
 
   /**
-   * 排序动作：更新 sortField 与 sortAsc，将 pageNum 归 1 并重新发起请求。
-   * 若 field 为空或未传，则清除当前排序。
+   * 排序动作：更新 sorts 排序规则列表，将 current 归 1 并重新发起请求。
+   * 支持 SortItem[] 多字段数组或单字段 (property, direction) 简写，传空或空数组则清空排序。
    */
-  const changeSort = (field?: string, asc?: boolean): Promise<PageResult<TItem> | undefined> => {
-    sortField.value = field || undefined;
-    sortAsc.value = field ? (asc ?? true) : undefined;
-    pageNum.value = 1;
-    return request.run(
-      buildCurrentParams({
-        pageNum: 1,
-        sortField: sortField.value,
-        sortAsc: sortAsc.value,
-      } as Partial<TParams>),
-    );
+  const changeSort: ChangeSortFn<TItem> = (
+    propertyOrSorts?: string | SortItem[],
+    direction?: SortDirection,
+  ): Promise<PageResult<TItem> | undefined> => {
+    if (Array.isArray(propertyOrSorts)) {
+      sorts.value = normalizeSorts(propertyOrSorts);
+    } else if (typeof propertyOrSorts === 'string' && propertyOrSorts.trim().length > 0) {
+      sorts.value = [
+        {
+          property: propertyOrSorts.trim(),
+          direction: direction === 'DESC' ? 'DESC' : 'ASC',
+        },
+      ];
+    } else {
+      sorts.value = [];
+    }
+
+    current.value = 1;
+    return request.run(buildCurrentParams({ current: 1 } as Partial<TParams>));
   };
 
   /**
-   * 搜索动作：合并额外筛选条件，将 pageNum 归 1 并重新发起请求。
+   * 搜索动作：合并额外筛选条件，将 current 归 1 并重新发起请求。
    */
   const search = (newExtraParams?: Partial<TParams>): Promise<PageResult<TItem> | undefined> => {
     if (newExtraParams) {
@@ -202,12 +239,12 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
         ...query,
       };
     }
-    pageNum.value = 1;
-    return request.run(buildCurrentParams({ pageNum: 1 } as Partial<TParams>));
+    current.value = 1;
+    return request.run(buildCurrentParams({ current: 1 } as Partial<TParams>));
   };
 
   /**
-   * 重置动作：恢复初始 defaultParams 筛选条件与排序，将 pageNum 归 1 重新发起请求。
+   * 重置动作：恢复初始 defaultParams 筛选条件与 defaultSorts 排序，将 current 归 1 重新发起请求。
    */
   const reset = (): Promise<PageResult<TItem> | undefined> => {
     extraParams.value = { ...initialExtraParams };
@@ -217,16 +254,17 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
       }
     }
     Object.assign(query, initialExtraParams);
-    sortField.value = initialSortField;
-    sortAsc.value = initialSortAsc;
-    pageNum.value = 1;
-    return request.run({
+    sorts.value = normalizeSorts(initialSorts);
+    current.value = 1;
+
+    const resetParams: Record<string, unknown> = {
       ...initialExtraParams,
-      pageNum: 1,
-      pageSize: pageSize.value,
-      sortField: initialSortField,
-      sortAsc: initialSortAsc,
-    } as TParams);
+      current: 1,
+      size: size.value,
+    };
+    applySortsParam(resetParams, sorts.value);
+
+    return request.run(resetParams as TParams);
   };
 
   /**
@@ -266,8 +304,8 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
       () => {
         const isReady = options.ready === undefined ? true : toValue(options.ready);
         if (isReady) {
-          pageNum.value = 1;
-          request.run(buildCurrentParams({ pageNum: 1 } as Partial<TParams>));
+          current.value = 1;
+          request.run(buildCurrentParams({ current: 1 } as Partial<TParams>));
         }
       },
       { deep: true },
@@ -277,12 +315,11 @@ export function usePagination<TItem, TParams extends PageQuery = PageQuery>(
 
   return {
     query,
-    pageNum: readonly(pageNum) as DeepReadonly<Ref<number>>,
-    pageSize: readonly(pageSize) as DeepReadonly<Ref<number>>,
-    sortField: readonly(sortField) as DeepReadonly<Ref<string | undefined>>,
-    sortAsc: readonly(sortAsc) as DeepReadonly<Ref<boolean | undefined>>,
+    current: readonly(current) as DeepReadonly<Ref<number>>,
+    size: readonly(size) as DeepReadonly<Ref<number>>,
+    sorts: readonly(sorts) as DeepReadonly<Ref<SortItem[]>>,
     total: readonly(total) as DeepReadonly<Ref<number>>,
-    list: readonly(list) as DeepReadonly<Ref<TItem[]>>,
+    records: readonly(records) as DeepReadonly<Ref<TItem[]>>,
     loading: request.loading,
     error: request.error,
     data: request.data,

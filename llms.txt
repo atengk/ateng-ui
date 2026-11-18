@@ -11,7 +11,7 @@
   - **L2 专业领域扩展层（15 个套件）**：仅合法单向依赖 L0、L1 及所属领域的轻量/按需懒加载专业内核（如 ECharts、Monaco、TipTap、Leaflet 等），**绝对严禁逆向依赖 L3 (`@atengk/element-plus`)**。
   - **L3 表现与高阶组件层 (`@atengk/element-plus`)**：组装 L0/L1 能力呈现企业级表单、分页表格、框架布局与 Theme Pro 多主题系统（统一样式入口 `@atengk/element-plus/style.css`）。
 - **前后端对称与前端高危红线（严禁幻觉偏离）**：
-  - **统一响应信封与雪花 Long ID**：默认对接 `Result<T>`（`code`, `data`, `msg`, `traceId`）与分页契约 `PageQuery`（`pageNum`, `pageSize`）/ `PageResult<T>`（`list`, `total`）；HTTP `transformResponse` 阶段前置将 16 位以上无引号雪花大数正则加引号转为 `string`，业务模型的主键 ID 统一使用 `string`。
+  - **统一响应信封与雪花 Long ID**：默认对接 `Result<T>`（`code`, `data`, `msg`, `traceId`）与分页契约 `PageQuery`（`current`, `size`, `sorts`）/ `PageResult<T>`（`records`, `total`）；HTTP `transformResponse` 阶段前置将 16 位以上无引号雪花大数正则加引号转为 `string`，业务模型的主键 ID 统一使用 `string`。
   - **Blob 下载双态识别与安全重试**：二进制导出下载响应须通过 `checkBlobForJsonError` 前置辨识 `application/json` 业务异常并抛 `BusinessException`，严禁把报错 JSON 当成损坏文件保存；幂等重试仅限只读 `GET`/`HEAD`，`POST`/`PUT`/`DELETE` 严禁自动重试。
   - **异步竞态、生命周期与内存真明文**：高频搜索与切换标配 `useLatest` + `AbortSignal`；前端内存状态始终保持真明文，脱敏仅在渲染态调用 `formatMask*`；Vue 3.5 Composables 参数使用 `MaybeRefOrGetter<T>` + `toValue()`，状态通过 `readonly()` 暴露；事件监听、定时器、`Observer`、WebSocket/SSE 与 `URL.createObjectURL` 句柄须在 `onScopeDispose` / `onUnmounted` 100% 清理。
   - **样式隔离与代码约束**：组件根类名强制 `at-` 前缀 + `<style scoped>` + `--el-*`/`--at-*` CSS Design Tokens（严禁硬编码固定 Hex 色值破坏暗黑模式）；严禁裸 `any` 与 `lodash`/`moment` 重型依赖；查询列表无数据保底返回空数组 `[]`。

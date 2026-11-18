@@ -28,7 +28,7 @@ const DEFAULT_OPTIONS: AtengVueContext = {
   httpClient: http,
   authManager,
   tenantManager,
-  defaultPageSize: 10,
+  defaultSize: 10,
   autoConnectStream: true,
   autoConnectWebSocket: true,
 };
@@ -69,7 +69,7 @@ export function useAtengConfig(): AtengVueContext {
     httpClient: injected.httpClient ?? DEFAULT_OPTIONS.httpClient,
     authManager: injected.authManager ?? DEFAULT_OPTIONS.authManager,
     tenantManager: injected.tenantManager ?? DEFAULT_OPTIONS.tenantManager,
-    defaultPageSize: injected.defaultPageSize ?? DEFAULT_OPTIONS.defaultPageSize,
+    defaultSize: injected.defaultSize ?? DEFAULT_OPTIONS.defaultSize,
     onError: injected.onError,
     autoConnectStream: injected.autoConnectStream ?? DEFAULT_OPTIONS.autoConnectStream,
     autoConnectWebSocket: injected.autoConnectWebSocket ?? DEFAULT_OPTIONS.autoConnectWebSocket,

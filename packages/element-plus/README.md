@@ -300,9 +300,8 @@ const pagination = usePagination(
     return res.data;
   },
   {
-    defaultPageSize: 10,
-    defaultSortField: 'createTime',
-    defaultSortAsc: false,
+    defaultSize: 10,
+    defaultSorts: [{ property: 'createTime', direction: 'DESC' }],
   },
 );
 
@@ -467,7 +466,7 @@ export interface AtengTableProps<T = Record<string, unknown>> {
 
 ```ts
 export interface AtengTableProps<T = Record<string, unknown>> {
-  /** 是否开启跨页多选记忆保持，翻页或切换 pageSize 时自动记忆已选数据行，默认 false */
+  /** 是否开启跨页多选记忆保持，翻页或切换 size 时自动记忆已选数据行，默认 false */
   reserveSelection?: boolean;
   /** 当前选中的数据行主键集合（支持 v-model:selectedKeys 双向绑定） */
   selectedKeys?: (string | number)[];
@@ -4635,12 +4634,12 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 #### 1. AtengTable 核心接口
 
-| 接口 / 类型名               | 类别      | 核心字段 / 签名说明                                                                                                                             | 所在源码路径                                                                             |
-| :-------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| `AtengTableColumnConfig<T>` | Interface | `prop: keyof T                                                                                                                                  | string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter` | `src/components/table/types.ts` |
-| `AtengTableProps<T>`        | Interface | `data: T[]`, `columns: AtengTableColumnConfig<T>[]`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string | ((row: T) => string)`                                                                    | `src/components/table/types.ts` |
-| `AtengTableEmits<T>`        | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`                                                 | `src/components/table/types.ts`                                                          |
-| `AtengTableExpose<T>`       | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                   | `src/components/table/types.ts`                                                          |
+| 接口 / 类型名               | 类别      | 核心字段 / 签名说明                                                                                                                                                                                   | 所在源码路径                                                                             |
+| :-------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| `AtengTableColumnConfig<T>` | Interface | `prop: keyof T                                                                                                                                                                                        | string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter` | `src/components/table/types.ts` |
+| `AtengTableProps<T>`        | Interface | `data: T[]`, `columns: TableColumnConfig[]`, `current?: number`, `size?: number`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string \| ((row: T) => string)` | `src/components/table/types.ts`                                                          |
+| `AtengTableEmits<T>`        | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`, `update:current`, `update:size`, `pagination-change: (data: { current; size }) => void`              | `src/components/table/types.ts`                                                          |
+| `AtengTableExpose<T>`       | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                                                                         | `src/components/table/types.ts`                                                          |
 
 #### 2. AtengQueryForm 核心接口
 

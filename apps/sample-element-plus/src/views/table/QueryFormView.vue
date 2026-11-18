@@ -46,7 +46,7 @@ const mockSearchApi = async (
     `[${new Date().toLocaleTimeString()}] [pagination直连] 触发搜索：${JSON.stringify(params)}`,
   );
   ElMessage.success('pagination 异步请求完成');
-  return { list: [], total: 0 };
+  return { records: [], total: 0 };
 };
 
 const demoPagination = usePagination(mockSearchApi, {

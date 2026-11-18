@@ -19,35 +19,37 @@ const doubleWait = async () => {
 };
 
 const createMockPagination = (overrides?: Record<string, unknown>) => {
-  const pageNum = ref(1);
-  const pageSize = ref(10);
+  const current = ref(1);
+  const size = ref(10);
+  const sorts = ref([]);
   const total = ref(100);
-  const list = ref([
+  const records = ref([
     { id: '1001', username: '张三', age: 25 },
     { id: '1002', username: '李四', age: 30 },
   ]);
   const loading = ref(false);
   const error = ref<unknown>(null);
   const changePage = vi.fn(async (page: number) => {
-    pageNum.value = page;
+    current.value = page;
     return undefined;
   });
-  const changePageSize = vi.fn(async (size: number) => {
-    pageSize.value = size;
-    pageNum.value = 1;
+  const changePageSize = vi.fn(async (pageSize: number) => {
+    size.value = pageSize;
+    current.value = 1;
     return undefined;
   });
   const changeSort = vi.fn(async () => {
-    pageNum.value = 1;
+    current.value = 1;
     return undefined;
   });
   const refresh = vi.fn(async () => undefined);
 
   return {
-    pageNum,
-    pageSize,
+    current,
+    size,
+    sorts,
     total,
-    list,
+    records,
     loading,
     error,
     changePage,
@@ -219,7 +221,7 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     const paginationComp = wrapper.findComponent({ name: 'ElPagination' });
     expect(paginationComp.exists()).toBe(true);
 
-    // 验证表格行数据绑定自 pagination.list
+    // 验证表格行数据绑定自 pagination.records
     const text = wrapper.text();
     expect(text).toContain('张三');
     expect(text).toContain('李四');
@@ -230,7 +232,8 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
 
     expect(mockPagination.changePage).toHaveBeenCalledWith(3);
     expect(wrapper.emitted('page-change')?.[0]).toEqual([3]);
-    expect(wrapper.emitted('update:pageNum')?.[0]).toEqual([3]);
+    expect(wrapper.emitted('update:current')?.[0]).toEqual([3]);
+    expect(wrapper.emitted('pagination-change')?.[0]).toEqual([{ current: 3, size: 10 }]);
 
     // 模拟触发修改每页条数
     paginationComp.vm.$emit('size-change', 20);
@@ -238,10 +241,10 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
 
     expect(mockPagination.changePageSize).toHaveBeenCalledWith(20);
     expect(wrapper.emitted('size-change')?.[0]).toEqual([20]);
-    expect(wrapper.emitted('update:pageSize')?.[0]).toEqual([20]);
+    expect(wrapper.emitted('update:size')?.[0]).toEqual([20]);
   });
 
-  it('服务端排序联动：监听 ElTable 的 sort-change 并自动转换为 changeSort', async () => {
+  it('服务端排序联动：监听 ElTable 的 sort-change 并自动转换为 SortItem[] 调用 changeSort', async () => {
     const mockPagination = createMockPagination();
 
     wrapper = mount(AtengTable, {
@@ -262,27 +265,29 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     // 1. 模拟升序
     tableEl.vm.$emit('sort-change', { column: {}, prop: 'age', order: 'ascending' });
     await doubleWait();
-    expect(mockPagination.changeSort).toHaveBeenCalledWith('age', true);
+    expect(mockPagination.changeSort).toHaveBeenCalledWith([{ property: 'age', direction: 'ASC' }]);
     expect(wrapper.emitted('sort-change')).toBeTruthy();
 
     // 2. 模拟降序
     tableEl.vm.$emit('sort-change', { column: {}, prop: 'age', order: 'descending' });
     await doubleWait();
-    expect(mockPagination.changeSort).toHaveBeenCalledWith('age', false);
+    expect(mockPagination.changeSort).toHaveBeenCalledWith([
+      { property: 'age', direction: 'DESC' },
+    ]);
 
     // 3. 模拟取消排序
     tableEl.vm.$emit('sort-change', { column: {}, prop: 'age', order: null });
     await doubleWait();
-    expect(mockPagination.changeSort).toHaveBeenCalledWith(undefined, undefined);
+    expect(mockPagination.changeSort).toHaveBeenCalledWith([]);
   });
 
-  it('离散分页逃生门：无 pagination 时支持离散属性与 showPagination 控制', async () => {
+  it('离散分页逃生门：无 pagination 时支持离散属性 current / size 与 showPagination 控制', async () => {
     wrapper = mount(AtengTable, {
       props: {
         data: mockData,
         total: 50,
-        pageNum: 2,
-        pageSize: 10,
+        current: 2,
+        size: 10,
       },
       slots: {
         default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
@@ -303,9 +308,9 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
 
   it('空状态与异常态：数据为空且未加载时渲染 AtengEmpty，异常态带有重试按钮', async () => {
     const errorState = ref<unknown>(new Error('Network Failed'));
-    const listState = ref<Record<string, unknown>[]>([]);
+    const recordsState = ref<Record<string, unknown>[]>([]);
     const mockPagination = createMockPagination({
-      list: listState,
+      records: recordsState,
       total: ref(0),
       error: errorState,
     });
@@ -341,10 +346,10 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
   });
 
   it('多态缺省态：无筛选参数时渲染 status="empty"，存在活跃筛选参数时渲染 status="search" 并提供清空重置自愈按钮', async () => {
-    const listState = ref<Record<string, unknown>[]>([]);
+    const recordsState = ref<Record<string, unknown>[]>([]);
     const queryState = ref<Record<string, unknown>>({ keyword: '张三' });
     const mockPagination = createMockPagination({
-      list: listState,
+      records: recordsState,
       total: ref(0),
       query: queryState,
     });
@@ -385,7 +390,7 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     const errorState = ref<unknown>(new Error('Query timeout'));
     const queryState = ref<Record<string, unknown>>({ status: 'active' });
     const mockPagination = createMockPagination({
-      list: ref([]),
+      records: ref([]),
       total: ref(0),
       error: errorState,
       query: queryState,
@@ -435,7 +440,7 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     const formModel = ref({ keyword: '李四' });
     const onResetSpy = vi.fn();
     const mockPagination = createMockPagination({
-      list: ref([]),
+      records: ref([]),
       total: ref(0),
     });
 
@@ -1184,7 +1189,7 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       ];
 
       const pagination = createMockPagination({
-        list: ref(page1Data),
+        records: ref(page1Data),
       });
 
       wrapper = mount(AtengTable, {
@@ -1211,8 +1216,8 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       expect(vm.selectedCount).toBe(1);
       expect(vm.selectedRows).toEqual([page1Data[0]]);
 
-      // 模拟换页：pagination.list 变为第二页数据
-      pagination.list.value = page2Data;
+      // 模拟换页：pagination.records 变为第二页数据
+      pagination.records.value = page2Data;
       await doubleWait();
 
       // 验证跨页记忆：即使当前页换为 page2，已选总数仍为 1，且包含第一页的雪花 ID

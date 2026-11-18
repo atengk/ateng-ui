@@ -26,7 +26,7 @@ describe('context & plugin', () => {
 
     expect(config).toBeDefined();
     expect(config.httpClient).toBe(http);
-    expect(config.defaultPageSize).toBe(10);
+    expect(config.defaultSize).toBe(10);
     expect(config.autoConnectStream).toBe(true);
     expect(config.autoConnectWebSocket).toBe(true);
 
@@ -40,7 +40,7 @@ describe('context & plugin', () => {
 
     const plugin = createAtengVue({
       httpClient: customClient,
-      defaultPageSize: 20,
+      defaultSize: 20,
       onError: customOnError,
       autoConnectStream: false,
       autoConnectWebSocket: false,
@@ -59,7 +59,7 @@ describe('context & plugin', () => {
     app.mount(root);
 
     expect(config.httpClient).toBe(customClient);
-    expect(config.defaultPageSize).toBe(20);
+    expect(config.defaultSize).toBe(20);
     expect(config.onError).toBe(customOnError);
     expect(config.autoConnectStream).toBe(false);
     expect(config.autoConnectWebSocket).toBe(false);
@@ -81,14 +81,14 @@ describe('context & plugin', () => {
     const ChildComp = defineComponent({
       setup() {
         parentConfig = useAtengConfig();
-        provideAtengConfig({ defaultPageSize: 50 });
+        provideAtengConfig({ defaultSize: 50 });
         return () => h('div', [h(GrandChildComp)]);
       },
     });
 
     const RootComp = defineComponent({
       setup() {
-        provideAtengConfig({ defaultPageSize: 30 });
+        provideAtengConfig({ defaultSize: 30 });
         return () => h('div', [h(ChildComp)]);
       },
     });
@@ -97,8 +97,8 @@ describe('context & plugin', () => {
     const root = document.createElement('div');
     app.mount(root);
 
-    expect(parentConfig.defaultPageSize).toBe(30);
-    expect(childConfig.defaultPageSize).toBe(50);
+    expect(parentConfig.defaultSize).toBe(30);
+    expect(childConfig.defaultSize).toBe(50);
     // 未覆盖的属性继承默认值
     expect(childConfig.httpClient).toBe(http);
 

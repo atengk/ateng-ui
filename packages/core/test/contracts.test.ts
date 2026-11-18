@@ -6,6 +6,7 @@ import {
   type Result,
   type PageResult,
   type PageQuery,
+  type SortItem,
 } from '../src/index';
 
 describe('Contracts & BusinessException (Issue #2)', () => {
@@ -41,27 +42,34 @@ describe('Contracts & BusinessException (Issue #2)', () => {
   });
 
   describe('PageResult & Null Safety Guard', () => {
-    it('should guarantee empty array [] when list is null or undefined', () => {
+    it('should guarantee empty array [] when records is null or undefined', () => {
       // 模拟后端返回 null 或 undefined 的脏分页数据
       const resultFromNull = createPageResult(null as unknown as string[], 0);
       const resultFromUndefined = createPageResult(undefined, 0);
 
-      expect(resultFromNull.list).toEqual([]);
+      expect(resultFromNull.records).toEqual([]);
       expect(resultFromNull.total).toBe(0);
-      expect(resultFromUndefined.list).toEqual([]);
+      expect(resultFromUndefined.records).toEqual([]);
       expect(resultFromUndefined.total).toBe(0);
     });
 
-    it('should preserve provided list items and total count correctly', () => {
+    it('should preserve provided records items, total count and optional metadata correctly', () => {
       const items = [
         { id: '1', name: 'Item 1' },
         { id: '2', name: 'Item 2' },
       ];
-      const result: PageResult<{ id: string; name: string }> = createPageResult(items, 100);
+      const result: PageResult<{ id: string; name: string }> = createPageResult(items, 100, {
+        current: 1,
+        size: 10,
+        pages: 10,
+      });
 
-      expect(result.list).toHaveLength(2);
-      expect(result.list).toBe(items);
+      expect(result.records).toHaveLength(2);
+      expect(result.records).toBe(items);
       expect(result.total).toBe(100);
+      expect(result.current).toBe(1);
+      expect(result.size).toBe(10);
+      expect(result.pages).toBe(10);
     });
   });
 
@@ -89,18 +97,20 @@ describe('Contracts & BusinessException (Issue #2)', () => {
   });
 
   describe('PageQuery Contract', () => {
-    it('should conform to PageQuery structure', () => {
+    it('should conform to PageQuery structure aligned with ateng-boot-core', () => {
+      const sorts: SortItem[] = [
+        { property: 'createTime', direction: 'DESC' },
+        { property: 'id', direction: 'ASC' },
+      ];
       const query: PageQuery = {
-        pageNum: 1,
-        pageSize: 20,
-        sortField: 'createTime',
-        sortAsc: false,
+        current: 1,
+        size: 20,
+        sorts,
       };
 
-      expect(query.pageNum).toBe(1);
-      expect(query.pageSize).toBe(20);
-      expect(query.sortField).toBe('createTime');
-      expect(query.sortAsc).toBe(false);
+      expect(query.current).toBe(1);
+      expect(query.size).toBe(20);
+      expect(query.sorts).toEqual(sorts);
     });
   });
 });

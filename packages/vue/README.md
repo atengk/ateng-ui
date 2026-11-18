@@ -90,11 +90,11 @@ flowchart TD
 ### 核心设计不变量 (Core Invariants)
 
 1. **严格单向数据流与只读状态防线 (Readonly State & Unidirectional Flow)**：
-   核心状态（`loading`、`data`、`error`、`pageNum`、`pageSize`、`total`、`list`、`selectedKeys` 等）统一通过 `readonly()` 导出为只读 Ref，外部严禁就地突变；修改只能通过门面动作（`run`、`changePage`、`select`、`toggle`）或显式乐观更新 `mutate((prev) => next)` 触发。
+   核心状态（`loading`、`data`、`error`、`current`、`size`、`sorts`、`total`、`records`、`selectedKeys` 等）统一通过 `readonly()` 导出为只读 Ref，外部严禁就地突变；修改只能通过门面动作（`run`、`changePage`、`changePageSize`、`changeSort`、`select`、`toggle`）或显式乐观更新 `mutate((prev) => next)` 触发。
 2. **空安全保底与防御性返回 (Null Safety & Defensive Fallback)**：
-   分页 `usePagination` 与查询门面在网络异常或查询结果为空时，结果集列表统一保底返回空数组 `[]`，绝对严禁返回 `undefined` 或 `null`，彻底杜绝模板层 `v-for="item in data.list"` 发生空指针导致白屏崩溃。
+   分页 `usePagination` 与查询门面在网络异常或查询结果为空时，结果集列表（`records`）与排序规则（`sorts`）统一保底返回空数组 `[]`，绝对严禁返回 `undefined` 或 `null`，彻底杜绝模板层 `v-for="item in records"` 发生空指针导致白屏崩溃。
 3. **响应性解构防丢失规范 (MaybeRefOrGetter & toValue Invariant)**：
-   所有导出的 Composables 入参必须声明为 `MaybeRefOrGetter<T>` 类型，内部统一使用 Vue 原生 `toValue(param)` 进行解包；组件层传入响应式变量时统一通过 Getter 箭头函数传入（如 `usePagination(..., () => pageSize)`），彻底消除响应性丢失陷阱。
+   所有导出的 Composables 入参必须声明为 `MaybeRefOrGetter<T>` 类型，内部统一使用 Vue 原生 `toValue(param)` 进行解包；组件层传入响应式变量时统一通过 Getter 箭头函数传入（如 `usePagination(..., { defaultSize: () => size.value })`），彻底消除响应性丢失陷阱。
 4. **确定性生命周期与资源清理不变量 (Deterministic Scope Cleanup Invariant)**：
    凡在 Composables / Hooks 中注册的物理监听与瞬态资源（防抖节流定时器、DOM 事件绑定、WebSocket 长连接、SSE 流式通道、防闪烁状态定时器、未决请求取消信号 `AbortSignal`），统一在 `onScopeDispose` 钩子中 100% 确定性注销与解绑，严禁内存泄漏与离线回调悬挂。
 5. **无头表现彻底解耦防线 (Headless & UI-Agnostic Invariant)**：
@@ -112,13 +112,13 @@ flowchart TD
 
 ```ts
 export interface AtengVueOptions {
-  /** 全局默认分页每页容量 @default 20 */
-  defaultPageSize?: number;
+  /** 全局默认分页每页容量 @default 10 */
+  defaultSize?: number;
   /** 全局自定义 HTTP 客户端实例（缺省时自动使用 @atengk/core 全局单例） */
   httpClient?: HttpClient;
-  /** 是否在挂载时自动连接全局流式客户端 @default false */
+  /** 是否在挂载时自动连接全局流式客户端 @default true */
   autoConnectStream?: boolean;
-  /** 是否在挂载时自动连接全局 WebSocket 客户端 @default false */
+  /** 是否在挂载时自动连接全局 WebSocket 客户端 @default true */
   autoConnectWebSocket?: boolean;
 }
 
@@ -135,7 +135,7 @@ import { createAtengVue } from '@atengk/vue';
 import App from './App.vue';
 
 const app = createApp(App);
-app.use(createAtengVue({ defaultPageSize: 20 }));
+app.use(createAtengVue({ defaultSize: 20 }));
 app.mount('#app');
 ```
 
@@ -150,7 +150,7 @@ const config = useAtengConfig();
 
 <template>
   <div class="config-card">
-    <span>全局默认分页大小: {{ config.defaultPageSize }} 条/页</span>
+    <span>全局默认分页大小: {{ config.defaultSize }} 条/页</span>
     <span>HTTP 客户端状态: {{ config.httpClient ? '已注入' : '未就绪' }}</span>
   </div>
 </template>
@@ -158,7 +158,7 @@ const config = useAtengConfig();
 
 #### 核心机制与生产边界说明
 
-- **双轨解耦回退**：组件未显式执行 `app.use(createAtengVue(...))` 时，`useAtengConfig()` 会自动平滑回退至内部安全默认值（`defaultPageSize: 20`，HTTP 回退至 `@atengk/core` 的 `http` 单例），绝不抛出 NPE。
+- **双轨解耦回退**：组件未显式执行 `app.use(createAtengVue(...))` 时，`useAtengConfig()` 会自动平滑回退至内部安全默认值（`defaultSize: 10`，HTTP 回退至 `@atengk/core` 的 `http` 单例），绝不抛出 NPE。
 
 ---
 
@@ -180,7 +180,7 @@ import { provideAtengConfig } from '@atengk/vue';
 
 // 局部覆盖当前管理后台模块的默认分页大小为 50 条/页
 provideAtengConfig({
-  defaultPageSize: 50,
+  defaultSize: 50,
 });
 </script>
 
@@ -429,27 +429,30 @@ const deptRequest = useRequest(() => fetchUsersByDept(activeDeptId.value), {
 #### 专属 TypeScript 契约片段
 
 ```ts
-export interface UsePaginationOptions<TItem, TQuery extends PageQuery = PageQuery> {
-  defaultPageSize?: number;
-  defaultCurrent?: number;
-  defaultParams?: Partial<TQuery>;
-  defaultSortField?: string;
-  defaultSortAsc?: boolean;
+export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQuery> {
+  defaultCurrent?: MaybeRefOrGetter<number>;
+  defaultSize?: MaybeRefOrGetter<number>;
+  defaultSorts?: MaybeRefOrGetter<SortItem[] | undefined>;
+  defaultParams?: MaybeRefOrGetter<Partial<TParams>>;
   refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
 }
 
-export interface UsePaginationResult<TItem, TQuery extends PageQuery = PageQuery> {
-  pageNum: Readonly<Ref<number>>;
-  pageSize: Readonly<Ref<number>>;
-  total: Readonly<Ref<number>>;
-  list: Readonly<Ref<TItem[]>>; // 空安全硬性保底空数组 []
-  loading: Readonly<Ref<boolean>>;
-  error: Readonly<Ref<BusinessException | null>>;
-  changePage: (page: number) => Promise<PageResult<TItem>>;
-  changePageSize: (size: number) => Promise<PageResult<TItem>>;
-  search: (extraParams?: Partial<TQuery>) => Promise<PageResult<TItem>>;
-  changeSort: (field?: string, asc?: boolean) => Promise<PageResult<TItem>>;
-  reset: () => Promise<PageResult<TItem>>;
+export interface UsePaginationResult<TItem, TParams extends PageQuery = PageQuery> {
+  current: DeepReadonly<Ref<number>>;
+  size: DeepReadonly<Ref<number>>;
+  sorts: DeepReadonly<Ref<SortItem[]>>;
+  total: DeepReadonly<Ref<number>>;
+  records: DeepReadonly<Ref<TItem[]>>; // 空安全硬性保底空数组 []
+  loading: DeepReadonly<Ref<boolean>>;
+  error: DeepReadonly<Ref<unknown>>;
+  changePage: (page: number) => Promise<PageResult<TItem> | undefined>;
+  changePageSize: (nextSize: number) => Promise<PageResult<TItem> | undefined>;
+  search: (extraParams?: Partial<TParams>) => Promise<PageResult<TItem> | undefined>;
+  changeSort: {
+    (sorts?: SortItem[]): Promise<PageResult<TItem> | undefined>;
+    (property: string, direction?: SortDirection): Promise<PageResult<TItem> | undefined>;
+  };
+  reset: () => Promise<PageResult<TItem> | undefined>;
 }
 ```
 
@@ -468,22 +471,25 @@ interface ProductItem {
 
 // 模拟分页服务
 const queryProducts = async (params: PageQuery): Promise<PageResult<ProductItem>> => {
-  const res = await fetch(`/api/products?pageNum=${params.pageNum}&pageSize=${params.pageSize}`);
+  const res = await fetch('/api/products/page', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
   return res.json();
 };
 
-const { pageNum, pageSize, total, list, loading, changePage, changePageSize, search, reset } =
+const { current, size, total, records, loading, changePage, changePageSize, changeSort, reset } =
   usePagination(queryProducts, {
-    defaultPageSize: 10,
-    defaultSortField: 'createTime',
-    defaultSortAsc: false,
+    defaultSize: 10,
+    defaultSorts: [{ property: 'createTime', direction: 'DESC' }],
   });
 </script>
 
 <template>
   <div class="table-container">
     <div class="search-bar">
-      <button @click="search({ sortField: 'price', sortAsc: true })">按价格升序搜索</button>
+      <button @click="changeSort('price', 'ASC')">按价格升序搜索</button>
       <button @click="reset">重置初始条件</button>
     </div>
 
@@ -496,8 +502,8 @@ const { pageNum, pageSize, total, list, loading, changePage, changePageSize, sea
         </tr>
       </thead>
       <tbody>
-        <!-- 空安全保底：list 100% 为数组，绝不触发 NPE -->
-        <tr v-for="item in list" :key="item.id">
+        <!-- 空安全保底：records 100% 为数组，绝不触发 NPE -->
+        <tr v-for="item in records" :key="item.id">
           <td>{{ item.id }}</td>
           <td>{{ item.name }}</td>
           <td>¥{{ item.price }}</td>
@@ -506,9 +512,9 @@ const { pageNum, pageSize, total, list, loading, changePage, changePageSize, sea
     </table>
 
     <div class="pagination-footer">
-      <button :disabled="pageNum <= 1" @click="changePage(pageNum - 1)">上一页</button>
-      <span>第 {{ pageNum }} 页 / 共 {{ total }} 条</span>
-      <button @click="changePage(pageNum + 1)">下一页</button>
+      <button :disabled="current <= 1" @click="changePage(current - 1)">上一页</button>
+      <span>第 {{ current }} 页 / 每页 {{ size }} 条 / 共 {{ total }} 条</span>
+      <button @click="changePage(current + 1)">下一页</button>
       <button @click="changePageSize(20)">改为 20 条/页</button>
     </div>
   </div>
@@ -518,7 +524,7 @@ const { pageNum, pageSize, total, list, loading, changePage, changePageSize, sea
 #### 核心机制与生产边界说明
 
 - **五维原子动作重置规则**：`search()`、`changePageSize()`、`changeSort()` 以及 `reset()` 均会自动将当前页码归 1 发起请求；`changePage()` 则精确定位目标页码。
-- **空安全绝对保底**：底层拦截未决返回，若服务端返回 `null` 或无 `list` 节点，内部一律防御保底为 `[]`，杜绝前端白屏。
+- **空安全绝对保底**：底层拦截未决返回，若服务端返回 `null` 或无 `records` 节点，内部一律防御保底为 `[]`，杜绝前端白屏。
 
 ---
 
@@ -1187,15 +1193,15 @@ const { tabs, activeKey, cachedViews, openTab, closeTab, closeOthers, refreshTab
 ```ts
 // 1. 全局配置上下文
 export interface AtengVueOptions {
-  defaultPageSize?: number;
+  defaultSize?: number;
   httpClient?: HttpClient;
   autoConnectStream?: boolean;
   autoConnectWebSocket?: boolean;
 }
 
 export interface AtengVueContext {
-  defaultPageSize: number;
-  httpClient: HttpClient | null;
+  defaultSize: number;
+  httpClient: HttpClient;
   autoConnectStream: boolean;
   autoConnectWebSocket: boolean;
 }
@@ -1211,12 +1217,11 @@ export interface UseRequestOptions<TData, TParams extends unknown[]> {
 }
 
 // 3. 契约分页状态机
-export interface UsePaginationOptions<TItem, TQuery extends PageQuery = PageQuery> {
-  defaultPageSize?: number;
-  defaultCurrent?: number;
-  defaultParams?: Partial<TQuery>;
-  defaultSortField?: string;
-  defaultSortAsc?: boolean;
+export interface UsePaginationOptions<TItem, TParams extends PageQuery = PageQuery> {
+  defaultCurrent?: MaybeRefOrGetter<number>;
+  defaultSize?: MaybeRefOrGetter<number>;
+  defaultSorts?: MaybeRefOrGetter<SortItem[] | undefined>;
+  defaultParams?: MaybeRefOrGetter<Partial<TParams>>;
   refreshDeps?: WatchSource<unknown> | WatchSource<unknown>[];
 }
 

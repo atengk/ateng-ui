@@ -83,7 +83,7 @@
 2. **机读 AI 索引 (`llms.txt`) 三铁律**：
    - **纯仓内相对路径**：遵循 [llmstxt.org](https://llmstxt.org/) 分组规范，100% 使用 `./...` 相对路径索引全局文档与每个子包的 `README.md` / `CONTEXT.md` / `apps/sample-*/README.md`，**严禁跨仓库链接（如 `../ateng-boot`）**或绝对盘符路径。
    - **免硬编码版本号**：`llms.txt` 严禁写死 Vue、Element Plus 或 `@atengk/*` 具体版本号，统一引导 AI 读取根 [`package.json`](../../package.json) 与目标 `packages/<name>/package.json`（及各自 `README.md` 的 `peerDependencies`）。
-   - **高危前端红线前置**：首屏明确四层洋葱单向流红线（L0 零框架、L1 零 UI 弹窗、L2 禁逆向依赖 L3）、`Result<T>` / `PageResult<T>`（`pageNum` / `pageSize`）/ 雪花 ID `string` 契约、Blob 双态嗅探与 `onScopeDispose` 确定性清理。
+   - **高危前端红线前置**：首屏明确四层洋葱单向流红线（L0 零框架、L1 零 UI 弹窗、L2 禁逆向依赖 L3）、`Result<T>` / `PageQuery`（`current` / `size` / `sorts`）/ `PageResult<T>`（`records` / `total`）/ 雪花 ID `string` 契约、Blob 双态嗅探与 `onScopeDispose` 确定性清理。
 
 ---
 

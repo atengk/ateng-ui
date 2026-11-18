@@ -58,7 +58,7 @@ const fetchMembers = async (params: MemberQuery): Promise<PageResult<MemberItem>
 
   if (simulateEmpty.value) {
     return {
-      list: [],
+      records: [],
       total: 0,
     };
   }
@@ -79,28 +79,33 @@ const fetchMembers = async (params: MemberQuery): Promise<PageResult<MemberItem>
     filtered = filtered.filter(item => item.role === params.role);
   }
 
-  // 2. 契约排序支持
-  if (params.sortField) {
-    const field = params.sortField as keyof MemberItem;
-    const isAsc = params.sortAsc !== false;
+  // 2. 契约多字段排序支持 (sorts: SortItem[])
+  const sorts = params.sorts;
+  if (sorts && sorts.length > 0) {
     filtered.sort((a, b) => {
-      const valA = a[field];
-      const valB = b[field];
-      if (valA < valB) return isAsc ? -1 : 1;
-      if (valA > valB) return isAsc ? 1 : -1;
+      for (const sort of sorts) {
+        const field = sort.property as keyof MemberItem;
+        const isAsc = sort.direction === 'ASC';
+        const valA = a[field];
+        const valB = b[field];
+        if (valA < valB) return isAsc ? -1 : 1;
+        if (valA > valB) return isAsc ? 1 : -1;
+      }
       return 0;
     });
   }
 
   // 3. 分页切片
-  const pageNum = params.pageNum ?? 1;
-  const pageSize = params.pageSize ?? 5;
-  const start = (pageNum - 1) * pageSize;
-  const pagedList = filtered.slice(start, start + pageSize);
+  const current = params.current ?? 1;
+  const size = params.size ?? 5;
+  const start = (current - 1) * size;
+  const pagedRecords = filtered.slice(start, start + size);
 
   return {
-    list: pagedList,
+    records: pagedRecords,
     total: filtered.length,
+    current,
+    size,
   };
 };
 
@@ -110,14 +115,13 @@ const searchForm = ref<{ keyword: string; role: string }>({
   role: '',
 });
 
-// 初始化 usePagination 状态机 (包含 defaultSortField / defaultSortAsc 与 refreshDeps)
+// 初始化 usePagination 状态机 (包含 defaultSorts 与 refreshDeps)
 const pagination = usePagination<MemberItem, MemberQuery>(
   params => fetchMembers({ ...params, department: activeDept.value || undefined }),
   {
-    defaultPageNum: 1,
-    defaultPageSize: 5,
-    defaultSortField: 'id',
-    defaultSortAsc: true,
+    defaultCurrent: 1,
+    defaultSize: 5,
+    defaultSorts: [{ property: 'id', direction: 'ASC' }],
     defaultParams: {
       keyword: '',
       role: '',
@@ -149,15 +153,18 @@ const handlePageSizeChange = (event: Event) => {
   pagination.changePageSize(Number(target.value));
 };
 
+const getFieldSort = (field: string) => {
+  return pagination.sorts.value.find(item => item.property === field);
+};
+
 const toggleSort = (field: string) => {
-  if (pagination.sortField.value !== field) {
-    pagination.changeSort(field, true);
-  } else if (pagination.sortAsc.value === true) {
-    pagination.changeSort(field, false);
-  } else if (pagination.sortAsc.value === false) {
-    pagination.changeSort(undefined);
+  const currentSort = getFieldSort(field);
+  if (!currentSort) {
+    pagination.changeSort(field, 'ASC');
+  } else if (currentSort.direction === 'ASC') {
+    pagination.changeSort(field, 'DESC');
   } else {
-    pagination.changeSort(field, true);
+    pagination.changeSort([]);
   }
 };
 
@@ -190,7 +197,7 @@ const restoreNormal = () => {
       响应实体。支持五维原子动作（翻页、切条数、条件搜索、列排序、全量重置）与
       <code>refreshDeps</code>
       响应式依赖自动刷新；空数据与异常时
-      <code>list</code> 100% 保底空数组 <code>[]</code>。
+      <code>records</code> 100% 保底空数组 <code>[]</code>。
     </p>
 
     <!-- 搜索表单 -->
@@ -245,47 +252,62 @@ const restoreNormal = () => {
       <button
         :class="[
           'btn btn-outline btn-xs',
-          pagination.sortField.value === 'id' && pagination.sortAsc.value === true && 'btn-active',
+          getFieldSort('id')?.direction === 'ASC' &&
+            pagination.sorts.value.length === 1 &&
+            'btn-active',
         ]"
-        @click="pagination.changeSort('id', true)"
+        @click="pagination.changeSort('id', 'ASC')"
       >
         ID 升序 (ASC)
       </button>
       <button
         :class="[
           'btn btn-outline btn-xs',
-          pagination.sortField.value === 'id' && pagination.sortAsc.value === false && 'btn-active',
+          getFieldSort('id')?.direction === 'DESC' &&
+            pagination.sorts.value.length === 1 &&
+            'btn-active',
         ]"
-        @click="pagination.changeSort('id', false)"
+        @click="pagination.changeSort('id', 'DESC')"
       >
         ID 降序 (DESC)
       </button>
       <button
         :class="[
           'btn btn-outline btn-xs',
-          pagination.sortField.value === 'name' &&
-            pagination.sortAsc.value === true &&
+          getFieldSort('name')?.direction === 'ASC' &&
+            pagination.sorts.value.length === 1 &&
             'btn-active',
         ]"
-        @click="pagination.changeSort('name', true)"
+        @click="pagination.changeSort('name', 'ASC')"
       >
         姓名 升序 (ASC)
       </button>
       <button
         :class="[
           'btn btn-outline btn-xs',
-          pagination.sortField.value === 'name' &&
-            pagination.sortAsc.value === false &&
+          getFieldSort('name')?.direction === 'DESC' &&
+            pagination.sorts.value.length === 1 &&
             'btn-active',
         ]"
-        @click="pagination.changeSort('name', false)"
+        @click="pagination.changeSort('name', 'DESC')"
       >
         姓名 降序 (DESC)
       </button>
       <button
+        :class="['btn btn-outline btn-xs', pagination.sorts.value.length > 1 && 'btn-active']"
+        @click="
+          pagination.changeSort([
+            { property: 'department', direction: 'ASC' },
+            { property: 'id', direction: 'DESC' },
+          ])
+        "
+      >
+        组合排序 (部门 ASC + ID DESC)
+      </button>
+      <button
         class="btn btn-outline btn-xs btn-danger"
-        :disabled="!pagination.sortField.value"
-        @click="pagination.changeSort(undefined)"
+        :disabled="pagination.sorts.value.length === 0"
+        @click="pagination.changeSort([])"
       >
         清空排序 (clear)
       </button>
@@ -295,7 +317,7 @@ const restoreNormal = () => {
     <div class="adversarial-bar">
       <span class="bar-title">空安全与异常对抗自测:</span>
       <button class="btn btn-outline btn-xs" @click="triggerSimulateEmpty">
-        模拟空数据返回 (list: [])
+        模拟空数据返回 (records: [])
       </button>
       <button class="btn btn-outline btn-xs btn-danger" @click="triggerSimulateError">
         模拟接口报错 (502 异常)
@@ -321,17 +343,17 @@ const restoreNormal = () => {
         当前排序 (只读):
         <strong>
           {{
-            pagination.sortField.value
-              ? `${pagination.sortField.value} (${pagination.sortAsc.value ? '升序 ASC' : '降序 DESC'})`
+            pagination.sorts.value.length > 0
+              ? pagination.sorts.value.map(s => `${s.property} (${s.direction})`).join(', ')
               : '默认无排序'
           }}
         </strong>
       </div>
       <div class="meta-item">
-        当前页码 (只读): <strong>{{ pagination.pageNum.value }}</strong>
+        当前页码 (只读): <strong>{{ pagination.current.value }}</strong>
       </div>
       <div class="meta-item">
-        每页条数 (只读): <strong>{{ pagination.pageSize.value }}</strong>
+        每页条数 (只读): <strong>{{ pagination.size.value }}</strong>
       </div>
       <div class="meta-item">
         匹配总数 (只读): <strong>{{ pagination.total.value }}</strong>
@@ -347,7 +369,7 @@ const restoreNormal = () => {
               ID
               <span class="sort-icon">
                 {{
-                  pagination.sortField.value === 'id' ? (pagination.sortAsc.value ? '▲' : '▼') : '⇅'
+                  getFieldSort('id') ? (getFieldSort('id')?.direction === 'ASC' ? '▲' : '▼') : '⇅'
                 }}
               </span>
             </th>
@@ -355,8 +377,8 @@ const restoreNormal = () => {
               姓名
               <span class="sort-icon">
                 {{
-                  pagination.sortField.value === 'name'
-                    ? pagination.sortAsc.value
+                  getFieldSort('name')
+                    ? getFieldSort('name')?.direction === 'ASC'
                       ? '▲'
                       : '▼'
                     : '⇅'
@@ -369,7 +391,7 @@ const restoreNormal = () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in pagination.list.value" :key="item.id">
+          <tr v-for="item in pagination.records.value" :key="item.id">
             <td>#{{ item.id }}</td>
             <td class="cell-strong">{{ item.name }}</td>
             <td>{{ item.department }}</td>
@@ -382,12 +404,12 @@ const restoreNormal = () => {
               </span>
             </td>
           </tr>
-          <tr v-if="pagination.list.value.length === 0">
+          <tr v-if="pagination.records.value.length === 0">
             <td colspan="5" class="empty-cell">
               {{
                 pagination.loading.value
                   ? '数据加载中...'
-                  : '暂无数据（空安全保证：list 为空数组 []）'
+                  : '暂无数据（空安全保证：records 为空数组 []）'
               }}
             </td>
           </tr>
@@ -399,7 +421,7 @@ const restoreNormal = () => {
     <div class="pagination-footer">
       <div class="page-size-selector">
         每页显示:
-        <select :value="pagination.pageSize.value" class="select-sm" @change="handlePageSizeChange">
+        <select :value="pagination.size.value" class="select-sm" @change="handlePageSizeChange">
           <option :value="5">5 条/页</option>
           <option :value="10">10 条/页</option>
           <option :value="20">20 条/页</option>
@@ -409,19 +431,19 @@ const restoreNormal = () => {
       <div class="page-controls">
         <button
           class="btn btn-secondary btn-sm"
-          :disabled="pagination.pageNum.value <= 1 || pagination.loading.value"
-          @click="pagination.changePage(pagination.pageNum.value - 1)"
+          :disabled="pagination.current.value <= 1 || pagination.loading.value"
+          @click="pagination.changePage(pagination.current.value - 1)"
         >
           上一页 (changePage)
         </button>
-        <span class="page-indicator">第 {{ pagination.pageNum.value }} 页</span>
+        <span class="page-indicator">第 {{ pagination.current.value }} 页</span>
         <button
           class="btn btn-secondary btn-sm"
           :disabled="
-            pagination.pageNum.value * pagination.pageSize.value >= pagination.total.value ||
+            pagination.current.value * pagination.size.value >= pagination.total.value ||
             pagination.loading.value
           "
-          @click="pagination.changePage(pagination.pageNum.value + 1)"
+          @click="pagination.changePage(pagination.current.value + 1)"
         >
           下一页 (changePage)
         </button>

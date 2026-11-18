@@ -9,12 +9,12 @@
 _Avoid_: Response, ApiResponse, BaseResponse, AjaxResult
 
 **PageResult**:
-统一分页查询响应实体，封装强类型数据列表集合与总记录数。
+统一分页查询响应实体，封装强类型数据列表集合（`records`）、总记录数（`total`）及可选分页元信息（`current`、`size`、`pages`）。
 _Avoid_: Page, TableData, PageVO, PageData, IPage
 
 **PageQuery**:
-统一分页查询入参对象，标准化页码、每页容量、排序字段及升降序标记。
-_Avoid_: PageParam, PageDTO, QueryParam, PageRequest
+统一分页查询入参对象，标准化页码（`current`）、每页容量（`size`）及多字段排序规则集合（`sorts: SortItem[]`）。
+_Avoid_: PageParam, PageDTO, QueryParam, PageRequest, pageNum, pageSize, sortField, sortAsc
 
 **BusinessException**:
 统一业务与网络异常类，完整封装业务状态码、错误信息、链路追踪标识与原始异常因果链。

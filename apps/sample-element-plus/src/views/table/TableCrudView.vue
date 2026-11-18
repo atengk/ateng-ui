@@ -89,35 +89,40 @@ const fetchUsersApi = async (
     filtered = filtered.filter(item => item.status === params.status);
   }
 
-  // 排序
-  if (params.sortField) {
+  // 排序 (sorts: SortItem[])
+  const sorts = params.sorts;
+  if (sorts && sorts.length > 0) {
     filtered.sort((a, b) => {
-      const field = params.sortField as keyof UserItem;
-      const valA = a[field];
-      const valB = b[field];
-      if (valA < valB) return params.sortAsc ? -1 : 1;
-      if (valA > valB) return params.sortAsc ? 1 : -1;
+      for (const sort of sorts) {
+        const field = sort.property as keyof UserItem;
+        const isAsc = sort.direction === 'ASC';
+        const valA = a[field];
+        const valB = b[field];
+        if (valA < valB) return isAsc ? -1 : 1;
+        if (valA > valB) return isAsc ? 1 : -1;
+      }
       return 0;
     });
   }
 
-  const pageNum = params.pageNum || 1;
-  const pageSize = params.pageSize || 10;
+  const current = params.current || 1;
+  const size = params.size || 10;
   const total = filtered.length;
-  const startIndex = (pageNum - 1) * pageSize;
-  const list = filtered.slice(startIndex, startIndex + pageSize);
+  const startIndex = (current - 1) * size;
+  const records = filtered.slice(startIndex, startIndex + size);
 
   return {
-    list,
+    records,
     total,
+    current,
+    size,
   };
 };
 
 // 4. 初始化 @atengk/vue 分页状态机
 const pagination = usePagination(fetchUsersApi, {
-  defaultPageSize: 10,
-  defaultSortField: 'age',
-  defaultSortAsc: true,
+  defaultSize: 10,
+  defaultSorts: [{ property: 'age', direction: 'ASC' }],
 });
 
 // 5. 表格 Ref 引用与表单状态

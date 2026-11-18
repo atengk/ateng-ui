@@ -42,10 +42,10 @@ describe('GatewayRoute Engine (微服务网关多路由分发引擎)', () => {
         defaultTarget: 'https://api.example.com',
       });
 
-      const result = router.resolve('/users?pageNum=1&pageSize=20#top');
+      const result = router.resolve('/users?current=1&size=20#top');
 
       expect(result.target).toBe('https://api.example.com');
-      expect(result.url).toBe('/users?pageNum=1&pageSize=20#top');
+      expect(result.url).toBe('/users?current=1&size=20#top');
     });
   });
 

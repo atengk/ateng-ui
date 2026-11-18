@@ -10,7 +10,7 @@
 | :------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **基础导出**         | 基线版本标识        | `VERSION`                                                                                                            | `string`                                         | 导出当前模块编译版本基线                                         | [index.test.ts](./test/index.test.ts)                                                                             |
 | **统一响应契约**     | 统一 API 响应载荷   | `Result<T>`                                                                                                          | `code, data, msg, traceId`                       | 统一泛型响应数据信封与链路追踪                                   | [contracts.test.ts](./test/contracts.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
-| **统一响应契约**     | 分页查询与响应      | `PageResult<T>`, `PageQuery`                                                                                         | `list, total`, `pageNum, pageSize`               | 标准分页入参与出参实体契约                                       | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
+| **统一响应契约**     | 分页查询与响应      | `PageResult<T>`, `PageQuery`, `SortItem`, `SortDirection`                                                            | `records, total`, `current, size, sorts`         | 标准分页入参与出参实体契约                                       | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
 | **统一响应契约**     | 统一因果业务异常    | `BusinessException`                                                                                                  | `code, msg, traceId, cause`                      | 保留原始底层调用堆栈的因果业务异常类                             | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
 | **网络数据转换**     | 雪花 ID 大数防截断  | `parseSnowflakeJson`, `transformSnowflakeResponse`                                                                   | `json: string => unknown`                        | 纳秒级正则匹配 16 位以上无引号数字加引号固化                     | [snowflake.test.ts](./test/snowflake.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
 | **网关多路由引擎**   | 路由调度引擎与工厂  | `GatewayRouter`, `createGatewayRouter`                                                                               | `routes, defaultTarget => ResolvedRoute`         | 多微服务网关前缀最长匹配与路径重写分发                           | [routing.test.ts](./test/routing.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)               |
@@ -842,18 +842,25 @@ export interface Result<T = unknown> {
   traceId: string;
 }
 
+export type SortDirection = 'ASC' | 'DESC';
+
+export interface SortItem {
+  property: string;
+  direction: SortDirection;
+}
+
 export interface PageResult<T = unknown> {
-  list: T[];
+  records: T[];
   total: number;
-  pageNum?: number;
-  pageSize?: number;
+  size?: number;
+  current?: number;
+  pages?: number;
 }
 
 export interface PageQuery {
-  pageNum: number;
-  pageSize: number;
-  sortField?: string;
-  sortAsc?: boolean;
+  current?: number;
+  size?: number;
+  sorts?: SortItem[];
 }
 
 export class BusinessException extends Error {

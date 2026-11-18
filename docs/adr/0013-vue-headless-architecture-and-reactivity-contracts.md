@@ -10,7 +10,7 @@ Accepted (已接受)
 
 1. **状态任意突变引发脏流向**：调用方在组件模板或方法中随意修改 `loading.value = false` 或突变返回实体，破坏状态机确定性与数据流单向透明性；
 2. **高频操作时序倒挂**：Tab 快速切换、翻页或搜索输入联动时，后发请求先回导致界面数据被前序慢请求覆盖（异步竞态）；
-3. **分页与网络样板代码泛滥**：每个列表页面反复手写 `pageNum`、`pageSize`、`total` 计算与 `onMounted` 触发逻辑，且空数据时偶现 `undefined` 导致白屏崩毁；
+3. **分页与网络样板代码泛滥**：每个列表页面反复手写 `current`、`size`、`total`、`sorts` 计算与 `onMounted` 触发逻辑，且空数据时偶现 `undefined` 导致白屏崩毁；
 4. **无头层跨界侵入 UI**：无头 Hook 内部直接调用具体的全局弹窗（如 `ElMessage`），破坏无头设计，导致下游无法替换 UI 库或在非 DOM 环境复用；
 5. **重型依赖与版本绑架**：盲目引入全量 VueUse、Lodash 或 TanStack Query，造成依赖树膨胀与版本冲突风险。
 
@@ -25,7 +25,7 @@ Accepted (已接受)
    - **数据交换与文件**：`useExcel`（Fesod 协议流式导出与错误批注驱动）、`useUpload`（大文件切片与并发进度协调）；
    - **流式与全双工长连接**：`useStream`（SSE 打字机增量响应）、`useWebSocket`（全双工双向心跳与离线缓冲状态机）。
 2. **严格单向数据流与只读状态防线**：
-   - 核心状态（如 `loading`、`data`、`error`、`total`、`list`）统一通过 `readonly()` 导出为只读 Ref（`Readonly<Ref<T>>`），禁止调用方就地写操作；
+   - 核心状态（如 `loading`、`data`、`error`、`current`、`size`、`sorts`、`total`、`records`）统一通过 `readonly()` 导出为只读 Ref（`Readonly<Ref<T>>`），禁止调用方就地写操作；
    - 状态更新仅能通过动作门面（`run`、`refresh`、`reset`）或显式的乐观更新方法（`mutate((prev) => next)`）触发。
 3. **`usePagination` 基于 `useRequest` 深度组合**：
    - `usePagination` 不重复造轮子，其底层基于 `useRequest` 进行契约特化与参数联动；

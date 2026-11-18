@@ -13,7 +13,7 @@ const app = createApp(App);
 // 注册 @atengk/vue 全局插件，配置默认分页条数为 20
 app.use(
   createAtengVue({
-    defaultPageSize: 20,
+    defaultSize: 20,
     onError: err => {
       // 全局捕获错误
       console.warn('[sample-vue 全局捕获]', err);

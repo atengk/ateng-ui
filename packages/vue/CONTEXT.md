@@ -5,7 +5,7 @@
 ## 全局配置与受管原语
 
 **createAtengVue**:
-全局插件安装器函数，向 Vue 应用实例注入默认配置上下文（默认分页大小、自定义 HTTP 客户端等）。
+全局插件安装器函数，向 Vue 应用实例注入默认配置上下文（默认分页大小 `defaultSize`、自定义 HTTP 客户端等）。
 _Avoid_: initVue, setupAteng, useAtengPlugin
 
 **useAtengConfig**:
@@ -39,7 +39,7 @@ _Avoid_: useEvent, addEvent, bindEvent
 _Avoid_: useFetch, useHttp, useApi, useQuery
 
 **usePagination**:
-双向绑定 PageQuery 入参与 PageResult 响应的分页状态调度 Hook，基于 useRequest 深度组合，结果集硬性保底空数组。提供五维原子语义动作（翻页、改条数、条件搜索、列排序、全量重置）与响应式依赖自动刷新（refreshDeps）。
+双向绑定 `PageQuery`（`current` / `size` / `sorts`）入参与 `PageResult`（`records` / `total`）响应的分页状态调度 Hook，基于 `useRequest` 深度组合，结果集 `records` 与排序列表 `sorts` 硬性保底空数组 `[]`。提供五维原子语义动作（翻页、改条数、条件搜索、多字段排序、全量重置）与响应式依赖自动刷新（`refreshDeps`）。
 _Avoid_: usePage, useTablePagination, usePager
 
 **useLatest**:

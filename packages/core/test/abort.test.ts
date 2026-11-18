@@ -19,10 +19,10 @@ describe('AbortCoordinator & Concurrency Control (请求取消协调器与防竞
       const key1 = generateRequestKey({
         method: 'get',
         url: '/api/v1/users',
-        params: { pageNum: 1, pageSize: 20 },
+        params: { current: 1, size: 20 },
       });
 
-      expect(key1).toBe('GET:/api/v1/users?{"pageNum":1,"pageSize":20}');
+      expect(key1).toBe('GET:/api/v1/users?{"current":1,"size":20}');
     });
 
     it('不同字段顺序的对象参数应生成相同的确定性指纹', () => {

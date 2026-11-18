@@ -29,7 +29,7 @@ export interface AtengVueOptions {
   /**
    * 默认分页大小。未指定时默认为 10。
    */
-  defaultPageSize?: number;
+  defaultSize?: number;
 
   /**
    * 全局请求异常处理回调。
@@ -71,7 +71,7 @@ export interface AtengVueContext {
   /**
    * 生效的默认分页大小。
    */
-  defaultPageSize: number;
+  defaultSize: number;
 
   /**
    * 生效的全局异常处理回调。

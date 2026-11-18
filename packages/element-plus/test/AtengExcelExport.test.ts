@@ -59,7 +59,7 @@ describe('AtengExcelExport 流式导出按钮组件交互与契约测试', () =>
       search: vi.fn(),
       reset: vi.fn(),
       getSelectedRows: () => [{ id: 'row_1' }, { id: 'row_2' }],
-      getQueryParams: () => ({ pageNum: 1, pageSize: 10, keyword: 'test' }),
+      getQueryParams: () => ({ current: 1, size: 10, keyword: 'test' }),
     };
 
     const wrapper = mount(AtengExcelExport, {

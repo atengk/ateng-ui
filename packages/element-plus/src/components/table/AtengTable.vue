@@ -87,8 +87,8 @@ const props = withDefaults(defineProps<AtengTableProps<T>>(), {
   autoHeight: false,
   loading: false,
   total: undefined,
-  pageNum: undefined,
-  pageSize: undefined,
+  current: undefined,
+  size: undefined,
   pageSizes: () => [10, 20, 50, 100],
   paginationLayout: 'total, sizes, prev, pager, next, jumper',
   showPagination: undefined,
@@ -111,7 +111,7 @@ defineSlots<AtengTableSlots<T>>();
 // 1. 数据源、Loading 与异常状态解析
 const tableData = computed<T[]>(() => {
   if (props.pagination) {
-    return (props.pagination.list.value ?? []) as T[];
+    return (props.pagination.records.value ?? []) as T[];
   }
   return (props.data ?? []) as T[];
 });
@@ -133,16 +133,16 @@ const hasError = computed<boolean>(() => {
 // 2. 底部分页状态与联动
 const currentPage = computed<number>(() => {
   if (props.pagination) {
-    return props.pagination.pageNum.value;
+    return props.pagination.current.value;
   }
-  return props.pageNum ?? 1;
+  return props.current ?? 1;
 });
 
 const currentPageSize = computed<number>(() => {
   if (props.pagination) {
-    return props.pagination.pageSize.value;
+    return props.pagination.size.value;
   }
-  return props.pageSize ?? 10;
+  return props.size ?? 10;
 });
 
 const currentTotal = computed<number>(() => {
@@ -160,18 +160,18 @@ const shouldShowPagination = computed<boolean>(() => {
 });
 
 const handleCurrentChange = async (val: number) => {
-  emit('update:pageNum', val);
+  emit('update:current', val);
   emit('page-change', val);
-  emit('pagination-change', { pageNum: val, pageSize: currentPageSize.value });
+  emit('pagination-change', { current: val, size: currentPageSize.value });
   if (props.pagination) {
     await props.pagination.changePage(val);
   }
 };
 
 const handleSizeChange = async (val: number) => {
-  emit('update:pageSize', val);
+  emit('update:size', val);
   emit('size-change', val);
-  emit('pagination-change', { pageNum: currentPage.value, pageSize: val });
+  emit('pagination-change', { current: currentPage.value, size: val });
   if (props.pagination) {
     await props.pagination.changePageSize(val);
   }
@@ -182,21 +182,13 @@ const handleSortChange = async (data: { column: unknown; prop: string; order: st
   emit('sort-change', data);
 
   if (props.pagination) {
-    let asc: boolean | undefined = undefined;
-    let field: string | undefined = undefined;
-
-    if (data.order === 'ascending') {
-      asc = true;
-      field = data.prop;
-    } else if (data.order === 'descending') {
-      asc = false;
-      field = data.prop;
+    if (data.prop && data.order === 'ascending') {
+      await props.pagination.changeSort([{ property: data.prop, direction: 'ASC' }]);
+    } else if (data.prop && data.order === 'descending') {
+      await props.pagination.changeSort([{ property: data.prop, direction: 'DESC' }]);
     } else {
-      asc = undefined;
-      field = undefined;
+      await props.pagination.changeSort([]);
     }
-
-    await props.pagination.changeSort(field, asc);
   }
 };
 
@@ -815,7 +807,7 @@ const registeredResetHandlers = new Set<() => void>();
 const registeredQueryGetters = new Set<() => Record<string, unknown>>();
 const queryGetterVersion = ref(0);
 
-const PAGINATION_RESERVED_KEYS = ['pageNum', 'pageSize', 'sortField', 'sortAsc'] as const;
+const PAGINATION_RESERVED_KEYS = ['current', 'size', 'sorts'] as const;
 
 /**
  * 从参数字典中剔除分页保留键，提取纯净的业务检索筛选参数。

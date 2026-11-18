@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, effectScope, h, isReadonly, ref } from 'vue';
-import { BusinessException, type PageQuery, type PageResult } from '@atengk/core';
+import { BusinessException, type PageQuery, type PageResult, type SortItem } from '@atengk/core';
 import { createAtengVue, usePagination } from '../src';
 
 interface TestUser {
@@ -30,9 +30,9 @@ describe('usePagination', () => {
   });
 
   describe('Seam 1: Out-of-the-box & Pagination Defaults', () => {
-    it('should auto-run by default with pageNum 1 and default pageSize 10', async () => {
+    it('should auto-run by default with current 1 and default size 10', async () => {
       const mockResult: PageResult<TestUser> = {
-        list: [
+        records: [
           { id: 1, name: 'Alice' },
           { id: 2, name: 'Bob' },
         ],
@@ -48,30 +48,30 @@ describe('usePagination', () => {
       });
 
       expect(result.loading.value).toBe(true);
-      expect(result.pageNum.value).toBe(1);
-      expect(result.pageSize.value).toBe(10);
-      expect(result.list.value).toEqual([]);
+      expect(result.current.value).toBe(1);
+      expect(result.size.value).toBe(10);
+      expect(result.records.value).toEqual([]);
       expect(result.total.value).toBe(0);
 
       await vi.runAllTimersAsync();
 
       expect(result.loading.value).toBe(false);
-      expect(result.list.value).toEqual(mockResult.list);
+      expect(result.records.value).toEqual(mockResult.records);
       expect(result.total.value).toBe(2);
       expect(service).toHaveBeenCalledTimes(1);
       expect(service).toHaveBeenCalledWith(
         expect.objectContaining({
-          pageNum: 1,
-          pageSize: 10,
+          current: 1,
+          size: 10,
         }),
       );
 
       scope.stop();
     });
 
-    it('should respect custom defaultPageNum and defaultPageSize options as MaybeRefOrGetter', async () => {
+    it('should respect custom defaultCurrent and defaultSize options as MaybeRefOrGetter', async () => {
       const service = vi.fn(async (_params: PageQuery) => ({
-        list: [{ id: 10, name: 'Ten' }],
+        records: [{ id: 10, name: 'Ten' }],
         total: 50,
       }));
       const scope = effectScope();
@@ -80,29 +80,29 @@ describe('usePagination', () => {
 
       scope.run(() => {
         result = usePagination(service, {
-          defaultPageNum: () => 2,
-          defaultPageSize: () => 20,
+          defaultCurrent: () => 2,
+          defaultSize: () => 20,
         });
       });
 
-      expect(result.pageNum.value).toBe(2);
-      expect(result.pageSize.value).toBe(20);
+      expect(result.current.value).toBe(2);
+      expect(result.size.value).toBe(20);
 
       await vi.runAllTimersAsync();
 
       expect(service).toHaveBeenCalledWith(
         expect.objectContaining({
-          pageNum: 2,
-          pageSize: 20,
+          current: 2,
+          size: 20,
         }),
       );
 
       scope.stop();
     });
 
-    it('should fallback to defaultPageSize from AtengVue global context', async () => {
+    it('should fallback to defaultSize from AtengVue global context', async () => {
       const service = vi.fn(async (_params: PageQuery) => ({
-        list: [],
+        records: [],
         total: 0,
       }));
 
@@ -115,17 +115,17 @@ describe('usePagination', () => {
         },
       });
 
-      app.use(createAtengVue({ defaultPageSize: 25 }));
+      app.use(createAtengVue({ defaultSize: 25 }));
       const root = document.createElement('div');
       app.mount(root);
 
-      expect(result.pageSize.value).toBe(25);
+      expect(result.size.value).toBe(25);
 
       await vi.runAllTimersAsync();
 
       expect(service).toHaveBeenCalledWith(
         expect.objectContaining({
-          pageSize: 25,
+          size: 25,
         }),
       );
 
@@ -134,9 +134,9 @@ describe('usePagination', () => {
   });
 
   describe('Seam 2: Null Safety & Defensive Return Invariant', () => {
-    it('should guarantee list is [] when service returns null or undefined list', async () => {
+    it('should guarantee records is [] when service returns null or undefined records', async () => {
       const badResponse = {
-        list: null as unknown as TestUser[],
+        records: null as unknown as TestUser[],
         total: 0,
       };
       const service = vi.fn(async () => badResponse);
@@ -149,19 +149,19 @@ describe('usePagination', () => {
       });
 
       // Before request resolves
-      expect(result.list.value).toEqual([]);
+      expect(result.records.value).toEqual([]);
 
       await vi.runAllTimersAsync();
 
-      // After request resolves with null list
-      expect(result.list.value).toEqual([]);
-      expect(Array.isArray(result.list.value)).toBe(true);
+      // After request resolves with null records
+      expect(result.records.value).toEqual([]);
+      expect(Array.isArray(result.records.value)).toBe(true);
       expect(result.total.value).toBe(0);
 
       scope.stop();
     });
 
-    it('should guarantee list is [] and total is 0 when service throws exception', async () => {
+    it('should guarantee records is [] and total is 0 when service throws exception', async () => {
       const error = new BusinessException(500, 'Internal Server Error');
       const service = vi.fn(async () => {
         throw error;
@@ -178,21 +178,21 @@ describe('usePagination', () => {
 
       expect(result.loading.value).toBe(false);
       expect(result.error.value).toBe(error);
-      expect(result.list.value).toEqual([]);
-      expect(Array.isArray(result.list.value)).toBe(true);
+      expect(result.records.value).toEqual([]);
+      expect(Array.isArray(result.records.value)).toBe(true);
       expect(result.total.value).toBe(0);
 
       scope.stop();
     });
 
-    it('should reset list to [] when a subsequent request encounters an error', async () => {
+    it('should reset records to [] when a subsequent request encounters an error', async () => {
       let fail = false;
       const service = vi.fn(async (params: PageQuery) => {
         if (fail) {
           throw new BusinessException(500, 'Network Failed');
         }
         return {
-          list: [{ id: params.pageNum!, name: 'Success' }],
+          records: [{ id: params.current!, name: 'Success' }],
           total: 10,
         };
       });
@@ -205,7 +205,7 @@ describe('usePagination', () => {
       });
 
       await vi.runAllTimersAsync();
-      expect(result.list.value).toHaveLength(1);
+      expect(result.records.value).toHaveLength(1);
       expect(result.total.value).toBe(10);
 
       // 下一次请求模拟失败
@@ -214,7 +214,7 @@ describe('usePagination', () => {
       await vi.runAllTimersAsync();
 
       expect(result.error.value).toBeDefined();
-      expect(result.list.value).toEqual([]);
+      expect(result.records.value).toEqual([]);
       expect(result.total.value).toBe(0);
 
       scope.stop();
@@ -222,9 +222,9 @@ describe('usePagination', () => {
   });
 
   describe('Seam 3: Atomic Pagination Actions & Reset-to-Page-1 Invariant', () => {
-    it('changePage should switch pageNum and fetch new page data', async () => {
+    it('changePage should switch current and fetch new page data', async () => {
       const service = vi.fn(async (params: PageQuery) => ({
-        list: [{ id: params.pageNum!, name: `User_${params.pageNum}` }],
+        records: [{ id: params.current!, name: `User_${params.current}` }],
         total: 100,
       }));
       const scope = effectScope();
@@ -236,36 +236,36 @@ describe('usePagination', () => {
       });
 
       await vi.runAllTimersAsync();
-      expect(result.pageNum.value).toBe(1);
+      expect(result.current.value).toBe(1);
 
       // 翻到第 3 页
       result.changePage(3);
-      expect(result.pageNum.value).toBe(3);
+      expect(result.current.value).toBe(3);
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 3,
+          current: 3,
         }),
       );
 
       // 非法页码安全保底为 1
       result.changePage(0);
-      expect(result.pageNum.value).toBe(1);
+      expect(result.current.value).toBe(1);
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
+          current: 1,
         }),
       );
 
       scope.stop();
     });
 
-    it('changePageSize should update pageSize, reset pageNum to 1, and re-fetch', async () => {
+    it('changePageSize should update size, reset current to 1, and re-fetch', async () => {
       const service = vi.fn(async (_params: PageQuery) => ({
-        list: [],
+        records: [],
         total: 100,
       }));
       const scope = effectScope();
@@ -281,27 +281,27 @@ describe('usePagination', () => {
       // 先翻到第 4 页
       result.changePage(4);
       await vi.runAllTimersAsync();
-      expect(result.pageNum.value).toBe(4);
+      expect(result.current.value).toBe(4);
 
       // 切换每页条数至 50
       result.changePageSize(50);
-      expect(result.pageSize.value).toBe(50);
-      expect(result.pageNum.value).toBe(1); // 自动归 1 页
+      expect(result.size.value).toBe(50);
+      expect(result.current.value).toBe(1); // 自动归 1 页
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
-          pageSize: 50,
+          current: 1,
+          size: 50,
         }),
       );
 
       scope.stop();
     });
 
-    it('search should merge extra query params, reset pageNum to 1, and fetch', async () => {
+    it('search should merge extra query params, reset current to 1, and fetch', async () => {
       const service = vi.fn(async (_params: TestUserQuery) => ({
-        list: [],
+        records: [],
         total: 10,
       }));
       const scope = effectScope();
@@ -317,7 +317,7 @@ describe('usePagination', () => {
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
+          current: 1,
           status: 'ACTIVE',
         }),
       );
@@ -325,16 +325,16 @@ describe('usePagination', () => {
       // 先翻到第 5 页
       result.changePage(5);
       await vi.runAllTimersAsync();
-      expect(result.pageNum.value).toBe(5);
+      expect(result.current.value).toBe(5);
 
       // 触发搜索
       result.search({ keyword: 'jack' });
-      expect(result.pageNum.value).toBe(1); // 自动归 1 页
+      expect(result.current.value).toBe(1); // 自动归 1 页
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
+          current: 1,
           status: 'ACTIVE',
           keyword: 'jack',
         }),
@@ -343,9 +343,9 @@ describe('usePagination', () => {
       scope.stop();
     });
 
-    it('reset should restore initial defaultParams and reset pageNum to 1', async () => {
+    it('reset should restore initial defaultParams and reset current to 1', async () => {
       const service = vi.fn(async (_params: TestUserQuery) => ({
-        list: [],
+        records: [],
         total: 10,
       }));
       const scope = effectScope();
@@ -354,8 +354,8 @@ describe('usePagination', () => {
 
       scope.run(() => {
         result = usePagination(service, {
-          defaultPageNum: 1,
-          defaultPageSize: 10,
+          defaultCurrent: 1,
+          defaultSize: 10,
           defaultParams: { status: 'NORMAL' },
         });
       });
@@ -367,16 +367,16 @@ describe('usePagination', () => {
       result.changePage(3);
       await vi.runAllTimersAsync();
 
-      expect(result.pageNum.value).toBe(3);
+      expect(result.current.value).toBe(3);
 
       // 执行重置
       result.reset();
-      expect(result.pageNum.value).toBe(1);
+      expect(result.current.value).toBe(1);
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenLastCalledWith({
-        pageNum: 1,
-        pageSize: 10,
+        current: 1,
+        size: 10,
         status: 'NORMAL',
       });
 
@@ -386,7 +386,7 @@ describe('usePagination', () => {
 
   describe('Seam 4: Inherited Request Invariants & State Protection', () => {
     it('all exposed reactive states should be readonly', () => {
-      const service = vi.fn(async () => ({ list: [], total: 0 }));
+      const service = vi.fn(async () => ({ records: [], total: 0 }));
       const scope = effectScope();
 
       let result!: ReturnType<typeof usePagination<TestUser>>;
@@ -395,10 +395,11 @@ describe('usePagination', () => {
         result = usePagination(service, { manual: true });
       });
 
-      expect(isReadonly(result.pageNum)).toBe(true);
-      expect(isReadonly(result.pageSize)).toBe(true);
+      expect(isReadonly(result.current)).toBe(true);
+      expect(isReadonly(result.size)).toBe(true);
+      expect(isReadonly(result.sorts)).toBe(true);
       expect(isReadonly(result.total)).toBe(true);
-      expect(isReadonly(result.list)).toBe(true);
+      expect(isReadonly(result.records)).toBe(true);
       expect(isReadonly(result.loading)).toBe(true);
       expect(isReadonly(result.error)).toBe(true);
       expect(isReadonly(result.data)).toBe(true);
@@ -408,7 +409,7 @@ describe('usePagination', () => {
     });
 
     it('manual mode should not trigger service until run is called', async () => {
-      const service = vi.fn(async () => ({ list: [], total: 0 }));
+      const service = vi.fn(async () => ({ records: [], total: 0 }));
       const scope = effectScope();
 
       let result!: ReturnType<typeof usePagination<TestUser>>;
@@ -427,9 +428,9 @@ describe('usePagination', () => {
       scope.stop();
     });
 
-    it('refresh should re-run with current pageNum, pageSize and params', async () => {
+    it('refresh should re-run with current, size and params', async () => {
       const service = vi.fn(async (_params: TestUserQuery) => ({
-        list: [{ id: 1, name: 'Refreshed' }],
+        records: [{ id: 1, name: 'Refreshed' }],
         total: 1,
       }));
       const scope = effectScope();
@@ -450,7 +451,7 @@ describe('usePagination', () => {
       expect(service).toHaveBeenCalledTimes(2);
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
+          current: 1,
           keyword: 'find_me',
         }),
       );
@@ -460,7 +461,7 @@ describe('usePagination', () => {
 
     it('mutate should allow local optimistic updates', async () => {
       const service = vi.fn(async () => ({
-        list: [{ id: 1, name: 'Before' }],
+        records: [{ id: 1, name: 'Before' }],
         total: 1,
       }));
       const scope = effectScope();
@@ -472,20 +473,20 @@ describe('usePagination', () => {
       });
 
       await vi.runAllTimersAsync();
-      expect(result.list.value[0]?.name).toBe('Before');
+      expect(result.records.value[0]?.name).toBe('Before');
 
       result.mutate(prev => ({
-        list: [{ id: 1, name: 'Mutated' }],
+        records: [{ id: 1, name: 'Mutated' }],
         total: prev?.total ?? 1,
       }));
 
-      expect(result.list.value[0]?.name).toBe('Mutated');
+      expect(result.records.value[0]?.name).toBe('Mutated');
 
       scope.stop();
     });
 
     it('should debounce requests when debounceInterval is configured', async () => {
-      const service = vi.fn(async () => ({ list: [], total: 0 }));
+      const service = vi.fn(async () => ({ records: [], total: 0 }));
       const scope = effectScope();
 
       let result!: ReturnType<typeof usePagination<TestUser>>;
@@ -512,7 +513,7 @@ describe('usePagination', () => {
       expect(service).toHaveBeenCalledTimes(1);
       expect(service).toHaveBeenCalledWith(
         expect.objectContaining({
-          pageNum: 4,
+          current: 4,
         }),
       );
 
@@ -522,7 +523,7 @@ describe('usePagination', () => {
     it('should cancel in-flight request on scope disposal', async () => {
       const service = vi.fn(async () => {
         await new Promise(resolve => setTimeout(resolve, 500));
-        return { list: [], total: 0 };
+        return { records: [], total: 0 };
       });
       const scope = effectScope();
 
@@ -541,9 +542,9 @@ describe('usePagination', () => {
     });
   });
 
-  describe('Seam: Sorting & changeSort', () => {
-    it('should initialize with sortField and sortAsc as undefined by default', async () => {
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+  describe('Seam 5: Sorting & changeSort (SortItem[])', () => {
+    it('should initialize with sorts as empty array [] by default', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
       let result!: ReturnType<typeof usePagination<TestUser>>;
 
@@ -551,138 +552,126 @@ describe('usePagination', () => {
         result = usePagination(service);
       });
 
-      expect(result.sortField.value).toBeUndefined();
-      expect(result.sortAsc.value).toBeUndefined();
-      expect(isReadonly(result.sortField)).toBe(true);
-      expect(isReadonly(result.sortAsc)).toBe(true);
+      expect(result.sorts.value).toEqual([]);
+      expect(isReadonly(result.sorts)).toBe(true);
 
       await vi.runAllTimersAsync();
-      expect(service).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pageNum: 1,
-          pageSize: 10,
-          sortField: undefined,
-          sortAsc: undefined,
-        }),
-      );
+      expect(service).toHaveBeenCalledWith({
+        current: 1,
+        size: 10,
+      });
 
       scope.stop();
     });
 
-    it('should initialize with defaultSortField and defaultSortAsc options', async () => {
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+    it('should initialize with defaultSorts option as MaybeRefOrGetter', async () => {
+      const initialSorts: SortItem[] = [
+        { property: 'createTime', direction: 'DESC' },
+        { property: 'id', direction: 'ASC' },
+      ];
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
       let result!: ReturnType<typeof usePagination<TestUser>>;
 
       scope.run(() => {
         result = usePagination(service, {
-          defaultSortField: () => 'createTime',
-          defaultSortAsc: () => false,
+          defaultSorts: () => initialSorts,
         });
       });
 
-      expect(result.sortField.value).toBe('createTime');
-      expect(result.sortAsc.value).toBe(false);
+      expect(result.sorts.value).toEqual(initialSorts);
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenCalledWith(
         expect.objectContaining({
-          sortField: 'createTime',
-          sortAsc: false,
+          sorts: initialSorts,
         }),
       );
 
       scope.stop();
     });
 
-    it('should update sortField/sortAsc, reset pageNum to 1 and trigger request on changeSort', async () => {
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+    it('should support single-field shorthand and SortItem[] array in changeSort, resetting current to 1', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
       let result!: ReturnType<typeof usePagination<TestUser>>;
 
       scope.run(() => {
-        result = usePagination(service, { defaultPageNum: 3 });
+        result = usePagination(service, { defaultCurrent: 3 });
       });
 
       await vi.runAllTimersAsync();
-      expect(result.pageNum.value).toBe(3);
+      expect(result.current.value).toBe(3);
 
-      // 切换排序为 age 升序
-      await result.changeSort('age', true);
-      expect(result.sortField.value).toBe('age');
-      expect(result.sortAsc.value).toBe(true);
-      expect(result.pageNum.value).toBe(1);
-
+      // 1. 单字段简写：默认 ASC
+      await result.changeSort('age');
+      expect(result.sorts.value).toEqual([{ property: 'age', direction: 'ASC' }]);
+      expect(result.current.value).toBe(1);
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
-          sortField: 'age',
-          sortAsc: true,
+          current: 1,
+          sorts: [{ property: 'age', direction: 'ASC' }],
         }),
       );
 
-      // 切换为 age 降序
-      await result.changeSort('age', false);
-      expect(result.sortField.value).toBe('age');
-      expect(result.sortAsc.value).toBe(false);
-      expect(result.pageNum.value).toBe(1);
+      // 2. 单字段简写：指定 DESC
+      await result.changeSort('age', 'DESC');
+      expect(result.sorts.value).toEqual([{ property: 'age', direction: 'DESC' }]);
+      expect(result.current.value).toBe(1);
 
+      // 3. 多字段排序数组
+      const multiSorts: SortItem[] = [
+        { property: 'status', direction: 'ASC' },
+        { property: 'createTime', direction: 'DESC' },
+      ];
+      await result.changeSort(multiSorts);
+      expect(result.sorts.value).toEqual(multiSorts);
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
-          sortField: 'age',
-          sortAsc: false,
+          current: 1,
+          sorts: multiSorts,
         }),
       );
 
-      // 清除排序
-      await result.changeSort(undefined);
-      expect(result.sortField.value).toBeUndefined();
-      expect(result.sortAsc.value).toBeUndefined();
-
-      expect(service).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          pageNum: 1,
-          sortField: undefined,
-          sortAsc: undefined,
-        }),
-      );
+      // 4. 清空排序（传入空数组或 undefined）
+      await result.changeSort([]);
+      expect(result.sorts.value).toEqual([]);
+      expect(service).toHaveBeenLastCalledWith({
+        current: 1,
+        size: 10,
+      });
 
       scope.stop();
     });
 
-    it('should restore sortField and sortAsc to initial state on reset()', async () => {
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+    it('should restore sorts to initial defaultSorts on reset()', async () => {
+      const initialSorts: SortItem[] = [{ property: 'id', direction: 'ASC' }];
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
       let result!: ReturnType<typeof usePagination<TestUser>>;
 
       scope.run(() => {
         result = usePagination(service, {
-          defaultSortField: 'id',
-          defaultSortAsc: true,
+          defaultSorts: initialSorts,
         });
       });
 
       await vi.runAllTimersAsync();
-      expect(result.sortField.value).toBe('id');
-      expect(result.sortAsc.value).toBe(true);
+      expect(result.sorts.value).toEqual(initialSorts);
 
       // 调整为别的排序
-      await result.changeSort('createTime', false);
-      expect(result.sortField.value).toBe('createTime');
-      expect(result.sortAsc.value).toBe(false);
+      await result.changeSort('createTime', 'DESC');
+      expect(result.sorts.value).toEqual([{ property: 'createTime', direction: 'DESC' }]);
 
       // 执行 reset()
       await result.reset();
-      expect(result.sortField.value).toBe('id');
-      expect(result.sortAsc.value).toBe(true);
-      expect(result.pageNum.value).toBe(1);
+      expect(result.sorts.value).toEqual(initialSorts);
+      expect(result.current.value).toBe(1);
 
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
-          sortField: 'id',
-          sortAsc: true,
+          current: 1,
+          sorts: initialSorts,
         }),
       );
 
@@ -690,9 +679,9 @@ describe('usePagination', () => {
     });
   });
 
-  describe('Seam: refreshDeps in usePagination', () => {
-    it('should reset pageNum to 1 and re-fetch when refreshDeps changes', async () => {
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+  describe('Seam 6: refreshDeps in usePagination', () => {
+    it('should reset current to 1 and re-fetch when refreshDeps changes', async () => {
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
       let result!: ReturnType<typeof usePagination<TestUser>>;
 
@@ -700,24 +689,24 @@ describe('usePagination', () => {
 
       scope.run(() => {
         result = usePagination(service, {
-          defaultPageNum: 4,
+          defaultCurrent: 4,
           refreshDeps: () => deptRef.value,
         });
       });
 
       await vi.runAllTimersAsync();
       expect(service).toHaveBeenCalledTimes(1);
-      expect(result.pageNum.value).toBe(4);
+      expect(result.current.value).toBe(4);
 
       // 依赖变化
       deptRef.value = 102;
       await vi.runAllTimersAsync();
 
       expect(service).toHaveBeenCalledTimes(2);
-      expect(result.pageNum.value).toBe(1);
+      expect(result.current.value).toBe(1);
       expect(service).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          pageNum: 1,
+          current: 1,
         }),
       );
 
@@ -727,7 +716,7 @@ describe('usePagination', () => {
     it('should not re-fetch when refreshDeps changes if ready is false', async () => {
       const isReady = ref(false);
       const deptRef = ref(101);
-      const service = vi.fn(async (_params: PageQuery) => ({ list: [], total: 0 }));
+      const service = vi.fn(async (_params: PageQuery) => ({ records: [], total: 0 }));
       const scope = effectScope();
 
       scope.run(() => {

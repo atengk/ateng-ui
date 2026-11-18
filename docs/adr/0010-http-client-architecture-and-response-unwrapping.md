@@ -25,6 +25,9 @@ Accepted (已接受)
    - 异常对象完整挂载 `code`、`msg`、`traceId`，并通过 `cause` 属性保留原始的底层异常因果链，严禁异常吞咽与空 catch。
 4. **401 未授权自动化安全闭环与事件通知**：
    - 遇到 HTTP 401 或业务 `code === 401` 时，客户端自动调用 `authManager.clearToken()` 销毁脏凭据，并触发可选的 `onUnauthorized` 钩子通知上层。
+5. **前后端统一分页契约对称 (`PageQuery` & `PageResult<T>`)**（2026-11-18 校准对齐 `ateng-boot-core`）：
+   - `PageQuery` 统一采用 `current?: number`、`size?: number` 与 `sorts?: SortItem[]`（`{ property: string; direction: 'ASC' | 'DESC' }`）；
+   - `PageResult<T>` 统一采用 `records: T[]`、`total: number` 与可选 `current?`、`size?`、`pages?`，通过 `createPageResult` 保底 `records` 恒为数组 `[]`。
 
 ## 效果与权衡
 

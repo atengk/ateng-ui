@@ -148,7 +148,7 @@ import App from './App.vue';
 
 const app = createApp(App);
 app.use(ElementPlus);
-app.use(createAtengVue({ defaultPageSize: 20 }));
+app.use(createAtengVue({ defaultSize: 20 }));
 app.use(AtengElementPlus);
 app.mount('#app');
 ```
@@ -178,7 +178,7 @@ const selectedKeys = ref<string[]>([]);
 const fetchUsers = (params: PageQuery & { username?: string }) =>
   http.get<PageResult<UserItem>>('/api/system/users', { params });
 
-const pagination = usePagination(fetchUsers, { defaultPageSize: 10 });
+const pagination = usePagination(fetchUsers, { defaultSize: 10 });
 </script>
 
 <template>
@@ -232,7 +232,7 @@ const pagination = usePagination(fetchUsers, { defaultPageSize: 10 });
 
 1. 生成或修改任何包代码前，先读取 `./llms.txt`、根 `./package.json` 及目标 `packages/<name>/README.md`（第 0 节全景速查矩阵），严禁臆测包版本号或未导出的 API。
 2. 严守四层洋葱单向流 `L3 -> L2 -> L1 -> L0`：L0（`@atengk/core`, `@atengk/monitor`）严禁引入 Vue/UI；L1（`@atengk/vue`）严禁直接调用 `ElMessage` 等 UI 弹窗；L2 严禁逆向依赖 `@atengk/element-plus`。
-3. 后端响应严格对齐 `Result<T>`（默认自动解包、`{ unwrap: false }` 保留完整信封）与 `PageQuery`（`pageNum`/`pageSize`）+ `PageResult<T>`（`list`/`total`）；所有雪花 Long ID 字段强制使用 `string`。
+3. 后端响应严格对齐 `Result<T>`（默认自动解包、`{ unwrap: false }` 保留完整信封）与 `PageQuery`（`current`/`size`/`sorts`）+ `PageResult<T>`（`records`/`total`）；所有雪花 Long ID 字段强制使用 `string`。
 4. 二进制下载须先经 `checkBlobForJsonError` 拦截 JSON 业务异常；幂等重试仅限 GET/HEAD，禁止对 POST/PUT/DELETE 自动重试；高频搜索/切换必须使用 `useLatest` + `AbortSignal`。
 5. Vue 3.5 Composables 入参统一 `MaybeRefOrGetter<T>` + `toValue()`，状态 `readonly()` 导出；所有定时器、监听、Observer、WS/SSE 与 ObjectURL 须在 `onScopeDispose`/`onUnmounted` 100% 释放；组件根类名使用 `at-` 前缀 + `<style scoped>` + `--el-*`/`--at-*` Token，严禁裸 `any` 与硬编码破坏暗黑模式的色值；列表无数据统一保底返回 `[]`。
 ```

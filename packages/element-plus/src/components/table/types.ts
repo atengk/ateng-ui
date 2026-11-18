@@ -165,13 +165,13 @@ export interface AtengTableProps<T = Record<string, unknown>> {
    * 当前页码（离散分页模式）。
    * @default 1
    */
-  pageNum?: number;
+  current?: number;
 
   /**
    * 每页条数（离散分页模式）。
    * @default 10
    */
-  pageSize?: number;
+  size?: number;
 
   /**
    * 每页条数选择器的选项列表。
@@ -312,29 +312,29 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
   ): void;
 
   /**
-   * 页码更新事件（支持 v-model:pageNum）。
+   * 页码更新事件（支持 v-model:current）。
    */
-  (e: 'update:pageNum', pageNum: number): void;
+  (e: 'update:current', current: number): void;
 
   /**
-   * 每页条数更新事件（支持 v-model:pageSize）。
+   * 每页条数更新事件（支持 v-model:size）。
    */
-  (e: 'update:pageSize', pageSize: number): void;
+  (e: 'update:size', size: number): void;
 
   /**
    * 分页参数联合变动事件。
    */
-  (e: 'pagination-change', data: { pageNum: number; pageSize: number }): void;
+  (e: 'pagination-change', data: { current: number; size: number }): void;
 
   /**
    * 单独页码变动事件。
    */
-  (e: 'page-change', pageNum: number): void;
+  (e: 'page-change', current: number): void;
 
   /**
    * 单独每页条数变动事件。
    */
-  (e: 'size-change', pageSize: number): void;
+  (e: 'size-change', size: number): void;
 }
 
 /**
