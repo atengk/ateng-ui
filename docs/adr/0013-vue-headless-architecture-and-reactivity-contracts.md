@@ -35,7 +35,8 @@ Accepted (已接受)
    - 优先通过 `AbortController` 物理切断底层在途 HTTP 请求节省带宽；同时通过递增递次 Token / Sequence ID 标记前序 Promise 过期，彻底丢弃过期结果回调，根治时序倒挂。
 5. **按需直调与全局上下文双轨并存**：
    - 默认纯函数开箱即用，无需执行 `app.use()` 即可直接调用（默认绑定 `@atengk/core` 全局默认单例）；
-   - 额外提供轻量插件 `createAtengVue(options)` 与组合式函数 `provideAtengConfig(options)`，支持在上层统一注入全局默认分页大小、自定义 `HttpClient` 与全局错误处理器。
+   - 额外提供轻量插件 `createAtengVue(options)` 与组合式函数 `provideAtengConfig(options)`，支持在上层统一注入全局默认分页大小、自定义 `HttpClient`、多账号 `AuthManager`（如 `createAuthManager({ tokenKey: 'satoken-admin', headerName: 'satoken-admin' })`）、超管角色集合 `superAdminRoles`（默认 `['admin', 'super_admin']`）与全局错误处理器；
+   - `useAuth` 中仅 `hasPermission` 对超管角色及 `*` / `*:*:*` 全局通配放行，`hasRole` 始终严格校验用户真实角色列表。
 6. **零额外重型第三方依赖与纯 Vue 3.5 原生驱动**：
    - 严格锁定 `peerDependencies: { "vue": ">=3.5.0" }` 与 `dependencies: { "@atengk/core": "workspace:*" }`；
    - 坚决不引入 VueUse、Lodash 或 TanStack Query；防抖节流、DOM 事件受管清理等辅助函数采用纯原生在包内局部闭环实现（≤20行且确定性挂载 `onScopeDispose`）。

@@ -9,12 +9,27 @@
  * @since 2026-10-20
  */
 
-import { authManager } from '@atengk/core';
+import { computed } from 'vue';
+import { authManager, createAuthManager } from '@atengk/core';
 import { useAuth, useTenant } from '@atengk/vue';
 
 // 实例化全局响应式鉴权与租户状态机
 const auth = useAuth<{ id: number; name: string }>();
 const tenant = useTenant();
+
+// 多账号隔离示例：管理端独立 AuthManager 与自定义请求头 satoken-admin
+const adminAuthManager = createAuthManager({
+  tokenKey: 'satoken-admin',
+  headerName: 'satoken-admin',
+});
+const adminAuth = useAuth<{ id: number; name: string }>({
+  authManager: adminAuthManager,
+  superAdminRoles: ['platform_root'],
+});
+const adminHeaders = computed(() => {
+  void adminAuth.token.value;
+  return adminAuthManager.getHeaders();
+});
 
 // 1. 模拟身份快捷切换
 const loginAsOperator = () => {
@@ -38,9 +53,27 @@ const loginAsManager = () => {
 const loginAsAdmin = () => {
   auth.login({
     token: 'jwt_token_admin_999',
-    permissions: ['*'],
-    roles: ['admin'],
+    permissions: [],
+    roles: ['super_admin'],
     user: { id: 1, name: '超级管理员·Ateng' },
+  });
+};
+
+const loginAsWildcard = () => {
+  auth.login({
+    token: 'jwt_token_wildcard_777',
+    permissions: ['*:*:*'],
+    roles: ['auditor'],
+    user: { id: 2, name: '审计通配·陈专员' },
+  });
+};
+
+const loginAdminAccount = () => {
+  adminAuth.login({
+    token: 'satoken_admin_platform_001',
+    permissions: [],
+    roles: ['platform_root'],
+    user: { id: 9001, name: '独立后台账号·管理员' },
   });
 };
 
@@ -100,7 +133,20 @@ const handleTenantSelect = (event: Event) => {
           <button class="btn btn-secondary" @click="loginAsManager">
             主管登录 (含编辑与订单*)
           </button>
-          <button class="btn btn-warning" @click="loginAsAdmin">超管登录 (admin 通配*)</button>
+          <button class="btn btn-warning" @click="loginAsAdmin">超管登录 (super_admin)</button>
+          <button class="btn btn-secondary" @click="loginAsWildcard">通配登录 (*:*:*)</button>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-sm" @click="loginAdminAccount">
+            登录独立多账号 (satoken-admin)
+          </button>
+          <button
+            class="btn btn-secondary btn-sm"
+            :disabled="!adminAuth.isAuthenticated.value"
+            @click="adminAuth.logout()"
+          >
+            退出独立账号
+          </button>
         </div>
         <div class="btn-group">
           <button
@@ -192,6 +238,16 @@ const handleTenantSelect = (event: Event) => {
         </div>
 
         <div
+          :class="['perm-item', auth.hasPermission('dashboard') ? 'perm-granted' : 'perm-denied']"
+        >
+          <span>工作台入口 (dashboard 单段):</span>
+          <span :class="['badge', auth.hasPermission('dashboard') ? 'badge-yes' : 'badge-no']">
+            {{ auth.hasPermission('dashboard') ? '已放行' : '无权访问' }}
+          </span>
+          <button class="btn btn-sm" :disabled="!auth.hasPermission('dashboard')">进入</button>
+        </div>
+
+        <div
           :class="[
             'perm-item',
             auth.hasPermission('sys:config:edit') ? 'perm-granted' : 'perm-denied',
@@ -206,6 +262,13 @@ const handleTenantSelect = (event: Event) => {
           <button class="btn btn-sm" :disabled="!auth.hasPermission('sys:config:edit')">
             修改配置
           </button>
+        </div>
+
+        <div :class="['perm-item', auth.hasRole('auditor') ? 'perm-granted' : 'perm-denied']">
+          <span>严格角色校验 (hasRole auditor):</span>
+          <span :class="['badge', auth.hasRole('auditor') ? 'badge-yes' : 'badge-no']">
+            {{ auth.hasRole('auditor') ? '已匹配' : '不匹配' }}
+          </span>
         </div>
       </div>
     </div>
@@ -223,6 +286,12 @@ const handleTenantSelect = (event: Event) => {
             user: auth.user.value,
             tenantId: tenant.tenantId.value,
             hasTenant: tenant.hasTenant.value,
+            isolatedAdminAuth: {
+              isAuthenticated: adminAuth.isAuthenticated.value,
+              headers: adminHeaders,
+              canEditConfig: adminAuth.hasPermission('sys:config:edit'),
+              hasOperatorRole: adminAuth.hasRole('operator'),
+            },
           },
           null,
           2,

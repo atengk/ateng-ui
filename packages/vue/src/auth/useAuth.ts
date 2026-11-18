@@ -73,12 +73,12 @@ function getOrCreateAuthState<TUser>(manager: AuthManager): AuthInternalState<TU
 /**
  * 细粒度多段权限通配符匹配算法（支持 Apache Shiro 经典分段语法）。
  *
- * @param owned 用户拥有的单条权限规则（如 'sys:*'、'order:*:view'、'*'）
+ * @param owned 用户拥有的单条权限规则（如 'sys:*'、'order:*:view'、'*'、'*:*:*'）
  * @param target 目标待检测权限代码（如 'sys:user:add'、'order:refund:view'）
  * @returns 是否匹配通过
  */
 export function matchSinglePermission(owned: string, target: string): boolean {
-  if (owned === '*' || owned === target) {
+  if (owned === '*' || owned === '*:*:*' || owned === target) {
     return true;
   }
 
@@ -138,7 +138,10 @@ function evaluateItemsMatch(
 export function useAuth<TUser = unknown>(options: UseAuthOptions = {}): UseAuthResult<TUser> {
   const globalConfig = useAtengConfig();
   const manager = options.authManager ?? globalConfig.authManager;
-  const superAdminRole = options.superAdminRole ?? 'admin';
+  const superAdminRoles =
+    options.superAdminRoles ??
+    (options.superAdminRole ? [options.superAdminRole] : undefined) ??
+    globalConfig.superAdminRoles;
 
   const state = getOrCreateAuthState<TUser>(manager);
 
@@ -154,7 +157,7 @@ export function useAuth<TUser = unknown>(options: UseAuthOptions = {}): UseAuthR
     mode: PermissionMatchMode = 'some',
   ): boolean => {
     // 超管角色享有权限全局放行特权
-    if (state.roles.value.includes(superAdminRole)) {
+    if (superAdminRoles.some(role => state.roles.value.includes(role))) {
       return true;
     }
 

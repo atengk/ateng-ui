@@ -38,6 +38,7 @@ describe('context & plugin', () => {
 
     expect(config).toBeDefined();
     expect(config.httpClient).toBe(http);
+    expect(config.superAdminRoles).toEqual(['admin', 'super_admin']);
     expect(config.defaultSize).toBe(10);
     expect(config.autoConnectStream).toBe(true);
     expect(config.autoConnectWebSocket).toBe(true);
@@ -52,6 +53,7 @@ describe('context & plugin', () => {
 
     const plugin = createAtengVue({
       httpClient: customClient,
+      superAdminRoles: ['root', 'owner'],
       defaultSize: 20,
       onError: customOnError,
       autoConnectStream: false,
@@ -71,6 +73,7 @@ describe('context & plugin', () => {
     app.mount(root);
 
     expect(config.httpClient).toBe(customClient);
+    expect(config.superAdminRoles).toEqual(['root', 'owner']);
     expect(config.defaultSize).toBe(20);
     expect(config.onError).toBe(customOnError);
     expect(config.autoConnectStream).toBe(false);
@@ -125,6 +128,7 @@ describe('context & plugin', () => {
     // 1. 空入参安全回退默认值
     const fallbackConfig = resolveAtengConfig();
     expect(fallbackConfig.authManager).toBe(authManager);
+    expect(fallbackConfig.superAdminRoles).toEqual(['admin', 'super_admin']);
     expect(fallbackConfig.defaultSize).toBe(10);
 
     // 2. 从模拟原型链式 provides 解析（覆盖子树 provideAtengConfig 与 appContext.provides 继承）
@@ -140,21 +144,25 @@ describe('context & plugin', () => {
     const appProvides: Record<PropertyKey, unknown> = {
       [ATENG_VUE_CONFIG_KEY as symbol]: {
         authManager: appAuthManager,
+        superAdminRoles: ['platform_admin'],
         defaultSize: 20,
       },
     };
     const parentProvides = Object.create(appProvides) as Record<PropertyKey, unknown>;
     parentProvides[ATENG_VUE_CONFIG_KEY as symbol] = {
       authManager: subtreeAuthManager,
+      superAdminRoles: ['tenant_admin'],
     };
     const childProvides = Object.create(parentProvides) as Record<PropertyKey, unknown>;
 
     const resolvedFromApp = resolveAtengConfig(appProvides);
     expect(resolvedFromApp.authManager).toBe(appAuthManager);
+    expect(resolvedFromApp.superAdminRoles).toEqual(['platform_admin']);
     expect(resolvedFromApp.defaultSize).toBe(20);
 
     const resolvedFromSubtree = resolveAtengConfig(childProvides);
     expect(resolvedFromSubtree.authManager).toBe(subtreeAuthManager);
+    expect(resolvedFromSubtree.superAdminRoles).toEqual(['tenant_admin']);
     expect(resolvedFromSubtree.httpClient).toBe(http);
   });
 });

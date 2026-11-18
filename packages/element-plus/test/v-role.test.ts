@@ -301,4 +301,45 @@ describe('v-role 指令规范与边界测试', () => {
 
     expect(wrapper.find('#scoped-role-btn').exists()).toBe(true);
   });
+
+  it('严格角色校验：admin 与 super_admin 超管角色不触发 v-role 全局放行', async () => {
+    const customAuthManager = createAuthManager({
+      tokenKey: 'satoken-role-strict',
+      storage: new MemoryAuthStorage(),
+    });
+    let setupAuth!: ReturnType<typeof useAuth>;
+
+    const TestComponent = defineComponent({
+      directives: { role: vRole },
+      setup() {
+        setupAuth = useAuth();
+        return {};
+      },
+      template: `
+        <div>
+          <button id="auditor-btn" v-role="'auditor'">审计专属</button>
+          <button id="admin-btn" v-role="'admin'">管理员专属</button>
+        </div>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: {
+        plugins: [
+          createAtengVue({
+            authManager: customAuthManager,
+            superAdminRoles: ['admin', 'super_admin'],
+          }),
+        ],
+      },
+    });
+    await nextTick();
+
+    setupAuth.login({ token: 't-role', roles: ['admin', 'super_admin'] });
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#admin-btn').exists()).toBe(true);
+    expect(wrapper.find('#auditor-btn').exists()).toBe(false);
+  });
 });

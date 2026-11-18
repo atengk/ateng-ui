@@ -361,4 +361,111 @@ describe('v-permission 指令规范与边界测试', () => {
 
     expect(wrapper.find('#scoped-btn').exists()).toBe(true);
   });
+
+  it('支持 *:*:* 全局通配与 super_admin 默认超管放行', async () => {
+    auth.setPermissions(['*:*:*']);
+    const TestComp = defineComponent({
+      directives: { permission: vPermission },
+      template: `
+        <div>
+          <button id="one-seg" v-permission="'dashboard'">仪表盘</button>
+          <button id="two-seg" v-permission="'user:view'">查看</button>
+          <button id="three-seg" v-permission="'sys:user:add'">新增</button>
+        </div>
+      `,
+    });
+
+    wrapper = mount(TestComp);
+    await nextTick();
+    expect(wrapper.find('#one-seg').exists()).toBe(true);
+    expect(wrapper.find('#two-seg').exists()).toBe(true);
+    expect(wrapper.find('#three-seg').exists()).toBe(true);
+
+    auth.setPermissions([]);
+    auth.setRoles(['super_admin']);
+    await nextTick();
+    await nextTick();
+    expect(wrapper.find('#one-seg').exists()).toBe(true);
+    expect(wrapper.find('#two-seg').exists()).toBe(true);
+    expect(wrapper.find('#three-seg').exists()).toBe(true);
+  });
+
+  it('自定义 superAdminRoles 透传：通过 createAtengVue 与 provideAtengConfig 注入超管角色集合并联动 v-permission', async () => {
+    const appAuthManager = createAuthManager({
+      tokenKey: 'satoken-app',
+      headerName: 'satoken-app',
+      storage: new MemoryAuthStorage(),
+    });
+    const scopedAuthManager = createAuthManager({
+      tokenKey: 'satoken-scoped',
+      headerName: 'satoken-scoped',
+      storage: new MemoryAuthStorage(),
+    });
+
+    let appAuth!: ReturnType<typeof useAuth>;
+    let scopedAuth!: ReturnType<typeof useAuth>;
+
+    const AppPanel = defineComponent({
+      directives: { permission: vPermission },
+      setup() {
+        appAuth = useAuth();
+        return {};
+      },
+      template: `<button id="app-perm-btn" v-permission="'sys:secret:run'">应用级操作</button>`,
+    });
+
+    const ScopedPanel = defineComponent({
+      directives: { permission: vPermission },
+      setup() {
+        scopedAuth = useAuth();
+        return {};
+      },
+      template: `<button id="scoped-perm-btn" v-permission="'tenant:secret:run'">租户级操作</button>`,
+    });
+
+    const SubtreeWrapper = defineComponent({
+      components: { ScopedPanel },
+      setup() {
+        provideAtengConfig({
+          authManager: scopedAuthManager,
+          superAdminRoles: ['tenant_root'],
+        });
+        return {};
+      },
+      template: `<ScopedPanel />`,
+    });
+
+    const HostComp = defineComponent({
+      components: { AppPanel, SubtreeWrapper },
+      template: `<div><AppPanel /><SubtreeWrapper /></div>`,
+    });
+
+    wrapper = mount(HostComp, {
+      global: {
+        plugins: [
+          createAtengVue({
+            authManager: appAuthManager,
+            superAdminRoles: ['platform_root'],
+          }),
+        ],
+      },
+    });
+    await nextTick();
+
+    // 1. 传入普通 admin 角色时，因全局/子树覆盖了 superAdminRoles，不应放行
+    appAuth.login({ token: 't-app', permissions: [], roles: ['admin'] });
+    scopedAuth.login({ token: 't-scoped', permissions: [], roles: ['admin'] });
+    await nextTick();
+    await nextTick();
+    expect(wrapper.find('#app-perm-btn').exists()).toBe(false);
+    expect(wrapper.find('#scoped-perm-btn').exists()).toBe(false);
+
+    // 2. 切换为各自配置的超管角色后自动放行
+    appAuth.setRoles(['platform_root']);
+    scopedAuth.setRoles(['tenant_root']);
+    await nextTick();
+    await nextTick();
+    expect(wrapper.find('#app-perm-btn').exists()).toBe(true);
+    expect(wrapper.find('#scoped-perm-btn').exists()).toBe(true);
+  });
 });

@@ -51,7 +51,12 @@ export interface UseAuthOptions {
   authManager?: AuthManager;
 
   /**
-   * 超级管理员角色标识。拥有该角色时 hasRole 与 hasPermission 默认全局放行，默认为 'admin'。
+   * 超级管理员角色标识集合。拥有其中任意角色时 hasPermission 默认全局放行（hasRole 仍严格校验真实角色列表），默认继承全局配置或 ['admin', 'super_admin']。
+   */
+  superAdminRoles?: string[];
+
+  /**
+   * 单个超级管理员角色标识（兼容保留字段，优先级低于 superAdminRoles）。拥有该角色时 hasPermission 默认全局放行（hasRole 仍严格校验真实角色列表）。
    */
   superAdminRole?: string;
 }
@@ -86,7 +91,7 @@ export interface UseAuthResult<TUser = unknown> {
   user: DeepReadonly<Ref<TUser | undefined>>;
 
   /**
-   * 校验当前用户是否具备指定的细粒度操作权限（支持通配符 * 匹配）。
+   * 校验当前用户是否具备指定的细粒度操作权限（支持通配符 * / *:*:* 匹配，拥有超管角色时默认全局放行）。
    *
    * @param permission 权限标识字符串或权限标识数组
    * @param mode 当传入数组时的匹配模式，默认为 'some'
@@ -95,7 +100,7 @@ export interface UseAuthResult<TUser = unknown> {
   hasPermission: (permission: string | string[], mode?: PermissionMatchMode) => boolean;
 
   /**
-   * 校验当前用户是否具备指定的角色（超管角色拥有全局放行特权）。
+   * 校验当前用户是否具备指定的角色（严格校验当前用户真实角色列表，超管角色不触发全局放行）。
    *
    * @param role 角色标识字符串或角色标识数组
    * @param mode 当传入数组时的匹配模式，默认为 'some'

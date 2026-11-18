@@ -25,7 +25,7 @@ watchEffect(() => {
       <ElAlert
         title="指令特性说明"
         type="info"
-        description="支持基于角色的权限判定；若当前用户拥有 admin / superadmin 超级管理员角色，默认自动全放行；支持 .disabled 置灰修饰符与 .all 联合角色修饰符。"
+        description="严格基于当前用户真实角色列表判定（admin / super_admin 不触发 v-role 全局放行；超管全局放行仅作用于 v-permission / hasPermission）；支持 .disabled 置灰修饰符与 .all 联合角色修饰符。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -34,7 +34,8 @@ watchEffect(() => {
       <div class="control-panel">
         <span class="label">切换当前身份：</span>
         <ElRadioGroup v-model="currentRole">
-          <ElRadioButton value="admin">超级管理员 (admin)</ElRadioButton>
+          <ElRadioButton value="admin">系统管理员 (admin)</ElRadioButton>
+          <ElRadioButton value="super_admin">超级管理员 (super_admin)</ElRadioButton>
           <ElRadioButton value="editor">运营编辑 (editor)</ElRadioButton>
           <ElRadioButton value="user">普通会员 (user)</ElRadioButton>
         </ElRadioGroup>
@@ -44,10 +45,10 @@ watchEffect(() => {
         <span class="label">生效角色：</span>
         <ElTag type="success">{{ currentRole }}</ElTag>
         <span
-          v-if="currentRole === 'admin'"
-          style="color: var(--el-color-success); font-size: 13px"
+          v-if="currentRole === 'admin' || currentRole === 'super_admin'"
+          style="color: var(--el-color-warning); font-size: 13px"
         >
-          🌟 超级管理员拥有全局豁免放行权！
+          提示：v-role 仅校验真实角色归属，超管放行特权仅作用于 v-permission / hasPermission。
         </span>
       </div>
 

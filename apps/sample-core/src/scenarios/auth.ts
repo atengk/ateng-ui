@@ -5,8 +5,25 @@
  * @since 2026-11-04
  */
 
-import { http, authManager, tenantManager, cacheStorage, BusinessException } from '@atengk/core';
+import {
+  http,
+  authManager,
+  createAuthManager,
+  createHttpClient,
+  tenantManager,
+  cacheStorage,
+  BusinessException,
+} from '@atengk/core';
 import { registerUnauthorizedCallback } from '../client';
+
+// 多账号 / Sa-Token 自定义请求头隔离实例
+const adminAuthManager = createAuthManager({
+  tokenKey: 'satoken-admin',
+  headerName: 'satoken-admin',
+});
+const adminHttp = createHttpClient({
+  authManager: adminAuthManager,
+});
 
 /**
  * 更新鉴权 UI 指示器状态。
@@ -29,11 +46,13 @@ function updateAuthStatusUI(extraMsg?: string): void {
 
   if (logBox) {
     const headers = authManager.getHeaders();
+    const adminHeaders = adminAuthManager.getHeaders();
     logBox.textContent = [
       extraMsg ? `[通知] ${extraMsg}` : null,
       `当前 Token: ${token || '(null)'}`,
       `注入请求头 (token): ${headers['token'] || '(无)'}`,
       `注入请求头 (Authorization): ${headers['Authorization'] || '(无)'}`,
+      `多账号隔离头 (satoken-admin): ${adminHeaders['satoken-admin'] || '(未登录)'}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -57,6 +76,9 @@ export function renderAuthCard(): string {
       <p class="card-desc">自动注入 token 与 Authorization: Bearer 双轨请求头，401 自动清理通知。</p>
       <div class="actions-row">
         <button class="btn btn-primary" id="btn-token-login">登录注入凭据</button>
+        <button class="btn btn-secondary" id="btn-token-multi-account">
+          多账号隔离 (satoken-admin)
+        </button>
         <button class="btn btn-secondary" id="btn-token-clear">主动清空</button>
         <button class="btn btn-danger" id="btn-token-401">模拟 401 过期</button>
       </div>
@@ -89,14 +111,26 @@ export function initAuthScenario(): void {
     updateAuthStatusUI(msg);
   });
 
-  // 2. Token 登录、清空与模拟 401
+  // 2. Token 登录、多账号隔离、清空与模拟 401
   document.getElementById('btn-token-login')?.addEventListener('click', () => {
     authManager.setToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ateng-token-sample');
     updateAuthStatusUI('成功登录并注入 Token 凭据');
   });
 
+  document.getElementById('btn-token-multi-account')?.addEventListener('click', () => {
+    if (adminAuthManager.getToken()) {
+      adminAuthManager.clearToken();
+      updateAuthStatusUI('已清空独立多账号 satoken-admin 凭据');
+    } else {
+      adminAuthManager.setToken('satoken_admin_isolated_token');
+      void adminHttp;
+      updateAuthStatusUI('已注入独立多账号凭据 (headerName: satoken-admin)');
+    }
+  });
+
   document.getElementById('btn-token-clear')?.addEventListener('click', () => {
     authManager.clearToken();
+    adminAuthManager.clearToken();
     updateAuthStatusUI('凭据已手动清空');
   });
 

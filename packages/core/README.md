@@ -434,13 +434,31 @@ const res = await secureClient.post('/api/order/pay', {
 #### 专属 TypeScript 契约片段
 
 ```ts
+export interface AuthManagerOptions {
+  /** 存储在 Storage 中的 Token 键名，默认 'token' */
+  tokenKey?: string;
+  /** 双轨 Header 中的自定义 Token 请求头名称，默认 'token' */
+  headerName?: string;
+  /** 双轨 Header 中的 Bearer Authorization 请求头名称，默认 'Authorization' */
+  bearerHeaderName?: string;
+  /** Bearer Token 前缀，默认 'Bearer ' */
+  tokenPrefix?: string;
+  /** 底层持久化存储适配器实例 */
+  storage?: AuthStorage;
+  /** 未授权 (401) 发生时的回调通知 */
+  onUnauthorized?: () => void;
+}
+
 export interface AuthManager {
   getToken(): string | null;
-  setToken(token: string): void;
+  setToken(token: string | null | undefined): void;
   clearToken(): void;
   getHeaders(): Record<string, string>;
+  handleUnauthorized(): void;
   onUnauthorized(listener: () => void): () => void;
 }
+
+export function createAuthManager(options?: AuthManagerOptions): AuthManager;
 ```
 
 #### 实战业务 TS 代码示例
@@ -448,7 +466,7 @@ export interface AuthManager {
 代码逆向提取自 [apps/sample-core/src/scenarios/auth.ts](../../apps/sample-core/src/scenarios/auth.ts)：
 
 ```ts
-import { authManager } from '@atengk/core';
+import { authManager, createAuthManager, createHttpClient } from '@atengk/core';
 
 // 1. 用户登录成功：持久化 Token
 authManager.setToken('YOUR_AUTH_TOKEN');
@@ -460,12 +478,21 @@ authManager.setToken('YOUR_AUTH_TOKEN');
 const unbind = authManager.onUnauthorized(() => {
   console.warn('登录已过期，执行清空并跳转至登录页');
 });
+
+// 4. 多账号 / Sa-Token 自定义请求头隔离接法
+const adminAuthManager = createAuthManager({
+  tokenKey: 'satoken-admin',
+  headerName: 'satoken-admin',
+});
+const adminHttp = createHttpClient({
+  authManager: adminAuthManager,
+});
 ```
 
 #### 核心机制与生产边界
 
 - **跨宿主自适应存储**：浏览器环境下优先写入 `LocalStorage`，Node/SSR 环境平滑降级为 `MemoryAuthStorage`，保障平台中立；
-- **防双重清理**：401 触发时原子化注销凭据，并调用所有注册的监听器，监听器内部异常不会中断主流程。
+- **401 清理与多账号隔离**：遇到 HTTP 401 或业务 `code === 401` 时原子化注销本地凭据并广播 `onUnauthorized` 监听器（监听器异常不中断主流程）；不同账号体系（如前台用户与后台管理端）可通过 `createAuthManager({ tokenKey, headerName })` 独立隔离存储键与请求头。
 
 ---
 
@@ -904,6 +931,15 @@ export interface HttpClientOptions extends RetryPolicy {
 }
 
 // ==================== 3. 凭据、租户与缓存 ====================
+export interface AuthManagerOptions {
+  tokenKey?: string;
+  headerName?: string;
+  bearerHeaderName?: string;
+  tokenPrefix?: string;
+  storage?: AuthStorage;
+  onUnauthorized?: () => void;
+}
+
 export interface AuthStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

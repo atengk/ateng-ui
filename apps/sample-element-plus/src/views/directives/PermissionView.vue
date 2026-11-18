@@ -8,7 +8,15 @@
 
 import { ref, watchEffect } from 'vue';
 import { useAuth } from '@atengk/vue';
-import { ElCard, ElButton, ElCheckboxGroup, ElCheckbox, ElAlert, ElTag } from 'element-plus';
+import {
+  ElCard,
+  ElButton,
+  ElCheckboxGroup,
+  ElCheckbox,
+  ElSwitch,
+  ElAlert,
+  ElTag,
+} from 'element-plus';
 
 const auth = useAuth();
 
@@ -17,12 +25,15 @@ const availablePermissions = [
   { label: '新增用户 (sys:user:add)', value: 'sys:user:add' },
   { label: '编辑用户 (sys:user:edit)', value: 'sys:user:edit' },
   { label: '删除用户 (sys:user:delete)', value: 'sys:user:delete' },
+  { label: '全局通配 (*:*:*)', value: '*:*:*' },
 ];
 
 const selectedPermissions = ref<string[]>(['sys:user:add']);
+const isSuperAdmin = ref(false);
 
 watchEffect(() => {
   auth.setPermissions(selectedPermissions.value);
+  auth.setRoles(isSuperAdmin.value ? ['super_admin'] : []);
 });
 </script>
 
@@ -32,7 +43,7 @@ watchEffect(() => {
       <ElAlert
         title="指令特性说明"
         type="info"
-        description="默认在无权限时物理移除 DOM 并在原位保留 <!--v-permission--> 注释锚点（当权限恢复时原位插回）；支持 .disabled 修饰符将按钮降级为置灰不可点击态（捕获阶段拦截事件）；支持 .all 修饰符要求满足全部权限。"
+        description="默认在无权限时物理移除 DOM 并在原位保留 <!--v-permission--> 注释锚点（当权限恢复时原位插回）；支持 * / *:*:* 全局通配与 superAdminRoles（默认 ['admin', 'super_admin']）超管放行；支持 .disabled 置灰与 .all 且逻辑修饰符。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -45,6 +56,11 @@ watchEffect(() => {
             {{ item.label }}
           </ElCheckbox>
         </ElCheckboxGroup>
+        <ElSwitch
+          v-model="isSuperAdmin"
+          active-text="模拟 super_admin 超管放行"
+          inactive-text="普通身份"
+        />
       </div>
 
       <div class="status-tags">
@@ -65,6 +81,7 @@ watchEffect(() => {
       <div class="demo-section">
         <h3>1. 默认物理移除模式（无权限时移除节点留注释锚点）</h3>
         <div class="btn-group">
+          <ElButton v-permission="'dashboard'" type="info"> 工作台入口 (dashboard 单段) </ElButton>
           <ElButton v-permission="'sys:user:add'" type="primary">
             新增用户 (sys:user:add)
           </ElButton>

@@ -43,7 +43,10 @@ function resolveDirectiveAuth(
     instance?.$?.appContext?.provides ??
     (vnode?.appContext?.provides as Record<PropertyKey, unknown> | undefined);
   const config = resolveAtengConfig(provides);
-  return useAuth({ authManager: config.authManager });
+  return useAuth({
+    authManager: config.authManager,
+    superAdminRoles: config.superAdminRoles,
+  });
 }
 
 /**

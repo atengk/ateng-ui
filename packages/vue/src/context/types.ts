@@ -27,6 +27,11 @@ export interface AtengVueOptions {
   tenantManager?: TenantManager;
 
   /**
+   * 全局超级管理员角色标识集合。拥有其中任意角色时 hasPermission / v-permission 默认全局放行，默认为 ['admin', 'super_admin']。
+   */
+  superAdminRoles?: string[];
+
+  /**
    * 默认分页大小。未指定时默认为 10。
    */
   defaultSize?: number;
@@ -67,6 +72,11 @@ export interface AtengVueContext {
    * 生效的 TenantManager 租户门面实例。
    */
   tenantManager: TenantManager;
+
+  /**
+   * 生效的超级管理员角色标识集合。
+   */
+  superAdminRoles: string[];
 
   /**
    * 生效的默认分页大小。

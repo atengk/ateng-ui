@@ -28,6 +28,7 @@ const DEFAULT_OPTIONS: AtengVueContext = {
   httpClient: http,
   authManager,
   tenantManager,
+  superAdminRoles: ['admin', 'super_admin'],
   defaultSize: 10,
   autoConnectStream: true,
   autoConnectWebSocket: true,
@@ -52,13 +53,19 @@ export function provideAtengConfig(options: AtengVueOptions): void {
  */
 function normalizeAtengConfig(injected?: AtengVueOptions | null): AtengVueContext {
   if (!injected) {
-    return DEFAULT_OPTIONS;
+    return {
+      ...DEFAULT_OPTIONS,
+      superAdminRoles: [...DEFAULT_OPTIONS.superAdminRoles],
+    };
   }
 
   return {
     httpClient: injected.httpClient ?? DEFAULT_OPTIONS.httpClient,
     authManager: injected.authManager ?? DEFAULT_OPTIONS.authManager,
     tenantManager: injected.tenantManager ?? DEFAULT_OPTIONS.tenantManager,
+    superAdminRoles: injected.superAdminRoles
+      ? [...injected.superAdminRoles]
+      : [...DEFAULT_OPTIONS.superAdminRoles],
     defaultSize: injected.defaultSize ?? DEFAULT_OPTIONS.defaultSize,
     onError: injected.onError,
     autoConnectStream: injected.autoConnectStream ?? DEFAULT_OPTIONS.autoConnectStream,

@@ -23,8 +23,9 @@ Accepted (已接受)
 3. **因果异常统一转译 (`BusinessException`)**：
    - 当 `code !== 200` 或发生 HTTP 4xx/5xx/超时/网络断连时，拦截器统一转译并抛出 `BusinessException`；
    - 异常对象完整挂载 `code`、`msg`、`traceId`，并通过 `cause` 属性保留原始的底层异常因果链，严禁异常吞咽与空 catch。
-4. **401 未授权自动化安全闭环与事件通知**：
-   - 遇到 HTTP 401 或业务 `code === 401` 时，客户端自动调用 `authManager.clearToken()` 销毁脏凭据，并触发可选的 `onUnauthorized` 钩子通知上层。
+4. **401 未授权自动化安全闭环与多账号隔离**：
+   - 遇到 HTTP 401 或业务 `code === 401` 时，客户端自动调用 `authManager.handleUnauthorized()` 销毁脏凭据并广播 `onUnauthorized` 通知上层（不内置 Refresh Token 内存 Promise 锁队列，保持凭据状态机确定简洁）；
+   - 多账号/自定义请求头体系（如 `satoken-admin`）通过 `createAuthManager({ tokenKey, headerName })` 配合 `createHttpClient({ authManager })` / `createAtengVue({ authManager })` 独立隔离。
 5. **前后端统一分页契约对称 (`PageQuery` & `PageResult<T>`)**（2026-11-18 校准对齐 `ateng-boot-core`）：
    - `PageQuery` 统一采用 `current?: number`、`size?: number` 与 `sorts?: SortItem[]`（`{ property: string; direction: 'ASC' | 'DESC' }`）；
    - `PageResult<T>` 统一采用 `records: T[]`、`total: number` 与可选 `current?`、`size?`、`pages?`，通过 `createPageResult` 保底 `records` 恒为数组 `[]`。

@@ -113,10 +113,18 @@ flowchart TD
 
 ```ts
 export interface AtengVueOptions {
-  /** 全局默认分页每页容量 @default 10 */
-  defaultSize?: number;
   /** 全局自定义 HTTP 客户端实例（缺省时自动使用 @atengk/core 全局单例） */
   httpClient?: HttpClient;
+  /** 全局自定义 AuthManager 实例（缺省时自动使用 @atengk/core 全局单例） */
+  authManager?: AuthManager;
+  /** 全局自定义 TenantManager 实例（缺省时自动使用 @atengk/core 全局单例） */
+  tenantManager?: TenantManager;
+  /** 全局超级管理员角色标识集合（默认 ['admin', 'super_admin']） */
+  superAdminRoles?: string[];
+  /** 全局默认分页每页容量 @default 10 */
+  defaultSize?: number;
+  /** 全局请求异常处理回调 */
+  onError?: (error: BusinessException | unknown) => void;
   /** 是否在挂载时自动连接全局流式客户端 @default true */
   autoConnectStream?: boolean;
   /** 是否在挂载时自动连接全局 WebSocket 客户端 @default true */
@@ -724,55 +732,107 @@ const { executing, run: handlePay } = useIdempotent(submitOrder, {
 
 ### 7.1 响应式鉴权凭据与细粒度权限校验 (useAuth)
 
-响应式对接 L0 鉴权管理器，提供当前登录凭据提取、退出登录广播与细粒度权限/角色通配校验。
+响应式对接 L0 `AuthManager`，提供登录态流转（`login` / `logout`）、超管角色集合配置（`superAdminRoles`，默认 `['admin', 'super_admin']`）、`*` / `*:*:*` 全局通配符匹配、严格角色校验（`hasRole`）及多账号隔离适配。
 
 #### 专属 TypeScript 契约片段
 
 ```ts
-export interface UseAuthOptions {
-  authManager?: AuthManager;
+export type PermissionMatchMode = 'some' | 'every';
+
+export interface AuthLoginPayload<TUser = unknown> {
+  /** 登录成功的 Token 凭据字符串 */
+  token: string;
+  /** 细粒度权限标识集合（如 ['sys:user:add', 'sys:*', '*:*:*']） */
+  permissions?: string[];
+  /** 角色标识集合（如 ['admin', 'super_admin', 'operator']） */
+  roles?: string[];
+  /** 可选登录用户信息实体 */
+  user?: TUser;
 }
 
-export interface UseAuthResult {
-  token: Readonly<Ref<string | null>>;
-  isAuthenticated: ComputedRef<boolean>;
-  setToken: (token: string) => void;
-  clearToken: () => void;
-  hasPermission: (permission: string, userPermissions: string[]) => boolean;
-  hasRole: (role: string, userRoles: string[]) => boolean;
+export interface UseAuthOptions {
+  /** 自定义关联的 AuthManager 实例（默认读取全局上下文或 Fallback 至全局单例） */
+  authManager?: AuthManager;
+  /** 超管角色集合，拥有其中任意角色时 hasPermission 全局放行（默认继承全局或 ['admin', 'super_admin']） */
+  superAdminRoles?: string[];
+  /** 单个超管角色标识兼容配置（优先级低于 superAdminRoles） */
+  superAdminRole?: string;
+}
+
+export interface UseAuthResult<TUser = unknown> {
+  token: DeepReadonly<Ref<string | null>>;
+  isAuthenticated: DeepReadonly<Ref<boolean>>;
+  permissions: DeepReadonly<Ref<string[]>>;
+  roles: DeepReadonly<Ref<string[]>>;
+  user: DeepReadonly<Ref<TUser | undefined>>;
+  hasPermission: (permission: string | string[], mode?: PermissionMatchMode) => boolean;
+  hasRole: (role: string | string[], mode?: PermissionMatchMode) => boolean;
+  login: (payload: AuthLoginPayload<TUser>) => void;
+  logout: () => void;
+  setPermissions: (permissions: string[]) => void;
+  setRoles: (roles: string[]) => void;
+  setUser: (user: TUser | undefined) => void;
 }
 ```
 
 #### 实战业务代码示例 (AuthTenantDemo.vue)
 
+```ts
+// 1. 多账号 / Sa-Token 自定义请求头标准接法 (main.ts)
+import { createApp } from 'vue';
+import { createAuthManager } from '@atengk/core';
+import { createAtengVue } from '@atengk/vue';
+import App from './App.vue';
+
+const adminAuthManager = createAuthManager({
+  tokenKey: 'satoken-admin',
+  headerName: 'satoken-admin',
+});
+
+const app = createApp(App);
+app.use(
+  createAtengVue({
+    authManager: adminAuthManager,
+    superAdminRoles: ['admin', 'super_admin'],
+  }),
+);
+```
+
 ```vue
+<!-- 2. 组件内响应式鉴权与超管/通配校验 (AuthTenantDemo.vue) -->
 <script setup lang="ts">
 import { useAuth } from '@atengk/vue';
 
-const { token, isAuthenticated, setToken, clearToken, hasPermission } = useAuth();
+const auth = useAuth<{ id: number; name: string }>();
 
-// 用户拥有的权限列表
-const permissions = ['sys:user:list', 'sys:user:create', 'sys:user:export'];
-
-const onLogin = () => setToken('mock-jwt-token-production-123456');
-const onLogout = () => clearToken();
+const loginAsSuperAdmin = () => {
+  auth.login({
+    token: 'YOUR_AUTH_TOKEN',
+    permissions: [],
+    roles: ['super_admin'],
+    user: { id: 1, name: '超级管理员' },
+  });
+};
 </script>
 
 <template>
   <div>
-    <button v-if="!isAuthenticated" @click="onLogin">模拟登录注入 Token</button>
-    <button v-else @click="onLogout">退出登录</button>
+    <button v-if="!auth.isAuthenticated.value" @click="loginAsSuperAdmin">登录超管</button>
+    <button v-else @click="auth.logout()">退出登录</button>
 
-    <div v-if="hasPermission('sys:user:export', permissions)">
-      <button>具备导出权限 (sys:user:export)</button>
-    </div>
+    <!-- super_admin 自动放行 hasPermission，支持 * / *:*:* 匹配 1~3 段权限码 -->
+    <button v-if="auth.hasPermission('dashboard')">工作台入口</button>
+    <button v-if="auth.hasPermission('sys:user:export')">导出用户</button>
+    <!-- hasRole 严格校验真实角色列表，super_admin 不会放行 auditor -->
+    <button v-if="auth.hasRole('auditor')">仅审计角色可见</button>
   </div>
 </template>
 ```
 
 #### 核心机制与生产边界说明
 
-- **双轨请求头同步**：通过 `setToken` 设置凭据后，后续由 `@atengk/core` 发起的 HTTP 请求将自动注入 `token` 与 `Authorization: Bearer` 双轨请求头。
+- **超管判定与通配符边界**：`superAdminRoles` 优先级为 `options.superAdminRoles` > `options.superAdminRole` > `globalConfig.superAdminRoles` > `['admin', 'super_admin']`；仅 `hasPermission` 对超管角色与 `*` / `*:*:*`（兼容 1~N 段权限码）放行，`hasRole` 始终严格校验用户真实角色列表。
+- **双轨请求头与 401 自动同步**：多账号场景通过 `createAuthManager({ tokenKey, headerName })` 配合 `createAtengVue({ authManager })` 隔离存储键与自定义请求头；401 发生时 `AuthManager` 清空凭据并广播 `onUnauthorized`，自动重置所有关联 `useAuth` 响应式状态。
 
 ---
 
@@ -1204,17 +1264,32 @@ const { tabs, activeKey, cachedViews, openTab, closeTab, closeOthers, refreshTab
 ```ts
 // 1. 全局配置上下文
 export interface AtengVueOptions {
-  defaultSize?: number;
   httpClient?: HttpClient;
+  authManager?: AuthManager;
+  tenantManager?: TenantManager;
+  superAdminRoles?: string[];
+  defaultSize?: number;
+  onError?: (error: BusinessException | unknown) => void;
   autoConnectStream?: boolean;
   autoConnectWebSocket?: boolean;
 }
 
 export interface AtengVueContext {
-  defaultSize: number;
   httpClient: HttpClient;
+  authManager: AuthManager;
+  tenantManager: TenantManager;
+  superAdminRoles: string[];
+  defaultSize: number;
+  onError?: (error: BusinessException | unknown) => void;
   autoConnectStream: boolean;
   autoConnectWebSocket: boolean;
+}
+
+// 1.1 鉴权状态机
+export interface UseAuthOptions {
+  authManager?: AuthManager;
+  superAdminRoles?: string[];
+  superAdminRole?: string;
 }
 
 // 2. 异步请求状态机

@@ -17,7 +17,7 @@
 - **雪花 Long ID 原始 JSON 正则防截断（ADR-0003）**：针对后端 64 位长整型雪花 ID（`> Number.MAX_SAFE_INTEGER`），在 Axios `transformResponse` 原始字符串阶段通过零依赖正则将 16 位以上纯数字值包裹双引号转为 `string`，严禁引入 `json-bigint`。
 - **Blob 异常双态识别与 Fesod Excel 协议（ADR-0004、ADR-0027）**：文件下载/导出流式响应（`responseType: 'blob'` 或 Fetch 流）前置嗅探 `Content-Type`；若为 `application/json` 错误帧，立即通过 `Blob.text()` 解析并抛出 `BusinessException`，严禁生成损坏假文件；原生支持 Apache Fesod 导入批注回写协议。
 - **异步时序竞态双重防御（ADR-0013）**：高频检索、Tab 切换与分页拉取标配 `AbortController`（`AbortSignal` 中断过期请求）与 `useLatest`（逻辑序号比对丢弃过期响应），根除“先发后至”状态覆盖。
-- **全链路 `traceId` 与双 Token 并发续期（ADR-0011、ADR-0038）**：请求拦截器注入 `X-Trace-Id` 与 `X-Idempotency-Key`；`AuthManager` 遇 `401` 时基于内存 Promise 锁队列挂起并发请求，单次刷新 Token 成功后批量重放，失败则清空凭据并触发登出。
+- **全链路 `traceId` 提取与 401 凭据清理广播（ADR-0010、ADR-0011、ADR-0038）**：响应拦截器与 `@atengk/monitor` 自动从响应头（`x-trace-id` / `trace-id`）及 `Result.traceId` 提取链路标识并绑定至 `BusinessException` 与监控上下文；`AuthManager` 注入自定义与 `Authorization: Bearer` 双轨请求头，遇 `401` 时清空本地凭据并广播 `onUnauthorized` 事件同步重置鉴权状态。
 - **前端内存真明文与渲染态脱敏（ADR-0017）**：网络层与状态层保持原始数据契约，严禁在业务表单状态中直接将属性篡改为星号字符串导致回显污染；展示脱敏收敛于渲染管道或 `AtengDescriptions` 声明式切换。
 - **Vue 3.5+ 响应式入参与解包契约（ADR-0002、ADR-0013）**：Composables（Hooks）动态入参统一声明为 `MaybeRefOrGetter<T>`，内部统一使用 Vue 3.5 原生 `toValue()` 解包，严禁直接解构导致响应性丢失。
 - **UI 样式隔离、Design Tokens 与实例暴露（ADR-0021、ADR-0029）**：① 组件根类名强制以 `at-` 为前缀（BEM），SFC 强制开启 `<style scoped>`（严禁全局样式污染与全局 `!important`）；② 颜色、圆角、阴影 100% 绑定 `--el-*` 或 `--at-*` CSS 变量，严禁硬编码物理 Hex 色值破坏暗黑模式；③ 复合组件必须通过 `defineExpose` 显式暴露实例方法（如 `refresh`、`validate`、`resetFields`）。
@@ -36,7 +36,7 @@
 6. **平台与跨框架中立防御（L0 纯净律）**：L0 底座（`@atengk/core`、`@atengk/monitor`）保持 100% 纯 TypeScript 跨框架中立，**严禁引入 `vue`、`react` 或任何 UI 库依赖与响应式类型（`Ref`）**。
 7. **因果异常体系与驱动解耦**：严禁空 `catch` 吞咽异常或仅 `console.log` 敷衍；底层网络/引擎错误转译为 `BusinessException`，完整保留 `code`、`msg`、`traceId` 与原始 `cause` 链。
 8. **原生优先与零臃肿底座收敛**：100% 优先使用 ESNext / Web 原生 API（`fetch`、`structuredClone`、`Intl`、`crypto`）与 Vue 3.5 原生算力；跨包通用能力收敛于 `@atengk/core` 与 `@atengk/vue`，**严禁引入 `lodash`、`moment` 等重型工具库**。
-9. **对抗性极限单测与 1:1 Sample 守护**：除 Happy Path 外，单测必须覆盖雪花大数精度、空数组保底、并发竞态丢弃、网络中断重试、401 续期队列与组件卸载清理场景。
+9. **对抗性极限单测与 1:1 Sample 守护**：除 Happy Path 外，单测必须覆盖雪花大数精度、空数组保底、并发竞态丢弃、网络中断重试、401 自动清理广播与组件卸载清理场景。
 10. **零 `any`、禁裸非空断言与显式导出闭环**：生产代码 **100% 严禁裸 `any`**（未知结构使用 `unknown` + 类型守卫）与未防御的非空断言 `!`；子包顶级 `src/index.ts` 必须 100% 显式具名导出所有公开组件、Hooks 与 TypeScript 接口。
 11. **无头层与 UI 表现彻底解耦（L1 纯净律）**：L1 无头层（`@atengk/vue`）只负责响应式状态机编排，**严禁直接导入或调用 `ElMessage`、`ElNotification` 等具体 UI 组件**。
 12. **受管整洁代码与文档注释**：单个 `.vue` SFC 建议 $\le 400$ 行（标签顺序固定为 `<script setup lang="ts">` $\rightarrow$ `<template>` $\rightarrow$ `<style scoped>`），单个 `.ts` 文件 $\le 500$ 行；新建源码与公开 API 标配中文 JSDoc、`@author Ateng` 与 `@since YYYY-MM-DD`。

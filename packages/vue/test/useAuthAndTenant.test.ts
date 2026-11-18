@@ -6,14 +6,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { effectScope, isReadonly } from 'vue';
+import { createApp, defineComponent, effectScope, h, isReadonly } from 'vue';
 import {
   createAuthManager,
   createTenantManager,
   MemoryAuthStorage,
   MemoryTenantStorage,
 } from '@atengk/core';
-import { useAuth, useTenant } from '../src';
+import { createAtengVue, provideAtengConfig, useAuth, useTenant } from '../src';
 
 describe('useAuth & useTenant', () => {
   let customAuthManager: ReturnType<typeof createAuthManager>;
@@ -156,7 +156,7 @@ describe('useAuth & useTenant', () => {
         auth = useAuth({ authManager: customAuthManager });
       });
 
-      // 1. 全局通配符 *
+      // 1. 全局通配符 * 与 *:*:*
       auth.login({
         token: 'token-wildcard',
         permissions: ['*'],
@@ -165,7 +165,14 @@ describe('useAuth & useTenant', () => {
       expect(auth.hasPermission('any:domain:action')).toBe(true);
       expect(auth.hasPermission(['a:b', 'c:d'], 'every')).toBe(true);
 
-      // 2. 超级管理员角色 admin 全局放行特权
+      auth.setPermissions(['*:*:*']);
+      expect(auth.hasPermission('dashboard')).toBe(true);
+      expect(auth.hasPermission('user:view')).toBe(true);
+      expect(auth.hasPermission('sys:user:add')).toBe(true);
+      expect(auth.hasPermission('a:b:c:d')).toBe(true);
+      expect(auth.hasPermission(['dashboard', 'user:view', 'sys:user:add'], 'every')).toBe(true);
+
+      // 2. 超级管理员角色 admin 与 super_admin 全局放行 hasPermission，hasRole 保持严格校验
       auth.login({
         token: 'token-admin',
         permissions: [],
@@ -176,7 +183,82 @@ describe('useAuth & useTenant', () => {
       expect(auth.hasRole('auditor')).toBe(false); // 严格角色身份校验：非当前角色返回 false
       expect(auth.hasPermission('finance:audit:approve')).toBe(true); // 超管拥有任意权限放行特权
 
+      auth.setRoles(['super_admin']);
+      expect(auth.hasRole('super_admin')).toBe(true);
+      expect(auth.hasRole('auditor')).toBe(false);
+      expect(auth.hasPermission('finance:audit:approve')).toBe(true);
+
       scope.stop();
+    });
+
+    it('should resolve superAdminRoles with priority: options.superAdminRoles > options.superAdminRole > globalConfig.superAdminRoles > default', () => {
+      const manager1 = createAuthManager({ storage: new MemoryAuthStorage() });
+      const manager2 = createAuthManager({ storage: new MemoryAuthStorage() });
+      const manager3 = createAuthManager({ storage: new MemoryAuthStorage() });
+      const manager4 = createAuthManager({ storage: new MemoryAuthStorage() });
+
+      let globalScopedAuth!: ReturnType<typeof useAuth>;
+      let legacyOptionAuth!: ReturnType<typeof useAuth>;
+      let arrayOptionAuth!: ReturnType<typeof useAuth>;
+      let disabledBypassAuth!: ReturnType<typeof useAuth>;
+
+      const ChildComp = defineComponent({
+        setup() {
+          // 1. 继承 globalConfig.superAdminRoles
+          globalScopedAuth = useAuth({ authManager: manager1 });
+          // 2. options.superAdminRole 覆盖 globalConfig
+          legacyOptionAuth = useAuth({ authManager: manager2, superAdminRole: 'legacy_root' });
+          // 3. options.superAdminRoles 覆盖 options.superAdminRole 与 globalConfig
+          arrayOptionAuth = useAuth({
+            authManager: manager3,
+            superAdminRole: 'legacy_root',
+            superAdminRoles: ['platform_root'],
+          });
+          // 4. 显式空数组禁用超管放行
+          disabledBypassAuth = useAuth({
+            authManager: manager4,
+            superAdminRoles: [],
+          });
+          return () => h('div');
+        },
+      });
+
+      const HostComp = defineComponent({
+        setup() {
+          provideAtengConfig({ superAdminRoles: ['subtree_admin'] });
+          return () => h(ChildComp);
+        },
+      });
+
+      const app = createApp(HostComp);
+      app.use(createAtengVue({ superAdminRoles: ['app_admin'] }));
+      const root = document.createElement('div');
+      app.mount(root);
+
+      // 1. 继承子树覆盖的 ['subtree_admin']，原默认 admin 不再自动放行
+      globalScopedAuth.login({ token: 't1', permissions: [], roles: ['admin'] });
+      expect(globalScopedAuth.hasPermission('sys:config:edit')).toBe(false);
+      globalScopedAuth.setRoles(['subtree_admin']);
+      expect(globalScopedAuth.hasPermission('sys:config:edit')).toBe(true);
+      expect(globalScopedAuth.hasRole('auditor')).toBe(false);
+
+      // 2. options.superAdminRole 覆盖 globalConfig
+      legacyOptionAuth.login({ token: 't2', permissions: [], roles: ['subtree_admin'] });
+      expect(legacyOptionAuth.hasPermission('sys:config:edit')).toBe(false);
+      legacyOptionAuth.setRoles(['legacy_root']);
+      expect(legacyOptionAuth.hasPermission('sys:config:edit')).toBe(true);
+
+      // 3. options.superAdminRoles 优先级最高
+      arrayOptionAuth.login({ token: 't3', permissions: [], roles: ['legacy_root'] });
+      expect(arrayOptionAuth.hasPermission('sys:config:edit')).toBe(false);
+      arrayOptionAuth.setRoles(['platform_root']);
+      expect(arrayOptionAuth.hasPermission('sys:config:edit')).toBe(true);
+
+      // 4. superAdminRoles: [] 彻底关闭超管放行
+      disabledBypassAuth.login({ token: 't4', permissions: [], roles: ['admin', 'super_admin'] });
+      expect(disabledBypassAuth.hasPermission('sys:config:edit')).toBe(false);
+
+      app.unmount();
     });
   });
 
