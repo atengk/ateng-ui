@@ -6,29 +6,30 @@
 
 ## 0. 特性与公共 API 全景速查矩阵
 
-| 特性分类       | 特性名称         | 核心门面 / 方法 / Hook                      | 关键参数 / 返回类型                           | 核心行为说明                                                                                                     | 锚定验证源头 (*Test / Sample)                                                                                                               |
-| :------------- | :--------------- | :------------------------------------------ | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-| **基础导出**   | 基线版本标识     | `VERSION`                                   | `string`                                      | 导出当前模块编译版本基线                                                                                         | [index.test.ts](./test/index.test.ts)                                                                                                       |
-| **全局上下文** | 插件安装器       | `createAtengVue(options?)`                  | `AtengVueOptions -> Plugin`                   | 向 Vue 应用实例全局注入默认配置上下文（默认分页大小、HTTP 实例等）                                               | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
-| **全局上下文** | 局部配置覆盖     | `provideAtengConfig(options)`               | `AtengVueOptions -> void`                     | 在组件子树层级局部覆盖上下文配置（Provider 依赖注入）                                                            | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
-| **全局上下文** | 配置解析 Hook    | `useAtengConfig()`                          | `() -> AtengVueContext`                       | 响应式获取当前生效的配置上下文，自动回退安全默认值与全局单例                                                     | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
-| **生命周期**   | 安全作用域销毁   | `tryOnScopeDispose(fn)`                     | `(() -> void) -> boolean`                     | 在活跃 effectScope 内安全挂载注销清理钩子，非作用域环境安全降级                                                  | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
-| **受管微工具** | 原生防抖包装     | `useDebounceFn(fn, wait)`                   | `(fn, number) -> DebouncedFn`                 | 具备 cancel 与 flush 能力的原生防抖函数，在作用域注销时确定性清理                                                | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
-| **受管微工具** | 原生节流包装     | `useThrottleFn(fn, interval)`               | `(fn, number) -> ThrottledFn`                 | 具备 cancel 能力的原生节流函数，在作用域注销时确定性回收定时器                                                   | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
-| **受管微工具** | 全局事件监听     | `useEventListener(target, event, listener)` | `(Target, Event, Listener) -> void`           | 宿主安全事件监听绑定，组件或作用域销毁时 100% 自动解绑                                                           | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
-| **异步请求**   | 请求状态机       | `useRequest(service, options?)`             | `(Service, Options) -> UseRequestResult`      | 提供 loading/data/error 只读状态机、防抖/节流/轮询、响应式依赖自动刷新 (`refreshDeps`) 与本地乐观更新 (`mutate`) | [useRequest.test.ts](./test/useRequest.test.ts) / [RequestDemo.vue](../../apps/sample-vue/src/components/RequestDemo.vue)                   |
-| **契约分页**   | 分页调度状态机   | `usePagination(service, options?)`          | `(Service, Options) -> UsePaginationResult`   | 双向绑定 PageQuery/PageResult，五维原子动作（翻页/改条数/搜索/排序/重置）、依赖刷新与空数组保底防御              | [usePagination.test.ts](./test/usePagination.test.ts) / [PaginationDemo.vue](../../apps/sample-vue/src/components/PaginationDemo.vue)       |
-| **跨页多选**   | 多选状态机       | `useSelection(options?)`                    | `(Options) -> UseSelectionResult<T>`          | 响应式跨页多选状态机，支持 `selectedKeys`/`selectedRows`/`selectedCount`，雪花 Long ID 大数字符串安全归一化      | [useSelection.test.ts](./test/useSelection.test.ts) / [SelectionDemo.vue](../../apps/sample-vue/src/components/SelectionDemo.vue)           |
-| **时序竞态**   | 异步竞态双重防御 | `useLatest(asyncFn, options?)`              | `(AsyncFn, Options) -> UseLatestResult`       | “物理中断 (`AbortController`) + 逻辑过期丢弃”双重协同防御，彻底根绝高频操作时序倒挂脏写                          | [useLatest.test.ts](./test/useLatest.test.ts) / [LatestDemo.vue](../../apps/sample-vue/src/components/LatestDemo.vue)                       |
-| **防刷防重**   | 提交幂等互斥锁   | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`    | 按钮快速连打拦截、执行中互斥加锁与超时自动防死锁解除                                                             | [useIdempotent.test.ts](./test/useIdempotent.test.ts) / [IdempotentDemo.vue](../../apps/sample-vue/src/components/IdempotentDemo.vue)       |
-| **鉴权状态**   | 响应式鉴权门面   | `useAuth(options?)`                         | `(Options) -> UseAuthResult`                  | 登录态双轨 Token 存取、401 自动清理广播与细粒度权限/角色通配匹配                                                 | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
-| **多租户隔离** | 响应式租户切片   | `useTenant(options?)`                       | `(Options) -> UseTenantResult`                | 动态多租户切片读取与切换，全应用响应式联动与请求头注入                                                           | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
-| **Excel 驱动** | 流式导出批注回写 | `useExcel(options?)`                        | `(Options) -> UseExcelResult`                 | 结合 Fesod 协议，流式导出、RFC 5987 文件名解析、Blob-JSON 双态拦截与内存确定性回收                               | [useExcel.test.ts](./test/useExcel.test.ts) / [ExcelDemo.vue](../../apps/sample-vue/src/components/ExcelDemo.vue)                           |
-| **文件上传**   | 大文件分片并发   | `useUpload(options)`                        | `(Options) -> UseUploadResult`                | 纯原生切片计算、受控并发调度 (默认 3)、单调递增加权进度、断点续传与作用域注销自动取消                            | [useUpload.test.ts](./test/useUpload.test.ts) / [UploadDemo.vue](../../apps/sample-vue/src/components/UploadDemo.vue)                       |
-| **流式打字机** | SSE 大模型流式   | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`           | 增量累积打字机流式文本、W3C SSE 增量解析、自动断连与作用域确定性注销                                             | [useStream.test.ts](./test/useStream.test.ts) / [StreamDemo.vue](../../apps/sample-vue/src/components/StreamDemo.vue)                       |
-| **全双工长连** | WebSocket 状态机 | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`        | 四态状态机、双向心跳保活、假死超时判定、指数退避重连与受控离线发送缓冲队列                                       | [useWebSocket.test.ts](./test/useWebSocket.test.ts) / [WebSocketDemo.vue](../../apps/sample-vue/src/components/WebSocketDemo.vue)           |
-| **加载防抖**   | 防闪烁时序状态机 | `useAntiFlicker(source, options?)`          | `(Source, Options) -> Readonly<Ref<boolean>>` | 150ms 静默延迟保护（极速 0ms 视觉打扰）+ 300ms 最小展示期（平滑淡出，彻底根绝 1 帧闪现“鬼影”）                   | [useAntiFlicker.test.ts](./test/useAntiFlicker.test.ts) / [AntiFlickerDemo.vue](../../apps/sample-vue/src/components/AntiFlickerDemo.vue)   |
-| **框架导航**   | 多标签导航状态机 | `useTabsNav(options?)`                      | `(Options) -> UseTabsNavReturn`               | 多标签页纯算法无头响应式状态机，负责标签增删查改、FIFO 超限淘汰、Affix 保护、KeepAlive 缓存名单计算与刷新调度    | [useTabsNav.test.ts](./test/useTabsNav.test.ts) / [TabsNavDemo.vue](../../apps/sample-vue/src/components/TabsNavDemo.vue)                   |
+| 特性分类       | 特性名称          | 核心门面 / 方法 / Hook                      | 关键参数 / 返回类型                           | 核心行为说明                                                                                                     | 锚定验证源头 (*Test / Sample)                                                                                                               |
+| :------------- | :---------------- | :------------------------------------------ | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+| **基础导出**   | 基线版本标识      | `VERSION`                                   | `string`                                      | 导出当前模块编译版本基线                                                                                         | [index.test.ts](./test/index.test.ts)                                                                                                       |
+| **全局上下文** | 插件安装器        | `createAtengVue(options?)`                  | `AtengVueOptions -> Plugin`                   | 向 Vue 应用实例全局注入默认配置上下文（默认分页大小、HTTP 实例等）                                               | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **全局上下文** | 局部配置覆盖      | `provideAtengConfig(options)`               | `AtengVueOptions -> void`                     | 在组件子树层级局部覆盖上下文配置（Provider 依赖注入）                                                            | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **全局上下文** | 配置解析 Hook     | `useAtengConfig()`                          | `() -> AtengVueContext`                       | 响应式获取当前生效的配置上下文，自动回退安全默认值与全局单例                                                     | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **全局上下文** | 非 Setup 配置解析 | `resolveAtengConfig(provides?)`             | `(provides?) -> AtengVueContext`              | 从组件实例或 `AppContext.provides` 解析生效配置，支持自定义指令等无注入上下文场景                                | [context.test.ts](./test/context.test.ts) / [ConfigDemo.vue](../../apps/sample-vue/src/components/ConfigDemo.vue)                           |
+| **生命周期**   | 安全作用域销毁    | `tryOnScopeDispose(fn)`                     | `(() -> void) -> boolean`                     | 在活跃 effectScope 内安全挂载注销清理钩子，非作用域环境安全降级                                                  | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 原生防抖包装      | `useDebounceFn(fn, wait)`                   | `(fn, number) -> DebouncedFn`                 | 具备 cancel 与 flush 能力的原生防抖函数，在作用域注销时确定性清理                                                | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 原生节流包装      | `useThrottleFn(fn, interval)`               | `(fn, number) -> ThrottledFn`                 | 具备 cancel 能力的原生节流函数，在作用域注销时确定性回收定时器                                                   | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **受管微工具** | 全局事件监听      | `useEventListener(target, event, listener)` | `(Target, Event, Listener) -> void`           | 宿主安全事件监听绑定，组件或作用域销毁时 100% 自动解绑                                                           | [utils.test.ts](./test/utils.test.ts) / [UtilsDemo.vue](../../apps/sample-vue/src/components/UtilsDemo.vue)                                 |
+| **异步请求**   | 请求状态机        | `useRequest(service, options?)`             | `(Service, Options) -> UseRequestResult`      | 提供 loading/data/error 只读状态机、防抖/节流/轮询、响应式依赖自动刷新 (`refreshDeps`) 与本地乐观更新 (`mutate`) | [useRequest.test.ts](./test/useRequest.test.ts) / [RequestDemo.vue](../../apps/sample-vue/src/components/RequestDemo.vue)                   |
+| **契约分页**   | 分页调度状态机    | `usePagination(service, options?)`          | `(Service, Options) -> UsePaginationResult`   | 双向绑定 PageQuery/PageResult，五维原子动作（翻页/改条数/搜索/排序/重置）、依赖刷新与空数组保底防御              | [usePagination.test.ts](./test/usePagination.test.ts) / [PaginationDemo.vue](../../apps/sample-vue/src/components/PaginationDemo.vue)       |
+| **跨页多选**   | 多选状态机        | `useSelection(options?)`                    | `(Options) -> UseSelectionResult<T>`          | 响应式跨页多选状态机，支持 `selectedKeys`/`selectedRows`/`selectedCount`，雪花 Long ID 大数字符串安全归一化      | [useSelection.test.ts](./test/useSelection.test.ts) / [SelectionDemo.vue](../../apps/sample-vue/src/components/SelectionDemo.vue)           |
+| **时序竞态**   | 异步竞态双重防御  | `useLatest(asyncFn, options?)`              | `(AsyncFn, Options) -> UseLatestResult`       | “物理中断 (`AbortController`) + 逻辑过期丢弃”双重协同防御，彻底根绝高频操作时序倒挂脏写                          | [useLatest.test.ts](./test/useLatest.test.ts) / [LatestDemo.vue](../../apps/sample-vue/src/components/LatestDemo.vue)                       |
+| **防刷防重**   | 提交幂等互斥锁    | `useIdempotent(actionFn, options?)`         | `(Action, Options) -> UseIdempotentResult`    | 按钮快速连打拦截、执行中互斥加锁与超时自动防死锁解除                                                             | [useIdempotent.test.ts](./test/useIdempotent.test.ts) / [IdempotentDemo.vue](../../apps/sample-vue/src/components/IdempotentDemo.vue)       |
+| **鉴权状态**   | 响应式鉴权门面    | `useAuth(options?)`                         | `(Options) -> UseAuthResult`                  | 登录态双轨 Token 存取、401 自动清理广播与细粒度权限/角色通配匹配                                                 | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
+| **多租户隔离** | 响应式租户切片    | `useTenant(options?)`                       | `(Options) -> UseTenantResult`                | 动态多租户切片读取与切换，全应用响应式联动与请求头注入                                                           | [useAuthAndTenant.test.ts](./test/useAuthAndTenant.test.ts) / [AuthTenantDemo.vue](../../apps/sample-vue/src/components/AuthTenantDemo.vue) |
+| **Excel 驱动** | 流式导出批注回写  | `useExcel(options?)`                        | `(Options) -> UseExcelResult`                 | 结合 Fesod 协议，流式导出、RFC 5987 文件名解析、Blob-JSON 双态拦截与内存确定性回收                               | [useExcel.test.ts](./test/useExcel.test.ts) / [ExcelDemo.vue](../../apps/sample-vue/src/components/ExcelDemo.vue)                           |
+| **文件上传**   | 大文件分片并发    | `useUpload(options)`                        | `(Options) -> UseUploadResult`                | 纯原生切片计算、受控并发调度 (默认 3)、单调递增加权进度、断点续传与作用域注销自动取消                            | [useUpload.test.ts](./test/useUpload.test.ts) / [UploadDemo.vue](../../apps/sample-vue/src/components/UploadDemo.vue)                       |
+| **流式打字机** | SSE 大模型流式    | `useStream(url, options?)`                  | `(Url, Options) -> UseStreamResult`           | 增量累积打字机流式文本、W3C SSE 增量解析、自动断连与作用域确定性注销                                             | [useStream.test.ts](./test/useStream.test.ts) / [StreamDemo.vue](../../apps/sample-vue/src/components/StreamDemo.vue)                       |
+| **全双工长连** | WebSocket 状态机  | `useWebSocket(url, options?)`               | `(Url, Options) -> UseWebSocketResult`        | 四态状态机、双向心跳保活、假死超时判定、指数退避重连与受控离线发送缓冲队列                                       | [useWebSocket.test.ts](./test/useWebSocket.test.ts) / [WebSocketDemo.vue](../../apps/sample-vue/src/components/WebSocketDemo.vue)           |
+| **加载防抖**   | 防闪烁时序状态机  | `useAntiFlicker(source, options?)`          | `(Source, Options) -> Readonly<Ref<boolean>>` | 150ms 静默延迟保护（极速 0ms 视觉打扰）+ 300ms 最小展示期（平滑淡出，彻底根绝 1 帧闪现“鬼影”）                   | [useAntiFlicker.test.ts](./test/useAntiFlicker.test.ts) / [AntiFlickerDemo.vue](../../apps/sample-vue/src/components/AntiFlickerDemo.vue)   |
+| **框架导航**   | 多标签导航状态机  | `useTabsNav(options?)`                      | `(Options) -> UseTabsNavReturn`               | 多标签页纯算法无头响应式状态机，负责标签增删查改、FIFO 超限淘汰、Affix 保护、KeepAlive 缓存名单计算与刷新调度    | [useTabsNav.test.ts](./test/useTabsNav.test.ts) / [TabsNavDemo.vue](../../apps/sample-vue/src/components/TabsNavDemo.vue)                   |
 
 ---
 
@@ -124,6 +125,7 @@ export interface AtengVueOptions {
 
 export function createAtengVue(options?: AtengVueOptions): Plugin;
 export function useAtengConfig(): AtengVueContext;
+export function resolveAtengConfig(provides?: Record<PropertyKey, unknown> | null): AtengVueContext;
 ```
 
 #### 实战业务代码示例
@@ -140,17 +142,25 @@ app.mount('#app');
 ```
 
 ```vue
-<!-- 2. 任意组件解析配置 (ConfigDemo.vue) -->
+<!-- 2. 任意组件解析配置与非 setup() 上下文回溯 (ConfigDemo.vue) -->
 <script setup lang="ts">
-import { useAtengConfig } from '@atengk/vue';
+import { getCurrentInstance } from 'vue';
+import { resolveAtengConfig, useAtengConfig } from '@atengk/vue';
 
 // 读取当前生效的配置上下文
 const config = useAtengConfig();
+
+// 在自定义指令等非 setup() 作用域中，可通过组件/AppContext 的 provides 直接解析配置
+const instance = getCurrentInstance();
+const resolvedFromProvides = resolveAtengConfig(
+  (instance?.provides ?? instance?.appContext.provides) as Record<PropertyKey, unknown> | undefined,
+);
 </script>
 
 <template>
   <div class="config-card">
     <span>全局默认分页大小: {{ config.defaultSize }} 条/页</span>
+    <span>非 Setup 解析默认分页: {{ resolvedFromProvides.defaultSize }} 条/页</span>
     <span>HTTP 客户端状态: {{ config.httpClient ? '已注入' : '未就绪' }}</span>
   </div>
 </template>
@@ -159,6 +169,7 @@ const config = useAtengConfig();
 #### 核心机制与生产边界说明
 
 - **双轨解耦回退**：组件未显式执行 `app.use(createAtengVue(...))` 时，`useAtengConfig()` 会自动平滑回退至内部安全默认值（`defaultSize: 10`，HTTP 回退至 `@atengk/core` 的 `http` 单例），绝不抛出 NPE。
+- **非 `setup()` 上下文透传**：Vue 自定义指令（如 `v-permission` / `v-role`）钩子内不存在组件注入上下文（`hasInjectionContext() === false`），`resolveAtengConfig(provides)` 直接基于原型链式 `provides` 解析 `ATENG_VUE_CONFIG_KEY`，从而同时兼容 `app.use(createAtengVue(...))` 与子树局部 `provideAtengConfig(...)`。
 
 ---
 

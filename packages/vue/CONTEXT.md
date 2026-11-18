@@ -12,6 +12,10 @@ _Avoid_: initVue, setupAteng, useAtengPlugin
 响应式全局配置解析 Hook，读取当前 Vue 实例生效的配置上下文，自动回退安全默认值。
 _Avoid_: useConfig, useGlobalOptions, useSettings
 
+**resolveAtengConfig**:
+基于 Vue 组件实例或 `AppContext` 的 `provides` 映射表直接解析配置上下文的纯函数门面，服务于自定义指令等非 `setup()` 作用域。
+_Avoid_: getProvidesConfig, readAtengProvides
+
 **provideAtengConfig**:
 在组件子树层级局部覆盖上下文配置的 Provider 依赖注入函数。
 _Avoid_: setConfig, provideConfig

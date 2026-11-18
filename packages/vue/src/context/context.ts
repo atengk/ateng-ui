@@ -48,19 +48,9 @@ export function provideAtengConfig(options: AtengVueOptions): void {
 }
 
 /**
- * 获取当前生效的 @atengk/vue 配置上下文。
- *
- * 若上层未注册任何插件或 Provide，自动透明降级至 @atengk/core 全局单例与基线默认值。
- *
- * @returns 完整的配置上下文
+ * 将可选配置规范化为完整的 @atengk/vue 上下文对象。
  */
-export function useAtengConfig(): AtengVueContext {
-  if (!hasInjectionContext()) {
-    return DEFAULT_OPTIONS;
-  }
-
-  const injected = inject(ATENG_VUE_CONFIG_KEY, null);
-
+function normalizeAtengConfig(injected?: AtengVueOptions | null): AtengVueContext {
   if (!injected) {
     return DEFAULT_OPTIONS;
   }
@@ -74,6 +64,42 @@ export function useAtengConfig(): AtengVueContext {
     autoConnectStream: injected.autoConnectStream ?? DEFAULT_OPTIONS.autoConnectStream,
     autoConnectWebSocket: injected.autoConnectWebSocket ?? DEFAULT_OPTIONS.autoConnectWebSocket,
   };
+}
+
+/**
+ * 从 Vue 组件实例或 AppContext 的 provides 映射表中直接解析 @atengk/vue 配置上下文。
+ *
+ * 适用于自定义指令（如 v-permission / v-role）等脱离 setup() 注入上下文的场景；
+ * 当 provides 缺失或未注册插件时，自动安全回退至默认基线配置。
+ *
+ * @param provides Vue 组件实例或应用上下文的 provides 对象
+ * @returns 完整的生效配置上下文
+ */
+export function resolveAtengConfig(
+  provides?: Record<PropertyKey, unknown> | null,
+): AtengVueContext {
+  if (!provides || typeof provides !== 'object') {
+    return DEFAULT_OPTIONS;
+  }
+
+  const injected = provides[ATENG_VUE_CONFIG_KEY as symbol] as AtengVueOptions | undefined;
+  return normalizeAtengConfig(injected);
+}
+
+/**
+ * 获取当前生效的 @atengk/vue 配置上下文。
+ *
+ * 若上层未注册任何插件或 Provide，自动透明降级至 @atengk/core 全局单例与基线默认值。
+ *
+ * @returns 完整的配置上下文
+ */
+export function useAtengConfig(): AtengVueContext {
+  if (!hasInjectionContext()) {
+    return DEFAULT_OPTIONS;
+  }
+
+  const injected = inject(ATENG_VUE_CONFIG_KEY, null);
+  return normalizeAtengConfig(injected);
 }
 
 /**

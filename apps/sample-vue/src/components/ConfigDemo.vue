@@ -8,9 +8,15 @@
  * @since 2026-11-04
  */
 
-import { useAtengConfig } from '@atengk/vue';
+import { getCurrentInstance } from 'vue';
+import { resolveAtengConfig, useAtengConfig } from '@atengk/vue';
 
 const config = useAtengConfig();
+// 模拟自定义指令等非 setup() 作用域，基于组件实例 provides / appContext.provides 直接解析生效配置
+const instance = getCurrentInstance();
+const resolvedFromProvides = resolveAtengConfig(
+  (instance?.provides ?? instance?.appContext.provides) as Record<PropertyKey, unknown> | undefined,
+);
 </script>
 
 <template>
@@ -36,6 +42,13 @@ const config = useAtengConfig();
       <div class="config-item">
         <span class="label">默认 HTTP 客户端注入状态:</span>
         <span class="value">{{ config.httpClient ? '已注入 (@atengk/core)' : '未就绪' }}</span>
+      </div>
+      <div class="config-item">
+        <span class="label">非 Setup 上下文解析验证 (resolveAtengConfig):</span>
+        <span class="value">
+          defaultSize = {{ resolvedFromProvides.defaultSize }} / AuthManager
+          {{ resolvedFromProvides.authManager ? '已对齐' : '未就绪' }}
+        </span>
       </div>
     </div>
   </section>

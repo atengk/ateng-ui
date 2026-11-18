@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick, defineComponent, ref } from 'vue';
-import { useAuth } from '@atengk/vue';
+import { createAuthManager, MemoryAuthStorage } from '@atengk/core';
+import { createAtengVue, provideAtengConfig, useAuth } from '@atengk/vue';
 import { vPermission } from '../src/directives/permission';
 
 describe('v-permission 指令规范与边界测试', () => {
@@ -235,5 +236,129 @@ describe('v-permission 指令规范与边界测试', () => {
 
     // 验证无任何异常抛出
     expect(wrapper.find('#btn').exists()).toBe(false);
+  });
+
+  it('自定义 AuthManager 上下文隔离：通过 createAtengVue 注入自定义实例时共享响应式权限与 .disabled 状态', async () => {
+    const customAuthManager = createAuthManager({
+      tokenKey: 'satoken-admin',
+      headerName: 'satoken-admin',
+      storage: new MemoryAuthStorage(),
+    });
+
+    // 全局默认实例此时保持无权限
+    auth.setPermissions([]);
+
+    let setupAuth!: ReturnType<typeof useAuth>;
+    let clickCount = 0;
+
+    const TestComponent = defineComponent({
+      directives: { permission: vPermission },
+      setup() {
+        setupAuth = useAuth();
+        const handleClick = () => {
+          clickCount++;
+        };
+        return { handleClick };
+      },
+      template: `
+        <div id="container">
+          <button id="remove-btn" v-permission="'sys:user:add'">新增用户</button>
+          <button id="disabled-btn" v-permission.disabled="'sys:user:delete'" @click="handleClick">
+            删除用户
+          </button>
+        </div>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: {
+        plugins: [createAtengVue({ authManager: customAuthManager })],
+      },
+    });
+    await nextTick();
+
+    // 1. 未登录时：移除按钮不存在，置灰按钮禁用
+    expect(wrapper.find('#remove-btn').exists()).toBe(false);
+    expect(wrapper.find('#disabled-btn').classes()).toContain('is-disabled');
+    await wrapper.find('#disabled-btn').trigger('click');
+    expect(clickCount).toBe(0);
+
+    // 2. 在组件 setup() 的 useAuth() 内登录自定义实例，不应污染全局默认实例
+    setupAuth.login({
+      token: 'admin-token-123',
+      permissions: ['sys:user:add'],
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(auth.permissions.value).toEqual([]);
+    expect(wrapper.find('#remove-btn').exists()).toBe(true);
+    expect(wrapper.find('#disabled-btn').classes()).toContain('is-disabled');
+
+    // 3. 动态更新自定义实例权限，.disabled 恢复可点击
+    setupAuth.setPermissions(['sys:user:add', 'sys:user:delete']);
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#disabled-btn').classes()).not.toContain('is-disabled');
+    await wrapper.find('#disabled-btn').trigger('click');
+    expect(clickCount).toBe(1);
+
+    // 4. 模拟 401 登出后，指令同步响应清理
+    customAuthManager.handleUnauthorized();
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#remove-btn').exists()).toBe(false);
+    expect(wrapper.find('#disabled-btn').classes()).toContain('is-disabled');
+  });
+
+  it('子树局部配置隔离：通过 provideAtengConfig 覆盖 AuthManager 时指令解析到子树实例', async () => {
+    const appAuthManager = createAuthManager({
+      tokenKey: 'app-token',
+      storage: new MemoryAuthStorage(),
+    });
+    const scopedAuthManager = createAuthManager({
+      tokenKey: 'scoped-token',
+      storage: new MemoryAuthStorage(),
+    });
+
+    let scopedAuth!: ReturnType<typeof useAuth>;
+
+    const ChildComp = defineComponent({
+      directives: { permission: vPermission },
+      setup() {
+        scopedAuth = useAuth();
+        return {};
+      },
+      template: `<button id="scoped-btn" v-permission="'tenant:order:create'">下单</button>`,
+    });
+
+    const HostComp = defineComponent({
+      components: { ChildComp },
+      setup() {
+        provideAtengConfig({ authManager: scopedAuthManager });
+        return {};
+      },
+      template: `<ChildComp />`,
+    });
+
+    wrapper = mount(HostComp, {
+      global: {
+        plugins: [createAtengVue({ authManager: appAuthManager })],
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('#scoped-btn').exists()).toBe(false);
+
+    scopedAuth.login({
+      token: 'scoped-jwt',
+      permissions: ['tenant:order:create'],
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#scoped-btn').exists()).toBe(true);
   });
 });

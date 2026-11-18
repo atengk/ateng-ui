@@ -3524,6 +3524,7 @@ const handleSwitchToSuperAdmin = () => {
 1. **DOM 物理移除与注释定位锚点原位还原**：默认模式下，若无权限，指令将目标元素从 DOM 树中剔除，并用带有语义说明的 `<!-- auth-anchor -->` 纯注释节点原位占位。当响应式权限（`auth.permissions`）动态获得放行时，**自动将真实 DOM 节点替换回原注释位置**，保证元素在父容器中的排版顺序绝对不被打乱。
 2. **`.disabled` 修饰符与捕获阶段事件强力阻断**：开启 `.disabled` 时，无权限节点自动注入 `is-disabled` 类名、`pointer-events: none` 与 `opacity: 0.5`；更重要的是，指令在原生 DOM **捕获阶段（Capture Phase）** 挂载了全局事件拦截器，即便黑客通过控制台或非标准 API 强行触发 `click`，也会被 `stopImmediatePropagation()` 彻底掐断，杜绝越权逻辑执行。
 3. **WeakMap 内存安全守护**：指令内部状态保存在私有 `WeakMap<HTMLElement, State>` 中，当组件或视图被卸载销毁时，浏览器 GC 自动回收全部引用，绝无内存泄漏。
+4. **多实例上下文隔离继承**：指令挂载时通过组件实例 `provides` 与 `vnode.appContext.provides` 调用 `resolveAtengConfig`，确保应用级 `createAtengVue({ authManager })` 与子树级 `provideAtengConfig({ authManager })` 注入的自定义 `AuthManager` 实例与组件内 `useAuth()` 共享同一份响应式状态；未配置时自动回退至全局默认 `authManager`。
 
 ---
 

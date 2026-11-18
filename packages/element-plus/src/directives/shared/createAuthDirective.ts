@@ -8,7 +8,7 @@
  */
 
 import { watch, type DirectiveBinding, type VNode } from 'vue';
-import { useAuth } from '@atengk/vue';
+import { resolveAtengConfig, useAuth, type UseAuthResult } from '@atengk/vue';
 import type {
   AuthDirective,
   AuthDirectiveInternalState,
@@ -17,6 +17,33 @@ import type {
 
 interface ExtendedAuthState extends AuthDirectiveInternalState {
   vnode: VNode | null;
+  auth: UseAuthResult;
+}
+
+interface DirectiveInstanceWithInternal {
+  $?: {
+    provides?: Record<PropertyKey, unknown>;
+    appContext?: {
+      provides?: Record<PropertyKey, unknown>;
+    };
+  };
+}
+
+/**
+ * 基于组件实例 provides 与 VNode AppContext 解析鉴权指令关联的独立 AuthManager 状态。
+ */
+function resolveDirectiveAuth(
+  binding: DirectiveBinding<string | string[] | undefined | null>,
+  vnode?: VNode | null,
+): UseAuthResult {
+  const instance = binding.instance as DirectiveInstanceWithInternal | null | undefined;
+  // Vue 3 指令钩子脱离 setup() 注入上下文，需读取内部组件实例的原型链式 provides（兼顾子树 provideAtengConfig），缺失时回退至 VNode AppContext
+  const provides =
+    instance?.$?.provides ??
+    instance?.$?.appContext?.provides ??
+    (vnode?.appContext?.provides as Record<PropertyKey, unknown> | undefined);
+  const config = resolveAtengConfig(provides);
+  return useAuth({ authManager: config.authManager });
 }
 
 /**
@@ -123,7 +150,7 @@ export function createAuthDirective(options: CreateAuthDirectiveOptions): AuthDi
       state.vnode = vnode;
     }
 
-    const auth = useAuth();
+    const auth = state.auth;
     const targets = normalizeBindingValue(binding.value);
     const mode = binding.modifiers.all ? 'every' : 'some';
     const isDisabledMode = Boolean(binding.modifiers.disabled);
@@ -165,16 +192,16 @@ export function createAuthDirective(options: CreateAuthDirectiveOptions): AuthDi
 
   return {
     mounted(el, binding, vnode) {
+      const auth = resolveDirectiveAuth(binding, vnode);
       const state: ExtendedAuthState = {
         comment: null,
         stopWatch: null,
         clickInterceptor: null,
         isDisabled: false,
         vnode,
+        auth,
       };
       directiveStateMap.set(el, state);
-
-      const auth = useAuth();
 
       // 注册响应式权限与角色监听，状态变化时自动更新当前节点
       state.stopWatch = watch(

@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick, defineComponent, ref } from 'vue';
-import { useAuth } from '@atengk/vue';
+import { createAuthManager, MemoryAuthStorage } from '@atengk/core';
+import { createAtengVue, provideAtengConfig, useAuth } from '@atengk/vue';
 import { vRole } from '../src/directives/role';
 
 describe('v-role 指令规范与边界测试', () => {
@@ -176,5 +177,128 @@ describe('v-role 指令规范与边界测试', () => {
     await nextTick();
 
     expect(wrapper.find('#btn').exists()).toBe(false);
+  });
+
+  it('自定义 AuthManager 上下文隔离：通过 createAtengVue 注入自定义实例时共享响应式角色与 .disabled 状态', async () => {
+    const customAuthManager = createAuthManager({
+      tokenKey: 'satoken-admin',
+      headerName: 'satoken-admin',
+      storage: new MemoryAuthStorage(),
+    });
+
+    auth.setRoles([]);
+
+    let setupAuth!: ReturnType<typeof useAuth>;
+    let clickCount = 0;
+
+    const TestComponent = defineComponent({
+      directives: { role: vRole },
+      setup() {
+        setupAuth = useAuth();
+        const onClick = () => {
+          clickCount++;
+        };
+        return { onClick };
+      },
+      template: `
+        <div id="container">
+          <button id="role-btn" v-role="'auditor'">审计工作台</button>
+          <button id="role-disabled-btn" v-role.disabled="'manager'" @click="onClick">
+            审批管理
+          </button>
+        </div>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: {
+        plugins: [createAtengVue({ authManager: customAuthManager })],
+      },
+    });
+    await nextTick();
+
+    // 1. 初始无角色
+    expect(wrapper.find('#role-btn').exists()).toBe(false);
+    expect(wrapper.find('#role-disabled-btn').classes()).toContain('is-disabled');
+    await wrapper.find('#role-disabled-btn').trigger('click');
+    expect(clickCount).toBe(0);
+
+    // 2. 通过组件内的 useAuth() 登录并赋予角色
+    setupAuth.login({
+      token: 'admin-token-456',
+      roles: ['auditor'],
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(auth.roles.value).toEqual([]);
+    expect(wrapper.find('#role-btn').exists()).toBe(true);
+    expect(wrapper.find('#role-disabled-btn').classes()).toContain('is-disabled');
+
+    // 3. 动态更新角色，.disabled 恢复可点击
+    setupAuth.setRoles(['auditor', 'manager']);
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#role-disabled-btn').classes()).not.toContain('is-disabled');
+    await wrapper.find('#role-disabled-btn').trigger('click');
+    expect(clickCount).toBe(1);
+
+    // 4. 登出后同步隐藏/置灰
+    setupAuth.logout();
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#role-btn').exists()).toBe(false);
+    expect(wrapper.find('#role-disabled-btn').classes()).toContain('is-disabled');
+  });
+
+  it('子树局部配置隔离：通过 provideAtengConfig 覆盖 AuthManager 时 v-role 解析到子树实例', async () => {
+    const appAuthManager = createAuthManager({
+      tokenKey: 'app-token',
+      storage: new MemoryAuthStorage(),
+    });
+    const scopedAuthManager = createAuthManager({
+      tokenKey: 'scoped-token',
+      storage: new MemoryAuthStorage(),
+    });
+
+    let scopedAuth!: ReturnType<typeof useAuth>;
+
+    const ChildComp = defineComponent({
+      directives: { role: vRole },
+      setup() {
+        scopedAuth = useAuth();
+        return {};
+      },
+      template: `<button id="scoped-role-btn" v-role="'finance'">财务报表</button>`,
+    });
+
+    const HostComp = defineComponent({
+      components: { ChildComp },
+      setup() {
+        provideAtengConfig({ authManager: scopedAuthManager });
+        return {};
+      },
+      template: `<ChildComp />`,
+    });
+
+    wrapper = mount(HostComp, {
+      global: {
+        plugins: [createAtengVue({ authManager: appAuthManager })],
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('#scoped-role-btn').exists()).toBe(false);
+
+    scopedAuth.login({
+      token: 'scoped-role-jwt',
+      roles: ['finance'],
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(wrapper.find('#scoped-role-btn').exists()).toBe(true);
   });
 });

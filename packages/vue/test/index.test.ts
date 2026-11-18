@@ -37,6 +37,7 @@ describe('@atengk/vue 顶级具名导出收敛', () => {
       VueModule.createAtengVue,
       VueModule.provideAtengConfig,
       VueModule.useAtengConfig,
+      VueModule.resolveAtengConfig,
     ];
 
     for (const fn of contextUtilities) {
