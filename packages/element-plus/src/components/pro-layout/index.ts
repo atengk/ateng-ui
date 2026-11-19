@@ -19,6 +19,7 @@ export type {
   ProMenuItem,
   ProMenuRawItem,
   ProMenuFieldNames,
+  ProMenuIconResolver,
   AtengProLayoutProps,
   AtengProLayoutEmits,
   AtengProLayoutSlots,

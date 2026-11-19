@@ -35,6 +35,7 @@ import { IconDashboard, IconSetting, IconAnalytics, IconInfo } from './component
 import DashboardSandbox from './components/DashboardSandbox.vue';
 import UserListSandbox from './components/UserListSandbox.vue';
 import AnalyticsSandbox from './components/AnalyticsSandbox.vue';
+import ProMenuIconResolverDemo from './components/ProMenuIconResolverDemo.vue';
 
 // 1. 标准菜单源数据
 const standardMenuData: ProMenuItem[] = [
@@ -474,6 +475,9 @@ const backendCollapsed = ref(false);
         </AtengProLayout>
       </div>
     </ElCard>
+
+    <!-- 演示 5: 字符串图标动态解析 (iconResolver) 与 #menuIcon 插槽 -->
+    <ProMenuIconResolverDemo />
   </div>
 </template>
 

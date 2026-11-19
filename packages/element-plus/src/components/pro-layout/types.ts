@@ -112,6 +112,20 @@ export interface ProMenuFieldNames {
 }
 
 /**
+ * 菜单图标自定义解析回调契约。
+ *
+ * @param icon 菜单项原始图标值（字符串图标名、CSS 类名或 Vue 组件）
+ * @param item 当前菜单项原始对象
+ * @param depth 当前菜单层级深度（顶层为 0）
+ * @returns 解析后的 Vue 组件、CSS 类名字符串或 undefined（回退默认逻辑）
+ */
+export type ProMenuIconResolver = (
+  icon: string | Component,
+  item: ProMenuItem,
+  depth: number,
+) => Component | string | undefined;
+
+/**
  * AtengProLayout 属性契约。
  */
 export interface AtengProLayoutProps {
@@ -139,6 +153,11 @@ export interface AtengProLayoutProps {
    * 菜单字段别名自适应映射。
    */
   fieldNames?: ProMenuFieldNames;
+
+  /**
+   * 菜单图标自定义解析回调。可将字符串图标名按需映射为 Vue 图标组件或 CSS 类名。
+   */
+  iconResolver?: ProMenuIconResolver;
 
   /**
    * 当前激活的高亮菜单 path。
@@ -329,6 +348,8 @@ export interface AtengProLayoutSlots {
   }) => VNode[];
   /** 自定义单菜单项渲染插槽 */
   menuItem?: (props: { item: ProMenuItem; depth: number }) => VNode[];
+  /** 自定义菜单图标渲染插槽（保留内置标题、角标与折叠对齐样式） */
+  menuIcon?: (props: { icon: string | Component; item: ProMenuItem; depth: number }) => VNode[];
   /** 侧边栏底部内容区插槽 */
   asideFooter?: (props: { collapsed: boolean }) => VNode[];
   /** 多标签栏定制插槽（通常在此放置 <AtengTabsNav />） */

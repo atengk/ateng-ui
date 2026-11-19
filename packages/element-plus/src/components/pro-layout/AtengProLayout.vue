@@ -39,6 +39,7 @@ const props = withDefaults(defineProps<AtengProLayoutProps>(), {
   logo: undefined,
   menuData: () => [],
   fieldNames: undefined,
+  iconResolver: undefined,
   activeMenu: '',
   defaultOpeneds: () => [],
   collapsed: false,
@@ -381,12 +382,16 @@ defineExpose<AtengProLayoutExpose>({
                 mode="vertical"
                 :collapse="internalCollapsed"
                 :field-names="fieldNames"
+                :icon-resolver="iconResolver"
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
               >
                 <template v-if="$slots.menuItem" #menuItem="slotProps">
                   <slot name="menuItem" v-bind="slotProps" />
+                </template>
+                <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+                  <slot name="menuIcon" v-bind="slotProps" />
                 </template>
               </ProMenu>
             </slot>
@@ -528,12 +533,16 @@ defineExpose<AtengProLayoutExpose>({
                 :menu-data="menuData"
                 mode="horizontal"
                 :field-names="fieldNames"
+                :icon-resolver="iconResolver"
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
               >
                 <template v-if="$slots.menuItem" #menuItem="slotProps">
                   <slot name="menuItem" v-bind="slotProps" />
+                </template>
+                <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+                  <slot name="menuIcon" v-bind="slotProps" />
                 </template>
               </ProMenu>
             </slot>
@@ -600,11 +609,15 @@ defineExpose<AtengProLayoutExpose>({
               :menu-data="mixTopMenuData"
               mode="horizontal"
               :field-names="fieldNames"
+              :icon-resolver="iconResolver"
               :active-menu="activeTopMenuPath || activeMenu"
               @select="handleMixTopSelect"
             >
               <template v-if="$slots.menuItem" #menuItem="slotProps">
                 <slot name="menuItem" v-bind="slotProps" />
+              </template>
+              <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+                <slot name="menuIcon" v-bind="slotProps" />
               </template>
             </ProMenu>
           </div>
@@ -637,12 +650,16 @@ defineExpose<AtengProLayoutExpose>({
                 mode="vertical"
                 :collapse="internalCollapsed"
                 :field-names="fieldNames"
+                :icon-resolver="iconResolver"
                 :active-menu="activeMenu"
                 :default-openeds="defaultOpeneds"
                 @select="handleMenuSelect"
               >
                 <template v-if="$slots.menuItem" #menuItem="slotProps">
                   <slot name="menuItem" v-bind="slotProps" />
+                </template>
+                <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+                  <slot name="menuIcon" v-bind="slotProps" />
                 </template>
               </ProMenu>
             </div>

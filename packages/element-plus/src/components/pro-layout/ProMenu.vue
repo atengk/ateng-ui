@@ -12,10 +12,10 @@
  * @since 2026-10-29
  */
 
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
 import { ElMenu } from 'element-plus';
 import ProMenuItemNode from './ProMenuItemNode.vue';
-import type { ProMenuItem, ProMenuFieldNames, ProMenuRawItem } from './types';
+import type { ProMenuItem, ProMenuFieldNames, ProMenuIconResolver, ProMenuRawItem } from './types';
 
 defineOptions({
   name: 'ProMenu',
@@ -27,6 +27,7 @@ const props = withDefaults(
     mode?: 'horizontal' | 'vertical';
     collapse?: boolean;
     fieldNames?: ProMenuFieldNames;
+    iconResolver?: ProMenuIconResolver;
     activeMenu?: string;
     defaultOpeneds?: string[];
   }>(),
@@ -35,6 +36,7 @@ const props = withDefaults(
     mode: 'vertical',
     collapse: false,
     fieldNames: undefined,
+    iconResolver: undefined,
     activeMenu: '',
     defaultOpeneds: () => [],
   },
@@ -46,6 +48,7 @@ const emit = defineEmits<{
 
 defineSlots<{
   menuItem?: (props: { item: ProMenuRawItem; depth: number }) => unknown;
+  menuIcon?: (props: { icon: string | Component; item: ProMenuRawItem; depth: number }) => unknown;
 }>();
 
 const pathKey = computed(() => props.fieldNames?.path || 'path');
@@ -88,11 +91,15 @@ const handleSelect = (index: string) => {
       :key="String(item[pathKey] ?? item.path)"
       :item="item"
       :field-names="fieldNames"
+      :icon-resolver="iconResolver"
       :depth="0"
       :mode="mode"
     >
       <template v-if="$slots.menuItem" #menuItem="slotProps">
         <slot name="menuItem" v-bind="slotProps" />
+      </template>
+      <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+        <slot name="menuIcon" v-bind="slotProps" />
       </template>
     </ProMenuItemNode>
   </el-menu>

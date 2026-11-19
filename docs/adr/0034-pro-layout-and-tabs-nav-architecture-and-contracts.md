@@ -72,8 +72,10 @@ flowchart TD
   包含 `path`、`title`、`icon`、`children`、`badge`、`disabled`、`hidden`、`affix`、`target`、`meta` 标准字段；
 - **`fieldNames` 字段别名映射**：
   对齐后端异构字段（`{ path?: string; title?: string; children?: string; icon?: string; badge?: string }`），框架在内部自动读取，彻底杜绝业务层手写递归转换；
+- **字符串图标解析钩子 (`iconResolver` & `#menuIcon`)**：
+  在保持 `@atengk/element-plus` 零重型图标库依赖的前提下，支持通过 `iconResolver?: ProMenuIconResolver`（或 `#menuIcon` 作用域插槽）按需将后端下发的字符串图标名映射为 Vue 图标组件或 CSS 类名，保留内置缩进、Badge 与折叠态居中适配，免除业务层整树预处理；
 - **细粒度插槽覆盖**：
-  提供 `#logo`、`#headerLeft`、`#breadcrumb`、`#headerCenter`、`#headerRight`、`#headerActions`、`#user`、`#menu`、`#menuItem`、`#asideFooter`、`#tabs`、`#default`、`#footer` 13 个独立插槽，极端场景支持 100% 替换。
+  提供 `#logo`、`#headerLeft`、`#breadcrumb`、`#headerCenter`、`#headerRight`、`#headerActions`、`#user`、`#menu`、`#menuItem`、`#menuIcon`、`#asideFooter`、`#tabs`、`#default`、`#footer` 14 个独立插槽，极端场景支持 100% 替换。
 
 ### 4. 零额外依赖与原生优先原则 (Zero-Bloat Invariant)
 

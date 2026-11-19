@@ -6,9 +6,9 @@
  * @since 2026-10-29
  */
 
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
 import { ElMenuItem, ElSubMenu, ElIcon, ElBadge } from 'element-plus';
-import type { ProMenuFieldNames, ProMenuRawItem } from './types';
+import type { ProMenuFieldNames, ProMenuIconResolver, ProMenuItem, ProMenuRawItem } from './types';
 
 defineOptions({
   name: 'ProMenuItemNode',
@@ -18,11 +18,13 @@ const props = withDefaults(
   defineProps<{
     item: ProMenuRawItem;
     fieldNames?: ProMenuFieldNames;
+    iconResolver?: ProMenuIconResolver;
     depth?: number;
     mode?: 'horizontal' | 'vertical';
   }>(),
   {
     fieldNames: undefined,
+    iconResolver: undefined,
     depth: 0,
     mode: 'vertical',
   },
@@ -43,6 +45,7 @@ const targetKey = computed(() => props.fieldNames?.target || 'target');
 
 defineSlots<{
   menuItem?: (props: { item: ProMenuRawItem; depth: number }) => unknown;
+  menuIcon?: (props: { icon: string | Component; item: ProMenuRawItem; depth: number }) => unknown;
 }>();
 
 const itemPath = computed(() => String(props.item[pathKey.value] ?? ''));
@@ -58,7 +61,33 @@ const itemChildren = computed(() => {
   }
   return undefined;
 });
+function isVueComponentIcon(val: unknown): val is Component {
+  return val !== null && (typeof val === 'object' || typeof val === 'function');
+}
+
+function isValidIconInput(val: unknown): val is string | Component {
+  return (typeof val === 'string' && val.trim().length > 0) || isVueComponentIcon(val);
+}
+
 const itemIcon = computed(() => props.item[iconKey.value]);
+const resolvedIcon = computed<string | Component | undefined>(() => {
+  const raw = itemIcon.value;
+  if (!isValidIconInput(raw)) {
+    return undefined;
+  }
+  if (!props.iconResolver) {
+    return raw;
+  }
+  const resolved = props.iconResolver(raw, props.item as ProMenuItem, currentDepth.value);
+  if (resolved === undefined) {
+    return raw;
+  }
+  if (typeof resolved === 'string') {
+    return resolved.trim().length > 0 ? resolved : undefined;
+  }
+  return isVueComponentIcon(resolved) ? resolved : undefined;
+});
+const isResolvedComponent = computed(() => isVueComponentIcon(resolvedIcon.value));
 const itemBadge = computed(() => props.item[badgeKey.value]);
 type BadgeType = '' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
 const itemBadgeType = computed<BadgeType>(() => {
@@ -99,7 +128,7 @@ const menuItemStyle = computed(() => {
   // depth >= 1: 垂直模式下的二级及以上层级菜单
   // 一级菜单带图标时文字起始位置约为 52px (20px base-padding + 24px icon-width + 8px margin-right)
   // 无图标二级菜单强制设置 60px 缩进（向右缩进 8px），三级 80px，严格保障树形层次递进
-  if (!itemIcon.value) {
+  if (!resolvedIcon.value) {
     return {
       paddingLeft: `${60 + (currentDepth.value - 1) * 20}px !important`,
     };
@@ -111,7 +140,7 @@ const menuItemStyle = computed(() => {
 
 // 无图标 SubMenu 分组标题的缩进计算
 const subMenuTitlePadding = computed(() => {
-  if (props.mode === 'horizontal' || currentDepth.value === 0 || itemIcon.value) {
+  if (props.mode === 'horizontal' || currentDepth.value === 0 || resolvedIcon.value) {
     return undefined;
   }
   return `${60 + (currentDepth.value - 1) * 20}px`;
@@ -125,17 +154,16 @@ const subMenuTitlePadding = computed(() => {
       v-if="hasChildren"
       :index="itemPath"
       :disabled="isDisabled"
-      :class="{ 'at-pro-submenu--no-icon': currentDepth >= 1 && !itemIcon }"
+      :class="{ 'at-pro-submenu--no-icon': currentDepth >= 1 && !resolvedIcon }"
     >
       <template #title>
         <slot v-if="$slots.menuItem" name="menuItem" :item="item" :depth="currentDepth" />
         <template v-else>
-          <el-icon v-if="itemIcon" class="at-pro-menu__icon">
-            <component
-              :is="itemIcon"
-              v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
-            />
-            <i v-else :class="itemIcon" />
+          <el-icon v-if="resolvedIcon" class="at-pro-menu__icon">
+            <slot name="menuIcon" :icon="resolvedIcon" :item="item" :depth="currentDepth">
+              <component :is="resolvedIcon" v-if="isResolvedComponent" />
+              <i v-else :class="resolvedIcon" />
+            </slot>
           </el-icon>
           <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
             {{ fallbackChar }}
@@ -156,11 +184,15 @@ const subMenuTitlePadding = computed(() => {
         :key="String(child[pathKey] ?? child.path)"
         :item="child"
         :field-names="fieldNames"
+        :icon-resolver="iconResolver"
         :depth="currentDepth + 1"
         :mode="mode"
       >
         <template v-if="$slots.menuItem" #menuItem="slotProps">
           <slot name="menuItem" v-bind="slotProps" />
+        </template>
+        <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+          <slot name="menuIcon" v-bind="slotProps" />
         </template>
       </ProMenuItemNode>
     </el-sub-menu>
@@ -175,12 +207,11 @@ const subMenuTitlePadding = computed(() => {
     >
       <slot v-if="$slots.menuItem" name="menuItem" :item="item" :depth="currentDepth" />
       <template v-else>
-        <el-icon v-if="itemIcon" class="at-pro-menu__icon">
-          <component
-            :is="itemIcon"
-            v-if="typeof itemIcon === 'object' || typeof itemIcon === 'function'"
-          />
-          <i v-else :class="itemIcon" />
+        <el-icon v-if="resolvedIcon" class="at-pro-menu__icon">
+          <slot name="menuIcon" :icon="resolvedIcon" :item="item" :depth="currentDepth">
+            <component :is="resolvedIcon" v-if="isResolvedComponent" />
+            <i v-else :class="resolvedIcon" />
+          </slot>
         </el-icon>
         <i v-else class="at-pro-menu__fallback-icon" role="img" :aria-label="itemTitle">
           {{ fallbackChar }}

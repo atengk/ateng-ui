@@ -7,7 +7,7 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { defineComponent, inject, h } from 'vue';
+import { defineComponent, inject, h, markRaw } from 'vue';
 import { AtengProLayout, ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
 import { AtengFooterBar } from '../src/components/footer-bar';
 import type { ProMenuItem } from '../src/components/pro-layout';
@@ -535,5 +535,194 @@ describe('AtengProLayout Component', () => {
     // 模拟 TabsNav 派发 tabOrderChange
     tabsNav.vm.$emit('tabOrderChange', updatedTabs);
     expect(wrapper.emitted('tabOrderChange')?.[0]?.[0]).toEqual(updatedTabs);
+  });
+
+  it('24. iconResolver 回调：支持将字符串图标映射为 Vue 组件并向多层子菜单及 fieldNames 透传', () => {
+    const MockSettingIcon = defineComponent({
+      name: 'MockSettingIcon',
+      render() {
+        return h('svg', { class: 'mock-svg-setting' });
+      },
+    });
+    const MockUserIcon = defineComponent({
+      name: 'MockUserIcon',
+      render() {
+        return h('svg', { class: 'mock-svg-user' });
+      },
+    });
+
+    const iconMap: Record<string, ReturnType<typeof defineComponent>> = {
+      Setting: MockSettingIcon,
+      User: MockUserIcon,
+    };
+    const resolverCalls: Array<{ icon: unknown; path: unknown; depth: number }> = [];
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        defaultOpeneds: ['/system'],
+        fieldNames: {
+          path: 'url',
+          title: 'name',
+          icon: 'iconKey',
+          children: 'subList',
+        },
+        menuData: [
+          {
+            url: '/system',
+            name: '系统管理',
+            iconKey: 'Setting',
+            subList: [{ url: '/system/user', name: '用户管理', iconKey: 'User' }],
+          },
+        ] as unknown as ProMenuItem[],
+        iconResolver: (icon, item, depth) => {
+          resolverCalls.push({ icon, path: item.url ?? item.path, depth });
+          return typeof icon === 'string' ? iconMap[icon] : icon;
+        },
+      },
+    });
+
+    expect(wrapper.find('.mock-svg-setting').exists()).toBe(true);
+    expect(wrapper.find('.mock-svg-user').exists()).toBe(true);
+    expect(resolverCalls).toEqual([
+      { icon: 'Setting', path: '/system', depth: 0 },
+      { icon: 'User', path: '/system/user', depth: 1 },
+    ]);
+  });
+
+  it('25. iconResolver 回退与折叠态边界：支持返回 CSS 类名、undefined 回退原逻辑、空串隐藏及 top/mix/collapsed 模式', () => {
+    const MockHomeIcon = markRaw(
+      defineComponent({
+        name: 'MockHomeIcon',
+        render() {
+          return h('svg', { class: 'mock-svg-home' });
+        },
+      }),
+    );
+    const MockDirectIcon = markRaw(
+      defineComponent({
+        name: 'MockDirectIcon',
+        render() {
+          return h('svg', { class: 'mock-svg-direct' });
+        },
+      }),
+    );
+
+    const menuItems: ProMenuItem[] = [
+      { path: '/home', title: '首页', icon: 'Home' },
+      { path: '/monitor', title: '监控', icon: 'el-icon-monitor' },
+      { path: '/direct', title: '直传组件', icon: MockDirectIcon },
+      { path: '/hidden-icon', title: '隐藏图标', icon: 'HiddenIcon' },
+      {
+        path: '/group',
+        title: '分组',
+        icon: 'Home',
+        children: [{ path: '/group/leaf', title: '空图标叶子', icon: 'HiddenIcon' }],
+      },
+    ];
+
+    const resolver = (icon: string | ReturnType<typeof defineComponent>) => {
+      if (icon === 'Home') return MockHomeIcon;
+      if (icon === 'HiddenIcon') return '';
+      if (icon === 'CssAlias') return 'iconfont icon-alias';
+      return undefined;
+    };
+
+    // 1. 折叠态：Home 解析为组件不触发 fallback-icon；HiddenIcon 返回空串触发首字徽标回退
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        collapsed: true,
+        menuData: [...menuItems, { path: '/alias', title: '别名', icon: 'CssAlias' }],
+        iconResolver: resolver,
+      },
+    });
+
+    expect(wrapper.find('.mock-svg-home').exists()).toBe(true);
+    expect(wrapper.find('.mock-svg-direct').exists()).toBe(true);
+    expect(wrapper.find('i.el-icon-monitor').exists()).toBe(true);
+    expect(wrapper.find('i.iconfont.icon-alias').exists()).toBe(true);
+    const fallbacks = wrapper.findAll('.at-pro-menu__fallback-icon');
+    expect(fallbacks.map(el => el.text())).toContain('隐');
+
+    wrapper.unmount();
+
+    // 2. 展开态：空串隐藏的二级叶子菜单按无图标缩进 (60px)
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        collapsed: false,
+        defaultOpeneds: ['/group'],
+        menuData: menuItems,
+        iconResolver: resolver,
+      },
+    });
+
+    const leafItem = wrapper
+      .findAll('.el-menu-item')
+      .find(item => item.text().includes('空图标叶子'));
+    expect(leafItem).toBeDefined();
+    expect(leafItem!.attributes('style')).toContain('padding-left: 60px');
+
+    wrapper.unmount();
+
+    // 3. mix 模式透传 iconResolver 至顶栏与侧栏菜单
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: [
+          {
+            path: '/top-group',
+            title: '顶栏模块',
+            icon: 'Home',
+            children: [{ path: '/top-group/sub', title: '侧栏子项', icon: 'CssAlias' }],
+          },
+        ],
+        activeMenu: '/top-group/sub',
+        iconResolver: resolver,
+      },
+    });
+
+    expect(wrapper.find('.at-pro-layout__header .mock-svg-home').exists()).toBe(true);
+    expect(wrapper.find('.at-pro-layout__aside i.iconfont.icon-alias').exists()).toBe(true);
+  });
+
+  it('26. #menuIcon 作用域插槽：在保留内置标题与徽标前提下独立定制图标节点，且无图标项仍保留首字回退', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        defaultOpeneds: ['/sys'],
+        menuData: [
+          {
+            path: '/sys',
+            title: '系统管理',
+            icon: 'ep:setting',
+            badge: 9,
+            children: [
+              { path: '/sys/user', title: '用户管理', icon: 'ep:user' },
+              { path: '/sys/plain', title: '无图标项' },
+            ],
+          },
+        ],
+      },
+      slots: {
+        menuIcon: ({ icon, item, depth }: { icon: unknown; item: ProMenuItem; depth: number }) =>
+          h(
+            'span',
+            { class: 'custom-menu-icon', 'data-path': item.path, 'data-depth': String(depth) },
+            String(icon),
+          ),
+      },
+    });
+
+    const icons = wrapper.findAll('.custom-menu-icon');
+    expect(icons.length).toBe(2);
+    expect(icons[0]?.text()).toBe('ep:setting');
+    expect(icons[0]?.attributes('data-depth')).toBe('0');
+    expect(icons[1]?.text()).toBe('ep:user');
+    expect(icons[1]?.attributes('data-depth')).toBe('1');
+    expect(wrapper.find('.at-pro-menu__title').text()).toBe('系统管理');
+    expect(wrapper.find('.at-pro-menu__badge').text()).toContain('9');
+    expect(wrapper.find('.at-pro-menu__fallback-icon').text()).toBe('无');
   });
 });
