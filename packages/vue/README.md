@@ -755,8 +755,6 @@ export interface UseAuthOptions {
   authManager?: AuthManager;
   /** 超管角色集合，拥有其中任意角色时 hasPermission 全局放行（默认继承全局或 ['admin', 'super_admin']） */
   superAdminRoles?: string[];
-  /** 单个超管角色标识兼容配置（优先级低于 superAdminRoles） */
-  superAdminRole?: string;
 }
 
 export interface UseAuthResult<TUser = unknown> {
@@ -831,7 +829,7 @@ const loginAsSuperAdmin = () => {
 
 #### 核心机制与生产边界说明
 
-- **超管判定与通配符边界**：`superAdminRoles` 优先级为 `options.superAdminRoles` > `options.superAdminRole` > `globalConfig.superAdminRoles` > `['admin', 'super_admin']`；仅 `hasPermission` 对超管角色与 `*` / `*:*:*`（兼容 1~N 段权限码）放行，`hasRole` 始终严格校验用户真实角色列表。
+- **超管判定与通配符边界**：`superAdminRoles` 优先级为 `options.superAdminRoles` > `globalConfig.superAdminRoles` > `['admin', 'super_admin']`；仅 `hasPermission` 对超管角色与 `*` / `*:*:*`（兼容 1~N 段权限码）放行，`hasRole` 始终严格校验用户真实角色列表。
 - **双轨请求头与 401 自动同步**：多账号场景通过 `createAuthManager({ tokenKey, headerName })` 配合 `createAtengVue({ authManager })` 隔离存储键与自定义请求头；401 发生时 `AuthManager` 清空凭据并广播 `onUnauthorized`，自动重置所有关联 `useAuth` 响应式状态。
 
 ---
@@ -1289,7 +1287,6 @@ export interface AtengVueContext {
 export interface UseAuthOptions {
   authManager?: AuthManager;
   superAdminRoles?: string[];
-  superAdminRole?: string;
 }
 
 // 2. 异步请求状态机

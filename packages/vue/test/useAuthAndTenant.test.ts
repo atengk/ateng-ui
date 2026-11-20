@@ -191,14 +191,12 @@ describe('useAuth & useTenant', () => {
       scope.stop();
     });
 
-    it('should resolve superAdminRoles with priority: options.superAdminRoles > options.superAdminRole > globalConfig.superAdminRoles > default', () => {
+    it('should resolve superAdminRoles with priority: options.superAdminRoles > globalConfig.superAdminRoles > default', () => {
       const manager1 = createAuthManager({ storage: new MemoryAuthStorage() });
       const manager2 = createAuthManager({ storage: new MemoryAuthStorage() });
       const manager3 = createAuthManager({ storage: new MemoryAuthStorage() });
-      const manager4 = createAuthManager({ storage: new MemoryAuthStorage() });
 
       let globalScopedAuth!: ReturnType<typeof useAuth>;
-      let legacyOptionAuth!: ReturnType<typeof useAuth>;
       let arrayOptionAuth!: ReturnType<typeof useAuth>;
       let disabledBypassAuth!: ReturnType<typeof useAuth>;
 
@@ -206,17 +204,14 @@ describe('useAuth & useTenant', () => {
         setup() {
           // 1. 继承 globalConfig.superAdminRoles
           globalScopedAuth = useAuth({ authManager: manager1 });
-          // 2. options.superAdminRole 覆盖 globalConfig
-          legacyOptionAuth = useAuth({ authManager: manager2, superAdminRole: 'legacy_root' });
-          // 3. options.superAdminRoles 覆盖 options.superAdminRole 与 globalConfig
+          // 2. options.superAdminRoles 覆盖 globalConfig
           arrayOptionAuth = useAuth({
-            authManager: manager3,
-            superAdminRole: 'legacy_root',
+            authManager: manager2,
             superAdminRoles: ['platform_root'],
           });
-          // 4. 显式空数组禁用超管放行
+          // 3. 显式空数组禁用超管放行
           disabledBypassAuth = useAuth({
-            authManager: manager4,
+            authManager: manager3,
             superAdminRoles: [],
           });
           return () => h('div');
@@ -242,20 +237,14 @@ describe('useAuth & useTenant', () => {
       expect(globalScopedAuth.hasPermission('sys:config:edit')).toBe(true);
       expect(globalScopedAuth.hasRole('auditor')).toBe(false);
 
-      // 2. options.superAdminRole 覆盖 globalConfig
-      legacyOptionAuth.login({ token: 't2', permissions: [], roles: ['subtree_admin'] });
-      expect(legacyOptionAuth.hasPermission('sys:config:edit')).toBe(false);
-      legacyOptionAuth.setRoles(['legacy_root']);
-      expect(legacyOptionAuth.hasPermission('sys:config:edit')).toBe(true);
-
-      // 3. options.superAdminRoles 优先级最高
-      arrayOptionAuth.login({ token: 't3', permissions: [], roles: ['legacy_root'] });
+      // 2. options.superAdminRoles 优先级最高
+      arrayOptionAuth.login({ token: 't2', permissions: [], roles: ['subtree_admin'] });
       expect(arrayOptionAuth.hasPermission('sys:config:edit')).toBe(false);
       arrayOptionAuth.setRoles(['platform_root']);
       expect(arrayOptionAuth.hasPermission('sys:config:edit')).toBe(true);
 
-      // 4. superAdminRoles: [] 彻底关闭超管放行
-      disabledBypassAuth.login({ token: 't4', permissions: [], roles: ['admin', 'super_admin'] });
+      // 3. superAdminRoles: [] 彻底关闭超管放行
+      disabledBypassAuth.login({ token: 't3', permissions: [], roles: ['admin', 'super_admin'] });
       expect(disabledBypassAuth.hasPermission('sys:config:edit')).toBe(false);
 
       app.unmount();

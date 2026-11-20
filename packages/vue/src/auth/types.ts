@@ -54,11 +54,6 @@ export interface UseAuthOptions {
    * 超级管理员角色标识集合。拥有其中任意角色时 hasPermission 默认全局放行（hasRole 仍严格校验真实角色列表），默认继承全局配置或 ['admin', 'super_admin']。
    */
   superAdminRoles?: string[];
-
-  /**
-   * 单个超级管理员角色标识（兼容保留字段，优先级低于 superAdminRoles）。拥有该角色时 hasPermission 默认全局放行（hasRole 仍严格校验真实角色列表）。
-   */
-  superAdminRole?: string;
 }
 
 /**

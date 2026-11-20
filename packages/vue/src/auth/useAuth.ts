@@ -138,10 +138,7 @@ function evaluateItemsMatch(
 export function useAuth<TUser = unknown>(options: UseAuthOptions = {}): UseAuthResult<TUser> {
   const globalConfig = useAtengConfig();
   const manager = options.authManager ?? globalConfig.authManager;
-  const superAdminRoles =
-    options.superAdminRoles ??
-    (options.superAdminRole ? [options.superAdminRole] : undefined) ??
-    globalConfig.superAdminRoles;
+  const superAdminRoles = options.superAdminRoles ?? globalConfig.superAdminRoles;
 
   const state = getOrCreateAuthState<TUser>(manager);
 

@@ -77,20 +77,10 @@ export interface ColumnTransformOptions {
  * 根据列显隐状态字典，递归过滤插槽 VNodes 中的不可见列节点。
  *
  * @param vnodes 原始插槽 VNode 列表
- * @param optionsOrVisibilityMap 列转换选项或列 Key 对应显隐状态映射
- * @param legacyWidthMap 可选的列 Key 对应动态宽度映射
+ * @param options 列转换选项
  * @returns 过滤后的有效 VNode 列表
  */
-export function filterColumnVNodes(
-  vnodes: VNode[],
-  optionsOrVisibilityMap: Map<string, boolean> | ColumnTransformOptions,
-  legacyWidthMap?: Map<string, string | number>,
-): VNode[] {
-  const options: ColumnTransformOptions =
-    optionsOrVisibilityMap instanceof Map
-      ? { visibilityMap: optionsOrVisibilityMap, widthMap: legacyWidthMap }
-      : optionsOrVisibilityMap;
-
+export function filterColumnVNodes(vnodes: VNode[], options: ColumnTransformOptions): VNode[] {
   const { visibilityMap, widthMap, resizable } = options;
   const result: VNode[] = [];
 
@@ -149,22 +139,13 @@ export function filterColumnVNodes(
  * 根据列显隐状态字典与排序顺序，过滤并排序插槽 VNodes 中的列节点。
  *
  * @param vnodes 原始插槽 VNode 列表
- * @param optionsOrVisibilityMap 列转换选项或列 Key 对应显隐状态映射
- * @param orderList 列 Key 期望的渲染顺序数组
- * @param widthMap 可选的列 Key 对应动态宽度映射
- * @returns 过滤与排重后的有效 VNode 列表
+ * @param options 列转换选项
+ * @returns 过滤与排序后的有效 VNode 列表
  */
 export function filterAndSortColumnVNodes(
   vnodes: VNode[],
-  optionsOrVisibilityMap: Map<string, boolean> | ColumnTransformOptions,
-  orderList?: string[],
-  widthMap?: Map<string, string | number>,
+  options: ColumnTransformOptions,
 ): VNode[] {
-  const options: ColumnTransformOptions =
-    optionsOrVisibilityMap instanceof Map
-      ? { visibilityMap: optionsOrVisibilityMap, orderList, widthMap }
-      : optionsOrVisibilityMap;
-
   const filtered = filterColumnVNodes(vnodes, options);
   const activeOrderList = options.orderList;
   if (!activeOrderList || activeOrderList.length === 0) {
@@ -181,8 +162,8 @@ export function filterAndSortColumnVNodes(
     const keyB =
       (propsB.prop as string) || (propsB.label as string) || (propsB.type as string) || '';
 
-    const indexA = orderMap.has(keyA) ? orderMap.get(keyA)! : 9999;
-    const indexB = orderMap.has(keyB) ? orderMap.get(keyB)! : 9999;
+    const indexA = orderMap.get(keyA) ?? 9999;
+    const indexB = orderMap.get(keyB) ?? 9999;
     return indexA - indexB;
   });
 }
