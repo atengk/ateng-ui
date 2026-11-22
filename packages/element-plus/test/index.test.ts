@@ -84,6 +84,8 @@ import AtengElementPlus, {
   type DateRangeShortcut,
   type ExcelFeedbackItem,
   type UploadMergeParams,
+  type AtengUploadProps,
+  type AtengUploadInstance,
   type AtengTableColumn,
   type AtengQueryFormField,
 } from '../src/index';
@@ -250,6 +252,18 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       totalChunks: 0,
     };
     expect(mockMergeParams.totalChunks).toBe(0);
+
+    const mockUploadProps: AtengUploadProps = {
+      chunk: false,
+      httpRequest: async options => ({ name: options.file.name }),
+    };
+    expect(typeof mockUploadProps.httpRequest).toBe('function');
+
+    const mockUploadInstance: Partial<AtengUploadInstance> = {
+      submit: vi.fn(),
+      clearFiles: vi.fn(),
+    };
+    expect(mockUploadInstance.submit).toBeDefined();
 
     const mockColumn: AtengTableColumn = { prop: 'id', label: 'ID' };
     expect(mockColumn.prop).toBe('id');

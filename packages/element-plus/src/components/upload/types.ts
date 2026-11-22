@@ -13,6 +13,7 @@ import type {
   UploadUserFile,
   UploadRawFile,
   UploadProgressEvent,
+  UploadRequestOptions,
 } from 'element-plus';
 import type { UploadChunkItem, UploadStatus } from '@atengk/vue';
 import type { UploadChunkResult } from '@atengk/core';
@@ -171,6 +172,10 @@ export interface AtengUploadProps<T = unknown> {
    * 删除文件之前的钩子。
    */
   beforeRemove?: (uploadFile: UploadFile, uploadFiles: UploadFiles) => boolean | Promise<boolean>;
+  /**
+   * 覆盖默认的上传行为，自定义直传执行器（仅在 chunk 为 false 的非分片模式下生效；开启分片模式后由内置分片协调器接管）。
+   */
+  httpRequest?: (options: UploadRequestOptions) => XMLHttpRequest | Promise<unknown>;
 }
 
 /**

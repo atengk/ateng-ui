@@ -37,8 +37,9 @@ Accepted (已接受)
    - 弹窗内置 `<el-table>` 分页渲染错误行号、列名、错误原因，支持一键复制；
    - 底部操作栏支持传入 `fileUrl` 或 `downloadAction` 异步函数，一键拉取并下载服务端回写的标红批注 Excel 结果文件，无缝衔接 `@atengk/vue` 的 `useExcel` 与 L0 的 Blob 双态错误识别防线。
 5. **AtengUpload 基础增强与分片切片状态机双模表现容器**：
-   - **基础直传增强**：增强拖拽、图片缩略图弹窗预览、文件大小/格式前置校验；
-   - **分片切片模式 (`:chunk="true"`)**：通过协议无关适配器（`customUploadChunk`、`customMerge`）深度绑定 `@atengk/vue` 的 `useUpload` 状态机，接管切片进度、并发控制、暂停/继续与单片重试。
+   - **基础直传增强**：增强拖拽、图片缩略图/多媒体灯箱预览、文件大小/格式前置校验，并在非分片直传模式（`chunk: false`）下通过强类型 `httpRequest` 属性原样透传自定义上传执行器（便于业务方委托 `@atengk/core` `http` 客户端统一注入双轨 Token/租户头并识别 HTTP 200 业务错误信封）；未传 `httpRequest` 时回退 `ElUpload` 原生 XHR 上传；
+   - **属性透传分层隔离（`inheritAttrs: false`）**：显式禁用根容器自动属性继承，将 `class` 与 `style` 保留绑定于外层 `.at-upload` 根容器，其余非样式属性与事件监听器仅透传至内部 `<el-upload>`，避免根 DOM 污染与事件重复触发；
+   - **分片切片模式 (`:chunk="true"`)**：通过协议无关适配器（`customUploadChunk`、`customMerge`）深度绑定 `@atengk/vue` 的 `useUpload` 状态机，接管切片进度、并发控制、暂停/继续与单片重试（开启分片模式时静默优先分片协调器并忽略 `httpRequest`）。
 
 ## 效果与权衡
 

@@ -49,7 +49,7 @@
 | **业务控件** | 企业级原生图标选择器   | `AtengIconSelect`                                                                                                                                                                                                                                                                                          | `v-model`, `clearable`, `copyable`, `iconType`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 集成 Element Plus 原生全量图标库；集成拼音/全拼/首字母/中文极速模糊检索算法；支持一键复制代码组件代码并提供剪贴板回写反馈                                                                                                                                                                                                                                                                                                                                         | [`AtengIconSelect.test.ts`](./test/AtengIconSelect.test.ts)<br>`/business/icon-select`          |
 | **文件流式** | 导入错误明细反馈弹窗   | `AtengExcelFeedback`                                                                                                                                                                                                                                                                                       | `v-model`, `errors`, `fileUrl`, `downloadAction`, `fileName`, `pageSize`, `showCopy`, `allowCsvFallback`, 实例暴露 `copyErrors()`, `downloadAnnotatedExcel()`, `exportErrorsAsCsv()`                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 集成 `AtengDialog`；在线表格分页展示导入错误行号、列名、原始值与失败原因；一键格式化复制剪贴板；双模批注文件下载；无后端批注时前端本地自适应降级生成带 UTF-8 BOM (`\uFEFF`) 的 CSV 错误清单导出，彻底解决 Windows Excel 双击打开中文乱码顽疾                                                                                                                                                                                                                      | [`AtengExcelFeedback.test.ts`](./test/AtengExcelFeedback.test.ts)<br>`/business/excel-feedback` |
 | **文件流式** | 流式 Excel 导出按钮    | `AtengExcelExport`                                                                                                                                                                                                                                                                                         | `action`, `filename`, `params`, `selectedIds`, `mode: 'button' \| 'dropdown'`, `loading`, 实例暴露 `triggerExport(mode?)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 整合 Fesod 流式 Excel 协议；双轨获取查询参数与选中行（自动感知 AtengTable 上下文或属性直传）；内置防重 Loading 互斥锁；严格对齐 ADR-0004 Blob-JSON 双态异常识别防御（后端返回 `application/json` 业务错误报文时，自动解包并由 `ElMessage.error` 拦截告警，严格阻断伪 `.xlsx` 损坏文件在浏览器中下载，并确定性释放临时 ObjectURL）                                                                                                                                 | [`AtengExcelExport.test.ts`](./test/AtengExcelExport.test.ts)<br>`/table/crud`                  |
-| **文件流式** | 多源切片上传器         | `AtengUpload`                                                                                                                                                                                                                                                                                              | `chunk: boolean`, `chunkSize`, `concurrency`, `customUploadChunk`, `customMerge`, `maxSize`, `maxCount`, `accept`, `allowTypes`, `beforeUpload`, `beforePreview`, 实例暴露 `pause()`, `resume()`, `cancel()`                                                                                                                                                                                                                                                                                                                                                                                                                                      | 原生直传增强与大文件切片双模；深度组装 AtengFilePreview 预览灯箱，支持图片、PDF、音视频与代码文本在线即时调阅；内置 beforePreview 绝密文件前置业务拦截守卫；临时 ObjectURL 确定性生命周期回收；支持毫秒级暂停、恢复与网络中断                                                                                                                                                                                                                                     | [`AtengUpload.test.ts`](./test/AtengUpload.test.ts)<br>`/business/upload`                       |
+| **文件流式** | 多源切片上传器         | `AtengUpload`                                                                                                                                                                                                                                                                                              | `chunk: boolean`, `chunkSize`, `concurrency`, `customUploadChunk`, `customMerge`, `httpRequest`, `maxSize`, `accept`, `beforeUpload`, `beforePreview`, 实例暴露 `pause()`, `resume()`, `cancel()`                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 原生直传增强与大文件切片双模；非分片模式支持强类型 `httpRequest` 委托统一网络层直传与 `inheritAttrs: false` 属性分层隔离；深度组装 AtengFilePreview 预览灯箱，支持图片、PDF、音视频与代码文本在线即时调阅；内置 beforePreview 绝密文件前置业务拦截守卫；临时 ObjectURL 确定性生命周期回收；支持毫秒级暂停、恢复与网络中断                                                                                                                                         | [`AtengUpload.test.ts`](./test/AtengUpload.test.ts)<br>`/business/upload`                       |
 | **文件流式** | 原生轻量多格式文件预览 | `AtengFilePreview`                                                                                                                                                                                                                                                                                         | `v-model`, `fileList`, `initialIndex`, `title`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 具备图片全屏灯箱、原生 PDF 内嵌阅读器、HTML5 音频/视频播放器与代码/纯文本高亮查看器；支持异常格式安全降级直接下载                                                                                                                                                                                                                                                                                                                                                 | [`AtengFilePreview.test.ts`](./test/AtengFilePreview.test.ts)<br>`/business/file-preview`       |
 | **智能终端** | 面向 LLM 的流式打字机  | `AtengStreamText`                                                                                                                                                                                                                                                                                          | `text`, `speed`, `cursor`, `cursorChar`, `stream`, `showCopy`, `@finished`, `@copy`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 面向 LLM 与 SSE 流式响应；纯原生逐字切片与呼吸光标自适应淡出；双轨对接 `@atengk/vue` 的 `useStream`；内置一键复制代码                                                                                                                                                                                                                                                                                                                                             | [`AtengStreamText.test.ts`](./test/AtengStreamText.test.ts)<br>`/business/stream-text`          |
 | **智能终端** | 实时日志滚屏终端       | `AtengLogViewer`                                                                                                                                                                                                                                                                                           | `logs`, `webSocket`, `maxLines`, `theme: 'dark' \| 'light'`, `autoScroll`, `height`, `title`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 2000 行环形内存缓冲防 DOM 膨胀；原生贴底滚动与手动回滚暂停；关键字高亮检索与日志下载；双轨对接 `useWebSocket`                                                                                                                                                                                                                                                                                                                                                     | [`AtengLogViewer.test.ts`](./test/AtengLogViewer.test.ts)<br>`/business/log-viewer`             |
@@ -2967,6 +2967,8 @@ import type {
   UploadFiles,
   UploadUserFile,
   UploadRawFile,
+  UploadProgressEvent,
+  UploadRequestOptions,
 } from 'element-plus';
 import type { UploadChunkItem, UploadStatus } from '@atengk/vue';
 import type { UploadChunkResult } from '@atengk/core';
@@ -2996,10 +2998,17 @@ export interface AtengUploadProps<T = unknown> {
   showChunkList?: boolean; // 是否展示切片明细列表，默认 true
   fileList?: UploadUserFile[]; // v-model:file-list
   disabled?: boolean;
+  /**
+   * 覆盖默认上传行为的自定义直传执行器（仅在 chunk 为 false 的非分片模式下生效）
+   */
+  httpRequest?: (options: UploadRequestOptions) => XMLHttpRequest | Promise<unknown>;
 }
 
 export interface AtengUploadEmits<T = unknown> {
   (e: 'update:fileList', fileList: UploadUserFile[]): void;
+  (e: 'success', response: unknown, uploadFile: UploadFile, uploadFiles: UploadFiles): void;
+  (e: 'error', error: Error, uploadFile: UploadFile, uploadFiles: UploadFiles): void;
+  (e: 'progress', evt: UploadProgressEvent, uploadFile: UploadFile, uploadFiles: UploadFiles): void;
   (e: 'chunk-progress', progress: number, loadedBytes: number, totalBytes: number): void;
   (e: 'chunk-success', results: UploadChunkResult<T>[] | unknown): void;
   (e: 'chunk-error', error: unknown): void;
@@ -3119,12 +3128,85 @@ const handleCancel = () => uploadRef.value?.cancel();
 </template>
 ```
 
+#### 非分片直传自定义 `httpRequest` 示例（提取自 Sample `DirectHttpUploadDemo.vue`）
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  ElButton,
+  ElMessage,
+  type UploadAjaxError,
+  type UploadFile,
+  type UploadProgressEvent,
+  type UploadRequestOptions,
+  type UploadUserFile,
+} from 'element-plus';
+import { BusinessException } from '@atengk/core';
+import { AtengUpload } from '@atengk/element-plus';
+
+const fileList = ref<UploadUserFile[]>([]);
+
+// 委托统一业务网络层发起非分片直传，并将 HTTP 200 业务异常或 401 转译给 options.onError
+const handleDirectHttpRequest = async (options: UploadRequestOptions): Promise<unknown> => {
+  const fileName = options.file.name || 'contract-attachment.pdf';
+
+  try {
+    options.onProgress({ percent: 35 } as UploadProgressEvent);
+    await new Promise(resolve => setTimeout(resolve, 180));
+    options.onProgress({ percent: 100 } as UploadProgressEvent);
+
+    const result = {
+      fileId: `doc-${Date.now()}`,
+      url: `https://cdn.atengk.com/contracts/${encodeURIComponent(fileName)}`,
+    };
+    options.onSuccess(result);
+    return result;
+  } catch (err) {
+    const normalizedError = err instanceof Error ? err : new Error(String(err));
+    const ajaxError = Object.assign(normalizedError, {
+      status: err instanceof BusinessException ? err.code : 500,
+      method: options.method,
+      url: options.action,
+    }) as UploadAjaxError;
+    options.onError(ajaxError);
+    throw normalizedError;
+  }
+};
+
+const handleDirectSuccess = (_response: unknown, uploadFile: UploadFile): void => {
+  ElMessage.success(`文件 "${uploadFile.name}" 自定义直传成功`);
+};
+
+const handleDirectError = (error: Error, uploadFile: UploadFile): void => {
+  ElMessage.error(`文件 "${uploadFile.name}" 直传失败：${error.message}`);
+};
+</script>
+
+<template>
+  <AtengUpload
+    v-model:file-list="fileList"
+    class="direct-upload-root"
+    style="max-width: 560px"
+    data-testid="direct-http-uploader"
+    action="/api/v1/contracts/upload"
+    :chunk="false"
+    :http-request="handleDirectHttpRequest"
+    @success="handleDirectSuccess"
+    @error="handleDirectError"
+  >
+    <ElButton type="primary" plain>选取合同附件 (触发自定义 httpRequest)</ElButton>
+  </AtengUpload>
+</template>
+```
+
 #### 核心机制与生产边界说明
 
 1. **分片切片数学模型与纯原生并发池**：通过 `Blob.prototype.slice` 将超大二进制文件精确切割为指定大小（默认 5MB）的独立切片，结合 `concurrency=3` 受控并发池流水线调度，既跑满网络吞吐带宽，又杜绝并发过多击穿浏览器长连接池限制。
 2. **在途连接即时中断与断点续传**：调用 `pause()` 时，底层通过 `AbortSignal` 毫秒级中断所有在途 HTTP 连接；恢复时仅需对尚未完成状态的切片发起重试，已成功分片纯内存保留，实现真正意义上的**毫秒级断点续传**。
 3. **`ObjectURL` 确定性垃圾回收防线**：在文件预览与缩略图加载过程中生成的 `blob:` 临时 URL，组件在弹窗关闭或文件移除钩子中通过 `URL.revokeObjectURL` 100% 确定性销毁句柄，彻底杜绝百万级上传导致的浏览器内存泄漏崩溃。
 4. **内置无缝集成 `AtengFilePreview` 灯箱**：开启 `showPreview` 后，点击列表文件名即可呼出全屏预览门户，自动支持多格式文件调阅。
+5. **非分片直传 `httpRequest` 与 `inheritAttrs: false` 分层透传**：`chunk = false` 时，`httpRequest` 强类型原样透传至内部 `<el-upload>`（未传则自动回退原生 XHR）；开启 `chunk = true` 时由分片协调器静默优先接管。组件禁用默认根属性继承（`inheritAttrs: false`），将 `class` 与 `style` 保留于外层 `.at-upload` 容器，其余非样式属性与事件仅透传给 `<el-upload>`，防止属性碰撞与事件双重绑定。
 
 ---
 
@@ -4736,12 +4818,12 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 ### 12.6 二进制传输与多源切片上传套件 (Upload, FilePreview, ExcelExport, ExcelFeedback)
 
-| 组件                 | 核心 Props                                                                         | 核心异常与安全防线                                                    |
-| :------------------- | :--------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-| `AtengUpload`        | `chunk: boolean`, `chunkSize`, `concurrency=3`, `customUploadChunk`, `customMerge` | `pause()` / `resume()` 毫秒级断点续传，`URL.revokeObjectURL` 垃圾回收 |
-| `AtengFilePreview`   | `url`, `file`, `name`, `fileType='auto'`, `mode='inline'                           | 'dialog'`, `downloadable`                                             | 沙箱内联 PDF、HTML5 音视频、代码高亮、未知类型安全降级      |
-| `AtengExcelExport`   | `action`, `params`, `selectedIds`, `filename`, `mode='button'                      | 'dropdown'`                                                           | ADR-0004 Blob-JSON 双态识别，绝不将 JSON 报错下载为损坏文件 |
-| `AtengExcelFeedback` | `errors: ExcelFeedbackItem[]`, `downloadAction`, `allowCsvFallback=true`           | Fesod 批注回写，纯前端本地带 UTF-8 BOM CSV 导出防乱码                 |
+| 组件                 | 核心 Props                                                                                        | 核心异常与安全防线                                                                                             |
+| :------------------- | :------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------- |
+| `AtengUpload`        | `chunk: boolean`, `chunkSize`, `concurrency=3`, `customUploadChunk`, `customMerge`, `httpRequest` | `pause()` / `resume()` 毫秒级断点续传，`URL.revokeObjectURL` 垃圾回收，非分片模式支持 `httpRequest` 自定义直传 |
+| `AtengFilePreview`   | `url`, `file`, `name`, `fileType='auto'`, `mode='inline' \| 'dialog'`, `downloadable`             | 沙箱内联 PDF、HTML5 音视频、代码高亮、未知类型安全降级                                                         |
+| `AtengExcelExport`   | `action`, `params`, `selectedIds`, `filename`, `mode='button' \| 'dropdown'`                      | ADR-0004 Blob-JSON 双态识别，绝不将 JSON 报错下载为损坏文件                                                    |
+| `AtengExcelFeedback` | `errors: ExcelFeedbackItem[]`, `downloadAction`, `allowCsvFallback=true`                          | Fesod 批注回写，纯前端本地带 UTF-8 BOM CSV 导出防乱码                                                          |
 
 ---
 

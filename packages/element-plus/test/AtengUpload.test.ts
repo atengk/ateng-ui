@@ -18,8 +18,15 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick, unref } from 'vue';
-import { ElUpload, ElMessage, type UploadFile, type UploadRawFile } from 'element-plus';
-import { AtengUpload } from '../src/components/upload';
+import {
+  ElUpload,
+  ElMessage,
+  type UploadFile,
+  type UploadRawFile,
+  type UploadProgressEvent,
+  type UploadRequestOptions,
+} from 'element-plus';
+import { AtengUpload, type AtengUploadProps } from '../src/components/upload';
 import { AtengFilePreview } from '../src/components/file-preview';
 
 describe('AtengUpload 上传套件交互与切片状态机测试', () => {
@@ -497,5 +504,121 @@ describe('AtengUpload 上传套件交互与切片状态机测试', () => {
     expect(typeof exposed.submit).toBe('function');
     expect(typeof exposed.previewFile).toBe('function');
     expect(typeof exposed.closePreview).toBe('function');
+  });
+
+  it('非分片直传模式：传入 httpRequest 时透传给 ElUpload 并接收 UploadRequestOptions', async () => {
+    const customHttpRequest = vi.fn(async (options: UploadRequestOptions) => {
+      options.onProgress({ percent: 100 } as UploadProgressEvent);
+      const payload = { url: 'https://cdn.example.com/report.pdf' };
+      options.onSuccess(payload);
+      return payload;
+    });
+
+    const uploadProps: AtengUploadProps = {
+      chunk: false,
+      action: '/api/v1/files/upload',
+      httpRequest: customHttpRequest,
+    };
+
+    wrapper = mount(AtengUpload, {
+      props: uploadProps,
+    });
+
+    const uploader = wrapper.findComponent(ElUpload);
+    const forwardedRequest = uploader.props('httpRequest') as
+      ((options: UploadRequestOptions) => XMLHttpRequest | Promise<unknown>) | undefined;
+
+    expect(forwardedRequest).toBe(customHttpRequest);
+
+    const mockFile = new File(['content'], 'report.pdf', {
+      type: 'application/pdf',
+    }) as UploadRawFile;
+    const onSuccess = vi.fn();
+    const onProgress = vi.fn();
+    const onError = vi.fn();
+
+    await forwardedRequest?.({
+      action: '/api/v1/files/upload',
+      method: 'POST',
+      data: {},
+      filename: 'file',
+      file: mockFile,
+      headers: {},
+      withCredentials: false,
+      onProgress,
+      onSuccess,
+      onError,
+    });
+
+    expect(customHttpRequest).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith({ url: 'https://cdn.example.com/report.pdf' });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('分片模式优先：chunk 为 true 时忽略外部 httpRequest 并由内置分片协调器接管', () => {
+    const customHttpRequest = vi.fn(async () => ({ ok: true }));
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        chunk: true,
+        httpRequest: customHttpRequest,
+      } as AtengUploadProps,
+    });
+
+    const uploader = wrapper.findComponent(ElUpload);
+    const forwardedRequest = uploader.props('httpRequest');
+
+    expect(typeof forwardedRequest).toBe('function');
+    expect(forwardedRequest).not.toBe(customHttpRequest);
+  });
+
+  it('属性透传隔离：class 与 style 留在根容器，非样式属性与事件仅透传至 ElUpload 不污染外层 div', async () => {
+    const onCustomClick = vi.fn();
+
+    wrapper = mount(AtengUpload, {
+      attrs: {
+        class: 'custom-upload-box',
+        style: 'width: 420px',
+        'data-testid': 'inner-uploader',
+        'aria-label': '附件上传器',
+        onClick: onCustomClick,
+      },
+    });
+
+    const rootEl = wrapper.find('.at-upload');
+    const uploader = wrapper.findComponent(ElUpload);
+
+    // 1. class 与 style 保留在根容器 .at-upload，且不泄漏到内部 ElUpload
+    expect(rootEl.classes()).toContain('custom-upload-box');
+    expect(rootEl.attributes('style')).toContain('width: 420px');
+    expect(uploader.classes()).not.toContain('custom-upload-box');
+    expect(uploader.attributes('style')).toBeUndefined();
+
+    // 2. 非样式属性只透传至 ElUpload，不污染外层 .at-upload
+    expect(rootEl.attributes('data-testid')).toBeUndefined();
+    expect(rootEl.attributes('aria-label')).toBeUndefined();
+    expect(uploader.attributes('data-testid')).toBe('inner-uploader');
+    expect(uploader.attributes('aria-label')).toBe('附件上传器');
+
+    // 3. 点击内部 ElUpload 时外部事件仅触发一次（无双重绑定）
+    await uploader.trigger('click');
+    expect(onCustomClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('向后兼容默认直传：chunk 为 false 且未传 httpRequest 时保持 ElUpload 原生默认执行器', () => {
+    const bareElUpload = mount(ElUpload);
+    const nativeDefaultHttpRequest = bareElUpload.props('httpRequest');
+    bareElUpload.unmount();
+
+    wrapper = mount(AtengUpload, {
+      props: {
+        chunk: false,
+        action: '/api/v1/files/upload',
+      },
+    });
+
+    const uploader = wrapper.findComponent(ElUpload);
+    expect(uploader.props('httpRequest')).toBe(nativeDefaultHttpRequest);
   });
 });

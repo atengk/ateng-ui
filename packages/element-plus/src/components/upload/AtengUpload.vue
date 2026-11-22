@@ -12,7 +12,7 @@
  * @since 2026-10-21
  */
 
-import { shallowRef, ref, computed, onUnmounted } from 'vue';
+import { shallowRef, ref, computed, useAttrs, onUnmounted, type StyleValue } from 'vue';
 import {
   ElUpload,
   ElProgress,
@@ -31,6 +31,7 @@ import AtengFilePreview from '../file-preview/AtengFilePreview.vue';
 
 defineOptions({
   name: 'AtengUpload',
+  inheritAttrs: false,
 });
 
 const props = withDefaults(defineProps<AtengUploadProps>(), {
@@ -66,9 +67,17 @@ const props = withDefaults(defineProps<AtengUploadProps>(), {
   fileList: undefined,
   beforeUpload: undefined,
   beforeRemove: undefined,
+  httpRequest: undefined,
 });
 
 const emit = defineEmits<AtengUploadEmits>();
+const attrs = useAttrs();
+
+const rootClass = computed(() => attrs.class);
+const rootStyle = computed(() => attrs.style as StyleValue);
+const uploaderAttrs = computed(() =>
+  Object.fromEntries(Object.entries(attrs).filter(([key]) => key !== 'class' && key !== 'style')),
+);
 
 const uploadRef = shallowRef<InstanceType<typeof ElUpload> | null>(null);
 const currentFileName = ref('');
@@ -428,7 +437,7 @@ defineExpose<AtengUploadExpose>({
 </script>
 
 <template>
-  <div class="at-upload" :class="{ 'is-chunk': chunk }">
+  <div class="at-upload" :class="[{ 'is-chunk': chunk }, rootClass]" :style="rootStyle">
     <el-upload
       ref="uploadRef"
       class="at-upload__uploader"
@@ -449,8 +458,8 @@ defineExpose<AtengUploadExpose>({
       :file-list="fileList"
       :before-upload="handleBeforeUpload"
       :before-remove="beforeRemove"
-      :http-request="chunk ? handleCustomHttpRequest : undefined"
-      v-bind="$attrs"
+      :http-request="chunk ? handleCustomHttpRequest : httpRequest"
+      v-bind="uploaderAttrs"
       @update:file-list="handleUpdateFileList"
       @change="handleChange"
       @preview="handlePreview"

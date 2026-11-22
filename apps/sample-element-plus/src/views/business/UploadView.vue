@@ -32,6 +32,7 @@ import {
   type UploadMergeParams,
 } from '@atengk/element-plus';
 import type { UploadChunkItem } from '@atengk/vue';
+import DirectHttpUploadDemo from './components/DirectHttpUploadDemo.vue';
 
 // 1. 多格式文件列表（涵盖图片、PDF、音视频、代码与未知格式）
 const multiFormatFileList = ref<UploadUserFile[]>([
@@ -359,6 +360,11 @@ const handleReset = () => {
           </div>
         </div>
       </div>
+
+      <ElDivider />
+
+      <!-- 3. 非分片直传自定义 httpRequest 执行器 -->
+      <DirectHttpUploadDemo />
     </ElCard>
   </div>
 </template>
