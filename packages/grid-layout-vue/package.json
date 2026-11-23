@@ -1,6 +1,6 @@
 {
   "name": "@atengk/grid-layout-vue",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "面向现代 Web 应用与企业级系统的大屏仪表盘、千人千面工作台与可视化拖拽网格布局基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

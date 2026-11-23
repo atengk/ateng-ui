@@ -1,6 +1,6 @@
 {
   "name": "@atengk/form-designer-vue",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "面向现代 Web 应用与企业级审批流的工业级动态表单设计器、JSON Schema 渲染引擎与流程权限协同响应式扩展基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

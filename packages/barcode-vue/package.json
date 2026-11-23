@@ -1,6 +1,6 @@
 {
   "name": "@atengk/barcode-vue",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "面向现代 Web 应用、仓储物流与智能制造的工业级条码、艺术二维码与动态扫码扩展基础设施",
   "type": "module",
   "main": "./dist/index.cjs",

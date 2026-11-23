@@ -1,6 +1,6 @@
 {
   "name": "@atengk/print-vue",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "面向现代 Web 应用与企业级系统的专业静默打印、精准票据排版、分页防撕裂截断与高保真 PDF 矢量导出扩展基础设施",
   "type": "module",
   "main": "./dist/index.cjs",
