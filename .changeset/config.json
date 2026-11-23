@@ -4,16 +4,25 @@
   "commit": false,
   "fixed": [
     [
-      "@atengk/core",
-      "@atengk/vue",
-      "@atengk/element-plus",
+      "@atengk/ai-chat-vue",
+      "@atengk/barcode-vue",
       "@atengk/code-editor-vue",
+      "@atengk/core",
+      "@atengk/cropper-vue",
       "@atengk/echarts-vue",
       "@atengk/editor-vue",
+      "@atengk/element-plus",
       "@atengk/file-viewer-vue",
       "@atengk/flow-vue",
+      "@atengk/form-designer-vue",
+      "@atengk/gantt-vue",
+      "@atengk/grid-layout-vue",
+      "@atengk/map-vue",
       "@atengk/monitor",
-      "@atengk/video-player-vue"
+      "@atengk/print-vue",
+      "@atengk/spreadsheet-vue",
+      "@atengk/video-player-vue",
+      "@atengk/vue"
     ]
   ],
   "linked": [],
@@ -21,14 +30,23 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "sample-ai-chat-vue",
+    "sample-barcode-vue",
     "sample-code-editor-vue",
     "sample-core",
+    "sample-cropper-vue",
     "sample-echarts-vue",
     "sample-editor-vue",
     "sample-element-plus",
     "sample-file-viewer-vue",
     "sample-flow-vue",
+    "sample-form-designer-vue",
+    "sample-gantt-vue",
+    "sample-grid-layout-vue",
+    "sample-map-vue",
     "sample-monitor",
+    "sample-print-vue",
+    "sample-spreadsheet-vue",
     "sample-video-player-vue",
     "sample-vue"
   ]

@@ -141,7 +141,6 @@ jobs:
 
       - name: 执行自动化测试套件 (Test & Coverage)
         run: pnpm run test
-        continue-on-error: true
 
   # ----------------------------------------------------------------------------
   # Job 4: 终审质量门禁统一放行看板 (All Checks Passed)

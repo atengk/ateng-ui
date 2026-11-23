@@ -68,5 +68,12 @@
     "vite-plugin-dts": "^4.3.0",
     "vitest": "^2.1.8",
     "vue": "^3.5.13"
+  },
+  "author": "atengk",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atengk/ateng-ui.git",
+    "directory": "packages/editor-vue"
   }
 }

@@ -43,5 +43,10 @@
     "typescript"
   ],
   "author": "atengk",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atengk/ateng-ui.git",
+    "directory": "packages/monitor"
+  }
 }

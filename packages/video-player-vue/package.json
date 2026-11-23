@@ -64,5 +64,10 @@
     "artplayer"
   ],
   "author": "Ateng",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atengk/ateng-ui.git",
+    "directory": "packages/video-player-vue"
+  }
 }

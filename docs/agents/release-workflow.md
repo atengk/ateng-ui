@@ -11,6 +11,9 @@
 3. **非分发模块（Sample 展厅）隔离防线**：
    - `apps/sample-*` 下所有场景体验展厅在各自的 `package.json` 中强制声明 `"private": true`，仅作为开发自验与集成测试沙箱，**绝对严禁发布至 npm Registry**；
    - 仅 `packages/*` 下对外公开的 `@atengk/*` 子包参与构建产物封包与版本分发。
+4. **多包元数据、锁文件与 Changesets 同步自检**：
+   - 发版前须确认所有 `packages/*/package.json` 均已补齐 `"author"`、`"license": "Apache-2.0"`、`"repository"`（含 `directory`）、`"files"`、`"exports"` 与 `"sideEffects"`，且不存在同时出现在 `dependencies` 与 `devDependencies` 的重复 `workspace:*` 依赖；
+   - 新增或下线子包 / Sample 时，必须同步更新 [`.changeset/config.json`](../../.changeset/config.json) 的 `fixed` 与 `ignore` 列表，并确保 `pnpm-lock.yaml` 与全部 `package.json` 保持 `--frozen-lockfile` 自洽。
 
 ---
 
