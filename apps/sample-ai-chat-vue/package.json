@@ -15,13 +15,13 @@
     "@atengk/code-editor-vue": "workspace:*",
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
-    "element-plus": "^2.14.7",
-    "vue": "^3.5.13"
+    "element-plus": "^2.14.8",
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
     "mermaid": "^12.3.0",
     "typescript": "^5.6.3",
-    "vite": "^6.0.0"
+    "vite": "^6.4.6"
   }
 }

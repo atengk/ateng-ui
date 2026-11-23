@@ -35,22 +35,22 @@
   "dependencies": {
     "@atengk/core": "workspace:*",
     "@atengk/vue": "workspace:*",
-    "@univerjs/core": "^1.4.0",
-    "@univerjs/presets": "^1.4.0",
-    "@univerjs/preset-sheets-core": "^1.4.0",
+    "@univerjs/core": "^1.5.2",
+    "@univerjs/presets": "^1.5.2",
+    "@univerjs/preset-sheets-core": "^1.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
-    "@vue/test-utils": "^2.4.6",
+    "@vue/test-utils": "^2.6.0",
     "happy-dom": "^15.11.7",
     "typescript": "^5.6.3",
-    "vite": "^6.0.0",
+    "vite": "^6.4.6",
     "vite-plugin-dts": "^4.3.0",
     "vitest": "^2.1.8",
-    "vue": "^3.5.13"
+    "vue": "^3.5.45"
   },
   "author": "atengk",
   "license": "Apache-2.0",
