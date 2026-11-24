@@ -64,11 +64,12 @@ flowchart TD
   - 耗时一旦突破 150ms 阈值，指示器以 200ms `ease-out` 平稳淡入；
   - 一旦挂载，至少维持 300ms 的展示周期后再优雅淡出，彻底消除仅闪现 1~2 帧导致的画面晃动抽搐。
 
-### 4. 表现层门面与 API 规约
+### 4. 表现层门面、样式解耦与 API 规约
 
-- **命令式单例**：`AtengLoadingBar.start()`, `AtengLoadingBar.finish()`, `AtengLoadingBar.error()`, `AtengLoadingBar.inc()`；
+- **命令式单例**：`AtengLoadingBar.config()`, `AtengLoadingBar.start()`, `AtengLoadingBar.finish()`, `AtengLoadingBar.error()`, `AtengLoadingBar.inc()`, `AtengLoadingBar.reset()`, `AtengLoadingBar.destroy()`；
 - **声明式组件**：`<AtengLoading :loading="isLoading" mode="shimmer | dots | skeleton">`；
-- **Vue 指令接管**：增强型 `v-loading` 自动应用防闪烁机制与现代微动效。
+- **Vue 指令接管**：增强型 `v-loading` 自动应用防闪烁机制与现代微动效；
+- **基础样式独立自洽（#374 演进）**：`AtengLoadingBar` 与 `AtengLoading` 的核心功能样式抽离至共用 partial `src/styles/_loading-base.scss`，同步编译进入 `dist/index.css`（`style.css`）与 `dist/theme-pro.css`，且内建 `--el-color-primary-rgb`、`--el-color-danger-rgb` 与 `--el-mask-color` 安全 CSS Fallback 及 `:root.dark` / `.dark` 暗黑自适应，不引入 `theme-pro.css` 即可完整呈现。
 
 ## 效果与权衡
 

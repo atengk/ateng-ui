@@ -157,6 +157,9 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('@media print');
     expect(content).toContain('pointer: coarse');
     expect(content).toContain('html.is-theme-switching');
+    expect(content).toContain('.is-theme-switching');
+    expect(content).toContain('.at-loading-bar');
+    expect(content).toContain('.at-loading-container');
   });
 
   it('新增缺位官方组件全量入驻 (ElPageHeader, ElBacktop, ElCheckTag, ElStatistic)', () => {

@@ -7,13 +7,14 @@
  * 2. 页面所有主按钮、Focus 环、标签、开关与表格行微光实时响应；
  * 3. 动态色阶调色板可视化预览；
  * 4. 局部容器隔离演示 (Micro-Frontend / 租户分舱)：仅改变局部容器品牌色，不污染全局；
- * 5. 防御性非法值输入体验。
+ * 5. 防御性非法值输入体验；
+ * 6. 局部容器 initTheme 生命周期编排与 .dark / .is-theme-switching 子树暗黑遮罩协同。
  *
  * @author Ateng
  * @since 2026-10-22
  */
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import {
   ElButton,
   ElInput,
@@ -23,7 +24,14 @@ import {
   ElRadioButton,
   ElMessage,
 } from 'element-plus';
-import { AtengCard, setThemeColor } from '@atengk/element-plus';
+import {
+  AtengCard,
+  AtengLoading,
+  initTheme,
+  setThemeColor,
+  type ThemeManager,
+  type ThemeMode,
+} from '@atengk/element-plus';
 
 // 1. 全局品牌色动态设定
 const currentGlobalColor = ref('#4f46e5');
@@ -76,11 +84,40 @@ const applyLocalColor = (hex: string) => {
   }
 };
 
+// 4. 局部容器 initTheme 生命周期与 .dark / .is-theme-switching 演示
+const initTargetRef = ref<HTMLElement | null>(null);
+const localThemeMode = ref<ThemeMode>('light');
+const localActiveTheme = ref<'light' | 'dark'>('light');
+const localPreviewLoading = ref(true);
+let localThemeManager: ThemeManager | null = null;
+
+const handleLocalModeChange = (mode: ThemeMode) => {
+  localThemeManager?.setMode(mode);
+  localThemeMode.value = mode;
+  localActiveTheme.value = localThemeManager?.getActiveTheme() ?? 'light';
+};
+
 onMounted(() => {
   updatePalettePreview(currentGlobalColor.value);
   if (localContainerRef.value) {
     setThemeColor(localColor.value, { target: localContainerRef.value });
   }
+  if (initTargetRef.value) {
+    localThemeManager = initTheme({
+      target: initTargetRef.value,
+      storageKey: 'sample-tenant-local-theme-mode',
+      defaultMode: 'light',
+      themeColor: '#4f46e5',
+      listenSystemPreference: false,
+    });
+    localThemeMode.value = localThemeManager.getMode();
+    localActiveTheme.value = localThemeManager.getActiveTheme();
+  }
+});
+
+onUnmounted(() => {
+  localThemeManager?.cleanup();
+  localThemeManager = null;
 });
 </script>
 
@@ -172,6 +209,46 @@ onMounted(() => {
           <ElSwitch :model-value="true" />
           <ElInput placeholder="私有 Focus-Ring 激光环" style="width: 240px" />
         </div>
+      </div>
+    </AtengCard>
+
+    <!-- 4. 局部容器 initTheme 生命周期与 .dark / .is-theme-switching 协同 -->
+    <AtengCard title="🛡️ 4. 局部容器 initTheme 编排与子树暗黑 / 过渡冻结锁" class="mb-4">
+      <p class="mb-3 text-sm text-muted">
+        通过 <code>initTheme({ target })</code> 对独立容器应用 <code>.dark</code> 与
+        <code>.is-theme-switching</code> 过渡冻结锁，同时验证
+        <code>AtengLoading</code> 遮罩在局部暗黑子树中的自适应效果。
+      </p>
+
+      <div class="action-bar mb-3">
+        <span class="label">局部容器模式：</span>
+        <ElRadioGroup
+          :model-value="localThemeMode"
+          @update:model-value="val => handleLocalModeChange(val as ThemeMode)"
+        >
+          <ElRadioButton value="light">浅色 (light)</ElRadioButton>
+          <ElRadioButton value="dark">暗黑 (dark)</ElRadioButton>
+          <ElRadioButton value="auto">跟随系统 (auto)</ElRadioButton>
+        </ElRadioGroup>
+        <ElTag :type="localActiveTheme === 'dark' ? 'info' : 'primary'">
+          当前生效：{{ localActiveTheme }}
+        </ElTag>
+        <ElButton size="small" @click="localPreviewLoading = !localPreviewLoading">
+          {{ localPreviewLoading ? '关闭局部 Loading' : '开启局部 Loading' }}
+        </ElButton>
+      </div>
+
+      <div ref="initTargetRef" class="local-tenant-box">
+        <div class="box-header">
+          <span class="box-title">🧪 独立 initTheme 沙箱容器 (.dark / .is-theme-switching)</span>
+          <ElTag type="success" size="small">不依赖 html 根节点</ElTag>
+        </div>
+        <AtengLoading :loading="localPreviewLoading" mode="dots" text="局部子树暗黑遮罩自愈中...">
+          <div class="box-body" style="min-height: 84px">
+            <ElButton type="primary">容器内主按钮</ElButton>
+            <ElInput placeholder="容器内输入框" style="width: 220px" />
+          </div>
+        </AtengLoading>
       </div>
     </AtengCard>
   </div>

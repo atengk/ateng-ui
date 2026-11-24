@@ -1,0 +1,18 @@
+/**
+ * @atengk/element-plus 主题切换极速过渡冻结防线 (Transition Storm Defense)。
+ *
+ * 为 initTheme() 提供全局根节点（html.is-theme-switching）与局部隔离容器
+ * （.is-theme-switching）的零延迟过渡冻结保护，由 dist/index.css 与
+ * dist/theme-pro.css 共同复用。
+ *
+ * @author Ateng
+ * @since 2026-11-24
+ */
+
+html.is-theme-switching,
+html.is-theme-switching *,
+.is-theme-switching,
+.is-theme-switching * {
+  transition-property: none;
+  transition-duration: 0s;
+}

@@ -22,8 +22,8 @@ Accepted (已接受)
 ### 1. 样式产物双轨解耦与 SCSS 源码齐备分发契约
 
 - **双轨解耦独立分发**：
-  - `style.css`（`dist/index.css`）：收敛组件库内部所有 SFC Scoped 基础样式与命名空间基线，保持纯净轻量；
-  - `theme-pro.css`（`dist/theme-pro.css`）：由 Dart Sass 独立编译打包的全量科技多主题引擎，下游仅需显式单行导入 `import '@atengk/element-plus/theme-pro.css'` 即可全量生效；
+  - `style.css`（`dist/index.css` / `Base Style Bundle`）：收敛组件库内部所有 SFC Scoped 样式、命名空间基线及 `AtengLoadingBar`、`AtengLoading`、`v-skeleton`、`.is-theme-switching` 等功能性基础样式（内置 `--el-*` 安全回退默认值），不引入 `theme-pro.css` 时全部组件功能与基础可视化完整可用；
+  - `theme-pro.css`（`dist/theme-pro.css`）：由 Dart Sass 独立编译打包的可选全量科技多主题视觉皮肤，通过 `@use` 复用共用功能 partial（`_loading-base.scss` / `_theme-switch.scss`）杜绝双份拷贝漂移，下游按需单行导入 `import '@atengk/element-plus/theme-pro.css'` 即可全量生效；
 - **SCSS 源码与 Token 暴露**：`package.json` 的 `files` 字段与导出声明中完整保留 `src/styles` 目录，允许高级定制方直接按需引用内部 SCSS 模块或设计令牌。
 
 ### 2. 三大核心领域高内聚模块拓扑

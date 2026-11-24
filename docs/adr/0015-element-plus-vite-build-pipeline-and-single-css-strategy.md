@@ -27,9 +27,9 @@ Accepted (已接受)
      - DTS：`dist/index.d.ts` + `dist/global.d.ts` + 各组件 `*.vue.d.ts`
      - CSS：`dist/index.css`
 2. **单一全局样式分发契约 (Single CSS Bundle Contract)**：
-   - 组件库所有 SFC 的 Scoped 样式统一由 Vite 提取并压缩输出为单一 CSS 文件 `dist/index.css`；
+   - 组件库所有 SFC 的 Scoped 样式与全局功能性基础样式（`v-skeleton`、`AtengLoadingBar`、`AtengLoading`、`initTheme` 过渡冻结防线 `.is-theme-switching` 及核心 `--at-*` 设计令牌保底，通过共用 SCSS partial 与 `theme-pro.css` 零重复复用）统一由 Vite 提取并压缩输出为单一 CSS 文件 `dist/index.css`（`Base Style Bundle`）；
    - `package.json` 显式声明别名导出：`exports["./style.css"] = "./dist/index.css"`，并严格标注 `"sideEffects": ["*.css", "*.scss"]`；
-   - 下游应用只需在入口执行一次 `import '@atengk/element-plus/style.css'` 即可全量生效，彻底消除细粒度样式层叠顺序倒挂隐患。
+   - 下游应用只需在入口执行一次 `import '@atengk/element-plus/style.css'` 即可确保全量组件与加载/切换基础样式完整可用，不强依赖可选视觉皮肤 `theme-pro.css`，彻底消除细粒度样式层叠顺序倒挂隐患。
 3. **指令动态恢复与防重拦截协议**：
    - **权限与角色指令 (`v-permission` / `v-role`)**：无权限时采用“注释节点定位锚点（Comment Anchor）”在 DOM 树中留存位置标识；在 `updated` 钩子中侦听到权限/角色动态就绪时，基于锚点将原元素安全插回；
    - **幂等防重指令 (`v-idempotent`)**：采用原生 DOM **捕获阶段（Capture Phase）** 监听机制，在处于时间窗口冷却期或异步 Promise 未决状态时，坚决执行 `event.stopImmediatePropagation()` 阻断一切后续事件，并联动目标按钮的 `is-loading` / `is-disabled` 类名。

@@ -12,7 +12,7 @@
  * @since 2026-10-23
  */
 
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { ElButton, ElSlider, ElTag } from 'element-plus';
 import { AtengLoading, AtengLoadingBar, AtengCard, AtengPageContainer } from '@atengk/element-plus';
 import { useAntiFlicker } from '@atengk/vue';
@@ -23,21 +23,32 @@ const dotsLoading = ref(true);
 const skeletonLoading = ref(true);
 
 // 2. 全局纳米条调度
+let simInterval: ReturnType<typeof setInterval> | null = null;
+const clearSimInterval = () => {
+  if (simInterval) {
+    clearInterval(simInterval);
+    simInterval = null;
+  }
+};
+
 const triggerSimulation = () => {
+  clearSimInterval();
   AtengLoadingBar.start();
   const steps = [35, 60, 82, 92];
   let i = 0;
-  const interval = setInterval(() => {
+  simInterval = setInterval(() => {
     const step = steps[i];
     if (step !== undefined) {
       AtengLoadingBar.inc(step - 25);
       i++;
     } else {
-      clearInterval(interval);
+      clearSimInterval();
       AtengLoadingBar.finish();
     }
   }, 180);
 };
+
+onUnmounted(clearSimInterval);
 
 // 3. 防闪烁模拟沙箱
 const simDelay = ref(80);
@@ -340,13 +351,13 @@ const runFlickerSimulation = () => {
 }
 
 .flicker-status-box.is-active {
-  background-color: rgba(var(--el-color-danger-rgb), 0.12);
+  background-color: rgba(var(--el-color-danger-rgb, 245, 108, 108), 0.12);
   color: var(--el-color-danger);
   font-weight: 600;
 }
 
 .flicker-status-box.is-safe.is-active {
-  background-color: rgba(var(--el-color-primary-rgb), 0.12);
+  background-color: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.12);
   color: var(--el-color-primary);
   font-weight: 600;
 }

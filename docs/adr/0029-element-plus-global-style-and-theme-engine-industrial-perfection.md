@@ -44,7 +44,7 @@ Accepted (已接受)
 ### 2. 双轨根选择器与子树局部多主题作用域
 
 - **选择器双轨升级**：
-  全量子模块暗黑模式选择器由脆弱的 `html.dark .el-*` 全面升级为：
+  全量子模块（含 `dist/index.css` 基础样式 `.at-skeleton-active` 与 `.at-loading-container`）暗黑模式选择器由脆弱的 `html.dark .el-*` 全面升级为：
   ```scss
   :root.dark,
   .dark {
@@ -95,7 +95,7 @@ Accepted (已接受)
 - **触屏防误触优化 (pointer: coarse)**：
   移动端与平板触摸屏下，滚动条宽度自适应提升至 6px~8px，杜绝无法触控；
 - **切换动效风暴防御 (Transition Storm Defense)**：
-  在主题切换瞬间向 `html` 注入 `is-theme-switching` 类，并在 250ms 内冻结所有元素的 `transition`，彻底消除全屏 100vw*100vh 元素不同步重绘掉帧。
+  在主题切换瞬间向目标节点（`html` 或自定义 `target` 容器）注入 `is-theme-switching` 类，并在 250ms 内通过共用 `_theme-switch.scss`（同步打入 `dist/index.css` 与 `dist/theme-pro.css`，同时匹配 `html.is-theme-switching` 与 `.is-theme-switching`）冻结所有元素的 `transition`，彻底消除全屏或局部容器重绘掉帧。
 
 ### 8. 全局分层 Z-Index 与核心设计令牌
 
@@ -120,8 +120,8 @@ Accepted (已接受)
 ## 验证源头与测试矩阵
 
 1. **样式编译与零 !important 质量门禁**：
-   - 运行 `pnpm --filter @atengk/element-plus build`，通过 `sass src/styles/theme-pro.scss dist/theme-pro.css` 编译产物；
-   - 运行 `packages/element-plus/test/theme/themeBundle.test.ts`，验证：
+   - 运行 `pnpm --filter @atengk/element-plus build`，通过 Vite 与 `sass src/styles/theme-pro.scss dist/theme-pro.css` 编译双轨样式产物；
+   - 运行 `packages/element-plus/test/theme/baseStyleBundle.test.ts` 与 `packages/element-plus/test/theme/themeBundle.test.ts`，验证 `dist/index.css` 功能样式自洽性与 `dist/theme-pro.css` 产物质量：
      - `dist/theme-pro.css` 产物大小健康（> 50KB）；
      - 100% 恪守零 `!important` 铁律；
      - 全量 80+ 原生组件全覆盖（包含 `ElPageHeader`, `ElBacktop`, `ElCheckTag`, `ElStatistic`）；

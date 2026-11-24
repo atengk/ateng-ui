@@ -5,6 +5,9 @@
  * @since 2026-10-21
  */
 
+@use './loading-base';
+@use './theme-switch';
+
 :root {
   --at-namespace: 'at';
   --at-transition-duration: var(--el-transition-duration, 0.3s);
@@ -62,7 +65,8 @@
   }
 }
 
-html.dark .at-skeleton-active::after {
+:root.dark .at-skeleton-active::after,
+.dark .at-skeleton-active::after {
   background-color: var(--el-fill-color, #1e293b);
 }
 

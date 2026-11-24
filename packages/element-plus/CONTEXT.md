@@ -206,8 +206,12 @@ _Avoid_: 动态折叠, 多行展开, ExpandRows
 
 ## 现代多主题设计引擎 (Theme Engine)
 
+**Base Style Bundle**:
+`@atengk/element-plus/style.css`（`dist/index.css`），收敛所有 SFC 组件作用域样式、核心设计令牌保底、`v-skeleton`、`AtengLoadingBar`、`AtengLoading` 及 `initTheme` 过渡冻结防线（`.is-theme-switching`）的功能性基础样式产物；独立引入即可保证全组件功能与基础可视化完整可用。
+_Avoid_: CoreCSS, DefaultTheme, RequiredTheme
+
 **ThemePro**:
-基于 Element Plus 原生二级 CSS 变量与现代 Dart Sass 模块化构建的现代极客多主题套件（`theme-pro.css`），集成 5 款高反差科技预设与 Slate 深空暗黑基底。
+基于 Element Plus 原生二级 CSS 变量与现代 Dart Sass 模块化构建的可选现代极客多主题视觉引擎（`theme-pro.css`），集成 5 款高反差科技预设、Slate 深空暗黑基底与原生组件视觉覆写；与 `Base Style Bundle` 解耦，严禁作为功能性基础样式的唯一入口。
 _Avoid_: ElementTheme, CustomTheme, DarkTheme, ProSkin
 
 **Specular Hairline (定向微光线)**:
