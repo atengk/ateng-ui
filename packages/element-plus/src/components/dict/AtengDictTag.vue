@@ -21,6 +21,29 @@ import type { AtengDictTagProps, AtengDictTagExpose, DictItem } from './types';
 import { DictManager } from './DictManager';
 import { normalizeDictItems, isDictValueMatched } from './utils';
 
+type ElTagType = 'primary' | 'success' | 'info' | 'warning' | 'danger';
+const VALID_EL_TAG_TYPES: ReadonlySet<string> = new Set<ElTagType>([
+  'primary',
+  'success',
+  'info',
+  'warning',
+  'danger',
+]);
+
+/**
+ * 将字典项 tagType 归一化为 Element Plus ElTag 合法 type，过滤空串、纯空白与非法值。
+ */
+function resolveElTagType(tagType: unknown): ElTagType | undefined {
+  if (typeof tagType !== 'string') {
+    return undefined;
+  }
+  const normalized = tagType.trim();
+  if (!normalized || !VALID_EL_TAG_TYPES.has(normalized)) {
+    return undefined;
+  }
+  return normalized as ElTagType;
+}
+
 defineOptions({
   name: 'AtengDictTag',
 });
@@ -181,7 +204,7 @@ defineExpose<AtengDictTagExpose>({
         :key="String(item.value)"
         class="at-dict-tag__item"
         :class="item.cssClass"
-        :type="item.tagType || undefined"
+        :type="resolveElTagType(item.tagType)"
         :size="size"
         :effect="effect"
         :round="round"

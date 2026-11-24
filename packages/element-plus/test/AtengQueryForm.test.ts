@@ -511,5 +511,70 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
       await input.trigger('keydown', { key: 'Enter', isComposing: false });
       expect(mockSearch).toHaveBeenCalledTimes(1); // 仍为 1 次
     });
+
+    it('searchLoading 未显式传入时回退消费 tableContext.loading，显式传 false 优先级最高', async () => {
+      const plainLoading = reactive({ value: true });
+      const tableContext: AtengTableContext = {
+        search: vi.fn(),
+        reset: vi.fn(),
+        loading: plainLoading,
+      };
+
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          model: { keyword: 'hello' },
+        },
+        global: {
+          provide: {
+            [ATENG_TABLE_CONTEXT_KEY as symbol]: tableContext,
+          },
+        },
+        attachTo: document.body,
+      });
+
+      expect(wrapper.find('.at-query-form__search-btn').classes()).toContain('is-loading');
+
+      plainLoading.value = false;
+      await wrapper.vm.$nextTick();
+      expect(wrapper.find('.at-query-form__search-btn').classes()).not.toContain('is-loading');
+
+      plainLoading.value = true;
+      await wrapper.setProps({ searchLoading: false });
+      expect(wrapper.find('.at-query-form__search-btn').classes()).not.toContain('is-loading');
+    });
+
+    it('autoSearchOnReset 为 false 时对称跳过 props.pagination.reset 与 tableContext.reset', async () => {
+      const mockReset = vi.fn();
+      const tableReset = vi.fn();
+      const pagination = {
+        query: reactive({ keyword: 'abc' }),
+        loading: ref(false),
+        search: vi.fn(),
+        reset: mockReset,
+      } as unknown as UsePaginationResult<Record<string, unknown>>;
+
+      const tableContext: AtengTableContext = {
+        search: vi.fn(),
+        reset: tableReset,
+      };
+
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          pagination,
+          autoSearchOnReset: false,
+        },
+        global: {
+          provide: {
+            [ATENG_TABLE_CONTEXT_KEY as symbol]: tableContext,
+          },
+        },
+        attachTo: document.body,
+      });
+
+      await wrapper.find('.at-query-form__reset-btn').trigger('click');
+      expect(wrapper.emitted('reset')).toHaveLength(1);
+      expect(mockReset).not.toHaveBeenCalled();
+      expect(tableReset).not.toHaveBeenCalled();
+    });
   });
 });

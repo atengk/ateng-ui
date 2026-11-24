@@ -18,6 +18,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { ElTable, ElPagination, ElButton, ElAlert } from 'element-plus';
+import { createHttpClient } from '@atengk/core';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { AtengExcelFeedback, type ExcelFeedbackItem } from '../src/components/excel-feedback';
 
 describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
@@ -172,6 +174,72 @@ describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
 
     expect(downloadActionMock).toHaveBeenCalled();
     expect(wrapper.emitted('download-success')).toBeTruthy();
+  });
+
+  it('文件名三级优先级：未传 fileName 或为空白时优先解析 Content-Disposition，最终回退默认文件名', async () => {
+    vi.spyOn(globalThis.URL, 'createObjectURL').mockReturnValue('blob:mock-feedback-url');
+    vi.spyOn(globalThis.URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    const client = createHttpClient();
+    client.instance.defaults.adapter = async (
+      cfg: InternalAxiosRequestConfig,
+    ): Promise<AxiosResponse> => ({
+      data: new Blob(['mock'], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'content-disposition':
+          "attachment; filename*=UTF-8''%E9%94%99%E8%AF%AF%E6%89%B9%E6%B3%A8_2026.xlsx",
+      },
+      config: cfg,
+    });
+    const fetchWithDisposition = () =>
+      client.request<Blob>({ url: '/feedback', responseType: 'blob' });
+    const plainBlob = new Blob(['mock'], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const verifyCase = async (
+      downloadAction: () => Promise<Blob>,
+      expectedFilename: string,
+      fileName?: string,
+    ) => {
+      wrapper = mount(AtengExcelFeedback, {
+        props: {
+          modelValue: true,
+          errors: mockErrors,
+          fileName,
+          downloadAction,
+          appendToBody: false,
+        },
+      });
+      await nextTick();
+      const downloadBtn = wrapper
+        .findAllComponents(ElButton)
+        .find(b => b.text().includes('下载标红批注 Excel'));
+      expect(downloadBtn).toBeDefined();
+      if (!downloadBtn) {
+        return;
+      }
+      await downloadBtn.trigger('click');
+      await vi.waitFor(() => {
+        expect(wrapper?.emitted('download-success')).toBeTruthy();
+      });
+      expect(wrapper.emitted('download-success')?.[0]).toEqual([expectedFilename]);
+      wrapper.unmount();
+      wrapper = null;
+    };
+
+    // 1. 未传 fileName 且响应携带 Content-Disposition -> 优先使用服务端文件名
+    await verifyCase(fetchWithDisposition, '错误批注_2026.xlsx');
+    // 2. 传入纯空白 fileName 且携带 Content-Disposition -> 仍优先使用服务端文件名
+    await verifyCase(fetchWithDisposition, '错误批注_2026.xlsx', '   ');
+    // 3. 显式传入非空 fileName -> 覆盖 Content-Disposition
+    await verifyCase(fetchWithDisposition, '显式覆盖批注.xlsx', '显式覆盖批注.xlsx');
+    // 4. 既无 fileName 也无 Content-Disposition -> 回退中文默认文件名
+    await verifyCase(vi.fn().mockResolvedValue(plainBlob), '导入错误明细批注.xlsx');
   });
 
   it('自适应隐藏：未配置 fileUrl 且未配置 downloadAction 时，下载批注按钮自动隐藏', async () => {

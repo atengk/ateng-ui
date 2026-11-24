@@ -7,7 +7,7 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { h, nextTick, ref } from 'vue';
+import { h, nextTick, reactive, ref } from 'vue';
 import { ElTableColumn, ElFormItem, ElInput } from 'element-plus';
 import type { UsePaginationResult } from '@atengk/vue';
 import { AtengTable, type AtengTableInstance, type AtengTableProps } from '../src/components/table';
@@ -489,6 +489,105 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
     // 3. 验证触发了 pagination.reset() 与 AtengQueryForm 的 reset 回调
     expect(mockPagination.reset).toHaveBeenCalled();
     expect(onResetSpy).toHaveBeenCalled();
+  });
+
+  it('嵌套防双发：AtengTable 与 AtengQueryForm 同时传入 pagination 时仅触发一次检索/重置与一次 reset 事件', async () => {
+    const onSearchSpy = vi.fn();
+    const onResetSpy = vi.fn();
+    const mockPagination = createMockPagination({
+      records: ref([]),
+      total: ref(0),
+      query: reactive({ keyword: '双发检测' }),
+    });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        pagination: mockPagination,
+      },
+      slots: {
+        query: () =>
+          h(
+            AtengQueryForm,
+            {
+              pagination: mockPagination,
+              onSearch: onSearchSpy,
+              onReset: onResetSpy,
+            },
+            {
+              default: () => [
+                h(ElFormItem, { prop: 'keyword', label: '关键词' }, () =>
+                  h(ElInput, { modelValue: '双发检测' }),
+                ),
+              ],
+            },
+          ),
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    // 1. 点击查询按钮：pagination.search 只应被调用 1 次
+    await wrapper.find('.at-query-form__search-btn').trigger('click');
+    expect(mockPagination.search).toHaveBeenCalledTimes(1);
+    expect(onSearchSpy).toHaveBeenCalledTimes(1);
+
+    // 2. 点击重置按钮：pagination.reset 只应被调用 1 次，且 emit('reset') 只应派发 1 次
+    await wrapper.find('.at-query-form__reset-btn').trigger('click');
+    expect(mockPagination.reset).toHaveBeenCalledTimes(1);
+    expect(onResetSpy).toHaveBeenCalledTimes(1);
+
+    // 3. 未传 searchLoading 时应自动同步 tableContext.loading
+    (mockPagination.loading as { value: boolean }).value = true;
+    await doubleWait();
+    expect(wrapper.find('.at-query-form__search-btn').classes()).toContain('is-loading');
+  });
+
+  it('混合模式协同：AtengTable 仅传 :data 未接管分页而 AtengQueryForm 自带 :pagination 时仍正常执行请求并同步表格筛选态', async () => {
+    const onResetSpy = vi.fn();
+    const formPagination = createMockPagination({
+      records: ref([]),
+      total: ref(0),
+      query: reactive({ keyword: '独立分页' }),
+    });
+
+    wrapper = mount(AtengTable, {
+      props: {
+        data: [],
+      },
+      slots: {
+        query: () =>
+          h(
+            AtengQueryForm,
+            {
+              pagination: formPagination,
+              onReset: onResetSpy,
+            },
+            {
+              default: () => [
+                h(ElFormItem, { prop: 'keyword', label: '关键词' }, () =>
+                  h(ElInput, { modelValue: '独立分页' }),
+                ),
+              ],
+            },
+          ),
+        default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+      },
+      attachTo: document.body,
+    });
+
+    await doubleWait();
+
+    await wrapper.find('.at-query-form__search-btn').trigger('click');
+    await doubleWait();
+    expect(formPagination.search).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('.at-empty--search').exists()).toBe(true);
+
+    await wrapper.find('.at-query-form__reset-btn').trigger('click');
+    await doubleWait();
+    expect(formPagination.reset).toHaveBeenCalledTimes(1);
+    expect(onResetSpy).toHaveBeenCalledTimes(1);
   });
 
   it('自定义 empty 插槽：优先渲染用户传入的 empty 插槽内容', async () => {

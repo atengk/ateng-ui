@@ -46,7 +46,7 @@ const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
   showSearch: true,
   showReset: true,
   autoSearchOnReset: true,
-  searchLoading: false,
+  searchLoading: undefined,
   disabled: false,
   gutter: 16,
   customClass: '',
@@ -202,22 +202,32 @@ const effectiveModel = computed<T>(() => {
   return {} as T;
 });
 
+const tableContext = inject<AtengTableContext | null>(ATENG_TABLE_CONTEXT_KEY, null);
+
 const effectiveSearchLoading = computed<boolean>(() => {
-  if (props.searchLoading) return true;
-  if (props.pagination?.loading) {
+  if (typeof props.searchLoading === 'boolean') {
+    return props.searchLoading;
+  }
+  if (props.pagination?.loading !== undefined) {
     return Boolean(props.pagination.loading.value);
+  }
+  if (tableContext?.loading !== undefined) {
+    return Boolean(tableContext.loading.value);
   }
   return false;
 });
 
 // 6. 查询与重置交互调度
-const tableContext = inject<AtengTableContext | null>(ATENG_TABLE_CONTEXT_KEY, null);
 let unregisterResetHandler: (() => void) | undefined;
 let unregisterQueryGetter: (() => void) | undefined;
+let isResettingFromForm = false;
 
 onMounted(() => {
   if (tableContext?.registerResetHandler) {
     unregisterResetHandler = tableContext.registerResetHandler(() => {
+      if (isResettingFromForm) {
+        return;
+      }
       formRef.value?.resetFields();
       emit('reset');
     });
@@ -243,7 +253,8 @@ onUnmounted(() => {
 const handleSearch = (overrideModel?: T) => {
   const targetModel = overrideModel || effectiveModel.value;
   emit('search', targetModel);
-  if (props.pagination) {
+  const shouldUseTablePagination = Boolean(tableContext?.hasPagination?.value);
+  if (props.pagination && !shouldUseTablePagination) {
     props.pagination.search(targetModel as Partial<T>);
   }
   if (tableContext) {
@@ -258,13 +269,19 @@ const onSearchClick = () => {
 const handleReset = () => {
   formRef.value?.resetFields();
   emit('reset');
-  if (props.pagination) {
-    props.pagination.reset();
-  }
   if (props.autoSearchOnReset !== false) {
+    const shouldUseTablePagination = Boolean(tableContext?.hasPagination?.value);
+    if (props.pagination && !shouldUseTablePagination) {
+      props.pagination.reset();
+    }
     emit('search', effectiveModel.value);
     if (tableContext) {
-      tableContext.reset();
+      isResettingFromForm = true;
+      try {
+        tableContext.reset();
+      } finally {
+        isResettingFromForm = false;
+      }
     }
   }
 };

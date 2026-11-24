@@ -268,6 +268,32 @@ describe('AtengDict* 字典套件组件交互测试', () => {
       expect(typeof vm.refresh).toBe('function');
       expect(vm.matchingItems.length).toBe(1);
     });
+
+    it('空串/纯空白/非法 tagType 归一化防御：渲染 ElTag 不触发 Element Plus Prop 警告', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const optionsWithEdgeTagTypes = [
+        { label: '空串标签', value: 'empty', tagType: '' },
+        { label: '空白标签', value: 'blank', tagType: '   ' },
+        { label: '未知类型标签', value: 'invalid', tagType: 'custom-unknown' },
+      ];
+
+      wrapper = mount(AtengDictTag, {
+        props: {
+          options: optionsWithEdgeTagTypes,
+          value: ['empty', 'blank', 'invalid'],
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const tags = wrapper.findAllComponents({ name: 'ElTag' });
+      expect(tags).toHaveLength(3);
+      for (const tag of tags) {
+        // ElTag 收到 undefined 时内部 prop 默认回退为 'primary'
+        expect(tag.props('type')).toBe('primary');
+      }
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('数据字典套件功能增强与字段映射 (Ticket #115 验收测试)', () => {

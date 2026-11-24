@@ -30,13 +30,15 @@ defineOptions({
   name: 'AtengExcelFeedback',
 });
 
+const DEFAULT_FEEDBACK_FILENAME = '导入错误明细批注.xlsx';
+
 const props = withDefaults(defineProps<AtengExcelFeedbackProps>(), {
   modelValue: false,
   title: '导入校验失败',
   errors: () => [],
   fileUrl: undefined,
   downloadAction: undefined,
-  fileName: '导入错误明细批注.xlsx',
+  fileName: undefined,
   width: '720px',
   showCopy: true,
   copyText: '复制错误信息',
@@ -57,7 +59,9 @@ const currentPage = ref(1);
 const internalActionLoading = ref(false);
 
 // 1. 集成 @atengk/vue 的 useExcel 核心状态机
-const { downloadFeedback, exporting } = useExcel();
+const { downloadFeedback, exporting } = useExcel({
+  defaultFeedbackFilename: DEFAULT_FEEDBACK_FILENAME,
+});
 
 const downloadLoading = computed(() => exporting.value || internalActionLoading.value);
 
@@ -172,9 +176,11 @@ async function downloadAnnotatedExcel(): Promise<boolean> {
   internalActionLoading.value = true;
   try {
     const target = props.downloadAction || (props.fileUrl as string);
-    const filename = await downloadFeedback(target, {
-      filename: props.fileName || '导入错误明细批注.xlsx',
-    });
+    const explicitFilename = props.fileName?.trim();
+    const filename = await downloadFeedback(
+      target,
+      explicitFilename ? { filename: explicitFilename } : undefined,
+    );
     emit('download-success', filename);
     return true;
   } catch (err) {

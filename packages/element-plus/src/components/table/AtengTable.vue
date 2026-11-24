@@ -934,6 +934,7 @@ const tableContext: AtengTableContext = {
     }
   },
   loading: isLoading,
+  hasPagination: computed(() => props.pagination !== undefined),
   getSelectedRows: () => selectedRows.value as Record<string, unknown>[],
   getQueryParams: () => currentQueryParams.value,
   registerResetHandler: (handler: () => void) => {

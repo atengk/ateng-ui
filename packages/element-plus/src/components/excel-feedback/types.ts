@@ -55,7 +55,7 @@ export interface AtengExcelFeedbackProps {
    */
   downloadAction?: () => Promise<Blob | unknown>;
   /**
-   * 下载文件的默认保存名称，默认为 "导入错误明细批注.xlsx"。
+   * 显式指定下载文件的保存名称；未传或为空白时优先解析响应头 Content-Disposition，最终回退为 "导入错误明细批注.xlsx"。
    */
   fileName?: string;
   /**

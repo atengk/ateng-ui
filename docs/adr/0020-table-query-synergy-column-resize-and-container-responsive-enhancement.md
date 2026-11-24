@@ -52,7 +52,7 @@ Accepted (已采纳 / 已实装)
 - **多行折叠编排 (Multi-Row Collapse)**：新增 `collapsedRows?: number`（默认值为 `1`），折叠态下可见项公式拓展为：
   $$\text{maxVisibleCount} = \text{collapsedRows} \times \text{cols} - 1$$
   末行末尾自适应吸附“展开/收起”与“查询/重置”操作按钮组；
-- **重置自触发机制**：新增 `autoSearchOnReset?: boolean`（默认 `true`），点击重置时除清空表单域外，自动触发 `@search` 广播与 `tableContext.search()`，消灭业务重复编写重置后查询的样板代码。
+- **重置自触发与上下文防双发机制**：新增 `autoSearchOnReset?: boolean`（默认 `true`），点击重置时除清空表单域外，自动触发 `@search` 广播与联动重置；同时 `AtengTableContext` 暴露 `hasPagination?: ComputedRef<boolean>` 与 `loading`，使嵌套于 `AtengTable` 的 `AtengQueryForm` 在未传 `searchLoading` 时依次回退 `props.pagination?.loading` → `tableContext?.loading`，在表格已接管分页时跳过重复 `props.pagination` 调用，并通过重入守卫消除单次重置触发两次 `resetFields()`/`emit('reset')`，且 `autoSearchOnReset: false` 对称跳过 `props.pagination.reset()` 与 `tableContext.reset()`。
 
 ### 4. Vue 3.5 SFC 原生泛型与 100% 强类型闭环防线 (Generic SFC & Strong Typing)
 

@@ -42,7 +42,7 @@ Accepted (已接受)
   - 在 `DictManager` 单例中扩充 `setBatchProvider(provider: (codes: string[]) => Promise<Record<string, DictItem[]>>)`；
   - 扩充 `preload(codes: string[])` 批量预取接口：自动剔除已命中的内存缓存项，仅对未缓存的字典编码发起单次批量拉取；若未注册 `batchProvider`，则自动并发回退单项 `loadDict`，全程内存并发去重。
 - **展示与交互形态拓展**：
-  - `AtengDictTag` 强化多值解析：支持数组（`[1, 2]`）与逗号分隔字符串（`"1,2,3"`），支持自定义 `separator` 与空安全保底占位符（`emptyText="-"`）；
+  - `AtengDictTag` 强化多值解析：支持数组（`[1, 2]`）与逗号分隔字符串（`"1,2,3"`），支持自定义 `separator` 与空安全保底占位符（`emptyText="-"`）；保持 `DictItem.tagType` 对 `''` 的类型向后兼容，并在 `<el-tag :type>` 渲染处将 `''`、纯空白与非法值归一化为 `undefined`，消除 Element Plus 2.14+ 运行时校验告警；
   - `AtengDictRadio` 与 `AtengDictCheckbox` 扩充 `button` 按钮形态与 `border` 选项。
 
 ### 2. 快捷时间范围套件：双向解构绑定与时刻智能对齐架构
@@ -78,7 +78,7 @@ Accepted (已接受)
 - **AtengExcelExport 严格践行 ADR-0004 双态协议**：
   - 导出动作强制通过核心 Blob-JSON 转换管道，一旦识别为 `application/json` 业务报错，立即由 `ElMessage.error` 拦截告警并严格阻断伪 `.xlsx` 文件落地。
 - **AtengExcelFeedback 双轨纠错清单**：
-  - 针对后端校验失败的行列与错误原因，在弹窗表格展示与复制的基础上，支持“下载标红批注 Excel”；
+  - 针对后端校验失败的行列与错误原因，在弹窗表格展示与复制的基础上，支持“下载标红批注 Excel”；接入 `useExcel({ defaultFeedbackFilename: '导入错误明细批注.xlsx' })`，遵循“显式非空 `fileName` > `Content-Disposition` 响应头 > 默认文件名”三级优先级，杜绝默认名称抢占服务端响应头文件名；
   - 若后端未返回批注文件，前端自动生成带 UTF-8 BOM 字符标记（`\uFEFF`）的 `导入错误清单.csv`，彻底根除中文版 Windows Excel 双击打开乱码的问题。
 
 ## 效果与权衡

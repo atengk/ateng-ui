@@ -368,7 +368,7 @@ const queryModel = reactive({
 
 #### 核心机制与生产边界说明
 
-1. **零胶水双总线联动**：`AtengTable` 内部通过 `Provide` 注入 `ATENG_TABLE_CONTEXT_KEY`，子组件 `AtengQueryForm` 通过 `Inject` 捕获该上下文。点击“查询”时自动读取当前表单字段并触发 `pagination.search(params)`，点击“重置”时清空表单并调用 `pagination.reset()`，无缝消灭业务层胶水事件。
+1. **零胶水双总线联动与防双发去重**：`AtengTable` 内部通过 `Provide` 注入 `ATENG_TABLE_CONTEXT_KEY`（暴露 `loading` 与 `hasPagination` 标识），子组件 `AtengQueryForm` 通过 `Inject` 捕获该上下文。当 `searchLoading` 未显式传值时，按钮自动依次回退消费 `props.pagination?.loading` 与 `tableContext?.loading`；当表格已接管分页且表单同时传入 `:pagination` 时，由 `tableContext` 统一执行检索与重置（通过重入守卫消除二次 `resetFields()` 与重复 `@reset` 派发），并保证 `autoSearchOnReset: false` 对称跳过两端 `reset()`，彻底消除双发请求。
 2. **Vue 3.5 原生泛型全链路安全**：采用 Vue 3.5 原生 `<script setup lang="ts" generic="T">` 机制，插槽内解构出的 `{ row }` 自动继承为 `ProductItem` 强类型，杜绝传统表格中的 `any` 弱类型隐患。
 
 ---
@@ -571,6 +571,8 @@ export interface AtengQueryFormProps<T extends object = Record<string, unknown>>
   showCollapse?: boolean;
   /** 点击重置按钮后是否自动触发查询与表格上下文重置，默认 true */
   autoSearchOnReset?: boolean;
+  /** 查询按钮 Loading 状态，未显式传入时依次回退消费 pagination.loading 与 tableContext.loading */
+  searchLoading?: boolean;
 }
 ```
 
@@ -2431,7 +2433,7 @@ const handleForceRefresh = async () => {
    - `AtengDictSelect`：下拉选择，支持单选/多选/折叠 tag/拼音模糊检索；
    - `AtengDictRadio`：单选框组，支持普通圆钮或胶囊 `button` 风格；
    - `AtengDictCheckbox`：多选框组，内置 `showCheckAll` 全选联动，支持逗号分隔字符串 (`separator=","`)；
-   - `AtengDictTag`：状态彩色徽章，自动提取 `tagType` 映射 Element Plus 语义色彩，未匹配时空安全保底 `emptyText="-"`。
+   - `AtengDictTag`：状态彩色徽章，自动提取 `tagType` 映射 Element Plus 语义色彩（渲染 `<el-tag>` 时自动将 `''`、纯空白与非法值归一化为 `undefined` 防告警），未匹配时空安全保底 `emptyText="-"`。
 
 ---
 
@@ -3488,7 +3490,7 @@ export interface AtengExcelFeedbackProps {
   errors?: ExcelFeedbackItem[]; // 错误明细列表
   fileUrl?: string; // 标红批注 Excel 静态下载地址
   downloadAction?: () => Promise<Blob | unknown>; // 异步下载批注文件动作
-  fileName?: string; // 默认 '导入错误明细批注.xlsx'
+  fileName?: string; // 显式覆盖文件名；未传或为空白时优先解析响应头 Content-Disposition，最终回退 '导入错误明细批注.xlsx'
   width?: string | number; // 默认 '720px'
   showCopy?: boolean; // 默认 true
   pageSize?: number; // 默认 10
@@ -3584,7 +3586,7 @@ const handleDownloadAnnotatedFile = async (): Promise<Blob> => {
 
 #### 核心机制与生产边界说明
 
-1. **Fesod 标红批注文件与结构化明细同屏交互**：前端弹窗结构化呈现物理行号、出错列名、原始提交脏值与错误原因，右下角提供「下载标红批注 Excel」，业务人员可直观在原表格批注中定位修正。
+1. **Fesod 标红批注文件与结构化明细同屏交互**：前端弹窗结构化呈现物理行号、出错列名、原始提交脏值与错误原因，右下角提供「下载标红批注 Excel」；下载命名严格遵循**显式非空 `fileName` > 响应头 `Content-Disposition` > 默认 `'导入错误明细批注.xlsx'`** 三级优先级。
 2. **纯前端本地 UTF-8 BOM CSV 零延迟安全降级**：当后端未提供标红文件时，组件**纯前端本地无缝生成带有 UTF-8 BOM (`\uFEFF`) 标识的 CSV 错误清单**。Windows Excel 用户双击打开 100% 不乱码，保障离线自愈。
 3. **结构化剪贴板一键导出**：点击「复制错误信息」将各行错误整齐格式化为制表符文本，便于直接粘贴至企业微信或邮件流转。
 

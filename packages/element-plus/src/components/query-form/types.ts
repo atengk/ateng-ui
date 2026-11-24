@@ -159,7 +159,8 @@ export interface AtengQueryFormProps<T extends object = Record<string, unknown>>
 
   /**
    * 查询按钮 Loading 状态。
-   * @default false
+   * 未显式传入时依次回退消费 pagination.loading 与 tableContext.loading。
+   * @default undefined
    */
   searchLoading?: boolean;
 

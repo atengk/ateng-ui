@@ -419,10 +419,15 @@ onMounted(() => {
         </div>
 
         <div class="tag-row" style="margin-top: 12px">
-          <span class="row-label">空值/未匹配保底 (value="unknown" & value=""):</span>
+          <span class="row-label">空值/未匹配/空 tagType 保底:</span>
           <AtengDictTag dict-code="sys_user_status" value="unknown" />
           <AtengDictTag dict-code="sys_user_status" :value="null" style="margin-left: 10px" />
-          <span class="value-hint" style="margin-left: 10px">自动保底输出 '-'，无报错崩溃</span>
+          <AtengDictTag
+            :options="[{ label: '中性默认 (tagType=&quot;&quot;)', value: 'neutral', tagType: '' }]"
+            value="neutral"
+            style="margin-left: 10px"
+          />
+          <span class="value-hint" style="margin-left: 10px">自动保底且零 Prop 警告</span>
         </div>
       </div>
     </ElCard>

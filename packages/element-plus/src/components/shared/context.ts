@@ -7,7 +7,7 @@
  * @since 2026-10-21
  */
 
-import type { InjectionKey } from 'vue';
+import type { ComputedRef, InjectionKey } from 'vue';
 
 export interface AtengTableContext {
   /**
@@ -26,6 +26,11 @@ export interface AtengTableContext {
    * 当前表格是否处于加载状态。
    */
   loading?: { value: boolean };
+
+  /**
+   * 标识当前表格是否已接管分页状态机（用于嵌套 AtengQueryForm 避免重复触发检索与重置）。
+   */
+  hasPagination?: ComputedRef<boolean>;
 
   /**
    * 获取当前所有选中的数据行。
