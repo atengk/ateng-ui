@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, type VueWrapper } from '@vue/test-utils';
+import { h } from 'vue';
 import { AtengIconSelect, DEFAULT_ICONS } from '../src/components/icon-select';
 import IconPanel from '../src/components/icon-select/IconPanel.vue';
 import type { IconItem } from '../src/components/icon-select/types';
@@ -170,5 +171,162 @@ describe('AtengIconSelect 通用图标选择器交互与契约测试', () => {
     expect(wrapper.vm.getCurrentIcon()?.name).toBe('CustomCloud');
 
     wrapper.unmount();
+  });
+
+  it('#icon 作用域插槽透传（popover 与 dialog 双模）：自定义图标节点且保留 dialog 名称标签', async () => {
+    let popoverWrapper: VueWrapper | null = null;
+    let dialogWrapper: VueWrapper | null = null;
+
+    try {
+      // 1. Popover 模式
+      popoverWrapper = mount(AtengIconSelect, {
+        props: {
+          modelValue: 'Search',
+          mode: 'popover',
+        },
+        slots: {
+          icon: ({ item, selected }: { item: IconItem; selected: boolean }) =>
+            h(
+              'span',
+              {
+                class: 'custom-slot-icon',
+                'data-name': item.name,
+                'data-selected': String(selected),
+              },
+              item.label || item.name,
+            ),
+        },
+      });
+      await popoverWrapper.vm.$nextTick();
+
+      const customIcons = document.body.querySelectorAll('.custom-slot-icon');
+      expect(customIcons.length).toBeGreaterThan(0);
+      const activeIcon = document.body.querySelector('.custom-slot-icon[data-name="Search"]');
+      expect(activeIcon).not.toBeNull();
+      expect(activeIcon?.getAttribute('data-selected')).toBe('true');
+
+      const inactiveIcon = document.body.querySelector('.custom-slot-icon[data-name="User"]');
+      expect(inactiveIcon?.getAttribute('data-selected')).toBe('false');
+      expect(document.body.querySelector('.at-icon-select__item svg')).toBeNull();
+
+      // 2. Dialog 模式：自定义图标节点并保留内置 .item-name 标签
+      dialogWrapper = mount(AtengIconSelect, {
+        props: {
+          modelValue: 'User',
+          mode: 'dialog',
+        },
+        slots: {
+          icon: ({ item, selected }: { item: IconItem; selected: boolean }) =>
+            h(
+              'span',
+              {
+                class: 'custom-dialog-icon',
+                'data-name': item.name,
+                'data-selected': String(selected),
+              },
+              `★${item.name}`,
+            ),
+        },
+      });
+
+      dialogWrapper.vm.open();
+      await dialogWrapper.vm.$nextTick();
+
+      const dialogActiveIcon = document.body.querySelector(
+        '.at-icon-select__dialog .custom-dialog-icon[data-name="User"]',
+      );
+      expect(dialogActiveIcon).not.toBeNull();
+      expect(dialogActiveIcon?.getAttribute('data-selected')).toBe('true');
+      const dialogItem = dialogActiveIcon?.closest('.at-icon-select__item');
+      expect(dialogItem?.querySelector('.item-name')?.textContent).toBe('User');
+    } finally {
+      popoverWrapper?.unmount();
+      dialogWrapper?.unmount();
+    }
+  });
+
+  it('#footer 作用域插槽透传与分页共存（popover 与 dialog 双模）：透传 { selectedItem, copyCode } 且保留分页栏', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    let popoverWrapper: VueWrapper | null = null;
+    let dialogWrapper: VueWrapper | null = null;
+
+    try {
+      // 1. Popover 模式验证自定义 footer 与分页共存及 copyCode 调用
+      popoverWrapper = mount(AtengIconSelect, {
+        props: {
+          modelValue: 'Setting',
+          mode: 'popover',
+          pageSize: 10,
+        },
+        slots: {
+          footer: ({
+            selectedItem,
+            copyCode,
+          }: {
+            selectedItem?: IconItem;
+            copyCode: () => Promise<boolean>;
+          }) =>
+            h('div', { class: 'custom-icon-footer' }, [
+              h('span', { class: 'custom-footer-label' }, selectedItem?.label || '未选择'),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'custom-footer-copy-btn',
+                  onClick: () => copyCode(),
+                },
+                '自定义复制',
+              ),
+            ]),
+        },
+      });
+      await popoverWrapper.vm.$nextTick();
+
+      expect(document.body.querySelector('.custom-footer-label')?.textContent).toBe(
+        '设置/系统配置',
+      );
+      expect(document.body.querySelector('.at-icon-select__info')).toBeNull();
+      expect(document.body.querySelector('.at-icon-select__pagination')).not.toBeNull();
+
+      const copyBtn = document.body.querySelector('.custom-footer-copy-btn') as HTMLButtonElement;
+      expect(copyBtn).not.toBeNull();
+      copyBtn.click();
+      await vi.waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith('<el-icon><Setting /></el-icon>');
+        expect(popoverWrapper?.emitted('copy')?.[0]?.[0]).toBe('<el-icon><Setting /></el-icon>');
+      });
+
+      // 2. Dialog 模式验证 footer 透传
+      dialogWrapper = mount(AtengIconSelect, {
+        props: {
+          modelValue: 'User',
+          mode: 'dialog',
+          pageSize: 10,
+        },
+        slots: {
+          footer: ({ selectedItem }: { selectedItem?: IconItem }) =>
+            h('div', { class: 'custom-dialog-footer' }, selectedItem?.name || ''),
+        },
+      });
+
+      dialogWrapper.vm.open();
+      await dialogWrapper.vm.$nextTick();
+
+      expect(
+        document.body.querySelector('.at-icon-select__dialog .custom-dialog-footer')?.textContent,
+      ).toBe('User');
+      expect(
+        document.body.querySelector('.at-icon-select__dialog .at-icon-select__pagination'),
+      ).not.toBeNull();
+    } finally {
+      popoverWrapper?.unmount();
+      dialogWrapper?.unmount();
+    }
   });
 });

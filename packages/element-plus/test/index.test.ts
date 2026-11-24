@@ -75,7 +75,9 @@ import AtengElementPlus, {
   type AtengCodeViewProps,
   type AtengCodeViewInstance,
   type AtengIconSelectProps,
+  type AtengIconSelectSlots,
   type AtengIconSelectInstance,
+  type AtengDrawerFooterScope,
   type AtengCaptchaProps,
   type AtengCaptchaInstance,
   type AtengFilePreviewProps,
@@ -213,6 +215,19 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
       copyIconCode: vi.fn(),
     };
     expect(mockIconSelectInstance.clear).toBeDefined();
+
+    const mockIconSelectSlots: AtengIconSelectSlots = {
+      icon: () => null,
+      footer: () => null,
+    };
+    expect(mockIconSelectSlots.icon).toBeDefined();
+
+    const mockDrawerFooterScope: AtengDrawerFooterScope = {
+      confirm: async () => {},
+      cancel: () => {},
+      loading: false,
+    };
+    expect(mockDrawerFooterScope.loading).toBe(false);
 
     const mockCaptchaProps: AtengCaptchaProps = { seconds: 60, storageKey: 'test_code' };
     expect(mockCaptchaProps.seconds).toBe(60);

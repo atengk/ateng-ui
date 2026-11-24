@@ -148,12 +148,30 @@ export interface AtengDrawerEmits {
 }
 
 /**
+ * AtengDrawer 底部插槽作用域契约。
+ */
+export interface AtengDrawerFooterScope {
+  /**
+   * 触发异步确定提交。
+   */
+  confirm: () => Promise<void>;
+  /**
+   * 触发取消关闭。
+   */
+  cancel: () => void;
+  /**
+   * 当前是否处于异步确认 loading 锁定态。
+   */
+  loading: boolean;
+}
+
+/**
  * AtengDrawer 插槽契约。
  */
 export interface AtengDrawerSlots {
   default?: () => VNode[];
   header?: () => VNode[];
-  footer?: () => VNode[];
+  footer?: (scope: AtengDrawerFooterScope) => VNode[];
   title?: () => VNode[];
   /**
    * 分帧延迟挂载模式下的占位骨架插槽。

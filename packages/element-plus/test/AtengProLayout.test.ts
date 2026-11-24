@@ -725,4 +725,45 @@ describe('AtengProLayout Component', () => {
     expect(wrapper.find('.at-pro-menu__badge').text()).toContain('9');
     expect(wrapper.find('.at-pro-menu__fallback-icon').text()).toBe('无');
   });
+
+  it('27. mix 模式 headerRight 兜底：补充 #headerActions 与 #user 默认兜底插槽', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: mockMenuData,
+      },
+      slots: {
+        headerActions: () => h('button', { class: 'mix-action-btn' }, '消息通知'),
+        user: () => h('span', { class: 'mix-user-name' }, '系统管理员'),
+      },
+    });
+
+    const headerRight = wrapper.find('.at-pro-layout__header-right');
+    expect(headerRight.exists()).toBe(true);
+    expect(headerRight.find('.at-pro-layout__header-actions .mix-action-btn').text()).toBe(
+      '消息通知',
+    );
+    expect(headerRight.find('.at-pro-layout__header-user .mix-user-name').text()).toBe(
+      '系统管理员',
+    );
+  });
+
+  it('28. mix 模式 headerRight 覆盖：传入 #headerRight 时覆盖 #headerActions 与 #user 默认兜底', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: mockMenuData,
+      },
+      slots: {
+        headerRight: () => h('div', { class: 'custom-mix-header-right' }, '自定义右侧区'),
+        headerActions: () => h('button', { class: 'mix-action-btn' }, '不应渲染'),
+        user: () => h('span', { class: 'mix-user-name' }, '不应渲染'),
+      },
+    });
+
+    const headerRight = wrapper.find('.at-pro-layout__header-right');
+    expect(headerRight.find('.custom-mix-header-right').text()).toBe('自定义右侧区');
+    expect(headerRight.find('.at-pro-layout__header-actions').exists()).toBe(false);
+    expect(headerRight.find('.at-pro-layout__header-user').exists()).toBe(false);
+  });
 });

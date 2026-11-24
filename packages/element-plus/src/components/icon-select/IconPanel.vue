@@ -9,7 +9,7 @@
 import { ref, computed, watch } from 'vue';
 import { ElInput, ElScrollbar, ElTooltip, ElEmpty, ElPagination, ElMessage } from 'element-plus';
 import { writeClipboard } from '../../directives/copy';
-import type { IconItem } from './types';
+import type { IconItem, AtengIconSelectSlots } from './types';
 
 const props = withDefaults(
   defineProps<{
@@ -31,6 +31,8 @@ const emit = defineEmits<{
   (e: 'select', item: IconItem): void;
   (e: 'copy', code: string): void;
 }>();
+
+defineSlots<Pick<AtengIconSelectSlots, 'icon' | 'footer'>>();
 
 const searchKeyword = ref<string>('');
 const currentPage = ref<number>(1);
@@ -123,20 +125,25 @@ defineExpose({
             :class="['at-icon-select__item', modelValue === item.name && 'is-active']"
             @click="handleSelect(item)"
           >
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <svg
-              v-if="item.svgPath"
-              viewBox="0 0 1024 1024"
-              :width="isDialog ? '1.3em' : '1.2em'"
-              :height="isDialog ? '1.3em' : '1.2em'"
-              v-html="item.svgPath"
-            />
-            <component
-              :is="item.component"
-              v-else-if="item.component"
-              :style="{ width: isDialog ? '1.3em' : '1.2em', height: isDialog ? '1.3em' : '1.2em' }"
-            />
-            <span v-else class="icon-fallback">{{ item.name.slice(0, 2) }}</span>
+            <slot name="icon" :item="item" :selected="modelValue === item.name">
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <svg
+                v-if="item.svgPath"
+                viewBox="0 0 1024 1024"
+                :width="isDialog ? '1.3em' : '1.2em'"
+                :height="isDialog ? '1.3em' : '1.2em'"
+                v-html="item.svgPath"
+              />
+              <component
+                :is="item.component"
+                v-else-if="item.component"
+                :style="{
+                  width: isDialog ? '1.3em' : '1.2em',
+                  height: isDialog ? '1.3em' : '1.2em',
+                }"
+              />
+              <span v-else class="icon-fallback">{{ item.name.slice(0, 2) }}</span>
+            </slot>
             <span v-if="isDialog" class="item-name">{{ item.name }}</span>
           </div>
         </ElTooltip>
@@ -146,18 +153,20 @@ defineExpose({
 
     <!-- 底部工具栏与分页 -->
     <div class="at-icon-select__footer">
-      <div class="at-icon-select__info">
-        <span v-if="modelValue" class="selected-text">{{ modelValue }}</span>
-        <button
-          v-if="showCopy && modelValue"
-          type="button"
-          class="at-icon-select__copy-btn"
-          title="复制 <el-icon> 代码"
-          @click="copyCode(modelValue)"
-        >
-          📋 复制代码
-        </button>
-      </div>
+      <slot name="footer" :selected-item="currentIconItem" :copy-code="() => copyCode(modelValue)">
+        <div class="at-icon-select__info">
+          <span v-if="modelValue" class="selected-text">{{ modelValue }}</span>
+          <button
+            v-if="showCopy && modelValue"
+            type="button"
+            class="at-icon-select__copy-btn"
+            title="复制 <el-icon> 代码"
+            @click="copyCode(modelValue)"
+          >
+            📋 复制代码
+          </button>
+        </div>
+      </slot>
       <ElPagination
         v-if="pageSize > 0 && filteredIcons.length > pageSize"
         v-model:current-page="currentPage"

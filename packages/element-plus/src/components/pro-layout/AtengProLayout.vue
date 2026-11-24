@@ -623,7 +623,14 @@ defineExpose<AtengProLayoutExpose>({
           </div>
 
           <div class="at-pro-layout__header-right">
-            <slot name="headerRight" />
+            <slot name="headerRight">
+              <div v-if="$slots.headerActions" class="at-pro-layout__header-actions">
+                <slot name="headerActions" />
+              </div>
+              <div v-if="$slots.user" class="at-pro-layout__header-user">
+                <slot name="user" />
+              </div>
+            </slot>
           </div>
         </AtengHeader>
 

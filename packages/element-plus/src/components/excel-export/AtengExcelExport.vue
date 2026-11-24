@@ -14,7 +14,12 @@
 
 import { ref, computed, inject } from 'vue';
 import { ElButton, ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessage } from 'element-plus';
-import { checkBlobForJsonError, saveBlobAsFile } from '@atengk/core';
+import {
+  checkBlobForJsonError,
+  getBlobDisposition,
+  parseContentDispositionFilename,
+  saveBlobAsFile,
+} from '@atengk/core';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
 import { IconExport } from './icons';
 import type {
@@ -107,7 +112,12 @@ async function triggerExport(exportType?: ExcelExportType): Promise<void> {
         // ADR-0004 双态异常防御：若 Blob 伪装承载了 JSON 业务错误报文，则提取错误并熔断，绝不下载损坏文件
         await checkBlobForJsonError(result, result.type, 200);
 
-        saveBlobAsFile(result, props.filename || `export_${Date.now()}.xlsx`, { revokeDelay: 0 });
+        const explicitFilename = props.filename?.trim();
+        const resolvedFilename =
+          explicitFilename ||
+          parseContentDispositionFilename(getBlobDisposition(result), `export_${Date.now()}.xlsx`);
+
+        saveBlobAsFile(result, resolvedFilename, { revokeDelay: 0 });
       }
 
       ElMessage.success('导出数据成功');

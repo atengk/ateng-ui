@@ -183,7 +183,14 @@ defineExpose<AtengIconSelectExpose>({
           :is-dialog="false"
           @select="handleSelect"
           @copy="handleCopy"
-        />
+        >
+          <template v-if="$slots.icon" #icon="slotProps">
+            <slot name="icon" v-bind="slotProps" />
+          </template>
+          <template v-if="$slots.footer" #footer="slotProps">
+            <slot name="footer" v-bind="slotProps" />
+          </template>
+        </IconPanel>
       </ElPopover>
     </template>
 
@@ -237,7 +244,14 @@ defineExpose<AtengIconSelectExpose>({
           :is-dialog="true"
           @select="handleSelect"
           @copy="handleCopy"
-        />
+        >
+          <template v-if="$slots.icon" #icon="slotProps">
+            <slot name="icon" v-bind="slotProps" />
+          </template>
+          <template v-if="$slots.footer" #footer="slotProps">
+            <slot name="footer" v-bind="slotProps" />
+          </template>
+        </IconPanel>
       </ElDialog>
     </template>
   </div>

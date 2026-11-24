@@ -8,7 +8,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick, defineComponent, ref } from 'vue';
-import { AtengDrawer } from '../src/components/drawer';
+import { AtengDrawer, type AtengDrawerFooterScope } from '../src/components/drawer';
 
 describe('AtengDrawer 组件规范与交互测试', () => {
   let wrapper: VueWrapper | null = null;
@@ -494,6 +494,136 @@ describe('AtengDrawer 组件规范与交互测试', () => {
     // 外部调用 done 执行关闭
     capturedDone!();
     await nextTick();
+    expect(visible.value).toBe(false);
+  });
+
+  it('自定义 #footer 作用域插槽：透传 { confirm, cancel, loading } 并联动表单校验与异步 loading 锁', async () => {
+    const visible = ref(true);
+    let rejectValidate = true;
+    const mockForm = {
+      validate: vi.fn(() => {
+        if (rejectValidate) {
+          return Promise.reject({ field: [{ message: '校验未通过' }] });
+        }
+        return Promise.resolve(true);
+      }),
+    };
+    const formRef = ref(mockForm);
+
+    let resolveConfirm: () => void = () => {};
+    const beforeConfirm = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolveConfirm = resolve;
+        }),
+    );
+    const onSuccess = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, formRef, beforeConfirm, onSuccess };
+      },
+      template: `
+        <AtengDrawer
+          v-model="visible"
+          title="自定义底部抽屉"
+          :form-ref="formRef"
+          :before-confirm="beforeConfirm"
+          :append-to-body="false"
+          @success="onSuccess"
+        >
+          <p>抽屉内容</p>
+          <template #footer="{ confirm, cancel, loading }">
+            <button id="custom-cancel-btn" :disabled="loading" @click="cancel">返回</button>
+            <button
+              id="custom-confirm-btn"
+              :disabled="loading"
+              :data-loading="String(loading)"
+              @click="confirm"
+            >
+              保存并继续
+            </button>
+          </template>
+        </AtengDrawer>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDrawer } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const confirmBtn = wrapper.find('#custom-confirm-btn');
+    const cancelBtn = wrapper.find('#custom-cancel-btn');
+
+    // 校验类型导入可直接使用
+    const scopePreview: AtengDrawerFooterScope = {
+      confirm: async () => {},
+      cancel: () => {},
+      loading: false,
+    };
+    expect(scopePreview.loading).toBe(false);
+
+    // 1. 表单校验失败时阻断：不触发 beforeConfirm，loading 保持 false
+    await confirmBtn.trigger('click');
+    await nextTick();
+    expect(mockForm.validate).toHaveBeenCalledTimes(1);
+    expect(beforeConfirm).not.toHaveBeenCalled();
+    expect(confirmBtn.attributes('data-loading')).toBe('false');
+    expect(visible.value).toBe(true);
+
+    // 2. 表单校验通过后进入异步 loading 锁
+    rejectValidate = false;
+    await confirmBtn.trigger('click');
+    await nextTick();
+    expect(mockForm.validate).toHaveBeenCalledTimes(2);
+    expect(beforeConfirm).toHaveBeenCalledTimes(1);
+    expect(confirmBtn.attributes('data-loading')).toBe('true');
+    expect((confirmBtn.element as HTMLButtonElement).disabled).toBe(true);
+    expect((cancelBtn.element as HTMLButtonElement).disabled).toBe(true);
+
+    // 3. 异步提交完成后自动关闭并复位 loading
+    resolveConfirm();
+    await Promise.resolve();
+    await nextTick();
+    expect(visible.value).toBe(false);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('自定义 #footer 作用域插槽：调用 cancel 触发 cancel 事件并关闭抽屉', async () => {
+    const visible = ref(true);
+    const onCancel = vi.fn();
+
+    const TestComponent = defineComponent({
+      setup() {
+        return { visible, onCancel };
+      },
+      template: `
+        <AtengDrawer
+          v-model="visible"
+          title="自定义取消抽屉"
+          :append-to-body="false"
+          @cancel="onCancel"
+        >
+          <p>抽屉内容</p>
+          <template #footer="{ cancel }">
+            <button id="custom-footer-cancel" @click="cancel">关闭面板</button>
+          </template>
+        </AtengDrawer>
+      `,
+    });
+
+    wrapper = mount(TestComponent, {
+      global: { components: { AtengDrawer } },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    await wrapper.find('#custom-footer-cancel').trigger('click');
+    await nextTick();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(visible.value).toBe(false);
   });
 });
