@@ -171,7 +171,13 @@ watch(
 
 // 监听 WebSocket 实时流
 watch(
-  () => props.webSocket?.latestMessage?.value,
+  () => {
+    const ws = props.webSocket;
+    if (!ws) return undefined;
+    if ('data' in ws && ws.data) return ws.data.value;
+    if ('latestMessage' in ws && ws.latestMessage) return ws.latestMessage.value;
+    return undefined;
+  },
   msg => {
     if (msg !== undefined && msg !== null) {
       const text = typeof msg === 'object' ? JSON.stringify(msg) : String(msg);

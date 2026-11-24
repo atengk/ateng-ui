@@ -181,7 +181,7 @@ defineExpose<AtengDictTagExpose>({
         :key="String(item.value)"
         class="at-dict-tag__item"
         :class="item.cssClass"
-        :type="item.tagType"
+        :type="item.tagType || undefined"
         :size="size"
         :effect="effect"
         :round="round"

@@ -7,7 +7,33 @@
 
 import type { Ref } from 'vue';
 import type { FormInstance } from 'element-plus';
-import type { UsePaginationResult } from '@atengk/vue';
+
+/**
+ * 查询表单可直连的分页状态机最小结构化契约（零 any 兼容 @atengk/vue 的 UsePaginationResult）。
+ *
+ * @template T 查询参数模型类型
+ */
+export interface QueryFormPagination<T extends object = Record<string, unknown>> {
+  /**
+   * 响应式查询参数对象。
+   */
+  query: Partial<T>;
+
+  /**
+   * 请求加载状态引用。
+   */
+  loading: { readonly value: boolean };
+
+  /**
+   * 条件搜索执行方法（采用方法签名实现双变兼容）。
+   */
+  search(extraParams?: Partial<T>): Promise<unknown>;
+
+  /**
+   * 条件重置执行方法。
+   */
+  reset(): Promise<unknown>;
+}
 
 /**
  * 响应式列数断点配置。
@@ -28,7 +54,7 @@ export interface QueryFormResponsiveCols {
 /**
  * AtengQueryForm 属性接口。
  */
-export interface AtengQueryFormProps<T = Record<string, unknown>> {
+export interface AtengQueryFormProps<T extends object = Record<string, unknown>> {
   /**
    * 表单数据模型对象。
    */
@@ -38,7 +64,7 @@ export interface AtengQueryFormProps<T = Record<string, unknown>> {
    * 绑定的 @atengk/vue usePagination 异步分页状态机实例。
    * 传入后表单数据模型自动绑定 pagination.query，点击查询调用 pagination.search()，重置调用 pagination.reset()，查询 loading 自动联动。
    */
-  pagination?: UsePaginationResult<T>;
+  pagination?: QueryFormPagination<T>;
 
   /**
    * 是否在输入框按下 Enter 键时自动触发搜索。
@@ -158,7 +184,7 @@ export interface AtengQueryFormProps<T = Record<string, unknown>> {
 /**
  * AtengQueryForm 事件接口。
  */
-export interface AtengQueryFormEmits<T = Record<string, unknown>> {
+export interface AtengQueryFormEmits<T extends object = Record<string, unknown>> {
   /**
    * 折叠状态双向绑定更新事件。
    */
@@ -183,7 +209,7 @@ export interface AtengQueryFormEmits<T = Record<string, unknown>> {
 /**
  * AtengQueryForm 插槽接口。
  */
-export interface AtengQueryFormSlots<T = Record<string, unknown>> {
+export interface AtengQueryFormSlots<T extends object = Record<string, unknown>> {
   /**
    * 默认插槽：承载查询表单控件与 el-form-item 节点。
    */
@@ -209,7 +235,7 @@ export interface AtengQueryFormSlots<T = Record<string, unknown>> {
 /**
  * AtengQueryForm 暴露的组件实例能力。
  */
-export interface AtengQueryFormExpose<T = Record<string, unknown>> {
+export interface AtengQueryFormExpose<T extends object = Record<string, unknown>> {
   /**
    * 底层 ElForm 原生实例引用。
    */
@@ -255,4 +281,5 @@ export interface AtengQueryFormExpose<T = Record<string, unknown>> {
 /**
  * 专有组件实例类型。
  */
-export type AtengQueryFormInstance<T = Record<string, unknown>> = AtengQueryFormExpose<T>;
+export type AtengQueryFormInstance<T extends object = Record<string, unknown>> =
+  AtengQueryFormExpose<T>;

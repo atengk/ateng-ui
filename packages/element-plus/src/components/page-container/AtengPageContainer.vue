@@ -301,6 +301,7 @@ const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
 
     for (let i = 0; i < matched.length; i++) {
       const item = matched[i];
+      if (!item) continue;
       const title = getDeepValue(item, titleKey);
       if (typeof title === 'string' && title.trim()) {
         result.push({
@@ -312,9 +313,12 @@ const computedBreadcrumbs = computed<AtengPageBreadcrumbItem[]>(() => {
 
     if (result.length > 0) {
       const lastIndex = result.length - 1;
-      result[lastIndex] = {
-        label: result[lastIndex].label,
-      };
+      const lastItem = result[lastIndex];
+      if (lastItem) {
+        result[lastIndex] = {
+          label: lastItem.label,
+        };
+      }
     }
 
     return result;

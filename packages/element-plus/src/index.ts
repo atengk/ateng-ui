@@ -17,6 +17,7 @@ export * from './directives';
 export * from './components';
 export * from './loading';
 export * from './theme';
+export * from './global';
 
 // 便捷别名导出（与 Ateng* 形成双轨具名导出支持）
 export {

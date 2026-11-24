@@ -2,7 +2,7 @@
 
 ## 状态
 
-Proposed (待确认 / 评审就绪)
+Accepted (已采纳 / 已实装)
 
 ## 背景与决策上下文
 
@@ -56,12 +56,17 @@ Proposed (待确认 / 评审就绪)
 
 ### 4. Vue 3.5 SFC 原生泛型与 100% 强类型闭环防线 (Generic SFC & Strong Typing)
 
-- **SFC 泛型标注**：`AtengTable.vue`、`AtengQueryForm.vue`、`AtengDescriptions.vue` 统一升级为：
+- **SFC 泛型标注**：`AtengTable.vue`、`AtengQueryForm.vue`、`AtengDescriptions.vue` 统一采用更兼容普通 TypeScript `interface`（无须索引签名 `[key: string]: unknown`）的 `object` 基约束：
   ```vue
-  <script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
+  <!-- AtengTable.vue -->
+  <script setup lang="ts" generic="T extends object = Record<string, unknown>, TParams extends PageQuery = PageQuery">
+
+  <!-- AtengQueryForm.vue / AtengDescriptions.vue -->
+  <script setup lang="ts" generic="T extends object = Record<string, unknown>">
   ```
 - **全链路强类型打通**：
-  - `AtengTableProps<T>`：`data?: T[]`, `pagination?: UsePaginationResult<T>`；
+  - `AtengTableProps<T, TParams>`：`data?: T[]`, `pagination?: UsePaginationResult<T, TParams>`（双泛型透传检索参数契约 `TParams extends PageQuery`）；
+  - `AtengQueryFormProps<T>`：`model?: T`, `pagination?: QueryFormPagination<T>`（以结构化最小契约承接 `UsePaginationResult<TRow, TQuery>`，解决 `TRow` 与 `TQuery` 模型异构时 `:pagination` 绑定冲突）；
   - `AtengTableEmits<T>`：`selection-change: [selection: T[]]`, `update:selectedRows: [selection: T[]]`；
   - `AtengTableSlots<T>`：`batch-actions: (scope: { selectedRows: T[]; clearSelection: () => void })`；
   - `AtengTableExpose<T>`：`selectedRows: ComputedRef<T[]>`, `getSelectionRows: () => T[]`, `toggleRowSelection: (row: T, selected?: boolean) => void`；

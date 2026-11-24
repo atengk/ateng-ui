@@ -4,7 +4,8 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "isolatedDeclarations": false
   },
   "references": [{ "path": "../core" }, { "path": "../vue" }],
   "include": ["src/**/*"]

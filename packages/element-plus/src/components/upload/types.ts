@@ -226,7 +226,7 @@ export interface AtengUploadExpose<T = unknown> {
   /**
    * 手动触发分片上传。
    */
-  uploadChunkFile: (file: File | Blob) => Promise<UploadChunkResult<T>[]>;
+  uploadChunkFile: (file: File | Blob) => Promise<unknown>;
   /**
    * 暂停在途切片上传。
    */

@@ -144,7 +144,13 @@ const samples: FileSample[] = [
   },
 ];
 
-const selectedSample = ref<FileSample>(samples[0]);
+const selectedSample = ref<FileSample>(
+  samples[0] ?? {
+    label: '',
+    name: '',
+    url: '',
+  },
+);
 const localBlobFile = ref<File | null>(null);
 
 const handleSelectSample = (sample: FileSample) => {

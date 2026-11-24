@@ -15,6 +15,7 @@
 import { computed, type Component } from 'vue';
 import { ElMenu } from 'element-plus';
 import ProMenuItemNode from './ProMenuItemNode.vue';
+import { asMenuRecord } from './menuUtils';
 import type { ProMenuItem, ProMenuFieldNames, ProMenuIconResolver, ProMenuRawItem } from './types';
 
 defineOptions({
@@ -57,10 +58,11 @@ const childrenKey = computed(() => props.fieldNames?.children || 'children');
 // 递归查找选中的菜单实体
 function findMenuItem(items: ProMenuRawItem[], targetPath: string): ProMenuRawItem | undefined {
   for (const item of items) {
-    if (String(item[pathKey.value] ?? (item as ProMenuItem).path) === targetPath) {
+    const record = asMenuRecord(item);
+    if (String(record[pathKey.value] ?? record.path ?? '') === targetPath) {
       return item;
     }
-    const children = item[childrenKey.value] as ProMenuRawItem[] | undefined;
+    const children = record[childrenKey.value] as ProMenuRawItem[] | undefined;
     if (Array.isArray(children) && children.length > 0) {
       const found = findMenuItem(children, targetPath);
       if (found) return found;
@@ -88,7 +90,7 @@ const handleSelect = (index: string) => {
   >
     <ProMenuItemNode
       v-for="item in menuData"
-      :key="String(item[pathKey] ?? item.path)"
+      :key="String(asMenuRecord(item)[pathKey] ?? asMenuRecord(item).path ?? '')"
       :item="item"
       :field-names="fieldNames"
       :icon-resolver="iconResolver"

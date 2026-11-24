@@ -89,6 +89,7 @@ import {
   ElBacktop,
   ElCheckTag,
   ElStatistic,
+  type UploadUserFile,
 } from 'element-plus';
 import { AtengCard, AtengDialog, setThemeColor } from '@atengk/element-plus';
 
@@ -184,7 +185,10 @@ const querySearchCluster = (
     : clusters;
   cb(results);
 };
-const mentionUsers = ['Ateng', 'Linus', 'EvanYou', 'VercelBot', 'Architect'];
+const mentionUsers = ['Ateng', 'Linus', 'EvanYou', 'VercelBot', 'Architect'].map(name => ({
+  label: name,
+  value: name,
+}));
 
 // 5. Tab 2: 高级拾取器状态
 const dateSingle = ref('2026-10-22');
@@ -347,7 +351,7 @@ const rateVal = ref(4.5);
 const colorPickerHex = ref('#4f46e5');
 
 // 文件上传全家桶状态
-const uploadFileList = ref([
+const uploadFileList = ref<UploadUserFile[]>([
   {
     name: 'cluster-audit-report-2026.pdf',
     percentage: 100,

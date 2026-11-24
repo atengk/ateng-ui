@@ -5,7 +5,7 @@
  * @since 2026-10-22
  */
 
-import type { InjectionKey, ComputedRef, ShallowRef, Ref } from 'vue';
+import type { InjectionKey, ComputedRef, ShallowRef, Ref, Component } from 'vue';
 import type { AtengWatermarkProps } from '../watermark/types';
 
 /**
@@ -51,9 +51,9 @@ export interface AtengPageActionItem {
   type?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'default';
 
   /**
-   * 图标组件（如 Element Plus 图标或 Component/VNode）。
+   * 图标组件（如 Element Plus 图标或 Component/字符串）。
    */
-  icon?: unknown;
+  icon?: string | Component;
 
   /**
    * 是否为朴素按钮。
@@ -78,7 +78,7 @@ export interface AtengPageActionItem {
   /**
    * 点击事件回调，支持异步。
    */
-  onClick?: (e?: MouseEvent) => void | Promise<unknown>;
+  onClick?: (e?: MouseEvent) => unknown;
 }
 
 /**
@@ -267,6 +267,10 @@ export interface AtengPageContainerSlots {
    */
   breadcrumb?: () => unknown;
   /**
+   * 自定义返回按钮插槽。
+   */
+  back?: () => unknown;
+  /**
    * 自定义标题左侧前缀插槽。
    */
   prefix?: () => unknown;
@@ -274,6 +278,10 @@ export interface AtengPageContainerSlots {
    * 自定义标题插槽。
    */
   title?: () => unknown;
+  /**
+   * 自定义副标题插槽。
+   */
+  subTitle?: () => unknown;
   /**
    * 自定义状态微标插槽。
    */

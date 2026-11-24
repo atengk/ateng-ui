@@ -7,6 +7,7 @@
 
 import type { ComputedRef, ShallowRef } from 'vue';
 import type { TableInstance } from 'element-plus';
+import type { PageQuery } from '@atengk/core';
 import type { UsePaginationResult, UseSelectionResult } from '@atengk/vue';
 
 /**
@@ -78,8 +79,12 @@ export type TableToolItem = 'refresh' | 'density' | 'stripe' | 'column-setting' 
  * AtengTable 属性接口。
  *
  * @template T 表格行数据实体模型类型
+ * @template TParams 分页检索查询参数类型（需兼容 `PageQuery`）
  */
-export interface AtengTableProps<T = Record<string, unknown>> {
+export interface AtengTableProps<
+  T extends object = Record<string, unknown>,
+  TParams extends PageQuery = PageQuery,
+> {
   /**
    * 显示的数据。
    * @default []
@@ -89,7 +94,7 @@ export interface AtengTableProps<T = Record<string, unknown>> {
   /**
    * 绑定的 @atengk/vue usePagination 状态机实例（双轨绑定模式）。
    */
-  pagination?: UsePaginationResult<T>;
+  pagination?: UsePaginationResult<T, TParams>;
 
   /**
    * 表格列配置数组（纯数据配置列模式）。
@@ -249,7 +254,7 @@ export interface AtengTableProps<T = Record<string, unknown>> {
  *
  * @template T 表格行数据实体模型类型
  */
-export interface AtengTableEmits<T = Record<string, unknown>> {
+export interface AtengTableEmits<T extends object = Record<string, unknown>> {
   /**
    * 多选项改变事件。
    */
@@ -342,7 +347,7 @@ export interface AtengTableEmits<T = Record<string, unknown>> {
  *
  * @template T 表格行数据实体模型类型
  */
-export interface AtengTableSlots<T = Record<string, unknown>> {
+export interface AtengTableSlots<T extends object = Record<string, unknown>> {
   /**
    * 默认插槽：放置原生 el-table-column。
    */
@@ -389,7 +394,7 @@ export interface AtengTableSlots<T = Record<string, unknown>> {
  *
  * @template T 表格行数据实体模型类型
  */
-export interface AtengTableExpose<T = Record<string, unknown>> {
+export interface AtengTableExpose<T extends object = Record<string, unknown>> {
   /**
    * 底层 ElTable 原生组件实例引用。
    */
@@ -451,4 +456,4 @@ export interface AtengTableExpose<T = Record<string, unknown>> {
  *
  * @template T 表格行数据实体模型类型
  */
-export type AtengTableInstance<T = Record<string, unknown>> = AtengTableExpose<T>;
+export type AtengTableInstance<T extends object = Record<string, unknown>> = AtengTableExpose<T>;

@@ -18,11 +18,13 @@ Accepted (已接受)
 基于“**工业级稳定、零层叠冲突、强类型闭环、开箱即用**”原则，确立以下架构决策：
 
 1. **构建管线全面迁移至 Vite 库模式**：
-   - 移除 `packages/element-plus` 的 `tsup`，统一引入 `vite`（Library Mode）+ `@vitejs/plugin-vue` + `vite-plugin-dts` + `sass`；
+   - 移除 `packages/element-plus` 的 `tsup`，统一引入 `vite`（Library Mode）+ `@vitejs/plugin-vue` + `vite-plugin-dts@^4.3.0` + `sass`；
+   - `tsconfig.json` 显式覆盖 `"isolatedDeclarations": false` 并禁用 `rollupTypes`（避免单文件聚合吞掉 Vue SFC 模板类型与泛型签名），确保 `dist/` 1:1 输出全部组件 `.vue.d.ts` 声明文件，并通过 `src/global.ts` 输出 `dist/global.d.ts` 注册 `declare module 'vue'` `GlobalComponents`（覆盖全部公开 `Ateng*` 组件及 `At*` 别名）；
+   - 包内与展厅均采用 `vue-tsc --noEmit` 执行静态模板与类型门禁校验；
    - 产物矩阵锁定为：
      - ESM：`dist/index.js`
      - CJS：`dist/index.cjs`
-     - DTS：`dist/index.d.ts`
+     - DTS：`dist/index.d.ts` + `dist/global.d.ts` + 各组件 `*.vue.d.ts`
      - CSS：`dist/index.css`
 2. **单一全局样式分发契约 (Single CSS Bundle Contract)**：
    - 组件库所有 SFC 的 Scoped 样式统一由 Vite 提取并压缩输出为单一 CSS 文件 `dist/index.css`；

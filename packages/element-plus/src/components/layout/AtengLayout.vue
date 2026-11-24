@@ -12,14 +12,14 @@
  * @since 2026-10-25
  */
 
-import { ref, computed, provide, useSlots, type VNode, type Component } from 'vue';
+import { ref, computed, provide, type VNode, type Component } from 'vue';
 import { type AtengLayoutProps, type AtengLayoutSlots, ATENG_LAYOUT_INJECTION_KEY } from './types';
 
 defineOptions({
   name: 'AtengLayout',
 });
 
-defineSlots<AtengLayoutSlots>();
+const slots = defineSlots<AtengLayoutSlots>();
 
 const props = withDefaults(defineProps<AtengLayoutProps>(), {
   direction: undefined,
@@ -29,7 +29,6 @@ const props = withDefaults(defineProps<AtengLayoutProps>(), {
 
 const layoutRef = ref<HTMLElement | null>(null);
 const asideCount = ref(0);
-const slots = useSlots();
 
 // 1. 提供 Aside 注册总线
 provide(ATENG_LAYOUT_INJECTION_KEY, {
@@ -70,7 +69,7 @@ const hasAsideInSlots = computed(() => {
   if (!slots.default) {
     return false;
   }
-  return hasAsideComponent(slots.default());
+  return hasAsideComponent(slots.default() as VNode[]);
 });
 
 // 3. 计算排版方向

@@ -202,6 +202,17 @@ watch(
   },
 );
 
+// 传递给 ElCheckboxGroup 的字符串/数值受控数组（过滤 boolean，兼容严格 TS 校验）
+const groupCheckedValues = computed<Array<string | number>>(() =>
+  internalCheckedValues.value.filter(
+    (v): v is string | number => typeof v === 'string' || typeof v === 'number',
+  ),
+);
+
+function handleGroupValueUpdate(v: unknown): void {
+  handleGroupChange(Array.isArray(v) ? (v as Array<string | number | boolean>) : []);
+}
+
 onMounted(() => {
   if (props.autoLoad) {
     fetchDictData(false);
@@ -234,14 +245,11 @@ defineExpose<AtengDictCheckboxExpose>({
     <el-checkbox-group
       ref="checkboxGroupRef"
       class="at-dict-checkbox__group"
-      :model-value="internalCheckedValues"
+      :model-value="groupCheckedValues"
       :size="size"
       :disabled="disabled"
       v-bind="$attrs"
-      @update:model-value="
-        (v: unknown) =>
-          handleGroupChange(Array.isArray(v) ? (v as Array<string | number | boolean>) : [])
-      "
+      @update:model-value="handleGroupValueUpdate"
     >
       <template v-if="button">
         <el-checkbox-button

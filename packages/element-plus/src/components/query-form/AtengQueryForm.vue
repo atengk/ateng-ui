@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
+<script setup lang="ts" generic="T extends object = Record<string, unknown>">
 /**
  * 企业级响应式高级搜索表单容器组件。
  *
@@ -13,18 +13,7 @@
  * @since 2026-10-21
  */
 
-import {
-  ref,
-  computed,
-  toValue,
-  onMounted,
-  onUnmounted,
-  useSlots,
-  inject,
-  Comment,
-  Fragment,
-  type VNode,
-} from 'vue';
+import { ref, computed, onMounted, onUnmounted, inject, Comment, Fragment, type VNode } from 'vue';
 import { ElForm, ElButton, ElIcon, type FormInstance } from 'element-plus';
 import { vIdempotent } from '../../directives/idempotent/vIdempotent';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
@@ -64,7 +53,7 @@ const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
 });
 
 const emit = defineEmits<AtengQueryFormEmits<T>>();
-defineSlots<AtengQueryFormSlots<T>>();
+const slots = defineSlots<AtengQueryFormSlots<T>>();
 
 // 1. 容器宽度监听与响应式列数计算 (ResizeObserver 容器感知断点)
 const formRef = ref<FormInstance>();
@@ -131,7 +120,6 @@ const currentCols = computed<number>(() => {
 });
 
 // 2. 插槽 VNode 扁平化递归解析
-const slots = useSlots();
 
 function flattenVNodes(vnodes: VNode[]): VNode[] {
   const result: VNode[] = [];
@@ -149,7 +137,7 @@ function flattenVNodes(vnodes: VNode[]): VNode[] {
 }
 
 const flattenedVNodes = computed<VNode[]>(() => {
-  const raw = slots.default ? slots.default() : [];
+  const raw = slots.default ? (slots.default() as VNode[]) : [];
   return flattenVNodes(raw);
 });
 
@@ -217,7 +205,7 @@ const effectiveModel = computed<T>(() => {
 const effectiveSearchLoading = computed<boolean>(() => {
   if (props.searchLoading) return true;
   if (props.pagination?.loading) {
-    return Boolean(toValue(props.pagination.loading));
+    return Boolean(props.pagination.loading.value);
   }
   return false;
 });
@@ -256,10 +244,10 @@ const handleSearch = (overrideModel?: T) => {
   const targetModel = overrideModel || effectiveModel.value;
   emit('search', targetModel);
   if (props.pagination) {
-    props.pagination.search(targetModel as unknown as Record<string, unknown>);
+    props.pagination.search(targetModel as Partial<T>);
   }
   if (tableContext) {
-    tableContext.search(targetModel);
+    tableContext.search(targetModel as unknown as Record<string, unknown>);
   }
 };
 

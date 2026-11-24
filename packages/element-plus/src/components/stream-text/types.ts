@@ -9,13 +9,24 @@ import type { ComputedRef } from 'vue';
 import type { UseStreamResult } from '@atengk/vue';
 
 /**
+ * 兼容 @atengk/vue useStream 与测试桩的轻量流式实例契约。
+ */
+export type StreamTextSourceLike =
+  | UseStreamResult
+  | {
+      text: { readonly value: string };
+      isStreaming?: { readonly value: boolean };
+      isFinished?: { readonly value: boolean };
+    };
+
+/**
  * AtengStreamText 属性接口。
  */
 export interface AtengStreamTextProps {
   /**
    * 绑定的 @atengk/vue useStream 状态机实例（流式响应模式）。
    */
-  stream?: UseStreamResult;
+  stream?: StreamTextSourceLike;
 
   /**
    * 待打字输出的文本内容（受控/静态纯文本模式）。

@@ -12,7 +12,7 @@
  * @since 2026-10-21
  */
 
-import { ref, computed, watch, onMounted, toRef } from 'vue';
+import { ref, computed, watch, onMounted, toRef, toValue } from 'vue';
 import { ElDialog, ElButton, ElScrollbar, ElSkeleton, ElMessageBox } from 'element-plus';
 import type {
   AtengDialogProps,
@@ -104,7 +104,7 @@ watch(
 // 2. 异步确认状态机
 const { isLoading, handleConfirm } = useAsyncConfirm({
   controlledLoading: toRef(props, 'confirmLoading'),
-  formRef: () => props.formRef,
+  formRef: () => toValue(props.formRef),
   beforeConfirm: props.beforeConfirm,
   onClose: () => {
     emit('update:modelValue', false);

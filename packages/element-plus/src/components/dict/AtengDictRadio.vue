@@ -73,12 +73,13 @@ const effectiveItems = computed<DictItem[]>(() => {
 /**
  * 根据 valueType 与有效选项计算交付给底层 ElRadioGroup 的绑定值。
  */
-const radioBoundValue = computed(() => {
+const radioBoundValue = computed<string | number | boolean | undefined>(() => {
   const val = props.modelValue;
   if (val === undefined || val === null || val === '') {
-    return val;
+    return undefined;
   }
-  return coerceToMatchedValue(val, effectiveItems.value, props.valueType);
+  const coerced = coerceToMatchedValue(val, effectiveItems.value, props.valueType);
+  return coerced === null ? undefined : coerced;
 });
 
 /**

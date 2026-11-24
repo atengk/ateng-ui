@@ -42,11 +42,22 @@ const targetFullText = computed<string>(() => {
   return props.text || '';
 });
 
+function isStreamSourceFinished(stream: NonNullable<AtengStreamTextProps['stream']>): boolean {
+  if ('isFinished' in stream && stream.isFinished) {
+    return Boolean(stream.isFinished.value);
+  }
+  if ('isStreaming' in stream && stream.isStreaming) {
+    return !stream.isStreaming.value;
+  }
+  return false;
+}
+
 // 计算是否完成全部输出
 const isFinished = computed<boolean>(() => {
   if (props.stream) {
     return Boolean(
-      props.stream.isFinished.value && displayedText.value.length >= targetFullText.value.length,
+      isStreamSourceFinished(props.stream) &&
+      displayedText.value.length >= targetFullText.value.length,
     );
   }
   return displayedText.value.length >= targetFullText.value.length && streamCompleted.value;
@@ -73,7 +84,7 @@ function stepTypewriter(): void {
   if (displayedText.value.length >= target.length) {
     // 文本已追平
     stopTimer();
-    const isStreamDone = props.stream ? props.stream.isFinished.value : true;
+    const isStreamDone = props.stream ? isStreamSourceFinished(props.stream) : true;
     if (isStreamDone) {
       streamCompleted.value = true;
       emit('finished', displayedText.value);
@@ -169,7 +180,7 @@ watch(
 // 监听 stream 的 isFinished 标志
 if (props.stream) {
   watch(
-    () => props.stream?.isFinished.value,
+    () => (props.stream ? isStreamSourceFinished(props.stream) : false),
     finished => {
       if (finished && displayedText.value.length >= targetFullText.value.length) {
         streamCompleted.value = true;

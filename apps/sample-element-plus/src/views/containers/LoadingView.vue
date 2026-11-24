@@ -28,8 +28,9 @@ const triggerSimulation = () => {
   const steps = [35, 60, 82, 92];
   let i = 0;
   const interval = setInterval(() => {
-    if (i < steps.length) {
-      AtengLoadingBar.inc(steps[i] - 25);
+    const step = steps[i];
+    if (step !== undefined) {
+      AtengLoadingBar.inc(step - 25);
       i++;
     } else {
       clearInterval(interval);

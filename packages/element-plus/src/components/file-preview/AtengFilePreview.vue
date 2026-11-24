@@ -48,7 +48,7 @@ const computedFileName = computed<string>(() => {
   if (props.name) return props.name;
   if (props.file instanceof File) return props.file.name;
   if (props.url) {
-    const clean = props.url.split('?')[0].split('#')[0];
+    const clean = (props.url.split('?')[0] ?? '').split('#')[0] ?? '';
     const slashIdx = clean.lastIndexOf('/');
     if (slashIdx >= 0) return clean.slice(slashIdx + 1);
   }

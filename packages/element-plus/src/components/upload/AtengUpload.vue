@@ -192,7 +192,7 @@ async function uploadChunkFile(file: File | Blob): Promise<unknown> {
   if (typeof props.customMerge === 'function') {
     finalResponse = await props.customMerge({
       file,
-      chunks: chunkList.value,
+      chunks: [...chunkList.value],
       totalChunks: chunkList.value.length,
     });
   }
@@ -213,7 +213,7 @@ async function handleCustomHttpRequest(options: UploadRequestOptions): Promise<u
     options.onSuccess(finalResponse);
     return finalResponse;
   } catch (err) {
-    options.onError(err as Error);
+    options.onError(err as unknown as Parameters<typeof options.onError>[0]);
     throw err;
   }
 }

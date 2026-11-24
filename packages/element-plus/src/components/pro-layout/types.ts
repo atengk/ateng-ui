@@ -84,7 +84,7 @@ export interface ProMenuItem {
 /**
  * 菜单项原始数据契约（支持标准 ProMenuItem 或后端异构 DTO 记录）。
  */
-export type ProMenuRawItem = ProMenuItem | Record<string, unknown>;
+export type ProMenuRawItem = ProMenuItem | object;
 
 /**
  * 菜单字段别名自适应映射契约。
@@ -147,7 +147,7 @@ export interface AtengProLayoutProps {
   /**
    * 数据驱动菜单源数组。支持标准 ProMenuItem 或后端异构 DTO 对象。
    */
-  menuData?: (ProMenuItem | Record<string, unknown>)[];
+  menuData?: ProMenuRawItem[];
 
   /**
    * 菜单字段别名自适应映射。
@@ -342,14 +342,14 @@ export interface AtengProLayoutSlots {
   user?: () => VNode[];
   /** 自定义菜单全量接管插槽 */
   menu?: (props: {
-    menuData: (ProMenuItem | Record<string, unknown>)[];
+    menuData: ProMenuRawItem[];
     mode: 'horizontal' | 'vertical';
     collapsed: boolean;
   }) => VNode[];
   /** 自定义单菜单项渲染插槽 */
-  menuItem?: (props: { item: ProMenuItem; depth: number }) => VNode[];
+  menuItem?: (props: { item: ProMenuRawItem; depth: number }) => VNode[];
   /** 自定义菜单图标渲染插槽（保留内置标题、角标与折叠对齐样式） */
-  menuIcon?: (props: { icon: string | Component; item: ProMenuItem; depth: number }) => VNode[];
+  menuIcon?: (props: { icon: string | Component; item: ProMenuRawItem; depth: number }) => VNode[];
   /** 侧边栏底部内容区插槽 */
   asideFooter?: (props: { collapsed: boolean }) => VNode[];
   /** 多标签栏定制插槽（通常在此放置 <AtengTabsNav />） */

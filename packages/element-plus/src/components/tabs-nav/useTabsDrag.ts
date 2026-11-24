@@ -10,7 +10,10 @@ import type { TabItem } from './types';
 
 export interface UseTabsDragOptions {
   tabs: () => TabItem[];
-  emit: (e: 'update:tabs' | 'tabOrderChange', tabs: TabItem[]) => void;
+  emit: {
+    (e: 'update:tabs', tabs: TabItem[]): void;
+    (e: 'tabOrderChange', tabs: TabItem[]): void;
+  };
 }
 
 export interface UseTabsDragReturn {

@@ -57,9 +57,7 @@ const currentPage = ref(1);
 const internalActionLoading = ref(false);
 
 // 1. 集成 @atengk/vue 的 useExcel 核心状态机
-const { downloadFeedback, exporting } = useExcel({
-  filename: props.fileName || '导入错误明细批注.xlsx',
-});
+const { downloadFeedback, exporting } = useExcel();
 
 const downloadLoading = computed(() => exporting.value || internalActionLoading.value);
 

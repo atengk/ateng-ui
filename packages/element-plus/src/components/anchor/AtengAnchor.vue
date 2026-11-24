@@ -148,8 +148,9 @@ const computeActiveAnchor = (emitEvent = true) => {
   }
 
   // 如果所有锚点都在判定线下方，默认激活首个锚点
-  if (!candidateHref && items.length > 0) {
-    candidateHref = items[0].href;
+  const firstItem = items[0];
+  if (!candidateHref && firstItem) {
+    candidateHref = firstItem.href;
   }
 
   if (candidateHref && candidateHref !== activeAnchor.value) {

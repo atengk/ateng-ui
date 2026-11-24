@@ -25,6 +25,7 @@ import {
   ElSwitch,
   type UploadUserFile,
   type UploadFile,
+  type UploadRawFile,
 } from 'element-plus';
 import {
   AtengUpload,
@@ -96,14 +97,17 @@ const handlePreviewClose = () => {
 // 添加模拟刚选取的本地 Blob 文件（测试确定性内存释放）
 const handleAddLocalBlobFile = () => {
   const fakeBlob = new Blob(['console.log("local blob test");'], { type: 'text/javascript' });
-  const rawFile = new File([fakeBlob], `local-script-${Date.now().toString().slice(-4)}.js`, {
-    type: 'text/javascript',
-  });
+  const rawFile = Object.assign(
+    new File([fakeBlob], `local-script-${Date.now().toString().slice(-4)}.js`, {
+      type: 'text/javascript',
+    }),
+    { uid: Date.now() },
+  ) as UploadRawFile;
   multiFormatFileList.value.push({
     name: rawFile.name,
-    raw: rawFile as unknown as File,
+    raw: rawFile,
     status: 'ready',
-    uid: Date.now(),
+    uid: rawFile.uid,
   });
   ElMessage.success(
     `已添加本地待上传文件 "${rawFile.name}"，点击列表项即可调起本地 ObjectURL 预览并在关闭后自动释放`,

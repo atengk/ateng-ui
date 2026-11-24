@@ -23,7 +23,7 @@ export type DescriptionsFormatType = 'currency' | 'date';
  *
  * @template T 宿主源数据实体模型类型
  */
-export interface DescriptionsItemConfig<T = Record<string, unknown>> {
+export interface DescriptionsItemConfig<T extends object = Record<string, unknown>> {
   /**
    * 对应 data 对象的字段名（如 'phone'、'username'）。
    */
@@ -104,7 +104,7 @@ export interface DescriptionsItemConfig<T = Record<string, unknown>> {
  *
  * @template T 宿主源数据实体模型类型
  */
-export interface AtengDescriptionsProps<T = Record<string, unknown>> {
+export interface AtengDescriptionsProps<T extends object = Record<string, unknown>> {
   /**
    * 待展示的源数据对象。
    */
@@ -151,14 +151,15 @@ export interface AtengDescriptionsProps<T = Record<string, unknown>> {
 /**
  * AtengDescriptionsItem 声明式子组件属性契约。
  */
-export type AtengDescriptionsItemProps<T = Record<string, unknown>> = DescriptionsItemConfig<T>;
+export type AtengDescriptionsItemProps<T extends object = Record<string, unknown>> =
+  DescriptionsItemConfig<T>;
 
 /**
  * AtengDescriptions 插槽契约。
  *
  * @template T 宿主源数据实体模型类型
  */
-export interface AtengDescriptionsSlots<T = Record<string, unknown>> {
+export interface AtengDescriptionsSlots<T extends object = Record<string, unknown>> {
   title?: () => VNode[];
   extra?: () => VNode[];
   default?: () => VNode[];
@@ -170,4 +171,7 @@ export interface AtengDescriptionsSlots<T = Record<string, unknown>> {
  *
  * @template _T 宿主源数据实体模型类型
  */
-export type AtengDescriptionsInstance<_T = Record<string, unknown>> = Record<string, unknown>;
+export type AtengDescriptionsInstance<_T extends object = Record<string, unknown>> = Record<
+  string,
+  unknown
+>;

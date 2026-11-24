@@ -1,4 +1,8 @@
-<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
+<script
+  setup
+  lang="ts"
+  generic="T extends object = Record<string, unknown>, TParams extends PageQuery = PageQuery"
+>
 /**
  * 企业级分页表格核心容器组件。
  *
@@ -25,11 +29,11 @@ import {
   onMounted,
   onUnmounted,
   nextTick,
-  useSlots,
   provide,
   toValue,
   type ComputedRef,
   type ShallowRef,
+  type VNode,
 } from 'vue';
 import {
   ElTable,
@@ -55,6 +59,7 @@ import {
   IconColumnSetting,
 } from './icons';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
+import type { PageQuery } from '@atengk/core';
 import { useSelection, type UseSelectionResult } from '@atengk/vue';
 import type {
   AtengTableProps,
@@ -72,7 +77,7 @@ defineOptions({
   inheritAttrs: false,
 });
 
-const props = withDefaults(defineProps<AtengTableProps<T>>(), {
+const props = withDefaults(defineProps<AtengTableProps<T, TParams>>(), {
   data: () => [] as T[],
   pagination: undefined,
   columns: () => [],
@@ -105,13 +110,12 @@ const props = withDefaults(defineProps<AtengTableProps<T>>(), {
 });
 
 const emit = defineEmits<AtengTableEmits<T>>();
-const slots = useSlots();
-defineSlots<AtengTableSlots<T>>();
+const slots = defineSlots<AtengTableSlots<T>>();
 
 // 1. 数据源、Loading 与异常状态解析
 const tableData = computed<T[]>(() => {
   if (props.pagination) {
-    return (props.pagination.records.value ?? []) as T[];
+    return (props.pagination.records.value ?? []) as unknown as T[];
   }
   return (props.data ?? []) as T[];
 });
@@ -178,8 +182,16 @@ const handleSizeChange = async (val: number) => {
 };
 
 // 3. 服务端排序联动解析
-const handleSortChange = async (data: { column: unknown; prop: string; order: string | null }) => {
-  emit('sort-change', data);
+const handleSortChange = async (data: {
+  column: unknown;
+  prop: string | null;
+  order: string | null;
+}) => {
+  emit('sort-change', {
+    column: data.column,
+    prop: data.prop ?? '',
+    order: data.order,
+  });
 
   if (props.pagination) {
     if (data.prop && data.order === 'ascending') {
@@ -279,7 +291,7 @@ const getColumnKey = (col: TableColumnConfig): string => {
 };
 
 const parsedSlotColumns = computed<TableColumnConfig[]>(() => {
-  const defaultSlot = slots.default ? slots.default() : [];
+  const defaultSlot = slots.default ? (slots.default() as VNode[]) : [];
   return parseColumnVNodes(defaultSlot);
 });
 
@@ -341,10 +353,9 @@ const resolveColumnProps = (
   persisted: PersistedColumnConfig | null,
 ): { visible: boolean; width: string | number | undefined } => {
   const key = getColumnKey(col);
-  const visible =
-    persisted?.visible && key && key in persisted.visible
-      ? persisted.visible[key]
-      : col.visible !== false;
+  const persistedVisible =
+    persisted?.visible && key && key in persisted.visible ? persisted.visible[key] : undefined;
+  const visible = persistedVisible !== undefined ? persistedVisible : col.visible !== false;
   const width =
     persisted?.widths && key && key in persisted.widths ? persisted.widths[key] : col.width;
   return { visible, width };
@@ -405,7 +416,9 @@ const onColumnDrop = (_e: DragEvent, targetIndex: number) => {
     return;
   }
   const itemToMove = columnSettings.value.splice(draggedColumnIndex, 1)[0];
-  columnSettings.value.splice(targetIndex, 0, itemToMove);
+  if (itemToMove) {
+    columnSettings.value.splice(targetIndex, 0, itemToMove);
+  }
   draggedColumnIndex = null;
   savePersistedColumns();
   emit('columns-change', columnSettings.value);
@@ -448,7 +461,7 @@ const onHeaderDragend = (
     property?: string;
     label?: string;
     type?: string;
-    width?: number;
+    width?: string | number;
     [key: string]: unknown;
   },
   event: MouseEvent,
@@ -548,7 +561,7 @@ const activeAttributeColumns = computed<TableColumnConfig[]>(() => {
 // 动态过滤与排序列插槽
 const renderFilteredSlotColumns = () => {
   if (!slots.default) return [];
-  const defaultNodes = slots.default();
+  const defaultNodes = slots.default() as VNode[];
   const stateMap = new Map<string, boolean>();
   const orderList: string[] = [];
   const widthMap = new Map<string, string | number>();
@@ -634,7 +647,7 @@ const effectiveTableHeight = computed(() => {
 // 6. 表格实例、跨页多选状态机与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
 
-const fallbackSelectedRows = ref<T[]>([]);
+const fallbackSelectedRows = shallowRef<T[]>([]);
 
 // 跨页多选状态机编排
 const internalSelection =
@@ -902,7 +915,7 @@ const tableContext: AtengTableContext = {
   search: async params => {
     internalQueryParams.value = params ? { ...params } : undefined;
     if (props.pagination) {
-      await props.pagination.search(params);
+      await props.pagination.search(params as Partial<TParams> | undefined);
     }
   },
   reset: async () => {

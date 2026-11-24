@@ -18,10 +18,11 @@ import {
   type UploadUserFile,
   type UploadRawFile,
   type UploadProgressEvent,
-  type UploadAjaxError,
 } from 'element-plus';
 import { BusinessException } from '@atengk/core';
 import { AtengUpload } from '@atengk/element-plus';
+
+type UploadAjaxError = Parameters<UploadRequestOptions['onError']>[0];
 
 type MockOutcome = 'success' | 'biz-error' | 'unauthorized';
 

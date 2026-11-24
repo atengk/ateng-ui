@@ -19,6 +19,7 @@ import { ElSelect, ElOption } from 'element-plus';
 import type {
   AtengDictSelectProps,
   AtengDictSelectEmits,
+  AtengDictSelectSlots,
   AtengDictSelectExpose,
   DictItem,
 } from './types';
@@ -53,6 +54,7 @@ const props = withDefaults(defineProps<AtengDictSelectProps>(), {
 });
 
 const emit = defineEmits<AtengDictSelectEmits>();
+defineSlots<AtengDictSelectSlots>();
 
 const selectRef = shallowRef<InstanceType<typeof ElSelect> | null>(null);
 const internalItems = shallowRef<unknown[]>([]);
@@ -94,6 +96,10 @@ const selectBoundValue = computed(() => {
       return [];
     }
     return val.map(itemVal => coerceToMatchedValue(itemVal, effectiveItems.value, props.valueType));
+  }
+
+  if (Array.isArray(val)) {
+    return undefined;
   }
 
   return coerceToMatchedValue(val, effectiveItems.value, props.valueType);
@@ -200,6 +206,10 @@ function handleClear(): void {
   emit('clear');
 }
 
+function bindSelectRef(el: unknown): void {
+  selectRef.value = el as InstanceType<typeof ElSelect> | null;
+}
+
 defineExpose<AtengDictSelectExpose>({
   refresh,
   selectRef,
@@ -210,7 +220,7 @@ defineExpose<AtengDictSelectExpose>({
 
 <template>
   <el-select
-    ref="selectRef"
+    :ref="bindSelectRef"
     class="at-dict-select"
     :model-value="selectBoundValue"
     :multiple="multiple"

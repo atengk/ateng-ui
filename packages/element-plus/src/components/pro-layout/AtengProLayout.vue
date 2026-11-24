@@ -19,6 +19,7 @@ import { AtengLayout, AtengHeader, AtengAside, AtengContent } from '../layout';
 import type { TabItem } from '../tabs-nav';
 import ProMenu from './ProMenu.vue';
 import ProLayoutTabs from './ProLayoutTabs.vue';
+import { asMenuRecord } from './menuUtils';
 import {
   type AtengProLayoutProps,
   type AtengProLayoutEmits,
@@ -26,6 +27,7 @@ import {
   type AtengProLayoutExpose,
   type AtengProLayoutContext,
   type ProMenuItem,
+  type ProMenuRawItem,
   ATENG_PRO_LAYOUT_KEY,
 } from './types';
 
@@ -205,18 +207,20 @@ const handleMenuSelect = (path: string, item?: ProMenuItem) => {
 // 5. mix 模式下菜单数据分流与第一叶子导航
 const activeTopMenuPath = ref<string>('');
 
-function isItemOrDescendant(item: ProMenuItem, targetPath: string): boolean {
-  const p = String(item[pathKey.value] ?? item.path);
+function isItemOrDescendant(item: ProMenuRawItem, targetPath: string): boolean {
+  const record = asMenuRecord(item);
+  const p = String(record[pathKey.value] ?? record.path ?? '');
   if (p === targetPath) return true;
-  const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+  const children = record[childrenKey.value] as ProMenuRawItem[] | undefined;
   if (Array.isArray(children)) {
     return children.some(child => isItemOrDescendant(child, targetPath));
   }
   return false;
 }
 
-function findFirstLeaf(item: ProMenuItem): ProMenuItem {
-  const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+function findFirstLeaf(item: ProMenuRawItem): ProMenuRawItem {
+  const record = asMenuRecord(item);
+  const children = record[childrenKey.value] as ProMenuRawItem[] | undefined;
   if (Array.isArray(children) && children.length > 0) {
     const firstChild = children[0];
     if (firstChild) {
@@ -233,7 +237,8 @@ watch(
     if (props.layout !== 'mix' || !props.activeMenu) return;
     const matchedTop = props.menuData.find(item => isItemOrDescendant(item, props.activeMenu!));
     if (matchedTop) {
-      activeTopMenuPath.value = String(matchedTop[pathKey.value] ?? matchedTop.path);
+      const record = asMenuRecord(matchedTop);
+      activeTopMenuPath.value = String(record[pathKey.value] ?? record.path ?? '');
     }
   },
   { immediate: true },
@@ -241,32 +246,38 @@ watch(
 
 const handleMixTopSelect = (path: string) => {
   activeTopMenuPath.value = path;
-  const topItem = props.menuData.find(i => String(i[pathKey.value] ?? i.path) === path);
+  const topItem = props.menuData.find(i => {
+    const record = asMenuRecord(i);
+    return String(record[pathKey.value] ?? record.path ?? '') === path;
+  });
   if (!topItem) return;
 
-  const children = topItem[childrenKey.value] as ProMenuItem[] | undefined;
+  const topRecord = asMenuRecord(topItem);
+  const children = topRecord[childrenKey.value] as ProMenuRawItem[] | undefined;
   const hasChildren = Array.isArray(children) && children.length > 0;
 
   if (hasChildren) {
     if (props.mixAutoSelectFirstLeaf) {
       const firstLeaf = findFirstLeaf(topItem);
-      const leafPath = String(firstLeaf[pathKey.value] ?? firstLeaf.path);
-      handleMenuSelect(leafPath, firstLeaf);
+      const leafRecord = asMenuRecord(firstLeaf);
+      const leafPath = String(leafRecord[pathKey.value] ?? leafRecord.path ?? '');
+      handleMenuSelect(leafPath, firstLeaf as ProMenuItem);
     }
   } else {
-    handleMenuSelect(path, topItem);
+    handleMenuSelect(path, topItem as ProMenuItem);
   }
 };
 
 // 计算当前 Aside 渲染的菜单项
-const currentAsideMenuData = computed<ProMenuItem[]>(() => {
+const currentAsideMenuData = computed<ProMenuRawItem[]>(() => {
   if (props.layout !== 'mix') {
     return props.menuData;
   }
   // mix 模式：找到对应的一级菜单项，渲染其 children
   const activeTop =
     props.menuData.find(item => {
-      const p = String(item[pathKey.value] ?? item.path);
+      const record = asMenuRecord(item);
+      const p = String(record[pathKey.value] ?? record.path ?? '');
       if (activeTopMenuPath.value) {
         return p === activeTopMenuPath.value;
       }
@@ -277,14 +288,14 @@ const currentAsideMenuData = computed<ProMenuItem[]>(() => {
     }) || props.menuData[0];
 
   if (!activeTop) return [];
-  const children = activeTop[childrenKey.value] as ProMenuItem[] | undefined;
+  const children = asMenuRecord(activeTop)[childrenKey.value] as ProMenuRawItem[] | undefined;
   return Array.isArray(children) ? children : [];
 });
 
 // mix 模式顶栏菜单数据（只保留顶层节点）
-const mixTopMenuData = computed<ProMenuItem[]>(() => {
+const mixTopMenuData = computed<ProMenuRawItem[]>(() => {
   return props.menuData.map(item => ({
-    ...item,
+    ...asMenuRecord(item),
     [childrenKey.value]: undefined,
   }));
 });
@@ -296,18 +307,19 @@ interface BreadcrumbItem {
 }
 
 function findBreadcrumbs(
-  items: ProMenuItem[],
+  items: ProMenuRawItem[],
   target: string,
   ancestors: BreadcrumbItem[] = [],
 ): BreadcrumbItem[] | null {
   for (const item of items) {
-    const p = String(item[pathKey.value] ?? item.path);
-    const t = String(item[titleKey.value] ?? item.title);
+    const record = asMenuRecord(item);
+    const p = String(record[pathKey.value] ?? record.path ?? '');
+    const t = String(record[titleKey.value] ?? record.title ?? '');
     const currentTrail = [...ancestors, { title: t, path: p }];
     if (p === target) {
       return currentTrail;
     }
-    const children = item[childrenKey.value] as ProMenuItem[] | undefined;
+    const children = record[childrenKey.value] as ProMenuRawItem[] | undefined;
     if (Array.isArray(children) && children.length > 0) {
       const match = findBreadcrumbs(children, target, currentTrail);
       if (match) return match;

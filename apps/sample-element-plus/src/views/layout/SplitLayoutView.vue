@@ -128,7 +128,17 @@ const mockUsers = ref<UserItem[]>([
   },
 ]);
 
-const currentUser = ref<UserItem>(mockUsers.value[0]);
+const currentUser = ref<UserItem>(
+  mockUsers.value[0] ?? {
+    id: '',
+    name: '',
+    email: '',
+    dept: '',
+    role: '',
+    status: '',
+    joinDate: '',
+  },
+);
 
 const handleUserSelect = (row: UserItem) => {
   currentUser.value = row;

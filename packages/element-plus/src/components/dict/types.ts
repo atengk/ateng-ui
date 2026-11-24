@@ -186,6 +186,18 @@ export interface AtengDictSelectEmits {
 }
 
 /**
+ * AtengDictSelect 插槽契约。
+ */
+export interface AtengDictSelectSlots {
+  /** 自定义字典选项节点渲染插槽 */
+  option?: (scope: { item: DictItem }) => unknown;
+  /** 选择框头部前缀插槽 */
+  prefix?: () => unknown;
+  /** 无匹配选项时的空态插槽 */
+  empty?: () => unknown;
+}
+
+/**
  * AtengDictSelect 对外暴露实例。
  */
 export interface AtengDictSelectExpose {

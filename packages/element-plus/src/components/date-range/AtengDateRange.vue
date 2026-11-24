@@ -54,6 +54,7 @@ const props = withDefaults(defineProps<AtengDateRangeProps>(), {
 });
 
 const emit = defineEmits<AtengDateRangeEmits>();
+defineSlots<Record<string, ((scope?: unknown) => unknown) | undefined>>();
 
 const datePickerRef = shallowRef<InstanceType<typeof ElDatePicker> | null>(null);
 
@@ -99,7 +100,7 @@ watch(
     const isModelEmpty =
       newModel == null ||
       (Array.isArray(newModel) &&
-        (newModel.length === 0 || newModel[0] == null || newModel[0] === ''));
+        ((newModel as DateRangeValue[]).length === 0 || newModel[0] == null || newModel[0] === ''));
 
     if (isModelEmpty && (isStartEmpty || isEndEmpty)) {
       internalValue.value = null;
@@ -312,8 +313,14 @@ function handleVisibleChange(visibility: boolean): void {
   emit('visible-change', visibility);
 }
 
+const pickerModelValue = computed<[Date, Date] | [string, string] | undefined>(() => {
+  // 运行时需保留 null 以通知 ElDatePicker 清空值，同时满足组件库的严格 TS 签名
+  return (internalValue.value ?? null) as unknown as [Date, Date] | [string, string] | undefined;
+});
+
 function focus(): void {
-  datePickerRef.value?.focus();
+  const picker = datePickerRef.value as { focus?: () => void } | null;
+  picker?.focus?.();
 }
 
 function handleOpen(): void {
@@ -342,7 +349,7 @@ defineExpose<AtengDateRangeExpose>({
   <el-date-picker
     ref="datePickerRef"
     class="at-date-range"
-    :model-value="internalValue"
+    :model-value="pickerModelValue"
     :type="type"
     :shortcuts="resolvedShortcuts"
     :default-time="resolvedDefaultTime"
@@ -367,7 +374,7 @@ defineExpose<AtengDateRangeExpose>({
     @visible-change="handleVisibleChange"
   >
     <template v-for="(_, slotName) in $slots" #[slotName]="slotProps">
-      <slot :name="slotName" v-bind="slotProps" />
+      <slot :name="String(slotName)" v-bind="slotProps ?? {}" />
     </template>
   </el-date-picker>
 </template>

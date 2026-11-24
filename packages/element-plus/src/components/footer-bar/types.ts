@@ -54,7 +54,7 @@ export interface FooterBarActionItem {
   /**
    * 点击事件回调，支持异步 Promise。
    */
-  onClick?: (e: MouseEvent) => void | Promise<unknown>;
+  onClick?: (e: MouseEvent) => unknown;
 }
 
 /**
@@ -134,7 +134,7 @@ export interface AtengFooterBarProps {
    * 提交按钮绑定的异步执行函数或回调。
    * 若返回 Promise，按钮将自动进入 Loading 互斥防重锁状态直至 Promise 决议。
    */
-  onSubmit?: (e: MouseEvent) => void | Promise<unknown>;
+  onSubmit?: (e: MouseEvent) => unknown;
 
   /**
    * 是否显示重置按钮。若传入 onReset 则默认为 true。
@@ -149,7 +149,7 @@ export interface AtengFooterBarProps {
   /**
    * 重置按钮点击回调。
    */
-  onReset?: (e: MouseEvent) => void | Promise<unknown>;
+  onReset?: (e: MouseEvent) => unknown;
 
   /**
    * 是否显示取消/返回按钮。若传入 onCancel 则默认为 true。
@@ -164,7 +164,7 @@ export interface AtengFooterBarProps {
   /**
    * 取消按钮点击回调。
    */
-  onCancel?: (e: MouseEvent) => void | Promise<unknown>;
+  onCancel?: (e: MouseEvent) => unknown;
 
   /**
    * 结构化操作按钮配置列表。

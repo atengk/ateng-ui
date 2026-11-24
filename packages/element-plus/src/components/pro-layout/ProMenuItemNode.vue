@@ -8,6 +8,7 @@
 
 import { computed, type Component } from 'vue';
 import { ElMenuItem, ElSubMenu, ElIcon, ElBadge } from 'element-plus';
+import { asMenuRecord } from './menuUtils';
 import type { ProMenuFieldNames, ProMenuIconResolver, ProMenuItem, ProMenuRawItem } from './types';
 
 defineOptions({
@@ -48,14 +49,15 @@ defineSlots<{
   menuIcon?: (props: { icon: string | Component; item: ProMenuRawItem; depth: number }) => unknown;
 }>();
 
-const itemPath = computed(() => String(props.item[pathKey.value] ?? ''));
-const itemTitle = computed(() => String(props.item[titleKey.value] ?? ''));
+const itemRecord = computed(() => asMenuRecord(props.item));
+const itemPath = computed(() => String(itemRecord.value[pathKey.value] ?? ''));
+const itemTitle = computed(() => String(itemRecord.value[titleKey.value] ?? ''));
 const fallbackChar = computed(() => {
   const t = itemTitle.value.trim();
   return t ? t.charAt(0).toUpperCase() : '?';
 });
 const itemChildren = computed(() => {
-  const children = props.item[childrenKey.value];
+  const children = itemRecord.value[childrenKey.value];
   if (Array.isArray(children) && children.length > 0) {
     return children as ProMenuRawItem[];
   }
@@ -69,7 +71,7 @@ function isValidIconInput(val: unknown): val is string | Component {
   return (typeof val === 'string' && val.trim().length > 0) || isVueComponentIcon(val);
 }
 
-const itemIcon = computed(() => props.item[iconKey.value]);
+const itemIcon = computed(() => itemRecord.value[iconKey.value]);
 const resolvedIcon = computed<string | Component | undefined>(() => {
   const raw = itemIcon.value;
   if (!isValidIconInput(raw)) {
@@ -88,28 +90,40 @@ const resolvedIcon = computed<string | Component | undefined>(() => {
   return isVueComponentIcon(resolved) ? resolved : undefined;
 });
 const isResolvedComponent = computed(() => isVueComponentIcon(resolvedIcon.value));
-const itemBadge = computed(() => props.item[badgeKey.value]);
-type BadgeType = '' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
+const itemBadge = computed<string | number | undefined>(() => {
+  const val = itemRecord.value[badgeKey.value];
+  if (typeof val === 'string' || typeof val === 'number') {
+    return val;
+  }
+  return undefined;
+});
+type BadgeType = 'primary' | 'success' | 'warning' | 'danger' | 'info' | undefined;
 const itemBadgeType = computed<BadgeType>(() => {
-  const val = props.item[badgeTypeKey.value];
+  const val = itemRecord.value[badgeTypeKey.value];
   if (
     val === 'primary' ||
     val === 'success' ||
     val === 'warning' ||
     val === 'danger' ||
-    val === 'info' ||
-    val === ''
+    val === 'info'
   ) {
     return val;
+  }
+  if (val === '') {
+    return undefined;
   }
   return 'danger';
 });
 const itemTarget = computed<string | undefined>(() => {
-  const val = props.item[targetKey.value];
-  return typeof val === 'string' ? val : (props.item.target ?? undefined);
+  const val = itemRecord.value[targetKey.value];
+  if (typeof val === 'string') {
+    return val;
+  }
+  const rawTarget = itemRecord.value.target;
+  return typeof rawTarget === 'string' ? rawTarget : undefined;
 });
-const isDisabled = computed(() => Boolean(props.item[disabledKey.value]));
-const isHidden = computed(() => Boolean(props.item[hiddenKey.value]));
+const isDisabled = computed(() => Boolean(itemRecord.value[disabledKey.value]));
+const isHidden = computed(() => Boolean(itemRecord.value[hiddenKey.value]));
 const hasChildren = computed(() => Boolean(itemChildren.value && itemChildren.value.length > 0));
 
 const handleItemClick = () => {
@@ -181,7 +195,7 @@ const subMenuTitlePadding = computed(() => {
       <!-- 递归渲染子项 -->
       <ProMenuItemNode
         v-for="child in itemChildren"
-        :key="String(child[pathKey] ?? child.path)"
+        :key="String(asMenuRecord(child)[pathKey] ?? asMenuRecord(child).path ?? '')"
         :item="child"
         :field-names="fieldNames"
         :icon-resolver="iconResolver"

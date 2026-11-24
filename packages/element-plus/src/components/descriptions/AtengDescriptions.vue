@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends Record<string, unknown> = Record<string, unknown>">
+<script setup lang="ts" generic="T extends object = Record<string, unknown>">
 /**
  * 企业级结构化数据详情展示组件。
  *
@@ -144,6 +144,28 @@ function getItemSlot(prop: string): Slot | undefined {
 
 function getRawValue(prop: string): unknown {
   return props.data ? (props.data as Record<string, unknown>)[prop] : undefined;
+}
+
+type DictTagCompatibleValue =
+  string | number | boolean | Array<string | number | boolean> | null | undefined;
+
+function toDictTagValue(val: unknown): DictTagCompatibleValue {
+  if (
+    val === null ||
+    val === undefined ||
+    typeof val === 'string' ||
+    typeof val === 'number' ||
+    typeof val === 'boolean'
+  ) {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.filter(
+      (item): item is string | number | boolean =>
+        typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean',
+    );
+  }
+  return String(val);
 }
 
 function isEmptyValue(val: unknown): boolean {
@@ -299,7 +321,7 @@ function renderItemValue(item: DescriptionsItemConfig<T>): string {
         <ateng-dict-tag
           v-else-if="item.dictCode"
           :dict-code="item.dictCode"
-          :value="data?.[item.prop]"
+          :value="toDictTagValue((data as Record<string, unknown>)?.[item.prop])"
           :empty-text="item.emptyText || emptyText"
         />
         <!-- 4. 纯文本格式化/脱敏/保底渲染 -->

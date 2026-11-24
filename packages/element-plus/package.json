@@ -28,7 +28,7 @@
     "build": "vite build && pnpm run build:theme",
     "build:theme": "sass src/styles/theme-pro.scss dist/theme-pro.css --no-source-map --style=compressed",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -47,8 +47,9 @@
     "sass": "^1.106.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.0",
-    "vite-plugin-dts": "^5.1.2",
-    "vue": "^3.5.44"
+    "vite-plugin-dts": "^4.3.0",
+    "vue": "^3.5.44",
+    "vue-tsc": "^3.3.14"
   },
   "keywords": [
     "vue",

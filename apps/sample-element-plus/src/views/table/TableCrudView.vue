@@ -58,8 +58,8 @@ const ALL_MOCK_USERS: UserItem[] = Array.from({ length: 100 }, (_, index) => {
     username: `用户_${(index + 1).toString().padStart(3, '0')}`,
     age: 22 + (index % 18),
     gender: index % 2 === 0 ? '男' : '女',
-    role: roleList[index % roleList.length],
-    status: statusList[index % statusList.length],
+    role: roleList[index % roleList.length] ?? '架构师',
+    status: statusList[index % statusList.length] ?? 'active',
     createTime: `2026-10-${((index % 20) + 1).toString().padStart(2, '0')} 10:30:00`,
   };
 });
@@ -294,8 +294,10 @@ const enableAutoHeight = ref(false);
 
         <ElTableColumn label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <ElButton link type="primary" size="small" @click="handleEditRow(row)"> 编辑 </ElButton>
-            <ElButton link type="danger" size="small" @click="handleDeleteRow(row)">
+            <ElButton link type="primary" size="small" @click="handleEditRow(row as UserItem)">
+              编辑
+            </ElButton>
+            <ElButton link type="danger" size="small" @click="handleDeleteRow(row as UserItem)">
               删除
             </ElButton>
           </template>

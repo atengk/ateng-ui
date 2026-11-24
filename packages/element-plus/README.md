@@ -222,7 +222,7 @@ flowchart TD
 1. **统一 `at-` 命名空间与样式隔离不变量 (Scoping Invariant)**：
    所有组件根样式必须以 `at-` 前缀命名（如 `.at-table`, `.at-query-form`），严格在 SFC 中开启 `<style scoped>`；颜色、边框、投影等样式 100% 继承自 Element Plus 原生 CSS 变量（`--el-*`）或在 `at-` 命名空间下派生 `--at-*`，严禁硬编码 Hex 颜色等魔法值。
 2. **Vue 3.5 SFC 泛型闭环与零 `any` 不变量 (Type-Safety Invariant)**：
-   组件全面采用 Vue 3.5 原生泛型语法声明 `<script setup lang="ts" generic="T extends Record<string, unknown>">`；Props、Emits、Slots 作用域与 Expose 实例方法 100% 具备强类型推导，生产源码中绝对严禁出现裸 `any`。
+   组件全面采用 Vue 3.5 原生泛型语法声明 `<script setup lang="ts" generic="T extends object = Record<string, unknown>">`（`AtengTable` 扩展双泛型 `TParams extends PageQuery = PageQuery`），全面兼容无索引签名 TypeScript `interface`；同步导出 `vue` `GlobalComponents` 模块增强声明覆盖全部 39 组公开 `Ateng*` 组件及 `At*` 别名（`78` 项），Props、Emits、Slots 作用域、全局模板标签与 Expose 实例方法 100% 具备强类型推导，生产源码中绝对严禁出现裸 `any`。
 3. **内存真明文与脱敏展示隔离不变量 (In-Memory Plaintext Invariant)**：
    业务逻辑层、数据模型与组件内部状态在内存中始终保持 100% 真实明文；严禁直接对数据打星号篡改响应式属性（防止提交脏数据回写数据库）；脱敏处理仅收敛于展示层（如 `AtengDescriptions`），点击一键复制时确保持续输出真实明文。
 4. **雪花 Long ID 64 位大数字符串防失真不变量 (Snowflake Long ID Invariant)**：
@@ -240,9 +240,12 @@ flowchart TD
 
 ```ts
 /** AtengTable 核心属性契约 */
-export interface AtengTableProps<T = Record<string, unknown>> {
+export interface AtengTableProps<
+  T extends object = Record<string, unknown>,
+  TParams extends PageQuery = PageQuery,
+> {
   /** 绑定的 @atengk/vue usePagination 分页调度状态机实例 */
-  pagination?: UsePaginationResult<T>;
+  pagination?: UsePaginationResult<T, TParams>;
   /** 纯数据列配置数组（与原生 <el-table-column> 混合使用） */
   columns?: TableColumnConfig[];
   /** 行数据的唯一标识字段或 Getter 函数（Snowflake 字符串 ID 友好），默认 'id' */
@@ -260,11 +263,11 @@ export interface AtengTableProps<T = Record<string, unknown>> {
 }
 
 /** AtengQueryForm 核心属性契约 */
-export interface AtengQueryFormProps<T = Record<string, unknown>> {
+export interface AtengQueryFormProps<T extends object = Record<string, unknown>> {
   /** 表单数据模型对象 */
   model?: T;
-  /** 绑定的 usePagination 实例，自动联动搜索、重置与 loading 状态 */
-  pagination?: UsePaginationResult<T>;
+  /** 绑定的 usePagination 实例或轻量分页契约，自动联动搜索、重置与 loading 状态 */
+  pagination?: QueryFormPagination<T>;
   /** 是否在输入框敲击 Enter 键时自动触发搜索，默认 true */
   enterSearch?: boolean;
   /** 栅格列数，默认按容器宽度自适应 (1~4 列) */
@@ -374,7 +377,10 @@ const queryModel = reactive({
 #### 本节专属 TypeScript 契约片段
 
 ```ts
-export interface AtengTableProps<T = Record<string, unknown>> {
+export interface AtengTableProps<
+  T extends object = Record<string, unknown>,
+  TParams extends PageQuery = PageQuery,
+> {
   /** 是否启用表头拖拽调整列宽与本地持久化记忆，默认 true */
   enableColumnResize?: boolean;
   /** 列宽拖拽调整的最小安全宽度（px），防止列被意外折叠坍塌，默认 40 */
@@ -417,7 +423,10 @@ export interface AtengTableProps<T = Record<string, unknown>> {
 #### 本节专属 TypeScript 契约片段
 
 ```ts
-export interface AtengTableProps<T = Record<string, unknown>> {
+export interface AtengTableProps<
+  T extends object = Record<string, unknown>,
+  TParams extends PageQuery = PageQuery,
+> {
   /** 检索无结果时的自定义多态文案，默认 '未找到符合条件的检索结果，请尝试调整筛选条件' */
   searchEmptyDescription?: string;
   /** 全局空数据时的提示文案，默认 '暂无数据' */
@@ -465,7 +474,10 @@ export interface AtengTableProps<T = Record<string, unknown>> {
 #### 本节专属 TypeScript 契约片段
 
 ```ts
-export interface AtengTableProps<T = Record<string, unknown>> {
+export interface AtengTableProps<
+  T extends object = Record<string, unknown>,
+  TParams extends PageQuery = PageQuery,
+> {
   /** 是否开启跨页多选记忆保持，翻页或切换 size 时自动记忆已选数据行，默认 false */
   reserveSelection?: boolean;
   /** 当前选中的数据行主键集合（支持 v-model:selectedKeys 双向绑定） */
@@ -545,7 +557,7 @@ const handleBatchOffShelf = (rows: ProductItem[], clearSelection: () => void) =>
 #### 本节专属 TypeScript 契约片段
 
 ```ts
-export interface AtengQueryFormProps<T = Record<string, unknown>> {
+export interface AtengQueryFormProps<T extends object = Record<string, unknown>> {
   /** 表单数据模型对象 */
   model?: T;
   /** 栅格列数，默认按容器宽度自适应 (1~4 列) */
@@ -696,8 +708,8 @@ export interface AtengProLayoutProps {
   title?: string;
   /** 系统 Logo 图片地址 */
   logo?: string;
-  /** 数据驱动菜单项列表 */
-  menuData?: ProMenuItem[];
+  /** 数据驱动菜单项列表（兼容原生 ProMenuItem 与自定义异构字段对象） */
+  menuData?: ProMenuRawItem[];
   /** 异构菜单字段别名自适应映射 */
   fieldNames?: ProMenuFieldNames;
   /** 菜单图标自定义解析回调（将字符串图标名按需映射为 Vue 组件或 CSS 类名） */
@@ -2421,7 +2433,7 @@ import type { ComponentSize } from 'element-plus';
 export type DescriptionsMaskType = 'phone' | 'idCard' | 'email' | 'name' | 'bankCard';
 export type DescriptionsFormatType = 'currency' | 'date';
 
-export interface DescriptionsItemConfig<T = Record<string, unknown>> {
+export interface DescriptionsItemConfig<T extends object = Record<string, unknown>> {
   prop: string; // 对应 data 的字段名
   label?: string; // 标签文本
   span?: number; // 跨栅格列数，默认 1
@@ -2440,7 +2452,7 @@ export interface DescriptionsItemConfig<T = Record<string, unknown>> {
   formatter?: (value: unknown, data: T) => string; // 自定义格式化计算函数
 }
 
-export interface AtengDescriptionsProps<T = Record<string, unknown>> {
+export interface AtengDescriptionsProps<T extends object = Record<string, unknown>> {
   data?: T; // 待展示的源数据对象
   items?: DescriptionsItemConfig<T>[]; // Schema 配置驱动
   title?: string; // 详情标题
@@ -4767,45 +4779,46 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 #### 1. AtengTable 核心接口
 
-| 接口 / 类型名               | 类别      | 核心字段 / 签名说明                                                                                                                                                                                   | 所在源码路径                                                                             |
-| :-------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| `AtengTableColumnConfig<T>` | Interface | `prop: keyof T                                                                                                                                                                                        | string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter` | `src/components/table/types.ts` |
-| `AtengTableProps<T>`        | Interface | `data: T[]`, `columns: TableColumnConfig[]`, `current?: number`, `size?: number`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string \| ((row: T) => string)` | `src/components/table/types.ts`                                                          |
-| `AtengTableEmits<T>`        | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`, `update:current`, `update:size`, `pagination-change: (data: { current; size }) => void`              | `src/components/table/types.ts`                                                          |
-| `AtengTableExpose<T>`       | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                                                                         | `src/components/table/types.ts`                                                          |
+| 接口 / 类型名                 | 类别      | 核心字段 / 签名说明                                                                                                                                                                                                | 所在源码路径                    |
+| :---------------------------- | :-------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------ |
+| `AtengTableColumnConfig<T>`   | Interface | `prop: keyof T \| string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter`                                                                                                         | `src/components/table/types.ts` |
+| `AtengTableProps<T, TParams>` | Interface | `data?: T[]`, `pagination?: UsePaginationResult<T, TParams>`, `columns?: TableColumnConfig[]`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string \| ((row: T) => string)` | `src/components/table/types.ts` |
+| `AtengTableEmits<T>`          | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`, `update:current`, `update:size`, `pagination-change: (data: { current; size }) => void`                           | `src/components/table/types.ts` |
+| `AtengTableExpose<T>`         | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                                                                                      | `src/components/table/types.ts` |
 
 #### 2. AtengQueryForm 核心接口
 
-| 接口 / 类型名          | 类别      | 核心字段 / 签名说明                                                                                                  | 所在源码路径                         |
-| :--------------------- | :-------- | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
-| `QueryFormFieldConfig` | Interface | `prop: string`, `label: string`, `type: 'input'                                                                      | 'select'                             | 'date' | 'daterange'`, `placeholder`, `options`, `dictCode` | `src/components/query-form/types.ts` |
-| `AtengQueryFormProps`  | Interface | `model: Record<string, any>`, `fields: QueryFormFieldConfig[]`, `collapsedRows?: number`, `showCollapse?: boolean`   | `src/components/query-form/types.ts` |
-| `AtengQueryFormEmits`  | Interface | `search: (model: Record<string, any>) => void`, `reset: () => void`, `collapse-change: (collapsed: boolean) => void` | `src/components/query-form/types.ts` |
+| 接口 / 类型名            | 类别      | 核心字段 / 签名说明                                                                                                                       | 所在源码路径                         |
+| :----------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
+| `QueryFormPagination<T>` | Interface | `query: Partial<T>`, `loading: { readonly value: boolean }`, `search(extraParams?: Partial<T>)`, `reset()`                                | `src/components/query-form/types.ts` |
+| `QueryFormFieldConfig`   | Interface | `prop: string`, `label: string`, `type: 'input' \| 'select' \| 'date' \| 'daterange'`, `placeholder`, `options`, `dictCode`               | `src/components/query-form/types.ts` |
+| `AtengQueryFormProps<T>` | Interface | `model?: T`, `pagination?: QueryFormPagination<T>`, `fields?: QueryFormFieldConfig[]`, `collapsedRows?: number`, `showCollapse?: boolean` | `src/components/query-form/types.ts` |
+| `AtengQueryFormEmits<T>` | Interface | `search: (model: T) => void`, `reset: () => void`, `collapse: (val: boolean) => void`                                                     | `src/components/query-form/types.ts` |
 
 ---
 
 ### 12.2 中后台框架布局与导航套件 (ProLayout, TabsNav, Layout, LoadingBar)
 
-| 组件 / 门面         | 核心 Props / 参数                                                                                                                                              | 核心 Emits / 方法                                                                                 | 核心上下文与类型                     |
-| :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :----------------------------------- |
-| `AtengProLayout`    | `layout: 'side' \| 'top' \| 'mix'`, `menuData: ProMenuItem[]`, `fieldNames?: ProMenuFieldNames`, `iconResolver?: ProMenuIconResolver`, `isMaximized?: boolean` | `update:collapsed`, `update:activeMenu`, `update:isMaximized`, `menuSelect: (path, item) => void` | `src/components/pro-layout/types.ts` |
-| `AtengTabsNav`      | `modelValue: string`, `items: AtengTabsNavItem[]`, `styleMode: 'card'                                                                                          | 'pill'                                                                                            | 'line'`, `maxTabs?: number`          | `tab-click`, `tab-remove`, `tab-order-change`, `tab-refresh` | `src/components/tabs-nav/types.ts` |
-| `AtengLayout`       | `direction?: 'horizontal'                                                                                                                                      | 'vertical'`, `tag?: string`                                                                       | Stateless Pure Flex Layout           | `src/components/layout/types.ts`                             |
-| `installLoadingBar` | `app: App`, `router?: Router`, `options?: { speed, color }`                                                                                                    | `AtengLoadingBar.start()`, `inc()`, `finish()`, `error()`                                         | `src/loading/loadingBar.ts`          |
+| 组件 / 门面         | 核心 Props / 参数                                                                                                                                                 | 核心 Emits / 方法                                                                                 | 核心上下文与类型                     |
+| :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :----------------------------------- |
+| `AtengProLayout`    | `layout: 'side' \| 'top' \| 'mix'`, `menuData: ProMenuRawItem[]`, `fieldNames?: ProMenuFieldNames`, `iconResolver?: ProMenuIconResolver`, `isMaximized?: boolean` | `update:collapsed`, `update:activeMenu`, `update:isMaximized`, `menuSelect: (path, item) => void` | `src/components/pro-layout/types.ts` |
+| `AtengTabsNav`      | `modelValue: string`, `items: AtengTabsNavItem[]`, `styleMode: 'card' \| 'pill' \| 'line'`, `maxTabs?: number`                                                    | `tab-click`, `tab-remove`, `tab-order-change`, `tab-refresh`                                      | `src/components/tabs-nav/types.ts`   |
+| `AtengLayout`       | `direction?: 'horizontal' \| 'vertical'`, `tag?: string`                                                                                                          | Stateless Pure Flex Layout                                                                        | `src/components/layout/types.ts`     |
+| `installLoadingBar` | `app: App`, `router?: Router`, `options?: { speed, color }`                                                                                                       | `AtengLoadingBar.start()`, `inc()`, `finish()`, `error()`                                         | `src/loading/loadingBar.ts`          |
 
 ---
 
 ### 12.3 页面主体容器与排版交互套件 (PageContainer, SplitLayout, FooterBar, Card, Skeleton, Grid, Anchor)
 
-| 组件 / 总线          | 关键输入 Props                                                                                                 | 关键暴露 Expose / 总线协议                                                               | 所在源码路径                                         |
-| :------------------- | :------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- | :--------------------------------------------------- |
-| `AtengPageContainer` | `title`, `extraActions: AtengPageActionItem[]`, `maxVisibleActions`, `autoBreadcrumb`, `scrollMode: 'viewport' | 'local'`                                                                                 | `PAGE_CONTAINER_INJECTION_KEY`, `toggleFullscreen()` | `src/components/page-container/types.ts` |
-| `AtengSplitLayout`   | `direction: 'horizontal'                                                                                       | 'vertical'`, `modelValue: number`, `min: number`, `max: number`, `snapThreshold: number` | 原生 Pointer Events 驱动，`setPointerCapture`        | `src/components/split-layout/types.ts`   |
-| `AtengFooterBar`     | `onSubmit: () => Promise<any>`, `autoOffset: boolean`, `showCancel: boolean`                                   | 自动向父级 PageContainer 注册底部间距                                                    | `src/components/footer-bar/types.ts`                 |
-| `AtengCard`          | `title`, `collapsible`, `fullscreenable`, `refreshable`, `accordionKey`                                        | `CARD_GROUP_INJECTION_KEY`, `refresh()`, `toggleCollapse()`                              | `src/components/card/types.ts`                       |
-| `AtengPageSkeleton`  | `loading: boolean`, `preset: 'table'                                                                           | 'form'                                                                                   | 'detail'                                             | 'card'                                   | 'dashboard'` | 平滑淡入淡出插槽包裹协议 | `src/components/page-skeleton/types.ts` |
-| `AtengGrid`          | `minItemWidth: string`, `gap: string                                                                           | number`                                                                                  | CSS Container Queries `container-type: inline-size`  | `src/components/grid/types.ts`           |
-| `AtengAnchor`        | `items: AtengAnchorItem[]`, `container: string                                                                 | HTMLElement`, `targetOffset: number`                                                     | `scrollTo(hash)`, `activeLink` 响应式游标指示条      | `src/components/anchor/types.ts`         |
+| 组件 / 总线          | 关键输入 Props                                                                                                             | 关键暴露 Expose / 总线协议                                  | 所在源码路径                             |
+| :------------------- | :------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------- | :--------------------------------------- |
+| `AtengPageContainer` | `title`, `extraActions: AtengPageActionItem[]`, `maxVisibleActions`, `autoBreadcrumb`, `scrollMode: 'viewport' \| 'local'` | `PAGE_CONTAINER_INJECTION_KEY`, `toggleFullscreen()`        | `src/components/page-container/types.ts` |
+| `AtengSplitLayout`   | `direction: 'horizontal' \| 'vertical'`, `modelValue: number`, `min: number`, `max: number`, `snapThreshold: number`       | 原生 Pointer Events 驱动，`setPointerCapture`               | `src/components/split-layout/types.ts`   |
+| `AtengFooterBar`     | `onSubmit: () => Promise<unknown>`, `autoOffset: boolean`, `showCancel: boolean`                                           | 自动向父级 PageContainer 注册底部间距                       | `src/components/footer-bar/types.ts`     |
+| `AtengCard`          | `title`, `collapsible`, `fullscreenable`, `refreshable`, `accordionKey`                                                    | `CARD_GROUP_INJECTION_KEY`, `refresh()`, `toggleCollapse()` | `src/components/card/types.ts`           |
+| `AtengPageSkeleton`  | `loading: boolean`, `preset: 'table' \| 'form' \| 'detail' \| 'card' \| 'dashboard'`                                       | 平滑淡入淡出插槽包裹协议                                    | `src/components/page-skeleton/types.ts`  |
+| `AtengGrid`          | `minItemWidth: string`, `gap: string \| number`                                                                            | CSS Container Queries `container-type: inline-size`         | `src/components/grid/types.ts`           |
+| `AtengAnchor`        | `items: AtengAnchorItem[]`, `container: string \| HTMLElement`, `targetOffset: number`                                     | `scrollTo(hash)`, `activeLink` 响应式游标指示条             | `src/components/anchor/types.ts`         |
 
 ---
 

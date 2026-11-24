@@ -11,6 +11,17 @@ import type { UseWebSocketResult } from '@atengk/vue';
 export type LogViewerTheme = 'dark' | 'light';
 
 /**
+ * 兼容 @atengk/vue useWebSocket 与测试桩的轻量 WebSocket 实例契约。
+ */
+export type LogViewerWebSocketLike =
+  | UseWebSocketResult<unknown>
+  | {
+      status?: { readonly value: string };
+      data?: { readonly value: unknown };
+      latestMessage?: { readonly value: unknown };
+    };
+
+/**
  * AtengLogViewer 属性接口。
  */
 export interface AtengLogViewerProps {
@@ -22,7 +33,7 @@ export interface AtengLogViewerProps {
   /**
    * 绑定的 @atengk/vue useWebSocket 状态机实例（实时推送模式）。
    */
-  webSocket?: UseWebSocketResult<unknown>;
+  webSocket?: LogViewerWebSocketLike;
 
   /**
    * 内存中最大保留的日志行数（防止长时间运行导致 DOM 膨胀与内存泄漏）。
