@@ -6,7 +6,7 @@
  */
 
 import type { ComputedRef, Component, VNode } from 'vue';
-import type { AtengTabsNavProps, TabItem } from '../tabs-nav/types';
+import type { AtengTabsNavProps, TabBatchClosePayload, TabItem } from '../tabs-nav/types';
 
 /**
  * 布局排版模式：
@@ -258,6 +258,17 @@ export interface AtengProLayoutProps {
    * 内容主体区是否处于全屏最大化沉浸模式（隐藏顶栏与侧边栏），默认 false。
    */
   isMaximized?: boolean;
+
+  /**
+   * 内容主体区内边距（支持数字 px 或 CSS 字符串，如 '0' / 0 / '24px'），默认 '16px'。
+   * 嵌套 AtengPageContainer 时建议传 '0' 以避免双层边距。
+   */
+  contentPadding?: number | string;
+
+  /**
+   * 最大化模式下是否支持按 Escape 键自动退出还原，默认 true。
+   */
+  escExit?: boolean;
 }
 
 /**
@@ -310,9 +321,19 @@ export interface AtengProLayoutEmits {
   (e: 'tabRefresh', key: string, tab: TabItem): void;
 
   /**
+   * 内置多标签当前激活 key 变更事件（透传自 AtengTabsNav update:modelValue）。
+   */
+  (e: 'update:modelValue', key: string): void;
+
+  /**
    * 内置多标签列表变更事件（支持 v-model:tabs 同步）。
    */
   (e: 'update:tabs', tabs: TabItem[]): void;
+
+  /**
+   * 内置多标签批量关闭语义事件。
+   */
+  (e: 'batchClose', payload: TabBatchClosePayload): void;
 
   /**
    * 内置多标签拖拽调序完成事件。
@@ -354,6 +375,14 @@ export interface AtengProLayoutSlots {
   asideFooter?: (props: { collapsed: boolean }) => VNode[];
   /** 多标签栏定制插槽（通常在此放置 <AtengTabsNav />） */
   tabs?: () => VNode[];
+  /** 透传至内置 AtengTabsNav 的单项渲染插槽 */
+  tab?: (scope: { tab: TabItem; active: boolean; index: number }) => VNode[];
+  /** 透传至内置 AtengTabsNav 的前置内容插槽 */
+  prefix?: () => VNode[];
+  /** 透传至内置 AtengTabsNav 的后置内容插槽 */
+  suffix?: () => VNode[];
+  /** 透传至内置 AtengTabsNav 的右侧扩展插槽 */
+  extra?: () => VNode[];
   /** 底部版权与说明区插槽 */
   footer?: () => VNode[];
 }

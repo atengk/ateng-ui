@@ -19,6 +19,8 @@ import {
   AtengTabsNav,
   AtengFooterBar,
   type ProMenuItem,
+  type TabBatchClosePayload,
+  type TabItem,
 } from '@atengk/element-plus';
 import {
   ElCard,
@@ -68,6 +70,11 @@ const collapsed = ref(false);
 const activeMenu = ref('/system/user');
 const mixAutoSelectFirstLeaf = ref(true);
 const useBuiltinTabs = ref(true);
+const fixedHeader = ref(true);
+const fixedAside = ref(true);
+const headerHeight = ref<'48px' | '56px'>('56px');
+const tabsHeight = ref<'38px' | '44px'>('38px');
+const contentPadding = ref<'16px' | '0px'>('16px');
 
 // 移动端沙箱状态控制
 const mobileDrawerCollapsed = ref(true);
@@ -129,6 +136,24 @@ const handleTabClick = (tab: { key: string }) => {
 const handleTabClose = (key: string) => {
   closeTab(key);
   activeMenu.value = layoutActiveTab.value;
+};
+
+const handleBatchClose = (payload: TabBatchClosePayload) => {
+  layoutTabs.value = payload.remainingTabs;
+  if (payload.nextActiveKey) {
+    layoutActiveTab.value = payload.nextActiveKey;
+    activeMenu.value = payload.nextActiveKey;
+  }
+  ElMessage.info(`批量关闭 (${payload.command})：已移除 ${payload.closedTabs.length} 个标签`);
+};
+
+const handleTabsModelUpdate = (key: string) => {
+  layoutActiveTab.value = key;
+  activeMenu.value = key;
+};
+
+const handleTabsListUpdate = (nextTabs: TabItem[]) => {
+  layoutTabs.value = nextTabs;
 };
 
 const refreshingTabKey = ref<string | null>(null);
@@ -228,13 +253,33 @@ const backendCollapsed = ref(false);
           inactive-text="插槽覆盖 (#tabs)"
         />
 
+        <ElSwitch v-model="fixedHeader" active-text="固定顶栏" />
+        <ElSwitch v-model="fixedAside" active-text="固定侧栏" />
+
+        <ElRadioGroup v-model="headerHeight" size="small">
+          <ElRadioButton value="48px">顶栏 48px</ElRadioButton>
+          <ElRadioButton value="56px">顶栏 56px</ElRadioButton>
+        </ElRadioGroup>
+
+        <ElRadioGroup v-model="tabsHeight" size="small">
+          <ElRadioButton value="38px">标签 38px</ElRadioButton>
+          <ElRadioButton value="44px">标签 44px</ElRadioButton>
+        </ElRadioGroup>
+
+        <ElSwitch
+          v-model="contentPadding"
+          active-value="0px"
+          inactive-value="16px"
+          active-text="零内边距 (0px)"
+        />
+
         <ElButton
           size="small"
           :type="layoutMaximized ? 'warning' : 'info'"
           plain
           @click="layoutMaximized = !layoutMaximized"
         >
-          {{ layoutMaximized ? '🗗 退出沉浸最大化' : '🗖 全屏沉浸最大化' }}
+          {{ layoutMaximized ? '退出最大化 (ESC)' : '全屏沉浸最大化' }}
         </ElButton>
       </div>
 
@@ -247,16 +292,25 @@ const backendCollapsed = ref(false);
           :layout="activeLayout"
           :menu-data="standardMenuData"
           :mix-auto-select-first-leaf="mixAutoSelectFirstLeaf"
+          :fixed-header="fixedHeader"
+          :fixed-aside="fixedAside"
+          :header-height="headerHeight"
+          :tabs-height="tabsHeight"
+          :content-padding="contentPadding"
           :show-tabs="useBuiltinTabs"
           :tabs-props="{
             tabs: layoutTabs,
             modelValue: layoutActiveTab,
             showMaximize: true,
             contextMenu: true,
+            emitCloseOnBatch: false,
           }"
           title="Ateng Cloud Admin"
           style="min-height: 520px; height: 520px"
           @menu-select="handleMenuSelect"
+          @update:model-value="handleTabsModelUpdate"
+          @update:tabs="handleTabsListUpdate"
+          @batch-close="handleBatchClose"
           @tab-click="handleTabClick"
           @tab-close="handleTabClose"
           @tab-refresh="handleTabRefresh"

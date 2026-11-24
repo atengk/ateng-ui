@@ -2,7 +2,7 @@
  * `@atengk/element-plus` 类型声明产物与泛型契约回归门禁测试。
  *
  * 验证：
- * 1. `dist/` 目录为 39 个公开 SFC 组件与 4 个内部子组件生成完整 `.vue.d.ts` 文件（共 43 个）；
+ * 1. `dist/` 目录为 39 个公开 SFC 组件与 9 个内部子组件生成完整 `.vue.d.ts` 文件（共 48 个）；
  * 2. `dist/index.d.ts` 导出 `./global`，且 `dist/global.d.ts` 注册全部 39 组 `Ateng*` + `At*`（78 个）全局组件声明，同时排除内部子组件；
  * 3. `AtengTable`、`AtengQueryForm`、`AtengDescriptions` 维持 `T extends object` 泛型约束与无 `slots: any` / `& any` 退化；
  * 4. 全部 `.d.ts` 产物不包含 `.pnpm/` 不可移植路径（防 TS2742）；
@@ -199,12 +199,17 @@ const PUBLIC_COMPONENT_DTS: ReadonlyArray<{
   { atengName: 'AtengLoading', atName: 'AtLoading', relPath: 'loading/AtengLoading.vue.d.ts' },
 ];
 
-/** 4 个内部子组件路径 */
+/** 9 个内部子组件路径 */
 const INTERNAL_SUBCOMPONENT_DTS: ReadonlyArray<{ name: string; relPath: string }> = [
   { name: 'IconPanel', relPath: 'components/icon-select/IconPanel.vue.d.ts' },
+  { name: 'ProLayoutAside', relPath: 'components/pro-layout/ProLayoutAside.vue.d.ts' },
+  { name: 'ProLayoutHeader', relPath: 'components/pro-layout/ProLayoutHeader.vue.d.ts' },
+  { name: 'ProLayoutMain', relPath: 'components/pro-layout/ProLayoutMain.vue.d.ts' },
   { name: 'ProLayoutTabs', relPath: 'components/pro-layout/ProLayoutTabs.vue.d.ts' },
   { name: 'ProMenu', relPath: 'components/pro-layout/ProMenu.vue.d.ts' },
   { name: 'ProMenuItemNode', relPath: 'components/pro-layout/ProMenuItemNode.vue.d.ts' },
+  { name: 'TabsNavItem', relPath: 'components/tabs-nav/TabsNavItem.vue.d.ts' },
+  { name: 'TabsNavMenu', relPath: 'components/tabs-nav/TabsNavMenu.vue.d.ts' },
 ];
 
 function collectDtsFiles(dir: string): string[] {
@@ -221,7 +226,7 @@ function collectDtsFiles(dir: string): string[] {
 }
 
 describe('@atengk/element-plus 类型声明产物与泛型回归门禁', () => {
-  it('dist/ 产出全部 43 个 .vue.d.ts 声明文件', () => {
+  it('dist/ 产出全部 48 个 .vue.d.ts 声明文件', () => {
     expect(fs.existsSync(DIST_DIR)).toBe(true);
 
     for (const item of PUBLIC_COMPONENT_DTS) {
@@ -235,7 +240,7 @@ describe('@atengk/element-plus 类型声明产物与泛型回归门禁', () => {
     }
 
     const vueDtsCount = collectDtsFiles(DIST_DIR).filter(file => file.endsWith('.vue.d.ts')).length;
-    expect(vueDtsCount).toBe(43);
+    expect(vueDtsCount).toBe(48);
   });
 
   it('dist/index.d.ts 导出 global 且 GlobalComponents 覆盖 39 组 78 个组件并排除内部子组件', () => {

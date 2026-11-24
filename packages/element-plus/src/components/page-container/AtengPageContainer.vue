@@ -39,7 +39,16 @@ const unlockBodyScroll = () => {
  * @since 2026-10-22
  */
 
-import { ref, computed, watch, getCurrentInstance, onMounted, onBeforeUnmount, provide } from 'vue';
+import {
+  ref,
+  computed,
+  watch,
+  inject,
+  getCurrentInstance,
+  onMounted,
+  onBeforeUnmount,
+  provide,
+} from 'vue';
 import {
   ElBreadcrumb,
   ElBreadcrumbItem,
@@ -50,6 +59,7 @@ import {
 } from 'element-plus';
 import AtengWatermark from '../watermark/AtengWatermark.vue';
 import type { AtengWatermarkProps } from '../watermark/types';
+import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout/context';
 import {
   PAGE_CONTAINER_INJECTION_KEY,
   type AtengPageContainerProps,
@@ -368,6 +378,40 @@ provide(PAGE_CONTAINER_INJECTION_KEY, {
   getScrollContainer: () => contentRef.value,
 });
 
+// 弱注入外层 ProLayout 上下文：仅在文档流吸顶模式下叠加外层顶栏与标签栏高度偏移
+const proLayoutContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+
+function addCssLength(a: string, b: string): string {
+  const cleanA = a.trim();
+  const cleanB = b.trim();
+  if (!cleanA || cleanA === '0' || cleanA === '0px') return cleanB || '0px';
+  if (!cleanB || cleanB === '0' || cleanB === '0px') return cleanA || '0px';
+  const pxA = /^(-?\d+(?:\.\d+)?)px$/i.exec(cleanA);
+  const pxB = /^(-?\d+(?:\.\d+)?)px$/i.exec(cleanB);
+  if (pxA && pxB) {
+    return `${Number(pxA[1]) + Number(pxB[1])}px`;
+  }
+  return `calc(${cleanA} + ${cleanB})`;
+}
+
+const stickyHeaderTop = computed<string | undefined>(() => {
+  if (
+    !props.fixedHeader ||
+    props.fitViewport ||
+    isFullscreen.value ||
+    !proLayoutContext ||
+    proLayoutContext.isMaximized?.value ||
+    proLayoutContext.fixedHeader?.value !== true ||
+    proLayoutContext.fixedAside?.value !== false
+  ) {
+    return undefined;
+  }
+  const headerH = proLayoutContext.headerHeight?.value || '0px';
+  const tabsH = proLayoutContext.tabsHeight?.value || '0px';
+  const total = addCssLength(headerH, tabsH);
+  return total === '0px' ? undefined : total;
+});
+
 const scrollTo = (options?: { left?: number; top?: number; behavior?: 'auto' | 'smooth' }) => {
   if (contentRef.value && options) {
     contentRef.value.scrollTo(options);
@@ -419,7 +463,10 @@ defineExpose({
             'is-elevated': isElevated,
             'is-scroll-collapsed': isHeaderCollapsed,
           }"
-          :style="{ backgroundColor: headerBackground || undefined }"
+          :style="{
+            backgroundColor: headerBackground || undefined,
+            top: stickyHeaderTop,
+          }"
         >
           <slot name="header">
             <!-- 顶部面包屑 -->

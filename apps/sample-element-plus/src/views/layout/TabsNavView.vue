@@ -6,7 +6,7 @@
  * @since 2026-10-29
  */
 
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, h, onUnmounted } from 'vue';
 import { useTabsNav } from '@atengk/vue';
 import {
   ElAlert,
@@ -18,7 +18,14 @@ import {
   ElTag,
   ElMessage,
 } from 'element-plus';
-import { AtengTabsNav, type TabItem, type TabsStyle } from '@atengk/element-plus';
+import {
+  AtengTabsNav,
+  type TabBatchClosePayload,
+  type TabIconResolver,
+  type TabItem,
+  type TabMenuIcons,
+  type TabsStyle,
+} from '@atengk/element-plus';
 
 // 风格与配置切换
 const currentStyle = ref<TabsStyle>('card');
@@ -26,6 +33,40 @@ const draggable = ref(true);
 const contextMenu = ref(true);
 const showQuickActions = ref(true);
 const showMaximize = ref(true);
+const emitCloseOnBatch = ref(false);
+const hideMenuIcons = ref(false);
+
+const FunctionalHomeIcon = () =>
+  h('svg', { viewBox: '0 0 1024 1024', width: '13', height: '13', fill: 'currentColor' }, [
+    h('path', {
+      d: 'M512 128L128 464h112v400h208V608h128v256h208V464h112L512 128z',
+    }),
+  ]);
+
+const tabIconResolver: TabIconResolver = icon => {
+  if (icon === 'custom:spark') {
+    return () =>
+      h('svg', { viewBox: '0 0 1024 1024', width: '13', height: '13', fill: 'currentColor' }, [
+        h('path', {
+          d: 'M512 96l96 288 288 96-288 96-96 288-96-288-288-96 288-96 96-288z',
+        }),
+      ]);
+  }
+  return icon;
+};
+
+const resolvedMenuIcons = computed<TabMenuIcons | undefined>(() =>
+  hideMenuIcons.value
+    ? {
+        refresh: false,
+        close: false,
+        closeOthers: false,
+        closeLeft: false,
+        closeRight: false,
+        closeAll: false,
+      }
+    : undefined,
+);
 
 let tabCounter = 1;
 
@@ -41,8 +82,19 @@ const {
 } = useTabsNav({
   defaultActiveKey: '/dashboard',
   defaultTabs: [
-    { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'DashboardView' },
-    { key: '/system/user', title: '用户权限管理', componentName: 'UserManagement' },
+    {
+      key: '/dashboard',
+      title: '工作台首页',
+      affix: true,
+      icon: FunctionalHomeIcon,
+      componentName: 'DashboardView',
+    },
+    {
+      key: '/system/user',
+      title: '用户权限管理',
+      icon: 'custom:spark',
+      componentName: 'UserManagement',
+    },
     { key: '/system/role', title: '角色与策略中心', componentName: 'RoleManagement' },
     { key: '/monitor/server', title: '服务器实时监控大盘', componentName: 'ServerMonitor' },
     { key: '/business/order', title: '电商订单中心明细', componentName: 'OrderList' },
@@ -96,6 +148,15 @@ const handleTabClose = (key: string, tab: TabItem): void => {
   closeTab(key);
   addLog('close', '关闭标签', `${tab.title} (${key})`);
   ElMessage.info(`已关闭标签: ${tab.title}`);
+};
+
+const handleBatchClose = (payload: TabBatchClosePayload): void => {
+  addLog(
+    'close',
+    '批量关闭',
+    `命令=${payload.command}，关闭 ${payload.closedTabs.length} 项，剩余 ${payload.remainingTabs.length} 项`,
+  );
+  ElMessage.success(`批量关闭完成：关闭 ${payload.closedTabs.length} 个标签`);
 };
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -204,6 +265,16 @@ const resetTabs = (): void => {
         </div>
 
         <div class="ctrl-item">
+          <span class="label">批量兼发 tabClose (emitCloseOnBatch)：</span>
+          <ElSwitch v-model="emitCloseOnBatch" size="small" />
+        </div>
+
+        <div class="ctrl-item">
+          <span class="label">隐藏菜单图标 (menuIcons=false)：</span>
+          <ElSwitch v-model="hideMenuIcons" size="small" />
+        </div>
+
+        <div class="ctrl-item">
           <span class="label">KeepAlive 缓存名单 (cachedViews)：</span>
           <ElTag
             v-for="c in displayCachedViews"
@@ -249,8 +320,12 @@ const resetTabs = (): void => {
           :context-menu="contextMenu"
           :show-quick-actions="showQuickActions"
           :show-maximize="showMaximize"
+          :emit-close-on-batch="emitCloseOnBatch"
+          :menu-icons="resolvedMenuIcons"
+          :icon-resolver="tabIconResolver"
           @tab-click="handleTabClick"
           @tab-close="handleTabClose"
+          @batch-close="handleBatchClose"
           @tab-refresh="handleTabRefresh"
           @tab-order-change="handleTabOrderChange"
           @maximize-change="handleMaximizeChange"

@@ -28,9 +28,24 @@ export interface AtengProLayoutContext {
   headerHeight: ComputedRef<string>;
 
   /**
+   * 多标签栏实际生效高度（未开启或最大化时为 '0px'）。
+   */
+  tabsHeight?: ComputedRef<string>;
+
+  /**
    * 布局形态。
    */
   layout: ComputedRef<ProLayoutMode>;
+
+  /**
+   * 是否开启固定顶栏。
+   */
+  fixedHeader?: ComputedRef<boolean>;
+
+  /**
+   * 是否开启固定侧边栏。
+   */
+  fixedAside?: ComputedRef<boolean>;
 
   /**
    * 是否处于移动端窄屏模式。

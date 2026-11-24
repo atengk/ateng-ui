@@ -9,6 +9,7 @@
 import { computed, type Component } from 'vue';
 import { ElMenuItem, ElSubMenu, ElIcon, ElBadge } from 'element-plus';
 import { asMenuRecord } from './menuUtils';
+import { isVueComponentIcon, resolveCustomIcon } from '../shared/iconUtils';
 import type { ProMenuFieldNames, ProMenuIconResolver, ProMenuItem, ProMenuRawItem } from './types';
 
 defineOptions({
@@ -63,32 +64,15 @@ const itemChildren = computed(() => {
   }
   return undefined;
 });
-function isVueComponentIcon(val: unknown): val is Component {
-  return val !== null && (typeof val === 'object' || typeof val === 'function');
-}
-
-function isValidIconInput(val: unknown): val is string | Component {
-  return (typeof val === 'string' && val.trim().length > 0) || isVueComponentIcon(val);
-}
-
 const itemIcon = computed(() => itemRecord.value[iconKey.value]);
-const resolvedIcon = computed<string | Component | undefined>(() => {
-  const raw = itemIcon.value;
-  if (!isValidIconInput(raw)) {
-    return undefined;
-  }
-  if (!props.iconResolver) {
-    return raw;
-  }
-  const resolved = props.iconResolver(raw, props.item as ProMenuItem, currentDepth.value);
-  if (resolved === undefined) {
-    return raw;
-  }
-  if (typeof resolved === 'string') {
-    return resolved.trim().length > 0 ? resolved : undefined;
-  }
-  return isVueComponentIcon(resolved) ? resolved : undefined;
-});
+const resolvedIcon = computed<string | Component | undefined>(() =>
+  resolveCustomIcon(
+    itemIcon.value,
+    props.item as ProMenuItem,
+    currentDepth.value,
+    props.iconResolver,
+  ),
+);
 const isResolvedComponent = computed(() => isVueComponentIcon(resolvedIcon.value));
 const itemBadge = computed<string | number | undefined>(() => {
   const val = itemRecord.value[badgeKey.value];

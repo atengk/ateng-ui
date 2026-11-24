@@ -65,11 +65,11 @@ _Avoid_: AtengSidePanel, BaseDrawer, SlideDrawer
 _Avoid_: Layout, AppLayout, PageLayout, ElContainer, AntdLayout
 
 **AtengProLayout**:
-支持 side/top/mix 三大中后台经典布局形态、声明式菜单数据驱动与插槽双模、响应式移动端抽屉遮罩、内置面包屑与多标签页协同的企业级高级框架布局容器组件。
+支持 side/top/mix 三大中后台经典布局形态、Flex 视口锁定与 sticky 文档流双模切换（`fixedHeader`/`fixedAside`）、声明式菜单数据驱动与插槽双模、响应式移动端抽屉遮罩、内置面包屑、`ESC` 退出最大化、内置 `AtengTabsNav` 全量事件与四插槽转发及 `ATENG_PRO_LAYOUT_KEY` 下游避让协同的企业级高级框架布局容器组件。
 _Avoid_: AdminLayout, ProContainer, BasicLayout, AdminFrame, AppScaffold
 
 **AtengTabsNav**:
-具备视口溢出滚动、滚轮横向滑动、标签自动居中定位、Affix 固定防关、右键上下文菜单、拖拽排序、内容区最大化协同与三大视觉形态的企业级多标签导航组件。
+具备视口溢出滚动、滚轮横向滑动、标签自动居中定位、Affix 固定防关、可定制纯矢量 SVG 右键上下文与快捷下拉菜单（`menuIcons` / `#menuIcon`）、函数式图标与 `iconResolver` / `#tabIcon` 解析、批量关闭聚合事件（`@batch-close` + `emitCloseOnBatch`）、拖拽排序与内容区最大化协同的企业级多标签导航组件。
 _Avoid_: TabsView, MultiTabs, TagsView, TabNav, TabBar
 
 **AtengPageContainer**:

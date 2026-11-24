@@ -5,6 +5,7 @@
  * @since 2026-10-29
  */
 
+import type { Component } from 'vue';
 import type { TabItem } from '@atengk/vue';
 
 export type { TabItem };
@@ -19,6 +20,44 @@ export type TabsStyle = 'card' | 'pill' | 'line';
  */
 export type TabCommand =
   'refresh' | 'close' | 'closeOthers' | 'closeLeft' | 'closeRight' | 'closeAll';
+
+/**
+ * 标签栏批量关闭命令类型。
+ */
+export type TabBatchCloseCommand = 'closeOthers' | 'closeLeft' | 'closeRight' | 'closeAll';
+
+/**
+ * 批量关闭语义事件载荷契约。
+ */
+export interface TabBatchClosePayload {
+  /** 触发的批量关闭指令 */
+  command: TabBatchCloseCommand;
+  /** 本次被移除的非固定标签集合 */
+  closedTabs: TabItem[];
+  /** 关闭后剩余的标签集合 */
+  remainingTabs: TabItem[];
+  /** 关闭后推荐切换的激活标签 key */
+  nextActiveKey: string;
+}
+
+/**
+ * 右键与快捷菜单图标自定义配置映射（设为 false 可隐藏对应图标）。
+ */
+export type TabMenuIcons = Partial<Record<TabCommand, false | string | Component>>;
+
+/**
+ * 标签图标自定义解析回调契约。
+ *
+ * @param icon 标签项原始图标值
+ * @param tab 当前标签项数据
+ * @param index 当前标签在列表中的索引
+ * @returns 解析后的 Vue 组件、CSS 类名字符串或 undefined（回退默认逻辑）
+ */
+export type TabIconResolver = (
+  icon: string | Component,
+  tab: TabItem,
+  index: number,
+) => string | Component | undefined;
 
 /**
  * AtengTabsNav 属性契约。
@@ -92,6 +131,23 @@ export interface AtengTabsNavProps {
    * @default false
    */
   isMaximized?: boolean;
+
+  /**
+   * 批量关闭操作（关闭其他/左侧/右侧/全部）是否逐个兼容派发 tabClose 事件。
+   * 为保持向后兼容默认开启；新接入推荐使用 @batch-close 时可设为 false 消除多次状态跳变。
+   * @default true
+   */
+  emitCloseOnBatch?: boolean;
+
+  /**
+   * 自定义或隐藏右键/快捷菜单图标（传 false 隐藏，传字符串按类名渲染，传 Component 动态渲染）。
+   */
+  menuIcons?: TabMenuIcons;
+
+  /**
+   * 标签图标自定义解析函数，可用于映射字符串图标名或动态替换 SVG 组件。
+   */
+  iconResolver?: TabIconResolver;
 }
 
 /**
@@ -117,6 +173,11 @@ export interface AtengTabsNavEmits {
    * 点击标签关闭图标时触发。
    */
   (e: 'tabClose', key: string, tab: TabItem): void;
+
+  /**
+   * 批量关闭命令完成时派发的聚合语义事件。
+   */
+  (e: 'batchClose', payload: TabBatchClosePayload): void;
 
   /**
    * 标签刷新时触发。
@@ -147,6 +208,21 @@ export interface AtengTabsNavSlots {
    * 自定义标签项渲染插槽。
    */
   tab?: (scope: { tab: TabItem; active: boolean; index: number }) => unknown;
+
+  /**
+   * 自定义标签图标插槽（保留标题与关闭按钮结构）。
+   */
+  tabIcon?: (scope: {
+    icon: string | Component;
+    tab: TabItem;
+    active: boolean;
+    index: number;
+  }) => unknown;
+
+  /**
+   * 自定义右键菜单及快捷面板命令图标插槽。
+   */
+  menuIcon?: (scope: { command: TabCommand; tab?: TabItem }) => unknown;
 
   /**
    * 前置内容插槽。

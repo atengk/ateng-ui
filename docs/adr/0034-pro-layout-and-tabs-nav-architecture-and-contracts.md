@@ -105,11 +105,18 @@ flowchart TD
 - 当屏幕宽度 `< 768px` 时，侧边栏自动收起，展开时以**抽屉遮罩浮层（Mobile Drawer Overlay）**形态呈现，点击遮罩或菜单项后自动关闭；
 - 允许通过 `responsive: false` 或受控属性 `v-model:collapsed` 由业务完全接管。
 
-### 8. 视口滚动锁定与上下文避让总线 (Provide/Inject Synergy)
+### 8. 视口锁定与 sticky 混合模型及上下文避让协同 (Flex Viewport Lock, Sticky Hybrid & Provide/Inject Synergy)
 
-- 默认采用视口固定排版（Viewport Fixed Mode）：Header（高度 56px 可调）、Aside（展开 220px、折叠 56px 可调）、TabsNav（高度 38px 可调）固定，内容区弹性自适应；
-- `<AtengProLayout />` 通过 `provide(ATENG_PRO_LAYOUT_KEY, ...)` 向下派发布局状态；
-- 下层的 `<AtengFooterBar />`（吸底操作栏）可通过 Inject 自动读取当前侧边栏展开状态与宽度，**实现吸底栏宽度的自动智能避让**，免除业务手写样式计算。
+- **混合排版状态机**：
+  - `fixedHeader && fixedAside`（默认全固定且未最大化）时启用 **Flex 视口锁定模式**：根容器锁定 `100vh`（受父定高沙箱 `max-height: 100%` 约束不溢出），主区移除阻断后代粘滞的 `overflow: hidden` 并由 `__content` 承载内部垂直滚动；
+  - 任一设为 `false` 时切换为**自然文档流 + `position: sticky` 模式**：固定顶栏与内置标签栏贴顶吸顶（标签栏自动读取 `--at-pro-header-height`），固定侧栏以 `100vh` 粘滞随行；
+  - 通过 `--at-pro-header-height` CSS 变量保证 `.at-pro-layout__logo` 高度严格跟随 `headerHeight` 变化，并新增 `contentPadding`（默认 `'16px'`）与 `escExit`（默认 `true`，监听 `Escape` 且尊重内层 `e.defaultPrevented`）；
+- **全量转发与下游总线扩展**：
+  - `ProLayoutTabs` 与 `AtengProLayout` 全量补齐 `tabsHeight`（`tabsProps?.height ?? tabsHeight`）、`update:modelValue`、`batchClose` 与 `#tab`/`#prefix`/`#suffix`/`#extra` 四插槽透传，同时补齐 `mix` 模式 `#menu`/`#asideFooter`/折叠触发器对称性；
+  - `ATENG_PRO_LAYOUT_KEY` 增补 `fixedHeader`、`fixedAside`、`tabsHeight` 字段：`<AtengFooterBar>` 在 `fixedAside === false` 时停止盲目左偏留白；`<AtengPageContainer fixedHeader>` 弱注入该总线，仅当外层处于文档流吸顶模式时自动累加外层顶栏与标签栏避让偏移，独立使用或局部滚动时保持 `top: 0`；
+- **TabsNav 渐进兼容批量关闭与矢量图标定制**：
+  - 批量关闭命令默认保留 `tabClose` + `update:tabs` + `update:modelValue` 100% 向后兼容，同时新增语义化 `@batch-close` 事件（载荷 `{ command, closedTabs, remainingTabs, nextActiveKey }`）与可选 `emitCloseOnBatch?: boolean`（默认 `true`）；
+  - 将右键与快捷菜单硬编码 Emoji 全部替换为可配置/隐藏的纯矢量 SVG 图标（支持 `menuIcons` / `#menuIcon`），补全快捷下拉面板 5 项 `:disabled` 状态判定；完善 `TabItem.icon` 对函数式组件（`typeof === 'function'`）的支持，新增 `iconResolver` 与 `#tabIcon` 插槽。
 
 ---
 

@@ -309,7 +309,11 @@ const fixedStyles = computed(() => {
   styles.right = 0;
   if (props.leftOffset !== 'auto') {
     styles.left = typeof props.leftOffset === 'number' ? `${props.leftOffset}px` : props.leftOffset;
-  } else if (proLayoutContext && proLayoutContext.asideWidth.value) {
+  } else if (
+    proLayoutContext &&
+    proLayoutContext.asideWidth.value &&
+    proLayoutContext.fixedAside?.value !== false
+  ) {
     styles.left = proLayoutContext.asideWidth.value;
   } else {
     styles.left = 0;

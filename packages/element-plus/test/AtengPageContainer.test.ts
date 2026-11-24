@@ -6,8 +6,10 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { ref, nextTick } from 'vue';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { AtengPageContainer } from '../src/components/page-container';
+import { ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
 
 describe('AtengPageContainer 组件测试', () => {
   let wrapper: VueWrapper | null = null;
@@ -523,5 +525,55 @@ describe('AtengPageContainer 组件测试', () => {
     expect(watermarkComponent.props('content')).toEqual(['Ateng Security', 'Internal Only']);
     expect(watermarkComponent.props('rotate')).toBe(-30);
     expect(watermarkComponent.props('zIndex')).toBe(99);
+  });
+
+  it('弱注入 ATENG_PRO_LAYOUT_KEY：文档流外层吸顶模式下自动叠加顶栏与标签栏偏移，其余场景保持 top: 0', async () => {
+    const fixedHeader = ref(true);
+    const fixedAside = ref(false);
+    const isMaximized = ref(false);
+    const headerHeight = ref('56px');
+    const tabsHeight = ref('38px');
+
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '吸顶偏移联动页',
+        fixedHeader: true,
+      },
+      global: {
+        provide: {
+          [ATENG_PRO_LAYOUT_KEY as symbol]: {
+            collapsed: ref(false),
+            asideWidth: ref('220px'),
+            headerHeight,
+            tabsHeight,
+            layout: ref('side'),
+            fixedHeader,
+            fixedAside,
+            isMaximized,
+            toggleCollapse: () => {},
+          },
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const header = wrapper.find('.at-page-container__header');
+    expect(header.attributes('style')).toContain('top: 94px');
+
+    // 无标签栏时仅累加 headerHeight
+    tabsHeight.value = '0px';
+    await nextTick();
+    expect(header.attributes('style')).toContain('top: 56px');
+
+    // 切换为视口锁定（fixedHeader && fixedAside）或外层最大化时，退回容器内部 top: 0 吸顶
+    fixedAside.value = true;
+    tabsHeight.value = '38px';
+    await nextTick();
+    expect(header.attributes('style') || '').not.toContain('top:');
+
+    fixedAside.value = false;
+    isMaximized.value = true;
+    await nextTick();
+    expect(header.attributes('style') || '').not.toContain('top:');
   });
 });

@@ -7,10 +7,11 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { defineComponent, inject, h, markRaw } from 'vue';
+import { defineComponent, inject, h, markRaw, nextTick } from 'vue';
 import { AtengProLayout, ATENG_PRO_LAYOUT_KEY } from '../src/components/pro-layout';
+import { AtengTabsNav } from '../src/components/tabs-nav';
 import { AtengFooterBar } from '../src/components/footer-bar';
-import type { ProMenuItem } from '../src/components/pro-layout';
+import type { ProMenuItem, AtengProLayoutContext } from '../src/components/pro-layout';
 
 describe('AtengProLayout Component', () => {
   let wrapper: VueWrapper | null = null;
@@ -765,5 +766,180 @@ describe('AtengProLayout Component', () => {
     expect(headerRight.find('.custom-mix-header-right').text()).toBe('自定义右侧区');
     expect(headerRight.find('.at-pro-layout__header-actions').exists()).toBe(false);
     expect(headerRight.find('.at-pro-layout__header-user').exists()).toBe(false);
+  });
+
+  it('29. fixedHeader / fixedAside 接线与上下文导出：默认视口锁定，关闭其一时切换文档流吸顶并同步 context', async () => {
+    let capturedContext: AtengProLayoutContext | null = null;
+    const ContextProbe = defineComponent({
+      setup() {
+        capturedContext = inject(ATENG_PRO_LAYOUT_KEY, null);
+        return () => h('div', { class: 'context-probe' });
+      },
+    });
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        menuData: mockMenuData,
+        showTabs: true,
+        tabsHeight: 42,
+        fixedHeader: true,
+        fixedAside: true,
+      },
+      slots: {
+        default: () => h(ContextProbe),
+      },
+    });
+
+    expect(wrapper.classes()).toContain('is-viewport-locked');
+    expect(wrapper.classes()).toContain('is-fixed-header');
+    expect(wrapper.classes()).toContain('is-fixed-aside');
+    expect(capturedContext).toBeTruthy();
+    expect(capturedContext!.fixedHeader?.value).toBe(true);
+    expect(capturedContext!.fixedAside?.value).toBe(true);
+    expect(capturedContext!.tabsHeight?.value).toBe('42px');
+
+    await wrapper.setProps({ fixedAside: false });
+    expect(wrapper.classes()).not.toContain('is-viewport-locked');
+    expect(wrapper.classes()).toContain('is-fixed-header');
+    expect(wrapper.classes()).not.toContain('is-fixed-aside');
+    expect(capturedContext!.fixedAside?.value).toBe(false);
+
+    await wrapper.setProps({ fixedHeader: false, fixedAside: true });
+    expect(wrapper.classes()).not.toContain('is-viewport-locked');
+    expect(wrapper.classes()).not.toContain('is-fixed-header');
+    expect(wrapper.classes()).toContain('is-fixed-aside');
+    expect(capturedContext!.fixedHeader?.value).toBe(false);
+  });
+
+  it('30. headerHeight 与 contentPadding CSS 变量接线：根容器导出 --at-pro-header-height 与 --at-pro-content-padding', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        menuData: mockMenuData,
+        headerHeight: 48,
+        contentPadding: 0,
+      },
+    });
+
+    const styleAttr = wrapper.attributes('style') || '';
+    expect(styleAttr).toContain('--at-pro-header-height: 48px');
+    expect(styleAttr).toContain('--at-pro-content-padding: 0px');
+
+    await wrapper.setProps({ contentPadding: '24px' });
+    expect(wrapper.attributes('style') || '').toContain('--at-pro-content-padding: 24px');
+  });
+
+  it('31. ProLayoutTabs 事件与四插槽全转发：透传 tabsHeight、update:modelValue、batchClose 及 #tab/#prefix/#suffix/#extra', async () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        menuData: mockMenuData,
+        showTabs: true,
+        tabsHeight: 46,
+        tabsProps: {
+          modelValue: '/home',
+          tabs: [
+            { key: '/home', title: '首页' },
+            { key: '/user', title: '用户' },
+          ],
+        },
+      },
+      slots: {
+        tab: ({ tab }: { tab: { title: string } }) =>
+          h('span', { class: 'custom-forwarded-tab' }, `[${tab.title}]`),
+        prefix: () => h('span', { class: 'custom-tabs-prefix' }, 'PRE'),
+        suffix: () => h('span', { class: 'custom-tabs-suffix' }, 'SUF'),
+        extra: () => h('span', { class: 'custom-tabs-extra' }, 'EXT'),
+      },
+    });
+
+    const tabsNav = wrapper.findComponent(AtengTabsNav);
+    expect(tabsNav.exists()).toBe(true);
+    expect(tabsNav.props('height')).toBe(46);
+    expect(wrapper.find('.custom-tabs-prefix').text()).toBe('PRE');
+    expect(wrapper.find('.custom-tabs-suffix').text()).toBe('SUF');
+    expect(wrapper.find('.custom-tabs-extra').text()).toBe('EXT');
+    expect(wrapper.findAll('.custom-forwarded-tab').map(n => n.text())).toEqual([
+      '[首页]',
+      '[用户]',
+    ]);
+
+    const items = tabsNav.findAll('.at-tabs-nav__item');
+    await items[1]!.trigger('click');
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['/user']);
+
+    // tabsProps.height 优先覆盖外层 tabsHeight
+    await wrapper.setProps({
+      tabsProps: {
+        height: 52,
+        modelValue: '/home',
+        tabs: [{ key: '/home', title: '首页' }],
+      },
+    });
+    expect(tabsNav.props('height')).toBe(52);
+  });
+
+  it('32. escExit 快捷键退出最大化：默认支持 Escape 退出，尊重 defaultPrevented、escExit=false 且卸载清理', async () => {
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'side',
+        menuData: mockMenuData,
+        isMaximized: true,
+      },
+      attachTo: document.body,
+    });
+
+    // 若内部事件已被 defaultPrevented，则不抢占退出
+    const preventedEvent = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    preventedEvent.preventDefault();
+    document.dispatchEvent(preventedEvent);
+    await nextTick();
+    expect(wrapper.emitted('update:isMaximized')).toBeUndefined();
+
+    // 正常按下 Escape 退出最大化
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    await nextTick();
+    expect(wrapper.emitted('update:isMaximized')?.[0]).toEqual([false]);
+    expect(wrapper.emitted('maximizeChange')?.[0]).toEqual([false]);
+
+    // 关闭 escExit 时不响应 Escape
+    await wrapper.setProps({ isMaximized: true, escExit: false });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    await nextTick();
+    expect(wrapper.emitted('update:isMaximized')?.length).toBe(1);
+
+    wrapper.unmount();
+    wrapper = null;
+    expect(removeSpy.mock.calls.some(call => call[0] === 'keydown')).toBe(true);
+  });
+
+  it('33. mix 模式补齐 #menu、#asideFooter 与折叠开关对称性', () => {
+    wrapper = mount(AtengProLayout, {
+      props: {
+        layout: 'mix',
+        menuData: [
+          {
+            path: '/sys',
+            title: '系统',
+            children: [{ path: '/sys/user', title: '用户' }],
+          },
+        ],
+        showCollapseTrigger: true,
+        collapseTriggerPosition: 'aside',
+      },
+      slots: {
+        menu: ({ mode }: { mode: string }) =>
+          h('div', { class: `custom-mix-menu-${mode}` }, `menu-${mode}`),
+        asideFooter: ({ collapsed }: { collapsed: boolean }) =>
+          h('div', { class: 'custom-mix-aside-footer' }, String(collapsed)),
+      },
+    });
+
+    expect(wrapper.find('.custom-mix-menu-horizontal').exists()).toBe(true);
+    expect(wrapper.find('.custom-mix-menu-vertical').exists()).toBe(true);
+    expect(wrapper.find('.custom-mix-aside-footer').exists()).toBe(true);
+    expect(wrapper.find('.at-pro-layout__aside-collapse').exists()).toBe(true);
   });
 });

@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { h, nextTick } from 'vue';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { AtengTabsNav } from '../src/components/tabs-nav';
 import type { TabItem } from '../src';
@@ -202,5 +203,136 @@ describe('AtengTabsNav Component', () => {
     // 剩余标签为 /home 和 /users
     const updatedTabs = wrapper.emitted('update:tabs')?.[0]?.[0] as TabItem[];
     expect(updatedTabs.map(t => t.key)).toEqual(['/home', '/users']);
+    // 同时默认补发 @batch-close 语义事件
+    expect(wrapper.emitted('batchClose')?.[0]?.[0]).toMatchObject({
+      command: 'closeOthers',
+      closedTabs: [expect.objectContaining({ key: '/settings' })],
+      remainingTabs: [
+        expect.objectContaining({ key: '/home' }),
+        expect.objectContaining({ key: '/users' }),
+      ],
+      nextActiveKey: '/users',
+    });
+  });
+
+  it('11. emitCloseOnBatch=false：批量关闭仅派发 @batch-close / update:tabs / update:modelValue，不连发 N 次 tabClose', () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/users',
+        showQuickActions: true,
+        emitCloseOnBatch: false,
+      },
+    });
+
+    const quickDropdown = wrapper
+      .find('.at-tabs-nav__quick-actions')
+      .findComponent({ name: 'ElDropdown' });
+    quickDropdown.vm.$emit('command', 'closeAll');
+
+    expect(wrapper.emitted('tabClose')).toBeUndefined();
+    expect(wrapper.emitted('batchClose')?.[0]?.[0]).toMatchObject({
+      command: 'closeAll',
+      closedTabs: [
+        expect.objectContaining({ key: '/users' }),
+        expect.objectContaining({ key: '/settings' }),
+      ],
+      remainingTabs: [expect.objectContaining({ key: '/home' })],
+      nextActiveKey: '/home',
+    });
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['/home']);
+  });
+
+  it('12. 菜单纯矢量 SVG 图标、menuIcons 定制/隐藏与 #menuIcon 插槽，同步校验快捷下拉 :disabled 状态', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: [{ key: '/home', title: '首页', affix: true }],
+        modelValue: '/home',
+        contextMenu: true,
+        showQuickActions: true,
+      },
+      global: {
+        stubs: {
+          ElDropdown: {
+            template: '<div class="stub-el-dropdown"><slot /><slot name="dropdown" /></div>',
+          },
+          ElDropdownMenu: {
+            template: '<ul class="stub-el-dropdown-menu"><slot /></ul>',
+          },
+          ElDropdownItem: {
+            props: { command: String, disabled: Boolean, divided: Boolean },
+            template:
+              '<li class="stub-el-dropdown-item" :data-command="command" :data-disabled="String(Boolean(disabled))"><slot /></li>',
+          },
+        },
+      },
+    });
+
+    const dropdownMenus = wrapper.findAll('.stub-el-dropdown-menu');
+    expect(dropdownMenus.length).toBeGreaterThanOrEqual(2);
+    // 右键菜单与快捷菜单都不应含 Emoji
+    for (const emoji of ['🔄', '❌', '🚫', '⬅️', '➡️', '🧹']) {
+      expect(wrapper.html()).not.toContain(emoji);
+    }
+    // 含内置矢量 SVG 图标
+    expect(wrapper.findAll('.at-tabs-nav__menu-icon svg').length).toBeGreaterThanOrEqual(5);
+
+    // 快捷下拉面板在仅剩固定标签时，关闭类全部 disabled
+    const quickMenu = dropdownMenus[dropdownMenus.length - 1]!;
+    const quickItems = quickMenu.findAll('.stub-el-dropdown-item');
+    const getDisabled = (cmd: string) =>
+      quickItems.find(i => i.attributes('data-command') === cmd)?.attributes('data-disabled');
+    expect(getDisabled('refresh')).toBe('false');
+    expect(getDisabled('closeOthers')).toBe('true');
+    expect(getDisabled('closeLeft')).toBe('true');
+    expect(getDisabled('closeRight')).toBe('true');
+    expect(getDisabled('closeAll')).toBe('true');
+
+    // menuIcons 支持 false 隐藏特定命令图标并支持自定义类/组件
+    await wrapper.setProps({
+      menuIcons: {
+        refresh: false,
+        closeAll: 'custom-sweep-icon',
+      },
+    });
+    const refreshItem = quickItems.find(i => i.attributes('data-command') === 'refresh')!;
+    expect(refreshItem.find('.at-tabs-nav__menu-icon').exists()).toBe(false);
+    const closeAllItem = quickItems.find(i => i.attributes('data-command') === 'closeAll')!;
+    expect(closeAllItem.find('.custom-sweep-icon').exists()).toBe(true);
+  });
+
+  it('13. TabItem.icon 支持函数式组件、iconResolver 与 #tabIcon 插槽', async () => {
+    const FunctionalIcon = () => h('svg', { class: 'functional-tab-svg' });
+
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: [
+          { key: '/fn', title: '函数图标', icon: FunctionalIcon },
+          { key: '/str', title: '字符串图标', icon: 'ep:user' },
+        ],
+        modelValue: '/fn',
+        iconResolver: (icon, tab, idx) =>
+          icon === 'ep:user' ? `resolved-${tab.key}-${idx}` : icon,
+      },
+    });
+
+    await nextTick();
+    expect(wrapper.find('.functional-tab-svg').exists()).toBe(true);
+    expect(wrapper.find('i.resolved-\\/str-1').exists()).toBe(true);
+
+    // #tabIcon 覆写默认图标渲染
+    const slotWrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: [{ key: '/a', title: 'A', icon: 'ep:setting' }],
+        modelValue: '/a',
+      },
+      slots: {
+        tabIcon: ({ icon, active }: { icon: unknown; active: boolean }) =>
+          h('span', { class: 'custom-tab-icon-slot', 'data-active': String(active) }, String(icon)),
+      },
+    });
+    expect(slotWrapper.find('.custom-tab-icon-slot').text()).toBe('ep:setting');
+    expect(slotWrapper.find('.custom-tab-icon-slot').attributes('data-active')).toBe('true');
+    slotWrapper.unmount();
   });
 });

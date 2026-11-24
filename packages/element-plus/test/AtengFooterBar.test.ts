@@ -487,4 +487,35 @@ describe('AtengFooterBar 组件测试', () => {
     await nextTick();
     expect(bar.attributes('style')).toContain('left: 0px');
   });
+
+  it('fixedAside=false 文档流侧栏模式下：fixed 吸底条不盲目预留固定 asideWidth 左侧留白', async () => {
+    const asideWidth = ref('220px');
+    const fixedAside = ref(false);
+    wrapper = mount(AtengFooterBar, {
+      props: {
+        position: 'fixed',
+      },
+      global: {
+        provide: {
+          [ATENG_PRO_LAYOUT_KEY as symbol]: {
+            asideWidth,
+            fixedAside,
+            collapsed: ref(false),
+            isMaximized: ref(false),
+            isMobile: ref(false),
+            toggleCollapse: () => {},
+            toggleMaximize: () => {},
+          },
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const bar = wrapper.find('.at-footer-bar');
+    expect(bar.attributes('style')).toContain('left: 0px');
+
+    fixedAside.value = true;
+    await nextTick();
+    expect(bar.attributes('style')).toContain('left: 220px');
+  });
 });
