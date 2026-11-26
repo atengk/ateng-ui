@@ -16,7 +16,7 @@
 | **辅助指令** | 剪贴板一键复制         | `v-copy`                                                                                                                                                                                                                                                                                                   | `string \| CopyGetter \| CopyOptions`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 优先调用 `navigator.clipboard`，自动安全降级至 `execCommand`；支持动态 Getter 与 ElMessage 反馈联动                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | [`v-copy.test.ts`](./test/v-copy.test.ts)<br>`/directives/copy`                                                                                |
 | **辅助指令** | 动态防篡改水印         | `v-watermark`                                                                                                                                                                                                                                                                                              | `string \| WatermarkOptions`, 修饰符 `.full`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Canvas 离屏高清渲染（SVG 安全降级）；MutationObserver 深度监听实现控制台删除与样式篡改微任务自愈                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | [`v-watermark.test.ts`](./test/v-watermark.test.ts)<br>`/directives/watermark`                                                                 |
 | **辅助指令** | 细粒度微骨架           | `v-skeleton`                                                                                                                                                                                                                                                                                               | `boolean \| SkeletonOptions: { loading, animated, radius }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 原地 CSS 盒模型伪元素脉冲遮罩模型，将目标 DOM 内部文字与图标透明度降为 0，100% 保持原有物理宽高，消除排版跳变（Zero-CLS），绝不破坏虚拟 DOM 树；深度适配 ThemePro Slate 深空暗黑基底与纯 GPU 合成图层透明度脉冲动效                                                                                                                                                                                                                                                                                                                                                                        | [`v-skeleton.test.ts`](./test/v-skeleton.test.ts)<br>`/directives/skeleton`                                                                    |
-| **数据表格** | 企业级核心表格容器     | `<AtengTable<T>>`                                                                                                                                                                                                                                                                                          | `:pagination`, `:reserve-selection`, `:selection`, `v-model:selectedKeys`, `v-model:selectedRows`, `:data`, `:columns`, `rowKey`, `surface`, `paginationAlign`, `responsivePagination`, `paginationPagerCount`, `hidePaginationOnEmpty`, `hideJumperOnSinglePage`, `tools`, `storageKey`, `density`, `stripe`, `autoHeight`, `enableColumnResize`, `minResizeWidth`, `searchEmptyDescription`                                                                                                                                                                                                                                                                                                                                                                        | Vue 3.5 SFC 原生泛型组件；渐进混合列架构；深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏；双卡分体表面（`surface: 'card' \| 'plain'`）与全屏单层防重框；`paginationAlign` 两端对齐、`ResizeObserver` 窄容器降级（`<640px` / `<480px`）与空数据/单页收敛；原生表头列宽拖拽调整、40px 最小防塌陷与 storageKey 本地持久化记忆还原/Popover 重置；搜索感知多态缺省态与一键清空自愈联动；纯原生 HTML5 拖拽列排序；`autoHeight` 扣减分页与底部边距；支持 `:reserve-selection` 跨页多选记忆保持与底部粘滞批量操作条，支持 `v-model:selectedKeys` / `v-model:selectedRows` 双向受控绑定 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                                                                             |
+| **数据表格** | 企业级核心表格容器     | `<AtengTable<T>>`                                                                                                                                                                                                                                                                                          | `:pagination`, `:reserve-selection`, `:selection`, `v-model:selectedKeys`, `v-model:selectedRows`, `:data`, `:columns`, `rowKey`, `surface`, `paginationAlign`, `responsivePagination`, `paginationPagerCount`, `hidePaginationOnEmpty`, `hideJumperOnSinglePage`, `tools`, `storageKey`, `density`, `stripe`, `autoHeight`, `autoHeightMode: 'fixed' \| 'max'`, `enableColumnResize`, `minResizeWidth`, `searchEmptyDescription`, `@expand-change`                                                                                                                                                                                                                                                                                                          | Vue 3.5 SFC 原生泛型组件；渐进混合列架构；深度绑定 `@atengk/vue` 的 `usePagination`；内置 5 大工具栏；双卡分体表面（`surface: 'card' \| 'plain'`）与全屏单层防重框；`paginationAlign` 两端对齐、`ResizeObserver` 窄容器降级（`<640px` / `<480px`）与空数据/单页收敛；原生表头列宽拖拽调整、40px 最小防塌陷与 storageKey 本地持久化记忆还原/Popover 重置；搜索感知多态缺省态与一键清空自愈联动；纯原生 HTML5 拖拽列排序；支持 `autoHeightMode`（`'fixed'` 撑满定高 / `'max'` 弹性封顶）、`0px` 边界预留、边框扣减及 `#query`/树形折叠联动重算；支持 `:reserve-selection` 跨页多选记忆保持与底部粘滞批量操作条，支持 `v-model:selectedKeys` / `v-model:selectedRows` 双向受控绑定 | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                                                                             |
 | **数据表格** | 响应式搜索表单容器     | `AtengQueryForm`                                                                                                                                                                                                                                                                                           | `:pagination`, `:enter-search`, `model`, `cols`, `surface`, `collapsedRows`, `collapsed`, `defaultCollapsed`, `showCollapse`, `autoSearchOnReset`, `@search`, `@reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 24 栅格自适应布局与基于容器 `ResizeObserver` 的 1~4 列自适应断点（<768px 单列 / <1200px 双列 / <1920px 三列 / ≥1920px 四列）；支持 `surface: 'card' \| 'plain'` 卡片与嵌套铺平双模；支持 `:pagination` 零胶水直连分页状态机；内置 `:enter-search` 默认回车即搜；支持 `collapsedRows` 自定义折叠常驻行数；`autoSearchOnReset` 控制重置时是否自动触发查询；展开/收起平滑过渡与查询/重置防抖；支持独立受控与 Table 上下文感知双模                                                                                                                                                             | [`AtengQueryForm.test.ts`](./test/AtengQueryForm.test.ts)<br>`/table/query-form`                                                               |
 | **表格协同** | 表格表单协同总线       | `ATENG_TABLE_CONTEXT_KEY`                                                                                                                                                                                                                                                                                  | `InjectionKey<AtengTableContext>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `AtengTable` 与 `AtengQueryForm` 跨组件层级的 Provide/Inject 自动化双向联动通道（查询传递、重置联动与多态缺省态清空自愈），消灭业务胶水代码                                                                                                                                                                                                                                                                                                                                                                                                                                                | [`AtengTable.test.ts`](./test/AtengTable.test.ts)<br>`/table/crud`                                                                             |
 | **框架布局** | 企业级框架布局容器     | `AtengProLayout`                                                                                                                                                                                                                                                                                           | `layout: 'side' \| 'top' \| 'mix'`, `title`, `logo`, `menuData: ProMenuRawItem[]`, `fieldNames?: ProMenuFieldNames`, `iconResolver?: ProMenuIconResolver`, `activeMenu`, `defaultOpeneds`, `v-model:collapsed`, `collapsible`, `showCollapseTrigger`, `asideWidth`, `asideCollapsedWidth`, `headerHeight`, `tabsHeight`, `fixedHeader`, `fixedAside`, `contentPadding`, `escExit`, `showBreadcrumb`, `responsive`, `mobileBreakpoint`, `showTabs`, `tabsProps`, `v-model:isMaximized`, 事件: `@update:modelValue`, `@batchClose`, 插槽: `#default`, `#logo`, `#menu`, `#menuItem`, `#menuIcon`, `#headerLeft`, `#breadcrumb`, `#headerCenter`, `#headerRight`, `#headerActions`, `#user`, `#tabs`, `#tab`, `#prefix`, `#suffix`, `#extra`, `#footer`, `#asideFooter` | 聚合 Side、Top、Mix 三大中后台形态并实现 Flex 视口锁定与 sticky 文档流兼容模型；内置数据驱动菜单递归渲染、异构字段映射、`iconResolver` 与 `#menuIcon`；透传 `tabsHeight`、`update:modelValue`、`batchClose` 与 Tabs 四插槽；支持 `ESC` 退出最大化（尊重 `defaultPrevented`）、移动端抽屉遮罩，并通过 `ATENG_PRO_LAYOUT_KEY` 联动 `AtengFooterBar` 与 `AtengPageContainer`                                                                                                                                                                                                                  | [`AtengProLayout.test.ts`](./test/AtengProLayout.test.ts)<br>`/layout/pro-layout`                                                              |
@@ -259,8 +259,10 @@ export interface AtengTableProps<
   tools?: boolean | ('refresh' | 'density' | 'stripe' | 'column-setting' | 'fullscreen')[];
   /** 用户列配置本地持久化 Storage 键名 */
   storageKey?: string;
-  /** 是否开启视口高度自适应（自动撑满视口剩余空间），默认 false */
+  /** 是否开启视口高度自适应（true/number，支持 0 预留 0px），默认 false */
   autoHeight?: boolean | number;
+  /** 视口高度自适应绑定模式（仅开启 autoHeight 时生效）：'fixed' 撑满定高（默认） | 'max' 弹性封顶 */
+  autoHeightMode?: TableAutoHeightMode;
 }
 
 /** AtengQueryForm 核心属性契约 */
@@ -651,13 +653,14 @@ const handleReset = () => {
 
 ---
 
-### 3.6 双卡分体表面、设计令牌与自适应分页收敛 (`surface` & `paginationAlign`)
+### 3.6 双卡分体表面、视口弹性高度与自适应分页收敛 (`surface`, `autoHeightMode` & `paginationAlign`)
 
 #### 本节专属 TypeScript 契约片段
 
 ```ts
 export type TableSurface = 'card' | 'plain';
 export type TablePaginationAlign = 'between' | 'end';
+export type TableAutoHeightMode = 'fixed' | 'max';
 export type QueryFormSurface = 'card' | 'plain';
 
 export interface AtengTableProps<
@@ -666,6 +669,10 @@ export interface AtengTableProps<
 > {
   /** 表格容器外观表面模式：'card' 独立卡片表面（默认） | 'plain' 扁平无框 */
   surface?: TableSurface;
+  /** 是否开启视口高度自适应；传 number 表示自定义底部预留像素（含 0px），默认 false */
+  autoHeight?: boolean | number;
+  /** 视口高度自适应绑定模式（仅开启 autoHeight 时生效）：'fixed' 撑满定高（默认） | 'max' 弹性封顶 */
+  autoHeightMode?: TableAutoHeightMode;
   /** 底部分页栏主轴分布方式：'between' 两端分布（默认） | 'end' 整体右对齐 */
   paginationAlign?: TablePaginationAlign;
   /** 是否开启窄容器响应式分页降级（<640px 降级 pagerCount 并隐藏 jumper，<480px 隐藏 sizes 并切 small），默认 true */
@@ -695,6 +702,7 @@ import {
   AtengQueryForm,
   type TableSurface,
   type TablePaginationAlign,
+  type TableAutoHeightMode,
 } from '@atengk/element-plus';
 import type { PageQuery, PageResult } from '@atengk/core';
 
@@ -706,6 +714,7 @@ interface ProductItem {
 
 const tableSurface = ref<TableSurface>('card');
 const paginationAlign = ref<TablePaginationAlign>('between');
+const autoHeightMode = ref<TableAutoHeightMode>('max');
 const queryForm = reactive({ name: '' });
 
 const pagination = usePagination(
@@ -719,13 +728,14 @@ const pagination = usePagination(
 </script>
 
 <template>
-  <!-- 1. 直接落于页面底板：自动呈现检索卡 + 表格表面卡双卡分体与两端分布分页 -->
+  <!-- 1. 直接落于页面底板：开启 :auto-height="16" 与 auto-height-mode="max"，少数据紧包收缩、超限表内滚动 -->
   <AtengTable<ProductItem>
     :pagination="pagination"
     :surface="tableSurface"
     :pagination-align="paginationAlign"
+    :auto-height="16"
+    :auto-height-mode="autoHeightMode"
     row-key="id"
-    auto-height
   >
     <template #query>
       <AtengQueryForm :model="queryForm" label-width="80px">
@@ -740,14 +750,20 @@ const pagination = usePagination(
     <el-table-column prop="price" label="售价" width="120" />
   </AtengTable>
 
-  <!-- 2. 若外层已包裹 ElCard / AtengDialog，通过 surface="plain" 铺平去重框 -->
+  <!-- 2. 若外层已包裹 ElCard / AtengDialog，通过 surface="plain" 铺平去重框；:auto-height="0" 贴合容器底边距 -->
   <el-card class="mt-4">
     <AtengQueryForm :model="queryForm" surface="plain" label-width="80px">
       <el-form-item label="快捷筛选" prop="name">
         <el-input v-model="queryForm.name" clearable />
       </el-form-item>
     </AtengQueryForm>
-    <AtengTable<ProductItem> :pagination="pagination" surface="plain" row-key="id">
+    <AtengTable<ProductItem>
+      :pagination="pagination"
+      surface="plain"
+      :auto-height="0"
+      auto-height-mode="max"
+      row-key="id"
+    >
       <el-table-column prop="name" label="商品名称" />
     </AtengTable>
   </el-card>
@@ -756,9 +772,12 @@ const pagination = usePagination(
 
 #### 核心机制与生产边界说明
 
-1. **双卡分体表面与全屏防双框**：`.at-table` 根容器保持透明背景，工具栏、表格主体与底部分页统一包裹于 `.at-table__surface`；`.at-table__query` 自动通过 `--at-query-form-margin-bottom: 0px` 消解内嵌表单自带底距，杜绝双倍留白；在 `.at-table--fullscreen` 全屏模式下自动剥离 `.at-table__surface` 边框、圆角与重复内边距；`autoHeight` 从 `.at-table__main` 顶部起算并动态扣减分页栏与表面底部内边距，保证底部分页条不被挤出视口。
-2. **Design Tokens 全链路对齐**：`--at-table-card-radius` 与 `--at-query-form-radius` 默认串联 `var(--at-radius-card, var(--el-border-radius-base, 6px))`（单引 `style.css` 为 `6px`，加载 `theme-pro.css` 自动对齐 `AtengCard` 的 `10px`），`AtengTable` 与 `AtengExcelFeedback` 分页区内置 `tabular-nums` 与 `flex-wrap: wrap` + `gap`，剥离 `theme-pro.css` 仍保持零数字抖动与安全折行。
-3. **自适应分页收敛状态机**：`paginationAlign: 'between'` 在含前置 `total` 时自动注入 `->` 触发 `.el-pagination__rightwrapper` 右侧分组（换行后右侧控件仍整体右对齐），无 `total` 时退化右对齐；根容器 `ResizeObserver` 在 `<640px` 自动降级 `pagerCount <= 5` 并隐藏 `jumper`、`<480px` 进一步隐藏 `sizes` 与切换 `size="small"`；`total === 0` 且未显式传入 `showPagination` 时自动隐藏分页，单页自动收敛 `jumper` 并在 $\ge 2$ 页时恢复。
+1. **双卡分体表面与全屏防双框**：`.at-table` 根容器保持透明背景，工具栏、表格主体与底部分页统一包裹于 `.at-table__surface`；`.at-table__query` 自动通过 `--at-query-form-margin-bottom: 0px` 消解内嵌表单自带底距，杜绝双倍留白；在 `.at-table--fullscreen` 全屏模式下自动剥离 `.at-table__surface` 边框、圆角与重复内边距。
+2. **双模视口自适应高度（`fixed` vs `max`）与边界防御**：
+   - `autoHeightMode: 'fixed'`（默认）绑定 `ElTable` 的 `:height`，始终撑满视口剩余空间；`autoHeightMode: 'max'` 绑定 `:max-height`，数据少时紧包内容收缩，超出可用空间时自动封顶并在表格体内部滚动，锁定表头、工具栏与底部分页栏；全屏模式下依然严格尊重 `autoHeightMode`，退出全屏后即时恢复重算；
+   - `:auto-height="0"` 正确视为“开启自适应且底部额外预留 `0px`”（负数安全钳位至 `0`）；`autoHeight: false` 时 `autoHeightMode` 保持惰性并完整保留 `$attrs` 透传的原生 `height` / `max-height`；运行期切换模式或关闭自适应时，主动清理 `ElTable` 残留内联 `height` / `max-height` 样式并调用 `doLayout()`；
+   - `autoHeight` 从 `.at-table__main` 顶部起算（保底最小 `150px`），在 `surface !== 'plain'` 且非全屏态下同步扣减分页栏高度、`.at-table__surface` 的 `paddingBottom` 与 `borderBottomWidth`，消灭 `1~2px` 外层滚动条；并通过独立辅助 `ResizeObserver` 监听 `#query`、工具栏与分页容器变化，结合 `data` 变更及 `@expand-change`（树形/展开行折叠）在 `nextTick` 后平滑重算。
+3. **Design Tokens 全链路对齐与自适应分页收敛**：`--at-table-card-radius` 与 `--at-query-form-radius` 默认串联 `var(--at-radius-card, var(--el-border-radius-base, 6px))`，`AtengTable` 与 `AtengExcelFeedback` 分页区内置 `tabular-nums` 与 `flex-wrap: wrap` + `gap`；`paginationAlign: 'between'` 在含前置 `total` 时自动注入 `->` 分组，根容器 `ResizeObserver` 在 `<640px` 自动降级 `pagerCount <= 5` 并隐藏 `jumper`、`<480px` 进一步隐藏 `sizes` 与切换 `size="small"`，`total === 0` 自动隐藏分页，单页自动收敛 `jumper`。
 
 ---
 
@@ -4949,9 +4968,10 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 | 接口 / 类型名                 | 类别      | 核心字段 / 签名说明                                                                                                                                                                                                                                                                                                                                                                                                              | 所在源码路径                    |
 | :---------------------------- | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------ |
+| `TableAutoHeightMode`         | Type      | `'fixed' \| 'max'`                                                                                                                                                                                                                                                                                                                                                                                                               | `src/components/table/types.ts` |
 | `AtengTableColumnConfig<T>`   | Interface | `prop: keyof T \| string`, `label: string`, `width`, `minWidth`, `sortable`, `fixed`, `align`, `formatter`                                                                                                                                                                                                                                                                                                                       | `src/components/table/types.ts` |
-| `AtengTableProps<T, TParams>` | Interface | `data?: T[]`, `pagination?: UsePaginationResult<T, TParams>`, `columns?: TableColumnConfig[]`, `surface?: TableSurface`, `paginationAlign?: TablePaginationAlign`, `responsivePagination?: boolean`, `paginationPagerCount?: number`, `hidePaginationOnEmpty?: boolean`, `hideJumperOnSinglePage?: boolean`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string \| ((row: T) => string)` | `src/components/table/types.ts` |
-| `AtengTableEmits<T>`          | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`, `update:current`, `update:size`, `pagination-change: (data: { current; size }) => void`                                                                                                                                                                                                                                         | `src/components/table/types.ts` |
+| `AtengTableProps<T, TParams>` | Interface | `data?: T[]`, `pagination?: UsePaginationResult<T, TParams>`, `columns?: TableColumnConfig[]`, `surface?: TableSurface`, `autoHeight?: boolean \| number`, `autoHeightMode?: TableAutoHeightMode`, `paginationAlign?: TablePaginationAlign`, `responsivePagination?: boolean`, `paginationPagerCount?: number`, `hidePaginationOnEmpty?: boolean`, `hideJumperOnSinglePage?: boolean`, `storageKey?: string`, `reserveSelection?: boolean`, `loading?: boolean`, `rowKey?: string \| ((row: T) => string)` | `src/components/table/types.ts` |
+| `AtengTableEmits<T>`          | Interface | `selection-change: (rows: T[]) => void`, `sort-change: (data: { column; prop; order }) => void`, `expand-change: (row: T, expandedRowsOrExpanded: T[] \| boolean) => void`, `update:current`, `update:size`, `pagination-change: (data: { current; size }) => void`                                                                                                                                                                  | `src/components/table/types.ts` |
 | `AtengTableExpose<T>`         | Interface | `tableRef`, `clearSelection()`, `toggleRowSelection(row, selected)`, `resetColumns()`, `toggleAllSelection()`                                                                                                                                                                                                                                                                                                                    | `src/components/table/types.ts` |
 
 #### 2. AtengQueryForm 核心接口
@@ -5129,7 +5149,7 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 12. **纯原生 HTML5 列拖拽排序与 ResizeObserver 视口高度自适应防线 (Native Drag Order & AutoHeight Invariant)**：
 
-- `AtengTable` 坚决拒绝引入重型 `SortableJS`，基于原生 HTML5 Drag & Drop API 实现列配置列表的毫秒级拖拽排序，并通过 `storageKey` 本地持久化记忆用户排序列顺序；`autoHeight` 基于 `ResizeObserver` 实时监听父容器/视口变化动态计算表格体最大高度，组件销毁时确定性解绑监听，彻底告别双滚动条与视口撑破；
+- `AtengTable` 坚决拒绝引入重型 `SortableJS`，基于原生 HTML5 Drag & Drop API 实现列配置列表的毫秒级拖拽排序，并通过 `storageKey` 本地持久化记忆用户排序列顺序；`autoHeight` 配合 `autoHeightMode: 'fixed' | 'max'` 基于双 `ResizeObserver` 实时监听容器、检索区与分页变化动态计算可用高度（或弹性上限），并在模式切换/卸载时清理残留样式与监听，彻底告别双滚动条与视口撑破；
 
 13. **2000 行环形内存截断防 DOM 膨胀与贴底滚动防线 (Circular Memory Buffer & Anti-DOM-Bloat Invariant)**：
 
@@ -5185,7 +5205,7 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
     - `AtengProLayout` 内置基于 `matchMedia` 的移动端窄屏断点（默认 768px）自适应识别。在移动端模式下侧边栏不挤压内容区宽度（`asideWidth` 归零），展开时以 `is-mobile-drawer` 抽屉遮罩浮层呈现，点击遮罩背景或任意菜单叶子节点自动平滑收起；
     - `<AtengTabsNav />` 原生拖拽调序内置防呆保护：普通标签严格禁止被拖拽放置到带有 `affix: true` 的固定标签之前，且固定标签不可被拖动，彻底杜绝首部常驻标签时序错乱。
 36. **双卡分体表面与自适应分页收敛不变量 (Dual-Card Surface & Adaptive Pagination Invariant)**：
-    - `AtengTable` 根容器保持透明背景，工具栏/表格/分页收拢于 `.at-table__surface`，全屏态剥离表面外框与重复内边距，`autoHeight` 从 `.at-table__main` 起算并扣减分页栏与表面底部内边距；`surface="plain"` 为嵌套场景提供无双框降级；
+    - `AtengTable` 根容器保持透明背景，工具栏/表格/分页收拢于 `.at-table__surface`，全屏态剥离表面外框与重复内边距，`autoHeight` 从 `.at-table__main` 起算并扣减分页栏、表面底部内边距与底边框（`borderBottomWidth`），支持 `autoHeightMode: 'fixed' | 'max'` 双模绑定与 `:auto-height="0"` 边界预留；`surface="plain"` 为嵌套场景提供无双框降级；
     - `AtengTable` 底部分页默认启用 `paginationAlign: 'between'`（含前置 `total` 时注入 `->` 分组）、`<640px` / `<480px` 渐进响应式降级、`total === 0` 自动隐藏分页（显式 `showPagination` 优先级最高）与单页自动收敛 `jumper`，并在 SFC 样式内原生内置 `tabular-nums` 与安全折行。
 
 ---

@@ -39,6 +39,7 @@ import {
   type AtengTableInstance,
   type TableSurface,
   type TablePaginationAlign,
+  type TableAutoHeightMode,
 } from '@atengk/element-plus';
 import type { PageQuery, PageResult } from '@atengk/core';
 
@@ -73,10 +74,11 @@ const mockNetworkError = ref(false);
 const tableSurface = ref<TableSurface>('card');
 const paginationAlign = ref<TablePaginationAlign>('between');
 const previewContainerWidth = ref<'100%' | '560px' | '400px'>('100%');
-const datasetPreset = ref<'multi' | 'single' | 'empty'>('multi');
+const datasetPreset = ref<'multi' | 'few' | 'single' | 'empty'>('multi');
 
 const datasetLimitMap = {
   multi: 100,
+  few: 3,
   single: 8,
   empty: 0,
 } as const;
@@ -186,6 +188,7 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 
 // 7. 进阶特性演示状态
 const enableAutoHeight = ref(false);
+const autoHeightMode = ref<TableAutoHeightMode>('max');
 const tableWrapperStyle = computed(() => ({
   width: previewContainerWidth.value,
   maxWidth: '100%',
@@ -215,9 +218,16 @@ const handleDatasetPresetChange = () => {
           <span class="ctrl-title">视口高度自适应 (autoHeight)：</span>
           <ElSwitch
             v-model="enableAutoHeight"
-            active-text="开启自适应 (撑满视口防双滚动条)"
-            inactive-text="固定高度/自适应行高"
+            active-text="开启自适应 (预留 16px)"
+            inactive-text="关闭 (自然增高)"
           />
+        </div>
+        <div class="control-item">
+          <span class="ctrl-title">高度自适应模式 (autoHeightMode)：</span>
+          <ElRadioGroup v-model="autoHeightMode" size="small" :disabled="!enableAutoHeight">
+            <ElRadioButton value="fixed">撑满定高 (fixed)</ElRadioButton>
+            <ElRadioButton value="max">弹性封顶 (max)</ElRadioButton>
+          </ElRadioGroup>
         </div>
         <div class="control-item">
           <span class="ctrl-title">表面外观 (surface)：</span>
@@ -245,6 +255,7 @@ const handleDatasetPresetChange = () => {
           <span class="ctrl-title">数据集规模：</span>
           <ElRadioGroup v-model="datasetPreset" size="small" @change="handleDatasetPresetChange">
             <ElRadioButton value="multi">多页 (100条)</ElRadioButton>
+            <ElRadioButton value="few">少数据 (3条对比留白)</ElRadioButton>
             <ElRadioButton value="single">单页 (8条藏 jumper)</ElRadioButton>
             <ElRadioButton value="empty">空数据 (0条藏分页)</ElRadioButton>
           </ElRadioGroup>
@@ -292,7 +303,12 @@ const handleDatasetPresetChange = () => {
         64 位分布式雪花 ID 字符串。<br />
         💡 提示 4：下方 <code>AtengTable</code> 已去除外层冗余 <code>ElCard</code>，直接呈现「检索卡
         + 表格表面卡」双卡分体；可切换窄容器 <code>560px</code> / <code>400px</code>
-        及单页/空数据集观察分页自适应收敛。
+        及单页/空数据集观察分页自适应收敛。<br />
+        💡 提示 5：开启<strong>「视口高度自适应 (autoHeight)」</strong>并切换
+        <code>fixed</code>（撑满定高）与 <code>max</code>（弹性封顶）：在<strong
+          >「少数据 (3条)」</strong
+        >下可对比留白消除效果；在<strong>「多页 (100条)」</strong>将每页条数调至
+        <code>50</code> 或 <code>100</code> 时，<code>max</code> 模式将自动封顶并在表格体内部滚动。
       </div>
     </ElCard>
 
@@ -304,7 +320,8 @@ const handleDatasetPresetChange = () => {
         :pagination="pagination"
         :surface="tableSurface"
         :pagination-align="paginationAlign"
-        :auto-height="enableAutoHeight ? 32 : false"
+        :auto-height="enableAutoHeight ? 16 : false"
+        :auto-height-mode="autoHeightMode"
         reserve-selection
         row-key="id"
         storage-key="sample-crud-table-columns"

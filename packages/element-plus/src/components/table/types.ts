@@ -90,6 +90,13 @@ export type TableSurface = 'card' | 'plain';
 export type TablePaginationAlign = 'between' | 'end';
 
 /**
+ * 视口高度自适应绑定模式。
+ * - `'fixed'`：绑定 ElTable 的 `height`，始终撑满剩余视口高度（默认，保持向后兼容）
+ * - `'max'`：绑定 ElTable 的 `max-height`，少数据时随内容收缩，超出视口可用高度时封顶并表内滚动
+ */
+export type TableAutoHeightMode = 'fixed' | 'max';
+
+/**
  * AtengTable 属性接口。
  *
  * @template T 表格行数据实体模型类型
@@ -164,11 +171,19 @@ export interface AtengTableProps<
   minResizeWidth?: number;
 
   /**
-   * 是否开启视口高度自适应，自动计算表格高度撑满屏幕剩余空间。
-   * 若为 number 则表示自定义距离视口底部的预留像素。
+   * 是否开启视口高度自适应，自动计算表格可用高度。
+   * 若为 number 则表示自定义距离视口底部的预留像素（含 0px）。
    * @default false
    */
   autoHeight?: boolean | number;
+
+  /**
+   * 视口高度自适应绑定模式（仅在开启 autoHeight 时生效）。
+   * - `'fixed'`：绑定 ElTable 的 `height`，始终撑满剩余视口高度（默认，保持向后兼容）
+   * - `'max'`：绑定 ElTable 的 `max-height`，少数据时随内容收缩，超出视口可用高度时封顶并表内滚动
+   * @default 'fixed'
+   */
+  autoHeightMode?: TableAutoHeightMode;
 
   /**
    * 外部受控 Loading 状态。
@@ -391,6 +406,12 @@ export interface AtengTableEmits<T extends object = Record<string, unknown>> {
    * 单独每页条数变动事件。
    */
   (e: 'size-change', size: number): void;
+
+  /**
+   * 展开行或树形节点展开状态变化事件。
+   */
+  (e: 'expand-change', row: T, expandedRows: T[]): void;
+  (e: 'expand-change', row: T, expanded: boolean): void;
 }
 
 /**

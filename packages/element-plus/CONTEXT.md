@@ -212,6 +212,10 @@ _Avoid_: DoubleWrapper, OuterBox, CardShell, TableCard
 `AtengTable` 底部分页区基于 `paginationAlign`（`'between' | 'end'`）、根容器 `ResizeObserver` 窄宽断点（`< 640px` / `< 480px`）以及空数据或单页状态自动执行主轴分组、控件精简与收敛隐藏的响应式分页机制。
 _Avoid_: SmartPager, AutoHidePager, MobilePagination
 
+**视口自适应高度 (Viewport Auto-Height)**:
+`AtengTable` 依据视口剩余可用空间动态约束表格高度的双模式高度适配机制，支持**视口撑满定高**（`fixed`，始终撑满剩余高度）与**视口弹性封顶**（`max`，少数据紧包内容收缩，超限自动封顶并表内滚动）。
+_Avoid_: SmartHeight, AutoFlexHeight, DynamicTableHeight, MaxHeightHack
+
 ## 现代多主题设计引擎 (Theme Engine)
 
 **Base Style Bundle**:

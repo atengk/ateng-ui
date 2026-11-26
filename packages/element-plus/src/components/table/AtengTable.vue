@@ -26,6 +26,8 @@ import {
   ref,
   shallowRef,
   watch,
+  nextTick,
+  useAttrs,
   onMounted,
   onUnmounted,
   provide,
@@ -71,7 +73,7 @@ import type {
 } from './types';
 import { parseColumnVNodes, filterAndSortColumnVNodes } from './utils/vnode';
 import { resolveEffectivePagination, type ResolvedPaginationState } from './utils/pagination';
-import { useTableLayout } from './utils/useTableLayout';
+import { useTableLayout, isAutoHeightEnabled } from './utils/useTableLayout';
 
 defineOptions({
   name: 'AtengTable',
@@ -91,6 +93,7 @@ const props = withDefaults(defineProps<AtengTableProps<T, TParams>>(), {
   enableColumnResize: true,
   minResizeWidth: 40,
   autoHeight: false,
+  autoHeightMode: 'fixed',
   loading: false,
   total: undefined,
   current: undefined,
@@ -184,12 +187,16 @@ const toggleFullscreen = () => {
 };
 
 const tableRootRef = ref<HTMLElement | null>(null);
+const tableQueryRef = ref<HTMLElement | null>(null);
+const tableToolbarRef = ref<HTMLElement | null>(null);
 const tableSurfaceRef = ref<HTMLElement | null>(null);
 const tableMainRef = ref<HTMLElement | null>(null);
 const paginationContainerRef = ref<HTMLElement | null>(null);
 
-const { tableContainerWidth, calculatedHeight } = useTableLayout({
+const { tableContainerWidth, calculatedHeight, scheduleAutoHeightUpdate } = useTableLayout({
   tableRootRef,
+  tableQueryRef,
+  tableToolbarRef,
   tableSurfaceRef,
   tableMainRef,
   paginationContainerRef,
@@ -623,15 +630,106 @@ const renderFilteredSlotColumns = () => {
   });
 };
 
-const effectiveTableHeight = computed(() => {
-  if (props.autoHeight && calculatedHeight.value) {
+const attrs = useAttrs();
+const isAutoHeightActive = computed<boolean>(() => isAutoHeightEnabled(props.autoHeight));
+
+const effectiveTableHeight = computed<number | undefined>(() => {
+  if (isAutoHeightActive.value && props.autoHeightMode === 'fixed' && calculatedHeight.value) {
     return calculatedHeight.value;
   }
   return undefined;
 });
 
+const effectiveTableMaxHeight = computed<number | undefined>(() => {
+  if (isAutoHeightActive.value && props.autoHeightMode === 'max' && calculatedHeight.value) {
+    return calculatedHeight.value;
+  }
+  return undefined;
+});
+
+const elTableAttrs = computed<Record<string, unknown>>(() => {
+  const rawAttrs = attrs as Record<string, unknown>;
+  const {
+    height: attrHeight,
+    maxHeight: attrMaxHeight,
+    'max-height': attrKebabMaxHeight,
+    ...restAttrs
+  } = rawAttrs;
+
+  if (isAutoHeightActive.value) {
+    return {
+      ...restAttrs,
+      ...(effectiveTableHeight.value !== undefined ? { height: effectiveTableHeight.value } : {}),
+      ...(effectiveTableMaxHeight.value !== undefined
+        ? { maxHeight: effectiveTableMaxHeight.value }
+        : {}),
+    };
+  }
+
+  return {
+    ...restAttrs,
+    ...(attrHeight !== undefined ? { height: attrHeight } : {}),
+    ...(attrMaxHeight !== undefined ? { maxHeight: attrMaxHeight } : {}),
+    ...(attrKebabMaxHeight !== undefined ? { 'max-height': attrKebabMaxHeight } : {}),
+  };
+});
+
 // 6. 表格实例、跨页多选状态机与核心门面
 const tableRef = shallowRef<TableInstance>() as ShallowRef<TableInstance | undefined>;
+
+const syncElTableDimensionStyles = () => {
+  const el = tableRef.value?.$el as HTMLElement | undefined;
+  if (!el) return;
+
+  if (isAutoHeightActive.value) {
+    if (props.autoHeightMode === 'fixed') {
+      el.style.removeProperty('max-height');
+    } else {
+      el.style.removeProperty('height');
+    }
+  } else {
+    const rawAttrs = attrs as Record<string, unknown>;
+    if (rawAttrs.height === undefined) {
+      el.style.removeProperty('height');
+    }
+    if (rawAttrs.maxHeight === undefined && rawAttrs['max-height'] === undefined) {
+      el.style.removeProperty('max-height');
+    }
+  }
+  tableRef.value?.doLayout?.();
+};
+
+watch(
+  [isAutoHeightActive, () => props.autoHeightMode, calculatedHeight],
+  () => {
+    nextTick(syncElTableDimensionStyles);
+  },
+  { flush: 'post' },
+);
+
+watch(
+  () => tableData.value,
+  () => {
+    if (isAutoHeightActive.value) {
+      scheduleAutoHeightUpdate(() => {
+        tableRef.value?.doLayout?.();
+      });
+    }
+  },
+);
+
+const handleExpandChange = (row: unknown, expandedRowsOrExpanded: unknown) => {
+  if (typeof expandedRowsOrExpanded === 'boolean') {
+    emit('expand-change', row as T, expandedRowsOrExpanded);
+  } else {
+    emit('expand-change', row as T, (expandedRowsOrExpanded ?? []) as T[]);
+  }
+  if (isAutoHeightActive.value) {
+    scheduleAutoHeightUpdate(() => {
+      tableRef.value?.doLayout?.();
+    });
+  }
+};
 
 const fallbackSelectedRows = shallowRef<T[]>([]);
 
@@ -969,14 +1067,14 @@ defineExpose<AtengTableExpose<T>>({
     ]"
   >
     <!-- 顶部高级搜索表单插槽 -->
-    <div v-if="$slots.query" class="at-table__query">
+    <div v-if="$slots.query" ref="tableQueryRef" class="at-table__query">
       <slot name="query" />
     </div>
 
     <!-- 表格卡片表面容器：统一承载工具栏、表格主体与底部分页区 -->
     <div ref="tableSurfaceRef" class="at-table__surface">
       <!-- 企业级工具栏区域 -->
-      <div v-if="shouldShowToolbar" class="at-table__toolbar">
+      <div v-if="shouldShowToolbar" ref="tableToolbarRef" class="at-table__toolbar">
         <!-- 左侧操作插槽 -->
         <div class="at-table__toolbar-left">
           <slot name="toolbar-left" />
@@ -1129,16 +1227,16 @@ defineExpose<AtengTableExpose<T>>({
         <el-table
           ref="tableRef"
           v-loading="isLoading"
-          v-bind="$attrs"
+          v-bind="elTableAttrs"
           :data="tableData"
           :row-key="rowKey"
           :border="border"
           :stripe="currentStripe"
-          :height="effectiveTableHeight"
           class="at-table__inner"
           @selection-change="handleSelectionChange"
           @sort-change="handleSortChange"
           @header-dragend="onHeaderDragend"
+          @expand-change="handleExpandChange"
         >
           <!-- 属性列合并渲染 -->
           <template v-for="col in activeAttributeColumns" :key="col.prop || col.label">

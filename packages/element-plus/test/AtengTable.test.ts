@@ -1735,4 +1735,364 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       }
     });
   });
+
+  describe('AtengTable autoHeightMode 双模视口自适应与动态重算测试', () => {
+    it('autoHeightMode 切换与 ElTable 内联样式清理：fixed 绑定 height，max 绑定 maxHeight，关闭时清空残留', async () => {
+      const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            autoHeight: 32,
+          },
+          slots: {
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+
+        const elTable = wrapper.findComponent({ name: 'ElTable' });
+        const elTableDom = elTable.element as HTMLElement;
+
+        // 1. 默认 fixed 模式：传 height，maxHeight 为 undefined
+        expect(typeof elTable.props('height')).toBe('number');
+        expect(elTable.props('maxHeight')).toBeUndefined();
+        expect(elTableDom.style.height).toBeTruthy();
+        expect(elTableDom.style.maxHeight).toBe('');
+
+        // 2. 动态切换为 max 模式：传 maxHeight，height 为 undefined，且清理残留 style.height
+        await wrapper.setProps({ autoHeightMode: 'max' });
+        await doubleWait();
+        expect(elTable.props('height')).toBeUndefined();
+        expect(typeof elTable.props('maxHeight')).toBe('number');
+        expect(elTableDom.style.height).toBe('');
+
+        // 3. 模拟残留 inline max-height 后切回 fixed 模式：验证主动清理残留 style.maxHeight
+        elTableDom.style.maxHeight = '500px';
+        await wrapper.setProps({ autoHeightMode: 'fixed' });
+        await doubleWait();
+        expect(typeof elTable.props('height')).toBe('number');
+        expect(elTable.props('maxHeight')).toBeUndefined();
+        expect(elTableDom.style.maxHeight).toBe('');
+
+        // 4. 动态关闭 autoHeight：同时清空 height 与 maxHeight 属性与内联样式
+        await wrapper.setProps({ autoHeightMode: 'max' });
+        await doubleWait();
+        elTableDom.style.maxHeight = '500px';
+        await wrapper.setProps({ autoHeight: false });
+        await doubleWait();
+        expect(elTable.props('height')).toBeUndefined();
+        expect(elTable.props('maxHeight')).toBeUndefined();
+        expect(elTableDom.style.height).toBe('');
+        expect(elTableDom.style.maxHeight).toBe('');
+      } finally {
+        if (originalInnerHeightDesc) {
+          Object.defineProperty(window, 'innerHeight', originalInnerHeightDesc);
+        }
+      }
+    });
+
+    it('autoHeight: 0 边界激活与关闭态 $attrs 原生 height/max-height 透传保留', async () => {
+      const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        // 1. autoHeight=false 且传入 autoHeightMode="max" 保持惰性，不覆盖透传的 max-height
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            total: 50,
+            autoHeight: false,
+            autoHeightMode: 'max',
+          },
+          attrs: {
+            'max-height': 360,
+          },
+          slots: {
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+        const elTable = wrapper.findComponent({ name: 'ElTable' });
+        expect(elTable.props('maxHeight')).toBe(360);
+        expect(elTable.props('height')).toBeUndefined();
+
+        const mainEl = wrapper.find('.at-table__main').element as HTMLElement;
+        const paginationEl = wrapper.find('.at-table__pagination').element as HTMLElement;
+        vi.spyOn(mainEl, 'getBoundingClientRect').mockReturnValue({
+          top: 240,
+          left: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 360,
+          x: 0,
+          y: 240,
+          toJSON: () => ({}),
+        } as DOMRect);
+        vi.spyOn(paginationEl, 'getBoundingClientRect').mockReturnValue({
+          top: 620,
+          left: 0,
+          right: 1000,
+          bottom: 664,
+          width: 1000,
+          height: 44,
+          x: 0,
+          y: 620,
+          toJSON: () => ({}),
+        } as DOMRect);
+
+        // 2. 传入 autoHeight: 0 时启用自适应且预留 0px => 900 - 240 - 44 - 16 - 0 = 600
+        await wrapper.setProps({ autoHeight: 0 });
+        await doubleWait();
+        expect(elTable.props('maxHeight')).toBe(600);
+        expect(elTable.props('height')).toBeUndefined();
+      } finally {
+        if (originalInnerHeightDesc) {
+          Object.defineProperty(window, 'innerHeight', originalInnerHeightDesc);
+        }
+      }
+    });
+
+    it('表面底边框 borderBottomWidth 精确扣减与全屏 max 模式平滑适配恢复', async () => {
+      const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        writable: true,
+        configurable: true,
+      });
+      const realGetComputedStyle = window.getComputedStyle.bind(window);
+      const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle');
+
+      try {
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            total: 50,
+            autoHeight: false,
+            autoHeightMode: 'max',
+            surface: 'card',
+          },
+          slots: {
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+
+        const surfaceEl = wrapper.find('.at-table__surface').element as HTMLElement;
+        const mainEl = wrapper.find('.at-table__main').element as HTMLElement;
+        const paginationEl = wrapper.find('.at-table__pagination').element as HTMLElement;
+
+        vi.spyOn(mainEl, 'getBoundingClientRect').mockReturnValue({
+          top: 240,
+          left: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 360,
+          x: 0,
+          y: 240,
+          toJSON: () => ({}),
+        } as DOMRect);
+        vi.spyOn(paginationEl, 'getBoundingClientRect').mockReturnValue({
+          top: 620,
+          left: 0,
+          right: 1000,
+          bottom: 664,
+          width: 1000,
+          height: 44,
+          x: 0,
+          y: 620,
+          toJSON: () => ({}),
+        } as DOMRect);
+
+        getComputedStyleSpy.mockImplementation((el: Element, pseudo?: string | null) => {
+          if (el === surfaceEl) {
+            return {
+              paddingBottom: '16px',
+              borderBottomStyle: 'solid',
+              borderBottomWidth: '1px',
+            } as unknown as CSSStyleDeclaration;
+          }
+          return realGetComputedStyle(el, pseudo);
+        });
+
+        // 1. card 模式下同时扣减 paddingBottom(16) 与 borderBottomWidth(1) => 900 - 240 - 44 - 16 - 1 - 16 = 583
+        await wrapper.setProps({ autoHeight: 16 });
+        await doubleWait();
+        const elTable = wrapper.findComponent({ name: 'ElTable' });
+        expect(elTable.props('maxHeight')).toBe(583);
+        expect(elTable.props('height')).toBeUndefined();
+
+        // 2. plain 模式下不扣减表面 padding 与 border => 900 - 240 - 44 - 0 - 0 - 16 = 600
+        await wrapper.setProps({ surface: 'plain' });
+        await doubleWait();
+        expect(elTable.props('maxHeight')).toBe(600);
+
+        // 3. 恢复 card 并进入全屏：仍按 max 模式输出且不扣减表面内边距与边框 => 600
+        await wrapper.setProps({ surface: 'card' });
+        await doubleWait();
+        expect(elTable.props('maxHeight')).toBe(583);
+
+        await wrapper.find('button[aria-label="全屏"]').trigger('click');
+        await doubleWait();
+        expect(wrapper.classes()).toContain('at-table--fullscreen');
+        expect(elTable.props('maxHeight')).toBe(600);
+        expect(elTable.props('height')).toBeUndefined();
+
+        // 4. 退出全屏即时恢复扣减 => 583
+        await wrapper.find('button[aria-label="还原"]').trigger('click');
+        await doubleWait();
+        expect(elTable.props('maxHeight')).toBe(583);
+      } finally {
+        getComputedStyleSpy.mockRestore();
+        if (originalInnerHeightDesc) {
+          Object.defineProperty(window, 'innerHeight', originalInnerHeightDesc);
+        }
+      }
+    });
+
+    it('辅助 ResizeObserver 与 expand-change / 分页 / 数据切换联动平滑重算并确定性销毁', async () => {
+      interface ObserverRecord {
+        callback: ResizeObserverCallback;
+        targets: Element[];
+        disconnected: boolean;
+      }
+      const observers: ObserverRecord[] = [];
+
+      class MockResizeObserver {
+        private record: ObserverRecord;
+        constructor(callback: ResizeObserverCallback) {
+          this.record = { callback, targets: [], disconnected: false };
+          observers.push(this.record);
+        }
+        observe(target: Element) {
+          this.record.targets.push(target);
+        }
+        disconnect() {
+          this.record.disconnected = true;
+        }
+        unobserve() {}
+      }
+
+      const originalRO = globalThis.ResizeObserver;
+      const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+      globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            total: 50,
+            autoHeight: 16,
+            autoHeightMode: 'max',
+          },
+          slots: {
+            query: () => h('div', { class: 'mock-query-panel' }, '检索区域'),
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+
+        const queryEl = wrapper.find('.at-table__query').element as HTMLElement;
+        const mainEl = wrapper.find('.at-table__main').element as HTMLElement;
+        const paginationEl = wrapper.find('.at-table__pagination').element as HTMLElement;
+
+        let mainTop = 200;
+        vi.spyOn(mainEl, 'getBoundingClientRect').mockImplementation(
+          () =>
+            ({
+              top: mainTop,
+              left: 0,
+              right: 1000,
+              bottom: mainTop + 300,
+              width: 1000,
+              height: 300,
+              x: 0,
+              y: mainTop,
+              toJSON: () => ({}),
+            }) as DOMRect,
+        );
+        vi.spyOn(paginationEl, 'getBoundingClientRect').mockReturnValue({
+          top: 620,
+          left: 0,
+          right: 1000,
+          bottom: 664,
+          width: 1000,
+          height: 44,
+          x: 0,
+          y: 620,
+          toJSON: () => ({}),
+        } as DOMRect);
+
+        // 1. 辅助 ResizeObserver 已独立绑定 .at-table__query
+        const auxObserver = observers.find(
+          item => item.targets.includes(queryEl) && !item.disconnected,
+        );
+        expect(auxObserver).toBeDefined();
+
+        // 模拟 #query 展开导致 mainTop 下移至 280px，触发辅助 ResizeObserver 重算
+        mainTop = 280;
+        auxObserver!.callback([], {} as ResizeObserver);
+        await doubleWait();
+
+        const elTable = wrapper.findComponent({ name: 'ElTable' });
+        // 900 - 280 - 44 - 16 - 16 = 544
+        expect(elTable.props('maxHeight')).toBe(544);
+
+        // 2. 模拟树形/展开行折叠触发 expand-change，并转发事件与触发 nextTick 重算
+        mainTop = 260;
+        elTable.vm.$emit('expand-change', mockData[0], true);
+        await doubleWait();
+        expect(wrapper.emitted('expand-change')?.[0]).toEqual([mockData[0], true]);
+        // 900 - 260 - 44 - 16 - 16 = 564
+        expect(elTable.props('maxHeight')).toBe(564);
+
+        // 3. 模拟 total 切为 0 隐藏分页，重算恢复分页所占 44px => 608
+        await wrapper.setProps({ total: 0 });
+        await doubleWait();
+        expect(elTable.props('maxHeight')).toBe(608);
+
+        // 4. 卸载时断开 AtengTable 创建的全部 ResizeObserver（根观察器与辅助观察器）
+        const rootEl = wrapper.element as Element;
+        const toolbarEl = wrapper.find('.at-table__toolbar').element as Element;
+        const atengObservedTargets = new Set([rootEl, queryEl, toolbarEl, paginationEl]);
+        const atengObservers = observers.filter(item =>
+          item.targets.some(target => atengObservedTargets.has(target)),
+        );
+        expect(atengObservers.length).toBeGreaterThanOrEqual(2);
+        wrapper.unmount();
+        wrapper = null;
+        expect(atengObservers.every(item => item.disconnected)).toBe(true);
+      } finally {
+        globalThis.ResizeObserver = originalRO;
+        if (originalInnerHeightDesc) {
+          Object.defineProperty(window, 'innerHeight', originalInnerHeightDesc);
+        }
+      }
+    });
+  });
 });

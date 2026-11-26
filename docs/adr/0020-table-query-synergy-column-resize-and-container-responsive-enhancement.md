@@ -96,6 +96,18 @@ Accepted (已采纳 / 已实装)
   - 新增 `hidePaginationOnEmpty?: boolean`（默认 `true`）与 `hideJumperOnSinglePage?: boolean`（默认 `true`）；
   - 显式 `showPagination` 拥有最高优先级；未显式覆盖时 `total <= 0` 自动隐藏分页区（含 `#pagination` 插槽）；`total > 0` 且总页数 $\le 1$ 时自动从有效 `layout` 剔除 `jumper`（保底防止自定义极简 layout 被置空），总页数 $\ge 2$ 自动恢复。
 
+### 7. 视口自适应高度双模式与动态重算治理 (Viewport Auto-Height Modes, 2026-11-26 增量修订)
+
+- **扁平正交 `autoHeightMode` 与 `:auto-height="0"` 边界**：
+  - 新增 `TableAutoHeightMode = 'fixed' | 'max'`（`autoHeightMode?: TableAutoHeightMode`，默认 `'fixed'`），仅在 `autoHeight` 启用时生效；`autoHeight` 保持 `boolean | number` 签名，且修正数字 `0` 被 `!val` 误判为关闭的缺陷（`0` 表示启用且额外底部预留 `0px`，负数安全钳位至 `0`）；
+  - `'fixed'` 传 `:height` 保持视口撑满向后兼容；`'max'` 传 `:max-height` 实现“少数据紧包内容收缩、超限封顶表内滚动”，全屏态（`.at-table--fullscreen`）下仍严格尊重 `autoHeightMode` 并维持全屏 `surfaceBottomPadding = 0` 基线。
+- **`$attrs` 互斥优先级与 `ElTable` 内联样式残留清理**：
+  - 关闭 `autoHeight` 时完整保留用户通过 `$attrs` 手动传入的 `height` / `max-height`；
+  - 开启 `autoHeight` 时剥离 `$attrs` 中的 `height` / `maxHeight` / `max-height` 避免与内部模式冲突，并针对 Element Plus `TableLayout.setHeight(null)` 不清理旧 `el.style.height` / `el.style['max-height']` 的行为，在模式切换或关闭 `autoHeight` 时主动清除互斥内联样式并调用 `doLayout()` 校准滚动状态。
+- **表面底边框精确扣减与辅助 `ResizeObserver` 隔离**：
+  - 在 `surface !== 'plain' && !isFullscreen` 时同步扣减 `.at-table__surface` 的 `borderBottomWidth`（`getComputedStyle` 为空串时安全回退 `0`，真实浏览器按实际边框像素扣减，杜绝外部精确留白容器产生 `1~2px` 冗余滚动条）；暂不扣减 `.at-table__batch-bar` 高度以防止勾选行时行位置上移误触；
+  - 建立独立辅助 `ResizeObserver` 观察 `#query`、工具栏及分页容器高度变更（与根容器 `rootResizeObserver` 物理隔离，保障窄容器响应式单目标监听语义），并配合 `tableData` 变更及正式声明转发的 `@expand-change`（树形/展开行折叠）在 `nextTick` 后平滑重算（保留 `150px` 最小高度防塌陷下限）。
+
 ## 效果与影响
 
 - **收益 (Benefits)**：
