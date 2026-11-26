@@ -25,6 +25,7 @@ Accepted (已接受)
    - 针对架构风格规范：统一约束为 Vue 3 现代 `<script setup>` 范式（`vue/component-api-style: ['error', ['script-setup']]`）。
 4. **全链路硬门禁守护 (Zero-Glitch Gate)**：
    - 根工作区与各子包全量接入 `format:check` 与 `lint` 脚本；
+   - 接入 Git 原生 `.githooks/pre-commit`（通过根 `package.json` `prepare` 自动设置 `core.hooksPath`）与 `scripts/commit.sh` 暂存区前置 `lint-staged`（`eslint --fix` ➔ `prettier --write`），在提交入口自动隔离未暂存改动并强制与 `.prettierrc` 对齐；
    - CI 流水线（`.github/workflows/ci.yml`）将代码风格检查设为阻断性卡点，彻底废除 `continue-on-error: true`。
 
 ## 效果与权衡

@@ -440,6 +440,18 @@ fi
 printf "%b\n\n" "${COLOR_BOLD}${COLOR_CYAN}------------------------------------------------------------${COLOR_RESET}"
 
 if [ "$CLI_DRY_RUN" = true ]; then
+  if ! git diff --cached --quiet && command -v pnpm >/dev/null 2>&1; then
+    STAGED_FILES=()
+    while IFS= read -r -d '' file; do
+      STAGED_FILES+=("$file")
+    done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+    if [ "${#STAGED_FILES[@]}" -gt 0 ]; then
+      log_info "【Dry Run 演练模式】正在检查暂存区文件 Prettier 格式..."
+      if ! pnpm exec prettier --check --ignore-unknown "${STAGED_FILES[@]}"; then
+        log_warn "检测到暂存区存在未格式化文件（实际提交时将由 lint-staged 自动修复对齐）。"
+      fi
+    fi
+  fi
   log_info "【Dry Run 演练模式】提交信息组装与格式校验完成，已安全跳过实际提交与远程推送。"
   exit 0
 fi
@@ -582,6 +594,18 @@ else
     *)
       ;;
   esac
+fi
+
+# 执行提交前暂存区格式与静态规范对齐 (Pre-Commit Lint-Staged Guard)
+if command -v pnpm >/dev/null 2>&1; then
+  log_info "正在对暂存区文件执行 Prettier 与 ESLint 自动对齐 (lint-staged)..."
+  pnpm exec lint-staged
+  export ATENG_SKIP_PRE_COMMIT_LINT_STAGED=1
+fi
+
+if git diff --cached --quiet; then
+  log_error "暂存区在自动格式化后已无实际变更，安全中止空提交。"
+  exit 1
 fi
 
 # 执行提交

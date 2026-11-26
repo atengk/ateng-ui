@@ -145,6 +145,7 @@ Sample 自身的 `README.md` 统一定位为**“启动与场景交互体验卡�
 ## 4. 全真自动化回归命令
 
 ```bash
+pnpm run format:check && \
 pnpm --filter @atengk/<module> --filter sample-<module> typecheck && \
 pnpm --filter @atengk/<module> --filter sample-<module> lint && \
 pnpm --filter @atengk/<module> --filter sample-<module> test && \
@@ -178,4 +179,4 @@ pnpm --filter @atengk/<module> --filter sample-<module> build
 - [ ] **12. Sample 1:1 可视化多场景看板与双模配置**：子包所有公开特性在 `apps/sample-<name>` 中 100% 实装可视化交互看板（严禁白屏、纯 `console.log` 或单文件臃肿 `App.vue`）；Sample 标配 `.env.example` 与 `"private": true` 隔离。
 - [ ] **13. Sample-First 五维文档与三要素闭环**：子包 `README.md` 包含 100% 覆盖的全景速查矩阵，各特性章节在当前屏幕内实现“TS 类型/Props + 真实 Vue/TS 代码 + 核心机制”三要素闭环，按领域大章收敛，Sample `README.md` 采用四段式体验卡。
 - [ ] **14. Markdown 排版完整性与零绝对路径**：代码块闭合、块级元素空行隔离、表格列数严整（联合类型 `|` 转义为 `\|`）、Mermaid 特殊字符节点加双引号，文档内 100% 使用相对路径互链。
-- [ ] **15. 领域模型与阶梯二四合一门禁全绿**：`packages/<name>/CONTEXT.md`、`CONTEXT-MAP.md` 与 [`docs/adr/README.md`](../adr/README.md) 同步对齐；执行定向 `typecheck`、`lint`、`test`、`build` 四合一门禁 100% PASS。
+- [ ] **15. 领域模型与阶梯二全量门禁全绿**：`packages/<name>/CONTEXT.md`、`CONTEXT-MAP.md` 与 [`docs/adr/README.md`](../adr/README.md) 同步对齐；执行 `format:check`、定向 `typecheck`、`lint`、`test`、`build` 门禁 100% PASS。

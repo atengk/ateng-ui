@@ -8,6 +8,10 @@
 
 set -eo pipefail
 
+if [ "${ATENG_SKIP_PRE_COMMIT_LINT_STAGED:-0}" = "1" ]; then
+  exit 0
+fi
+
 if ! command -v pnpm &> /dev/null; then
   echo "⚠️ [pre-commit] 未检测到 pnpm，跳过本地预提交检查。"
   exit 0

@@ -47,7 +47,7 @@
 
 - **三阶梯测试准出**（纯文档 `*.md` 修改豁免执行构建与单测）：
   1. **阶梯一（日常自验）**：`pnpm --filter @atengk/<pkg> test` 与 `pnpm --filter @atengk/<pkg> typecheck`
-  2. **阶梯二（提交前四合一准出）**：`pnpm --filter @atengk/<pkg> --filter sample-<pkg> typecheck && pnpm --filter @atengk/<pkg> --filter sample-<pkg> lint && pnpm --filter @atengk/<pkg> --filter sample-<pkg> test && pnpm --filter @atengk/<pkg> --filter sample-<pkg> build`（L0/L1 核心改动须运行根目录全量 `pnpm typecheck && pnpm lint && pnpm test && pnpm build`）
+  2. **阶梯二（提交前四合一准出）**：`pnpm run format:check && pnpm --filter @atengk/<pkg> --filter sample-<pkg> typecheck && pnpm --filter @atengk/<pkg> --filter sample-<pkg> lint && pnpm --filter @atengk/<pkg> --filter sample-<pkg> test && pnpm --filter @atengk/<pkg> --filter sample-<pkg> build`（L0/L1 核心改动须运行根目录全量 `pnpm run format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build`）
   3. **阶梯三（推送后 CI 守护）**：推送后通过 `gh run watch <run-id>` 监控远端 GitHub Actions 流水线至全绿。
 - **全自洽单测三铁律（ADR-0008）**：① 挂载组件测试必须在 `afterEach` 执行 `wrapper.unmount()` 并清理残留 DOM / Teleport 节点；② `localStorage`/`sessionStorage`、Pinia 状态与 `AuthManager` 凭据必须在 `beforeEach`/`afterEach` 重置；③ 100% 依托 Vitest Mock 或 MSW 拦截网络请求，严禁发起真实外部网络调用。
 - **极致 Tree-Shaking 与打包规范（ADR-0015）**：子包 `package.json` 必须声明 `"sideEffects": false`（含样式文件则收敛为 `["*.css", "*.scss"]`）；Vue 插件 `install(app)` 必须显式导出调用，严禁在顶层 `import` 执行全局自注册副作用。
@@ -60,7 +60,7 @@
 
 ## 5. 工程协同与 Git 流水线
 
-- **双分支与显式两级授权**：`main` 只读发布，`dev` 活跃开发（在 `main` 须主动 `git checkout dev`）；**未收到用户明确的“提交/commit”或“推送/push”指令前，修改默认停留在工作区，严禁擅自提交或推送**；暂存须显式指定文件路径（严禁 `git add .` 或 `-A`）；提交执行：`bash scripts/commit.sh -t <type> -s <scope> -m "<主说明>" [-l "<细项>"] [-c <issue>] [-n] [-p] -y`。
+- **双分支与显式两级授权**：`main` 只读发布，`dev` 活跃开发（在 `main` 须主动 `git checkout dev`）；**未收到用户明确的“提交/commit”或“推送/push”指令前，修改默认停留在工作区，严禁擅自提交或推送**；暂存须显式指定文件路径（严禁 `git add .` 或 `-A`）；提交执行：`bash scripts/commit.sh -t <type> -s <scope> -m "<主说明>" [-l "<细项>"] [-c <issue>] [-n] [-p] -y`（`.githooks/pre-commit` 与 `scripts/commit.sh` 均内置暂存区 `lint-staged` 自动 Prettier/ESLint 对齐防线）。
 - **推送后 CI 守护与发版**：推送后通过 `gh run list -L 1` 与 `gh run watch <run-id>` 跟踪 CI 至全绿；发版只能在干净同步的 `main` 分支通过 `bash scripts/release.sh` 发起。
 
 ---

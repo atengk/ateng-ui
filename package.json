@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:coverage": "vitest run --coverage",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "prepare": "node -e \"const{execSync}=require('child_process');try{execSync('git rev-parse --is-inside-work-tree',{stdio:'ignore'});execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\""
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
@@ -36,8 +37,8 @@
   },
   "lint-staged": {
     "*.{js,ts,vue,mjs,cjs}": [
-      "prettier --write",
-      "eslint --fix"
+      "eslint --fix",
+      "prettier --write"
     ],
     "*.{json,md,yml,yaml,html,css,scss}": [
       "prettier --write"
