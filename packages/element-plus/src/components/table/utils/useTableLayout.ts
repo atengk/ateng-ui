@@ -97,8 +97,7 @@ export function useTableLayout(options: UseTableLayoutOptions): UseTableLayoutRe
       if (surfaceStyle?.borderBottomStyle !== 'none') {
         const rawBorder = surfaceStyle?.borderBottomWidth ?? '';
         const parsedBorder = parseFloat(rawBorder);
-        surfaceBottomBorder =
-          rawBorder !== '' && Number.isFinite(parsedBorder) ? parsedBorder : 0;
+        surfaceBottomBorder = rawBorder !== '' && Number.isFinite(parsedBorder) ? parsedBorder : 0;
       }
     }
 

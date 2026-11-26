@@ -302,13 +302,13 @@ const handleDatasetPresetChange = () => {
         页勾选数据后切换至第 2 页，底部批量操作栏与 <code>v-model:selectedKeys</code> 始终保留已选的
         64 位分布式雪花 ID 字符串。<br />
         💡 提示 4：下方 <code>AtengTable</code> 已去除外层冗余 <code>ElCard</code>，直接呈现「检索卡
-        + 表格表面卡」双卡分体；可切换窄容器 <code>560px</code> / <code>400px</code>
-        及单页/空数据集观察分页自适应收敛。<br />
+        + 表格表面卡」双卡分体；可切换窄容器 <code>560px</code> /
+        <code>400px</code> 及单页/空数据集观察分页自适应收敛。<br />
         💡 提示 5：开启<strong>「视口高度自适应 (autoHeight)」</strong>并切换
         <code>fixed</code>（撑满定高）与 <code>max</code>（弹性封顶）：在<strong
           >「少数据 (3条)」</strong
-        >下可对比留白消除效果；在<strong>「多页 (100条)」</strong>将每页条数调至
-        <code>50</code> 或 <code>100</code> 时，<code>max</code> 模式将自动封顶并在表格体内部滚动。
+        >下可对比留白消除效果；在<strong>「多页 (100条)」</strong>将每页条数调至 <code>50</code> 或
+        <code>100</code> 时，<code>max</code> 模式将自动封顶并在表格体内部滚动。
       </div>
     </ElCard>
 
