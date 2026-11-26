@@ -15,16 +15,15 @@
  * @since 2026-10-21
  */
 
-import { ref, shallowRef, computed, watch, onMounted } from 'vue';
+import { shallowRef, computed } from 'vue';
 import { ElCheckboxGroup, ElCheckbox, ElCheckboxButton } from 'element-plus';
 import type {
   AtengDictCheckboxProps,
   AtengDictCheckboxEmits,
   AtengDictCheckboxExpose,
-  DictItem,
 } from './types';
-import { DictManager } from './DictManager';
-import { normalizeDictItems, isDictValueMatched } from './utils';
+import { isDictValueMatched } from './utils';
+import { useDictSource } from './useDictSource';
 
 defineOptions({
   name: 'AtengDictCheckbox',
@@ -54,25 +53,7 @@ const props = withDefaults(defineProps<AtengDictCheckboxProps>(), {
 const emit = defineEmits<AtengDictCheckboxEmits>();
 
 const checkboxGroupRef = shallowRef<InstanceType<typeof ElCheckboxGroup> | null>(null);
-const internalItems = shallowRef<unknown[]>([]);
-const internalLoading = ref(false);
-
-const rawItems = computed<unknown[]>(() => {
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    return props.options;
-  }
-  return internalItems.value;
-});
-
-const effectiveItems = computed<DictItem[]>(() => {
-  return normalizeDictItems(rawItems.value, {
-    fieldNames: props.fieldNames,
-    labelField: props.labelField,
-    valueField: props.valueField,
-    tagTypeField: props.tagTypeField,
-    disabledField: props.disabledField,
-  });
-});
+const { effectiveItems, internalLoading, refresh } = useDictSource(props);
 
 // 解构为供 ElCheckboxGroup 使用的内部数组（支持 weak match 对齐真实 item.value）
 const internalCheckedValues = computed<Array<string | number | boolean>>(() => {
@@ -112,37 +93,6 @@ const isIndeterminate = computed<boolean>(() => {
   return count > 0 && !isAllChecked.value;
 });
 
-/**
- * 核心数据拉取动作。
- */
-async function fetchDictData(force: boolean = false): Promise<DictItem[]> {
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    internalItems.value = props.options;
-    return effectiveItems.value;
-  }
-
-  if (!props.dictCode && typeof props.loader !== 'function') {
-    internalItems.value = [];
-    return [];
-  }
-
-  internalLoading.value = true;
-  try {
-    const items = await DictManager.loadDict(props.dictCode, props.loader, force);
-    internalItems.value = items;
-    return effectiveItems.value;
-  } finally {
-    internalLoading.value = false;
-  }
-}
-
-/**
- * 强制穿透缓存刷新字典。
- */
-async function refresh(): Promise<DictItem[]> {
-  return fetchDictData(true);
-}
-
 // 选中项变动处理
 function handleGroupChange(values: Array<string | number | boolean>): void {
   let coercedValues: Array<string | number | boolean> = values;
@@ -175,33 +125,6 @@ function handleCheckAllChange(val: boolean): void {
   handleGroupChange(newValues);
 }
 
-watch(
-  () => props.dictCode,
-  newCode => {
-    if (newCode && props.autoLoad) {
-      fetchDictData(false);
-    }
-  },
-);
-
-watch(
-  () => props.loader,
-  newLoader => {
-    if (typeof newLoader === 'function' && props.autoLoad) {
-      fetchDictData(false);
-    }
-  },
-);
-
-watch(
-  () => props.options,
-  newOptions => {
-    if (Array.isArray(newOptions)) {
-      internalItems.value = newOptions;
-    }
-  },
-);
-
 // 传递给 ElCheckboxGroup 的字符串/数值受控数组（过滤 boolean，兼容严格 TS 校验）
 const groupCheckedValues = computed<Array<string | number>>(() =>
   internalCheckedValues.value.filter(
@@ -212,12 +135,6 @@ const groupCheckedValues = computed<Array<string | number>>(() =>
 function handleGroupValueUpdate(v: unknown): void {
   handleGroupChange(Array.isArray(v) ? (v as Array<string | number | boolean>) : []);
 }
-
-onMounted(() => {
-  if (props.autoLoad) {
-    fetchDictData(false);
-  }
-});
 
 defineExpose<AtengDictCheckboxExpose>({
   refresh,

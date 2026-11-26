@@ -44,6 +44,9 @@ Accepted (已接受)
 - **展示与交互形态拓展**：
   - `AtengDictTag` 强化多值解析：支持数组（`[1, 2]`）与逗号分隔字符串（`"1,2,3"`），支持自定义 `separator` 与空安全保底占位符（`emptyText="-"`）；保持 `DictItem.tagType` 对 `''` 的类型向后兼容，并在 `<el-tag :type>` 渲染处将 `''`、纯空白与非法值归一化为 `undefined`，消除 Element Plus 2.14+ 运行时校验告警；
   - `AtengDictRadio` 与 `AtengDictCheckbox` 扩充 `button` 按钮形态与 `border` 选项。
+- **全套件同步缓存水合与 `AtengDictTag` 冷加载防闪烁占位（#381 演进）**：
+  - **同步缓存水合**：`AtengDictSelect`、`AtengDictRadio`、`AtengDictCheckbox` 与 `AtengDictTag` 在 `setup` 初始化及 `dictCode` 变更时优先同步读取 `DictManager.getCache(dictCode)` 完成选项水合，消除缓存已预热场景下等待 `onMounted` 微任务才更新的 1 个微任务周期 DOM 原码插入；
+  - **三态边界正交与默认骨架胶囊占位**：`AtengDictTag` 严格区分「空值保底（`emptyText`，空值优先直接渲染）」「冷加载占位（`loading?: boolean` 与 `loadingMode?: 'skeleton' | 'text' | 'raw'`，默认 `'skeleton'`；支持 `loadingText?: string` 默认 `'--'` 与 `#loading` 插槽；占位生效期间 `matchingItems` 返回 `[]`）」与「已加载结束（Settled）但未命中时回退渲染原始值 `<el-tag>`」三态；新增异步请求序号抗竞态防护，并在 `dictCode` 切换至未缓存新编码时清理旧字典项，手动 `refresh()` 刷新期间保留已有已渲染标签，`:auto-load="false"` 且无缓存时直接回退原值防死锁。
 
 ### 2. 快捷时间范围套件：双向解构绑定与时刻智能对齐架构
 
@@ -89,4 +92,4 @@ Accepted (已接受)
   - **内存与性能确定性**：统一管理临时 Blob 对象的释放，杜绝长期运行的 SPA 页面内存泄漏。
 - **代价与权衡**：
   - 组件内部增加了字段映射解析与类型弱匹配推导，但逻辑均收敛在轻量纯函数内，对微秒级渲染性能影响完全可忽略；
-  - 100% 保持既有属性与事件向后兼容，存量代码无感知平滑迁移。
+  - 针对 `AtengDictTag` 冷缓存异步加载期，默认策略由直接回退原始值 `<el-tag>` 调整为 Zero-CLS 等量骨架胶囊占位以根除首帧闪烁并与 `emptyText` 解耦，依赖旧版冷加载直出原码的调用方可通过 `loadingMode="raw"` 显式退回；其余交互与事件保持 100% 向后兼容。

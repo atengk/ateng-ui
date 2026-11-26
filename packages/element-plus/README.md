@@ -41,7 +41,7 @@
 | **业务字典** | 字典下拉选择器         | `AtengDictSelect`                                                                                                                                                                                                                                                                                          | `dictCode`, `loader`, `options`, `v-model`, `v-model:item`, `multiple`, `filterable`, `clearable`, `mapping: DictFieldMapping`, `typeWeakMatch`, `emitItem`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 自动联动 `DictManager` 异步加载字典；支持单选/多选/输入筛选；支持 mapping 字段映射与 typeWeakMatch 弱类型宽松比对（数字与字符串互通）；支持 `:emit-item` 回传整条字典项对象                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                                                                            |
 | **业务字典** | 字典单选框组           | `AtengDictRadio`                                                                                                                                                                                                                                                                                           | `dictCode`, `loader`, `options`, `v-model`, `v-model:item`, `button`, `border`, `size`, `mapping`, `typeWeakMatch`, `emitItem`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 自动拉取字典项并渲染为单选框组；支持普通 Radio 与 Button/Border 按钮边框风格单选无缝切换；支持字段映射与类型弱比对；支持 `:emit-item` 回传整条字典项                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                                                                            |
 | **业务字典** | 字典多选框组           | `AtengDictCheckbox`                                                                                                                                                                                                                                                                                        | `dictCode`, `loader`, `options`, `v-model`, `v-model:items`, `button`, `border`, `showCheckAll`, `separator`, `mapping`, `typeWeakMatch`, `emitItems`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 自动拉取字典项并渲染为多选框组；内置全选与半选 indeterminate 联动；支持数组与逗号分隔字符串双向解构绑定；支持 Button/Border 风格；支持字段映射与弱比对                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | [`AtengDictCheckbox.test.ts`](./test/AtengDictCheckbox.test.ts)<br>`/business/dict`                                                            |
-| **业务字典** | 彩色状态标签           | `AtengDictTag`                                                                                                                                                                                                                                                                                             | `dictCode`, `value`, `separator`, `emptyText`, `effect`, `round`, `mapping`, `typeWeakMatch`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 自动匹配字典项并渲染为 Element Plus 彩色 Tag；支持单值、多值数组与逗号分隔字符串；未匹配时保底渲染 `'-'`；支持自定义字段映射与弱类型宽松比对                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                                                                            |
+| **业务字典** | 彩色状态标签           | `AtengDictTag`                                                                                                                                                                                                                                                                                             | `dictCode`, `value`, `separator`, `emptyText`, `loading`, `loadingMode: 'skeleton' \| 'text' \| 'raw'`, `loadingText`, `effect`, `round`, `fieldNames`, `valueType`, 插槽: `#default`, `#empty`, `#loading`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 自动匹配字典项并渲染为 Element Plus 彩色 Tag；支持单值、多值数组与逗号分隔字符串；支持同步缓存水合消除微任务闪烁；冷加载期默认渲染 Zero-CLS 骨架胶囊占位并区分空值 `emptyText` 与加载后未命中原值回退；支持自定义字段映射与弱类型宽松比对                                                                                                                                                                                                                                                                                                                                                                                                                                       | [`AtengDict.test.ts`](./test/AtengDict.test.ts)<br>`/business/dict`                                                                            |
 | **数据详情** | 结构化数据详情容器     | `<AtengDescriptions<T>>`                                                                                                                                                                                                                                                                                   | `data: T`, `items: DescriptionsItemConfig<T>[]`, `border`, `column`, `direction`, `size`, `copyable`, `emptyText`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Vue 3.5 SFC 原生泛型组件；双模驱动（Schema 数据驱动与 SFC 声明式子组件）；支持 `:copyable` 声明式一键复制，恪守“内存真明文契约”复制脱敏前原始数据；空值全局保底对齐企业规范 `'--'` 且空值项绝不呈现复制按钮                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | [`AtengDescriptions.test.ts`](./test/AtengDescriptions.test.ts)<br>`/business/descriptions`                                                    |
 | **数据详情** | 详情单项声明组件       | `AtengDescriptionsItem`                                                                                                                                                                                                                                                                                    | `prop`, `label`, `span`, `mask`, `type`, `dictCode`, `copyable`, `emptyText`, `formatter`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 内置 5 大脱敏管道（phone/idCard/email/name/bankCard）；内置货币/日期格式化；自动联动 AtengDictTag；支持单项 `copyable` 细粒度开启或覆盖复制控制                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | [`AtengDescriptions.test.ts`](./test/AtengDescriptions.test.ts)<br>`/business/descriptions`                                                    |
 | **业务控件** | 快捷时间范围选择器     | `AtengDateRange`                                                                                                                                                                                                                                                                                           | `v-model`, `v-model:start`, `v-model:end`, `preset`, `shortcuts`, `autoTime`, `smartAlignment`, `disableFuture`, `disablePast`, `maxRangeDays`, 实例暴露 `datePickerRef`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 预置 9 大常用自然业务周期；双字段解构绑定协议（`v-model:start` 与 `v-model:end`，告别手动拆解数组与重置丢失）；默认开启时刻智能对齐（00:00:00 与 23:59:59）；支持 disableFuture 与 maxRangeDays 限制                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | [`AtengDateRange.test.ts`](./test/AtengDateRange.test.ts)<br>`/business/date-range`                                                            |
@@ -2443,20 +2443,31 @@ export interface AtengDictCheckboxProps {
   autoLoad?: boolean;
 }
 
-// 4. 彩色状态标签属性契约
+// 4. 彩色状态标签属性与插槽契约
+export type DictTagLoadingMode = 'skeleton' | 'text' | 'raw';
+
 export interface AtengDictTagProps {
   dictCode?: string;
   loader?: DictLoader;
   options?: DictItem[] | Record<string, unknown>[];
   fieldNames?: DictFieldNames;
   valueType?: DictValueType;
-  value?: string | number | boolean | Array<string | number | boolean> | null;
+  value?: string | number | boolean | Array<string | number | boolean> | null | undefined;
   size?: ComponentSize;
   effect?: 'light' | 'dark' | 'plain'; // 默认 'light'
   round?: boolean;
   separator?: string; // 默认 ','
-  emptyText?: string; // 未命中保底文本，默认 '-'
-  autoLoad?: boolean;
+  emptyText?: string; // value 为空时的空安全保底文本，默认 '-'
+  autoLoad?: boolean; // 默认 true
+  loading?: boolean; // 外部受控 loading 覆盖
+  loadingMode?: DictTagLoadingMode; // 冷加载期占位模式，默认 'skeleton'
+  loadingText?: string; // loadingMode='text' 时的占位文本，默认 '--'
+}
+
+export interface AtengDictTagSlots {
+  default?: (scope: { item: DictItem }) => unknown;
+  empty?: () => unknown;
+  loading?: (scope: { values: Array<string | number | boolean> }) => unknown;
 }
 ```
 
@@ -2581,7 +2592,27 @@ const handleForceRefresh = async () => {
         </ElTableColumn>
         <ElTableColumn label="账号状态" width="140">
           <template #default="{ row }">
+            <!-- 冷加载期默认骨架胶囊占位 -->
             <AtengDictTag :value="row.status" dict-code="sys_user_status" round />
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="文本占位示例" width="140">
+          <template #default="{ row }">
+            <AtengDictTag
+              :value="row.status"
+              dict-code="sys_user_status"
+              loading-mode="text"
+              loading-text="字典加载中..."
+            />
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="自定义加载插槽" width="160">
+          <template #default="{ row }">
+            <AtengDictTag :value="row.status" dict-code="sys_user_status">
+              <template #loading="{ values }">
+                <span>解析中({{ values.join(',') }})...</span>
+              </template>
+            </AtengDictTag>
           </template>
         </ElTableColumn>
       </ElTable>
@@ -2592,14 +2623,14 @@ const handleForceRefresh = async () => {
 
 #### 核心机制与生产边界说明
 
-1. **纯内存飞行 Promise 合并去重 (`DictManager`)**：`DictManager` 单例无状态，内部维护 `Map<string, DictItem[]>` 纯内存缓存与 `inFlight: Map<string, Promise<DictItem[]>>`。当同页面 10 个表格行或组件同一毫秒请求同一字典编码时，自动合并为**单次网络调用**，彻底消灭并发请求风暴。
+1. **纯内存飞行 Promise 合并去重与同步缓存水合 (`DictManager` & `AtengDict*`)**：`DictManager` 单例无状态，内部维护 `Map<string, DictItem[]>` 纯内存缓存与 `inFlight: Map<string, Promise<DictItem[]>>`。当同页面 10 个表格行或组件同一毫秒请求同一字典编码时，自动合并为**单次网络调用**；同时 `AtengDict*` 全套件在 `setup` 与数据源切换阶段优先同步读取 `DictManager.getCache(dictCode)` 完成水合，彻底消除已缓存场景下的微任务态 DOM 原码插入，并对动态切换 `dictCode` 提供请求序号抗竞态丢弃。
 2. **严禁持久化脏数据防线**：字典缓存**绝对严禁写入 LocalStorage/SessionStorage**，避免后端字典数据更新后前端被死锁在脏缓存中，刷新页面即安全重新同步。
 3. **`valueType="auto"` 弱比对防呆机制**：后端接口返回的字典值常混杂数字 `1` 与字符串 `'1'`，`AtengDict*` 组件族内置类型自动弱比对解析，避免因为类型严格匹配导致的白标签与无法选中痛点。
-4. **全形态四维展现组件覆盖**：
+4. **全形态四维展现组件覆盖与 `AtengDictTag` 三态边界**：
    - `AtengDictSelect`：下拉选择，支持单选/多选/折叠 tag/拼音模糊检索；
    - `AtengDictRadio`：单选框组，支持普通圆钮或胶囊 `button` 风格；
    - `AtengDictCheckbox`：多选框组，内置 `showCheckAll` 全选联动，支持逗号分隔字符串 (`separator=","`)；
-   - `AtengDictTag`：状态彩色徽章，自动提取 `tagType` 映射 Element Plus 语义色彩（渲染 `<el-tag>` 时自动将 `''`、纯空白与非法值归一化为 `undefined` 防告警），未匹配时空安全保底 `emptyText="-"`。
+   - `AtengDictTag`：状态彩色徽章，严格区分「空值保底（`emptyText` 优先渲染）」「冷加载占位（默认 `loadingMode="skeleton"` 渲染等量 Zero-CLS 骨架胶囊，支持 `text` / `#loading` / `raw` 及外部受控 `loading`，占位期间 `matchingItems` 返回 `[]`）」「已加载完成（Settled）未命中安全回退原值 `<el-tag>`」三态边界，同时将渲染 `<el-tag>` 时的 `''`、纯空白与非法 `tagType` 归一化为 `undefined` 防告警，`:auto-load="false"` 无缓存时直接回退原值防死锁。
 
 ---
 
@@ -5036,17 +5067,17 @@ Theme Pro 架构推行 **零 `backdrop-filter` 强依赖** 的高质感微透暗
 
 ### 12.5 业务数据表单、通用字典与时间套件 (DictManager, Dict*, Descriptions, DateRange, Captcha, IconSelect)
 
-| 组件 / 门面            | 核心 Props / 配置                                                                          | 核心行为说明                                                        |
-| :--------------------- | :----------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
-| `DictManager`          | `setProvider`, `setBatchProvider`, `preload`, `loadDict(code, customLoader, forceRefresh)` | 纯内存常驻缓存，未决 Promise 飞行合并去重，严禁持久化脏数据         |
-| `AtengDictSelect`      | `dictCode`, `loader`, `options`, `fieldNames`, `valueType="auto"`, `multiple`, `clearable` | 字典下拉单选/多选，支持拼音搜索与弱类型比对                         |
-| `AtengDictRadio`       | `dictCode`, `button: boolean`, `border: boolean`, `size`                                   | 经典单选或胶囊按钮形态单选框组                                      |
-| `AtengDictCheckbox`    | `dictCode`, `separator: string`, `showCheckAll: boolean`, `button: boolean`                | 支持逗号分隔字符串双向绑定与全选复选框联动                          |
-| `AtengDictTag`         | `dictCode`, `value`, `round: boolean`, `emptyText: string`                                 | 自动提取 `tagType` 映射 Element Plus 彩色徽章标签                   |
-| `AtengDescriptions<T>` | `data: T`, `items: DescriptionsItemConfig<T>[]`, `copyable: boolean`, `mask`, `type`       | 内存真明文不变量，5 大脱敏管道，一键复制真实原始明文                |
-| `AtengDateRange`       | `v-model:start`, `v-model:end`, `autoTime=true`, `disableFuture`, `maxRangeDays=90`        | 双字段解构双向绑定，自动对齐 00:00:00 与 23:59:59                   |
-| `AtengCaptcha`         | `type: 'button'                                                                            | 'image'`, `storageKey: string`, `seconds: 60`, `beforeSend`, `send` | 到期物理时间戳持久化防刷新攻击，异步前置拦截守卫        |
-| `AtengIconSelect`      | `modelValue`, `mode: 'popover'                                                             | 'dialog'`, `customIcons: IconItem[]`, `showCopy`                    | 汉语拼音/全拼/简拼毫秒级极速模糊检索，0 依赖纯 SVG 渲染 |
+| 组件 / 门面            | 核心 Props / 配置                                                                                                 | 核心行为说明                                                        |
+| :--------------------- | :---------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
+| `DictManager`          | `setProvider`, `setBatchProvider`, `preload`, `loadDict(code, customLoader, forceRefresh)`                        | 纯内存常驻缓存，未决 Promise 飞行合并去重，严禁持久化脏数据         |
+| `AtengDictSelect`      | `dictCode`, `loader`, `options`, `fieldNames`, `valueType="auto"`, `multiple`, `clearable`                        | 字典下拉单选/多选，支持拼音搜索与弱类型比对                         |
+| `AtengDictRadio`       | `dictCode`, `button: boolean`, `border: boolean`, `size`                                                          | 经典单选或胶囊按钮形态单选框组                                      |
+| `AtengDictCheckbox`    | `dictCode`, `separator: string`, `showCheckAll: boolean`, `button: boolean`                                       | 支持逗号分隔字符串双向绑定与全选复选框联动                          |
+| `AtengDictTag`         | `dictCode`, `value`, `loading`, `loadingMode: 'skeleton' \| 'text' \| 'raw'`, `loadingText`, `round`, `emptyText` | 自动提取 `tagType` 映射彩色标签；同步缓存水合与冷加载骨架占位防闪烁 |
+| `AtengDescriptions<T>` | `data: T`, `items: DescriptionsItemConfig<T>[]`, `copyable: boolean`, `mask`, `type`                              | 内存真明文不变量，5 大脱敏管道，一键复制真实原始明文                |
+| `AtengDateRange`       | `v-model:start`, `v-model:end`, `autoTime=true`, `disableFuture`, `maxRangeDays=90`                               | 双字段解构双向绑定，自动对齐 00:00:00 与 23:59:59                   |
+| `AtengCaptcha`         | `type: 'button'                                                                                                   | 'image'`, `storageKey: string`, `seconds: 60`, `beforeSend`, `send` | 到期物理时间戳持久化防刷新攻击，异步前置拦截守卫        |
+| `AtengIconSelect`      | `modelValue`, `mode: 'popover'                                                                                    | 'dialog'`, `customIcons: IconItem[]`, `showCopy`                    | 汉语拼音/全拼/简拼毫秒级极速模糊检索，0 依赖纯 SVG 渲染 |
 
 ---
 

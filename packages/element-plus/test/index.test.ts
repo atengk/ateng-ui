@@ -64,6 +64,10 @@ import AtengElementPlus, {
   AtFilePreview,
   // 核心类型导出验证
   type DictItem,
+  type DictTagLoadingMode,
+  type AtengDictTagProps,
+  type AtengDictTagSlots,
+  type AtengDictTagInstance,
   type AtengDictCheckboxProps,
   type AtengDictCheckboxInstance,
   type AtengExcelExportProps,
@@ -164,6 +168,24 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     // 静态类型断言验证，保障下游开发者 import type 时 100% 存在且有效
     const mockDictItem: DictItem = { label: '启用', value: 1 };
     expect(mockDictItem.label).toBe('启用');
+
+    const mockLoadingMode: DictTagLoadingMode = 'skeleton';
+    const mockTagProps: AtengDictTagProps = {
+      dictCode: 'sys_status',
+      value: 1,
+      loading: false,
+      loadingMode: mockLoadingMode,
+      loadingText: '--',
+    };
+    const mockTagSlots: AtengDictTagSlots = {
+      loading: () => null,
+    };
+    const mockTagInstance: Partial<AtengDictTagInstance> = {
+      refresh: vi.fn(),
+    };
+    expect(mockTagProps.loadingMode).toBe('skeleton');
+    expect(mockTagSlots.loading).toBeDefined();
+    expect(mockTagInstance.refresh).toBeDefined();
 
     const mockCheckboxProps: AtengDictCheckboxProps = { dictCode: 'test', button: true };
     expect(mockCheckboxProps.dictCode).toBe('test');

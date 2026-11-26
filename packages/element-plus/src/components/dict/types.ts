@@ -40,6 +40,14 @@ export interface DictFieldNames {
 export type DictValueType = 'auto' | 'string' | 'number';
 
 /**
+ * AtengDictTag 在异步字典加载期间的占位展示模式。
+ * - 'skeleton': 渲染与标签尺寸对齐的微脉冲骨架胶囊占位（默认，Zero-CLS）
+ * - 'text': 渲染单份文本占位（由 loadingText 控制）
+ * - 'raw': 向后兼容模式，加载期间直接将原始编码值作为普通 Tag 渲染
+ */
+export type DictTagLoadingMode = 'skeleton' | 'text' | 'raw';
+
+/**
  * 字典单项数据契约。
  */
 export interface DictItem {
@@ -386,13 +394,37 @@ export interface AtengDictTagProps {
    */
   separator?: string;
   /**
-   * 未匹配或值为空时的空安全保底文本（默认为 '-'）。
+   * 绑定值为空（null / undefined / ''）时的空安全保底文本（默认为 '-'）。
    */
   emptyText?: string;
   /**
    * 是否自动触发加载。
    */
   autoLoad?: boolean;
+  /**
+   * 外部受控的 loading 状态覆盖（可用于自行异步拉取 options 的场景）。
+   */
+  loading?: boolean;
+  /**
+   * 异步字典加载期间的展示模式（默认为 'skeleton'）。
+   */
+  loadingMode?: DictTagLoadingMode;
+  /**
+   * loadingMode 为 'text' 时的占位文案（默认为 '--'）。
+   */
+  loadingText?: string;
+}
+
+/**
+ * AtengDictTag 插槽契约。
+ */
+export interface AtengDictTagSlots {
+  /** 自定义已匹配标签内容插槽 */
+  default?: (scope: { item: DictItem }) => unknown;
+  /** value 为空时的占位插槽 */
+  empty?: () => unknown;
+  /** 异步字典加载期间的自定义占位插槽 */
+  loading?: (scope: { values: Array<string | number | boolean> }) => unknown;
 }
 
 /**

@@ -14,16 +14,11 @@
  * @since 2026-10-21
  */
 
-import { ref, shallowRef, computed, watch, onMounted } from 'vue';
+import { shallowRef, computed } from 'vue';
 import { ElRadioGroup, ElRadio, ElRadioButton } from 'element-plus';
-import type {
-  AtengDictRadioProps,
-  AtengDictRadioEmits,
-  AtengDictRadioExpose,
-  DictItem,
-} from './types';
-import { DictManager } from './DictManager';
-import { normalizeDictItems, coerceToMatchedValue } from './utils';
+import type { AtengDictRadioProps, AtengDictRadioEmits, AtengDictRadioExpose } from './types';
+import { coerceToMatchedValue } from './utils';
+import { useDictSource } from './useDictSource';
 
 defineOptions({
   name: 'AtengDictRadio',
@@ -50,25 +45,7 @@ const props = withDefaults(defineProps<AtengDictRadioProps>(), {
 const emit = defineEmits<AtengDictRadioEmits>();
 
 const radioGroupRef = shallowRef<InstanceType<typeof ElRadioGroup> | null>(null);
-const internalItems = shallowRef<unknown[]>([]);
-const internalLoading = ref(false);
-
-const rawItems = computed<unknown[]>(() => {
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    return props.options;
-  }
-  return internalItems.value;
-});
-
-const effectiveItems = computed<DictItem[]>(() => {
-  return normalizeDictItems(rawItems.value, {
-    fieldNames: props.fieldNames,
-    labelField: props.labelField,
-    valueField: props.valueField,
-    tagTypeField: props.tagTypeField,
-    disabledField: props.disabledField,
-  });
-});
+const { effectiveItems, internalLoading, refresh } = useDictSource(props);
 
 /**
  * 根据 valueType 与有效选项计算交付给底层 ElRadioGroup 的绑定值。
@@ -80,61 +57,6 @@ const radioBoundValue = computed<string | number | boolean | undefined>(() => {
   }
   const coerced = coerceToMatchedValue(val, effectiveItems.value, props.valueType);
   return coerced === null ? undefined : coerced;
-});
-
-/**
- * 核心数据拉取动作。
- */
-async function fetchDictData(force: boolean = false): Promise<DictItem[]> {
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    internalItems.value = props.options;
-    return effectiveItems.value;
-  }
-
-  if (!props.dictCode && typeof props.loader !== 'function') {
-    internalItems.value = [];
-    return [];
-  }
-
-  internalLoading.value = true;
-  try {
-    const items = await DictManager.loadDict(props.dictCode, props.loader, force);
-    internalItems.value = items;
-    return effectiveItems.value;
-  } finally {
-    internalLoading.value = false;
-  }
-}
-
-/**
- * 强制穿透缓存刷新字典。
- */
-async function refresh(): Promise<DictItem[]> {
-  return fetchDictData(true);
-}
-
-watch(
-  () => props.dictCode,
-  newCode => {
-    if (newCode && props.autoLoad) {
-      fetchDictData(false);
-    }
-  },
-);
-
-watch(
-  () => props.options,
-  newOptions => {
-    if (Array.isArray(newOptions)) {
-      internalItems.value = newOptions;
-    }
-  },
-);
-
-onMounted(() => {
-  if (props.autoLoad) {
-    fetchDictData(false);
-  }
 });
 
 function handleChange(val: string | number | boolean | undefined): void {

@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
-import { nextTick, ref } from 'vue';
+import { defineComponent, h, nextTick, ref } from 'vue';
 import {
   AtengDictSelect,
   AtengDictRadio,
@@ -293,6 +293,340 @@ describe('AtengDict* 字典套件组件交互测试', () => {
         expect(tag.props('type')).toBe('primary');
       }
       expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('冷加载默认骨架胶囊占位：异步字典返回前不渲染原码 Tag，返回后准确水合（含多值等量胶囊与 matchingItems 契约）', async () => {
+      let resolveDict!: (items: DictItem[]) => void;
+      const pendingDict = new Promise<DictItem[]>(resolve => {
+        resolveDict = resolve;
+      });
+      DictManager.setProvider(async () => pendingDict);
+
+      wrapper = mount(AtengDictTag, {
+        props: {
+          dictCode: 'sys_cold_status',
+          value: '1,0',
+          size: 'small',
+          round: true,
+        },
+        attachTo: document.body,
+      });
+
+      // 首帧同步挂载后、异步返回前：严禁渲染原始编码 Tag，应呈现 2 个尺寸匹配的骨架胶囊
+      expect(wrapper.find('.el-tag').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('1');
+      expect(wrapper.text()).not.toContain('0');
+      const skeletons = wrapper.findAll('.at-dict-tag__skeleton');
+      expect(skeletons).toHaveLength(2);
+      expect(skeletons[0].classes()).toContain('is-small');
+      expect(skeletons[0].classes()).toContain('is-round');
+
+      const vm = wrapper.vm as unknown as AtengDictTagExpose;
+      expect(vm.isLoading).toBe(true);
+      expect(vm.matchingItems).toEqual([]);
+
+      // 异步字典返回后：水合为真实标签与语义颜色
+      resolveDict([
+        { label: '启用', value: 1, tagType: 'success' },
+        { label: '停用', value: 0, tagType: 'danger' },
+      ]);
+      await flushPromises();
+
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      const tags = wrapper.findAll('.el-tag');
+      expect(tags).toHaveLength(2);
+      expect(tags[0].text()).toBe('启用');
+      expect(tags[0].classes()).toContain('el-tag--success');
+      expect(tags[1].text()).toBe('停用');
+      expect(tags[1].classes()).toContain('el-tag--danger');
+      expect(vm.isLoading).toBe(false);
+      expect(vm.matchingItems).toHaveLength(2);
+    });
+
+    it('支持 loadingMode="text"、loadingText、#loading 插槽与 loadingMode="raw" 向后兼容及外部受控 loading', async () => {
+      let resolveText!: (items: DictItem[]) => void;
+      const textLoader = vi.fn().mockImplementation(
+        () =>
+          new Promise<DictItem[]>(resolve => {
+            resolveText = resolve;
+          }),
+      );
+
+      // 1. text 模式：多值场景仅渲染单份文本占位
+      wrapper = mount(AtengDictTag, {
+        props: {
+          loader: textLoader,
+          value: ['1', '2'],
+          loadingMode: 'text',
+          loadingText: '字典加载中...',
+        },
+        attachTo: document.body,
+      });
+
+      expect(wrapper.find('.el-tag').exists()).toBe(false);
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.at-dict-tag__loading-text').text()).toBe('字典加载中...');
+
+      resolveText([{ label: '项1', value: '1', tagType: 'primary' }]);
+      await flushPromises();
+      expect(wrapper.find('.at-dict-tag__loading-text').exists()).toBe(false);
+      expect(wrapper.findAll('.el-tag')).toHaveLength(2);
+      wrapper.unmount();
+
+      // 2. #loading 作用域插槽优先于默认骨架/文本
+      const slotWrapper = mount(AtengDictTag, {
+        props: {
+          loader: () => new Promise<DictItem[]>(() => {}),
+          value: 'A,B',
+        },
+        slots: {
+          loading: ({ values }: { values: Array<string | number | boolean> }) =>
+            h('span', { class: 'custom-loading-slot' }, `待解析:${values.join('|')}`),
+        },
+        attachTo: document.body,
+      });
+      expect(slotWrapper.find('.custom-loading-slot').text()).toBe('待解析:A|B');
+      expect(slotWrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      slotWrapper.unmount();
+
+      // 3. raw 向后兼容模式：加载期间即刻渲染原值 Tag，完成后刷新为标签
+      let resolveRaw!: (items: DictItem[]) => void;
+      wrapper = mount(AtengDictTag, {
+        props: {
+          loader: () =>
+            new Promise<DictItem[]>(resolve => {
+              resolveRaw = resolve;
+            }),
+          value: '0',
+          loadingMode: 'raw',
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.el-tag').text()).toBe('0');
+      const rawVm = wrapper.vm as unknown as AtengDictTagExpose;
+      expect(rawVm.isLoading).toBe(true);
+      expect(rawVm.matchingItems).toHaveLength(1);
+
+      resolveRaw([{ label: '显示', value: '0', tagType: 'success' }]);
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('显示');
+      wrapper.unmount();
+
+      // 4. 外部受控 :loading 覆盖（配合自定义异步 options）
+      wrapper = mount(AtengDictTag, {
+        props: {
+          options: [{ label: '已上线', value: 1, tagType: 'success' }],
+          value: 1,
+          loading: true,
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(true);
+      expect(wrapper.find('.el-tag').exists()).toBe(false);
+
+      await wrapper.setProps({ loading: false });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('已上线');
+    });
+
+    it('边界防御：空值优先、加载空数组/异常回退原值、autoLoad=false 不卡死、切换竞态丢弃与 refresh 稳态保留', async () => {
+      // 1. 空值优先：即使字典处于冷加载中，value 为 null 仍直接渲染 emptyText
+      wrapper = mount(AtengDictTag, {
+        props: {
+          loader: () => new Promise<DictItem[]>(() => {}),
+          value: null,
+          emptyText: '--',
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.at-dict-tag__empty').text()).toBe('--');
+      wrapper.unmount();
+
+      // 2. 加载返回 [] 或异常 reject 兜底后，结束占位并安全回退展示原始编码
+      let rejectOrResolve!: (items: DictItem[]) => void;
+      wrapper = mount(AtengDictTag, {
+        props: {
+          loader: () =>
+            new Promise<DictItem[]>(resolve => {
+              rejectOrResolve = resolve;
+            }),
+          value: 'LEGACY_9',
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(true);
+      rejectOrResolve([]);
+      await flushPromises();
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('LEGACY_9');
+      wrapper.unmount();
+
+      let triggerReject!: (reason?: unknown) => void;
+      wrapper = mount(AtengDictTag, {
+        props: {
+          loader: () =>
+            new Promise<DictItem[]>((_, reject) => {
+              triggerReject = reject;
+            }),
+          value: 'ERR_404',
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(true);
+      triggerReject(new Error('字典接口超时'));
+      await flushPromises();
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('ERR_404');
+      wrapper.unmount();
+
+      // 3. autoLoad=false 且无缓存时不卡在骨架，直接回退原值；手动 refresh() 期间展示占位并水合
+      let resolveManual!: (items: DictItem[]) => void;
+      DictManager.setProvider(
+        async () =>
+          new Promise<DictItem[]>(resolve => {
+            resolveManual = resolve;
+          }),
+      );
+      wrapper = mount(AtengDictTag, {
+        props: {
+          dictCode: 'manual_dict',
+          value: '1',
+          autoLoad: false,
+        },
+        attachTo: document.body,
+      });
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('1');
+
+      const manualVm = wrapper.vm as unknown as AtengDictTagExpose;
+      const refreshPromise = manualVm.refresh();
+      await nextTick();
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(true);
+      resolveManual([{ label: '手动水合', value: '1', tagType: 'primary' }]);
+      await refreshPromise;
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('手动水合');
+
+      // 4. 已就绪后再次 refresh() 穿透刷新期间：保留既有标签不退回骨架
+      let resolveSecondRefresh!: (items: DictItem[]) => void;
+      DictManager.setProvider(
+        async () =>
+          new Promise<DictItem[]>(resolve => {
+            resolveSecondRefresh = resolve;
+          }),
+      );
+      const secondRefresh = manualVm.refresh();
+      await nextTick();
+      expect(manualVm.isLoading).toBe(true);
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('手动水合');
+      resolveSecondRefresh([{ label: '刷新后标签', value: '1', tagType: 'success' }]);
+      await secondRefresh;
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('刷新后标签');
+      wrapper.unmount();
+
+      // 5. 动态切换 dictCode：立即清理旧数据并丢弃过期请求响应
+      let resolveSlowB!: (items: DictItem[]) => void;
+      let resolveFastC!: (items: DictItem[]) => void;
+      DictManager.setProvider(async code => {
+        if (code === 'dict_a') {
+          return [{ label: '标签A', value: 'x' }];
+        }
+        if (code === 'dict_b') {
+          return new Promise<DictItem[]>(resolve => {
+            resolveSlowB = resolve;
+          });
+        }
+        return new Promise<DictItem[]>(resolve => {
+          resolveFastC = resolve;
+        });
+      });
+
+      wrapper = mount(AtengDictTag, {
+        props: { dictCode: 'dict_a', value: 'x' },
+        attachTo: document.body,
+      });
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('标签A');
+
+      // 切换到冷缓存 dict_b：立即清理旧标签并显示骨架
+      await wrapper.setProps({ dictCode: 'dict_b' });
+      expect(wrapper.find('.el-tag').exists()).toBe(false);
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(true);
+
+      // 快速切换到 dict_c 并让 dict_c 先返回
+      await wrapper.setProps({ dictCode: 'dict_c' });
+      resolveFastC([{ label: '标签C', value: 'x' }]);
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('标签C');
+
+      // 过期的 dict_b 晚到：必须被序号守卫丢弃，绝不覆盖标签C
+      resolveSlowB([{ label: '过期B', value: 'x' }]);
+      await flushPromises();
+      expect(wrapper.find('.el-tag').text()).toBe('标签C');
+    });
+
+    it('同步缓存水合：DictManager 已缓存时挂载首帧与微任务期 0 次插入原始数字编码 (MutationObserver 验证)', async () => {
+      await DictManager.loadDict('sys_status');
+      expect(DictManager.hasCache('sys_status')).toBe(true);
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const observedTextSnapshots: string[] = [];
+      const observer = new MutationObserver(() => {
+        observedTextSnapshots.push(container.textContent ?? '');
+      });
+      observer.observe(container, { childList: true, subtree: true, characterData: true });
+
+      const Host = defineComponent({
+        setup() {
+          return () => h(AtengDictTag, { dictCode: 'sys_status', value: 0 });
+        },
+      });
+      wrapper = mount(Host, { attachTo: container });
+
+      // 同步挂载即刻（未 flushPromises）已直接呈现中文标签且无任何骨架或原码闪烁
+      expect(wrapper.find('.at-dict-tag__skeleton').exists()).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('停用');
+
+      await flushPromises();
+      observer.disconnect();
+
+      expect(observedTextSnapshots.some(txt => txt.includes('0'))).toBe(false);
+      expect(wrapper.find('.el-tag').text()).toBe('停用');
+    });
+  });
+
+  describe('全套件同步缓存水合验证 (Select / Radio)', () => {
+    it('DictManager 已缓存时 AtengDictSelect 与 AtengDictRadio 在 setup 阶段同步水合，无需等待异步微任务', async () => {
+      await DictManager.loadDict('sys_status');
+      await DictManager.loadDict('sys_user_gender');
+
+      const selectWrapper = mount(AtengDictSelect, {
+        props: { dictCode: 'sys_status', modelValue: 0 },
+        attachTo: document.body,
+      });
+      const selectVm = selectWrapper.vm as unknown as AtengDictSelectExpose;
+      expect(selectVm.isLoading).toBe(false);
+      expect(selectVm.dictItems.map(item => item.label)).toEqual(['启用', '停用']);
+      selectWrapper.unmount();
+
+      const radioWrapper = mount(AtengDictRadio, {
+        props: { dictCode: 'sys_user_gender', modelValue: '1' },
+        attachTo: document.body,
+      });
+      const radioVm = radioWrapper.vm as unknown as AtengDictRadioExpose;
+      expect(radioVm.isLoading).toBe(false);
+      expect(radioWrapper.findAll('.el-radio')).toHaveLength(3);
+      expect(radioWrapper.findAll('.el-radio').map(item => item.text())).toEqual([
+        '男',
+        '女',
+        '保密',
+      ]);
+      radioWrapper.unmount();
     });
   });
 

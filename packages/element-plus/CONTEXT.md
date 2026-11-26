@@ -17,23 +17,23 @@ _Avoid_: SearchForm, FilterBar, QueryBox, AtengSearch, SearchPanel
 _Avoid_: DetailView, InfoDescriptions, ProDescriptions
 
 **AtengDictSelect**:
-接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射与 valueType 弱比对自适应的下拉字典选择组件。
+接入全局 DictManager 同步缓存水合、单例去重与常驻缓存、支持自定义 fieldNames 映射与 valueType 弱比对自适应的下拉字典选择组件。
 _Avoid_: DictSelect, EnumSelect, CodeSelect
 
 **AtengDictRadio**:
-接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射与 button 按钮形态的单选框组字典组件。
+接入全局 DictManager 同步缓存水合、单例去重与常驻缓存、支持自定义 fieldNames 映射与 button 按钮形态的单选框组字典组件。
 _Avoid_: DictRadio, EnumRadio
 
 **AtengDictCheckbox**:
-接入全局 DictManager 单例去重与常驻缓存、支持自定义 fieldNames 映射、button 按钮形态与全选联动的多选框组字典组件。
+接入全局 DictManager 同步缓存水合、单例去重与常驻缓存、支持自定义 fieldNames 映射、button 按钮形态与全选联动的多选框组字典组件。
 _Avoid_: DictCheckbox, EnumCheckbox, DictCheckGroup
 
 **AtengDictTag**:
-基于全局 DictManager 字典项自动映射显示样式、支持多值数组/逗号分隔解析与空安全保底的企业级彩色 Tag 组件。
+基于全局 DictManager 同步缓存水合与字典项映射显示样式的企业级彩色 Tag 组件；严格区分绑定值本身为空时的空值保底（`emptyText`）、冷缓存异步加载中的加载占位（`loadingMode` / `#loading`）与加载结束后未命中的原值回退三态语义。
 _Avoid_: DictTag, EnumTag, StatusTag
 
 **DictManager**:
-负责全局字典异步请求并发合并去重、批量预取（preload/batchProvider）与纯内存常驻缓存的单例门面管理器。
+负责全局字典异步请求并发合并去重、批量预取（preload/batchProvider）、纯内存常驻缓存与同步缓存读取（getCache）的单例门面管理器。
 _Avoid_: DictService, CodeManager, EnumCache
 
 **AtengDateRange**:

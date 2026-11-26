@@ -162,6 +162,32 @@ const handleClearCache = () => {
   ElMessage.info('已清空全部字典缓存');
 };
 
+// 4. AtengDictTag 冷加载防闪烁占位演示状态
+const coldLoadReplaySeed = ref<number>(0);
+const cacheSyncReplaySeed = ref<number>(0);
+const manualExternalLoading = ref<boolean>(true);
+const slowOrderStatusLoader = async (): Promise<DictItem[]> => {
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  return [
+    { label: '待支付', value: '0', tagType: 'warning' },
+    { label: '已发货', value: '1', tagType: 'success' },
+    { label: '已取消', value: '2', tagType: 'info' },
+  ];
+};
+const replayColdLoadDemo = () => {
+  coldLoadReplaySeed.value += 1;
+};
+const mountWithWarmCache = async () => {
+  await DictManager.preload(['sys_user_status']);
+  updateCachedCodes();
+  cacheSyncReplaySeed.value += 1;
+};
+const mountWithColdCache = () => {
+  DictManager.clearCache('sys_user_status');
+  updateCachedCodes();
+  cacheSyncReplaySeed.value += 1;
+};
+
 onMounted(() => {
   updateCachedCodes();
 });
@@ -428,6 +454,73 @@ onMounted(() => {
             style="margin-left: 10px"
           />
           <span class="value-hint" style="margin-left: 10px">自动保底且零 Prop 警告</span>
+        </div>
+      </div>
+
+      <ElDivider />
+
+      <!-- 7. AtengDictTag 冷加载防闪烁占位模式对比 -->
+      <div class="demo-section">
+        <div class="section-title">
+          <span
+            >7. AtengDictTag 冷加载防闪烁占位策略 (默认骨架 / 文本 / 自定义插槽 / Raw 兼容)</span
+          >
+          <div class="action-buttons">
+            <ElButton type="primary" size="small" @click="replayColdLoadDemo">
+              重放 1.2s 冷加载对比
+            </ElButton>
+            <ElButton size="small" @click="manualExternalLoading = !manualExternalLoading">
+              切换受控 loading: {{ manualExternalLoading ? 'true' : 'false' }}
+            </ElButton>
+          </div>
+        </div>
+
+        <div :key="coldLoadReplaySeed" class="tag-row">
+          <span class="row-label">默认骨架胶囊 (skeleton):</span>
+          <AtengDictTag :loader="slowOrderStatusLoader" value="0,1" round />
+
+          <span class="row-label" style="margin-left: 16px">文本占位 (text):</span>
+          <AtengDictTag
+            :loader="slowOrderStatusLoader"
+            value="1"
+            loading-mode="text"
+            loading-text="字典加载中..."
+          />
+
+          <span class="row-label" style="margin-left: 16px">#loading 插槽:</span>
+          <AtengDictTag :loader="slowOrderStatusLoader" value="2">
+            <template #loading="{ values }">
+              <ElTag type="info" effect="plain" size="small">
+                解析中({{ values.join(',') }})...
+              </ElTag>
+            </template>
+          </AtengDictTag>
+
+          <span class="row-label" style="margin-left: 16px">兼容原值 (raw):</span>
+          <AtengDictTag :loader="slowOrderStatusLoader" value="0" loading-mode="raw" />
+        </div>
+
+        <div class="tag-row" style="margin-top: 12px">
+          <span class="row-label">空值优先 (冷加载期直接保底):</span>
+          <AtengDictTag :loader="slowOrderStatusLoader" :value="null" empty-text="--" />
+
+          <span class="row-label" style="margin-left: 16px">外部受控 :loading (静态 options):</span>
+          <AtengDictTag
+            :options="staticOptions"
+            value="shanghai"
+            :loading="manualExternalLoading"
+          />
+        </div>
+
+        <div class="tag-row" style="margin-top: 12px">
+          <span class="row-label">同步缓存水合 vs 冷加载 (sys_user_status):</span>
+          <AtengDictTag :key="cacheSyncReplaySeed" dict-code="sys_user_status" value="1" round />
+          <ElButton size="small" type="success" plain @click="mountWithWarmCache">
+            预热缓存并重挂（0 延迟直出）
+          </ElButton>
+          <ElButton size="small" type="warning" plain @click="mountWithColdCache">
+            清缓存并重挂（骨架过渡）
+          </ElButton>
         </div>
       </div>
     </ElCard>

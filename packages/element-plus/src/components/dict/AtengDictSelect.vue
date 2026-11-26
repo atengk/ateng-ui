@@ -14,17 +14,16 @@
  * @since 2026-10-21
  */
 
-import { ref, shallowRef, computed, watch, onMounted } from 'vue';
+import { shallowRef, computed } from 'vue';
 import { ElSelect, ElOption } from 'element-plus';
 import type {
   AtengDictSelectProps,
   AtengDictSelectEmits,
   AtengDictSelectSlots,
   AtengDictSelectExpose,
-  DictItem,
 } from './types';
-import { DictManager } from './DictManager';
-import { normalizeDictItems, coerceToMatchedValue } from './utils';
+import { coerceToMatchedValue } from './utils';
+import { useDictSource } from './useDictSource';
 
 defineOptions({
   name: 'AtengDictSelect',
@@ -57,28 +56,10 @@ const emit = defineEmits<AtengDictSelectEmits>();
 defineSlots<AtengDictSelectSlots>();
 
 const selectRef = shallowRef<InstanceType<typeof ElSelect> | null>(null);
-const internalItems = shallowRef<unknown[]>([]);
-const internalLoading = ref(false);
+const { effectiveItems, internalLoading, refresh } = useDictSource(props);
 
 const effectiveLoading = computed(() => {
   return typeof props.loading === 'boolean' ? props.loading : internalLoading.value;
-});
-
-const rawItems = computed<unknown[]>(() => {
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    return props.options;
-  }
-  return internalItems.value;
-});
-
-const effectiveItems = computed<DictItem[]>(() => {
-  return normalizeDictItems(rawItems.value, {
-    fieldNames: props.fieldNames,
-    labelField: props.labelField,
-    valueField: props.valueField,
-    tagTypeField: props.tagTypeField,
-    disabledField: props.disabledField,
-  });
 });
 
 /**
@@ -103,66 +84,6 @@ const selectBoundValue = computed(() => {
   }
 
   return coerceToMatchedValue(val, effectiveItems.value, props.valueType);
-});
-
-/**
- * 核心数据拉取动作。
- *
- * @param force 是否强制穿透缓存重新获取
- */
-async function fetchDictData(force: boolean = false): Promise<DictItem[]> {
-  // 1. 若外部已提供静态 options，直接复用静态项
-  if (Array.isArray(props.options) && props.options.length > 0) {
-    internalItems.value = props.options;
-    return effectiveItems.value;
-  }
-
-  // 2. 无字典编码且无局部 loader 时，保底清空
-  if (!props.dictCode && typeof props.loader !== 'function') {
-    internalItems.value = [];
-    return [];
-  }
-
-  internalLoading.value = true;
-  try {
-    const items = await DictManager.loadDict(props.dictCode, props.loader, force);
-    internalItems.value = items;
-    return effectiveItems.value;
-  } finally {
-    internalLoading.value = false;
-  }
-}
-
-/**
- * 供上层或外部 Ref 调用的强制穿透刷新接口。
- */
-async function refresh(): Promise<DictItem[]> {
-  return fetchDictData(true);
-}
-
-// 监听 dictCode 或 options 动态变更
-watch(
-  () => props.dictCode,
-  newCode => {
-    if (newCode && props.autoLoad) {
-      fetchDictData(false);
-    }
-  },
-);
-
-watch(
-  () => props.options,
-  newOptions => {
-    if (Array.isArray(newOptions)) {
-      internalItems.value = newOptions;
-    }
-  },
-);
-
-onMounted(() => {
-  if (props.autoLoad) {
-    fetchDictData(false);
-  }
 });
 
 function handleChange(

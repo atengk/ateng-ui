@@ -300,4 +300,22 @@ describe('AtengDictCheckbox 字典多选框组组件交互与契约测试', () =
 
     wrapper.unmount();
   });
+
+  it('同步缓存水合：DictManager 已缓存时挂载当帧同步渲染全部复选框', async () => {
+    await DictManager.loadDict('hobby');
+    expect(DictManager.hasCache('hobby')).toBe(true);
+
+    const wrapper = mount(AtengDictCheckbox, {
+      props: {
+        dictCode: 'hobby',
+        modelValue: ['badminton'],
+      },
+    });
+
+    // 同步挂载即刻（未 waitFor/flushPromises）已完成渲染与勾选回显
+    expect(wrapper.findAll('.el-checkbox')).toHaveLength(3);
+    expect(wrapper.findAll('.el-checkbox')[0].classes()).toContain('is-checked');
+
+    wrapper.unmount();
+  });
 });
