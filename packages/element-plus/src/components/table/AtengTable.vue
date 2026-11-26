@@ -1439,6 +1439,10 @@ defineExpose<AtengTableExpose<T>>({
       height: 16px;
       fill: currentColor;
     }
+
+    &.is-loading svg {
+      animation: at-table-spin 0.8s linear infinite;
+    }
   }
 
   &__main {
@@ -1645,5 +1649,17 @@ defineExpose<AtengTableExpose<T>>({
 .at-fade-slide-leave-to {
   opacity: 0;
   transform: translateY(100%);
+}
+
+@keyframes at-table-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-table__tool-btn.is-loading svg {
+    animation: none;
+  }
 }
 </style>

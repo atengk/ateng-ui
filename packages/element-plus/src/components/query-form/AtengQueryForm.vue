@@ -15,6 +15,7 @@
 
 import { ref, computed, onMounted, onUnmounted, inject, Comment, Fragment, type VNode } from 'vue';
 import { ElForm, ElButton, ElIcon, type FormInstance } from 'element-plus';
+import { useAntiFlicker } from '@atengk/vue';
 import { vIdempotent } from '../../directives/idempotent/vIdempotent';
 import { ATENG_TABLE_CONTEXT_KEY, type AtengTableContext } from '../shared/context';
 import type {
@@ -47,6 +48,8 @@ const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
   showReset: true,
   autoSearchOnReset: true,
   searchLoading: undefined,
+  loadingDelay: 0,
+  loadingMinDuration: 300,
   disabled: false,
   gutter: 16,
   surface: 'card',
@@ -218,6 +221,12 @@ const effectiveSearchLoading = computed<boolean>(() => {
   return false;
 });
 
+const antiFlickerDelay = Math.max(0, props.loadingDelay);
+const displayedSearchLoading = useAntiFlicker(effectiveSearchLoading, {
+  delay: antiFlickerDelay,
+  minDuration: antiFlickerDelay > 0 ? Math.max(0, props.loadingMinDuration) : 0,
+});
+
 // 6. 查询与重置交互调度
 let unregisterResetHandler: (() => void) | undefined;
 let unregisterQueryGetter: (() => void) | undefined;
@@ -264,6 +273,7 @@ const handleSearch = (overrideModel?: T) => {
 };
 
 const onSearchClick = () => {
+  if (effectiveSearchLoading.value) return;
   handleSearch();
 };
 
@@ -288,6 +298,7 @@ const handleReset = () => {
 };
 
 const onResetClick = () => {
+  if (effectiveSearchLoading.value) return;
   handleReset();
 };
 
@@ -298,6 +309,7 @@ const handleFormKeyDown = (event: KeyboardEvent) => {
 
   if (event.key === 'Enter') {
     event.preventDefault();
+    if (effectiveSearchLoading.value) return;
     handleSearch();
   }
 };
@@ -357,28 +369,47 @@ defineExpose<AtengQueryFormExpose<T>>({
             v-if="showSearch"
             v-idempotent="onSearchClick"
             type="primary"
-            :loading="effectiveSearchLoading"
+            :loading="displayedSearchLoading"
             class="at-query-form__search-btn"
           >
-            <el-icon class="at-query-form__btn-icon">
-              <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
+            <template #icon>
+              <svg
+                class="at-query-form__btn-icon"
+                viewBox="0 0 1024 1024"
+                width="1em"
+                height="1em"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path
                   d="m795.904 750.72 42.88-42.88L1010.56 879.616a30.272 30.272 0 1 1-42.88 42.88L795.904 750.72zM480 832a352 352 0 1 1 0-704 352 352 0 0 1 0 704zm0-64a288 288 0 1 0 0-576 288 288 0 0 0 0 576z"
                 />
               </svg>
-            </el-icon>
+            </template>
             {{ searchText }}
           </el-button>
 
           <!-- 默认重置按钮 -->
-          <el-button v-if="showReset" v-idempotent="onResetClick" class="at-query-form__reset-btn">
-            <el-icon class="at-query-form__btn-icon">
-              <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
+          <el-button
+            v-if="showReset"
+            v-idempotent="onResetClick"
+            :disabled="disabled || displayedSearchLoading"
+            class="at-query-form__reset-btn"
+          >
+            <template #icon>
+              <svg
+                class="at-query-form__btn-icon"
+                viewBox="0 0 1024 1024"
+                width="1em"
+                height="1em"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path
                   d="M512 128c-211.712 0-384 172.288-384 384s172.288 384 384 384 384-172.288 384-384c0-42.56-6.976-83.52-19.84-121.92a32 32 0 1 0-60.8 19.84A318.528 318.528 0 0 1 832 512c0 176.448-143.552 320-320 320S192 688.448 192 512 335.552 192 512 192c99.712 0 188.8 45.888 247.36 117.888L672 320a32 32 0 1 0 0 64h192a32 32 0 0 0 32-32V160a32 32 0 1 0-64 0l-0.384 66.88C753.984 148.928 640.192 128 512 128z"
                 />
               </svg>
-            </el-icon>
+            </template>
             {{ resetText }}
           </el-button>
 
@@ -459,11 +490,6 @@ defineExpose<AtengQueryFormExpose<T>>({
     flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 16px;
-  }
-
-  &__btn-icon {
-    margin-right: 4px;
-    font-size: 14px;
   }
 
   &__collapse-btn {

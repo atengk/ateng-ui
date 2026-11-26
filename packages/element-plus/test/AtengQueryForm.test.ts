@@ -592,5 +592,109 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
       expect(wrapper.classes()).toContain('at-query-form--surface-plain');
       expect(wrapper.classes()).not.toContain('at-query-form--surface-card');
     });
+
+    it('加载互斥与重置联动：loading 时隐藏默认放大镜图标仅保留转圈，并禁用重置按钮', async () => {
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          model: { keyword: 'test' },
+          searchLoading: false,
+        },
+        attachTo: document.body,
+      });
+
+      const searchBtn = wrapper.find('.at-query-form__search-btn');
+      const resetBtn = wrapper.find('.at-query-form__reset-btn');
+
+      // 初始未加载：仅渲染查询 SVG 图标，无 loading 旋转图标，重置可用
+      expect(searchBtn.find('.at-query-form__btn-icon').exists()).toBe(true);
+      expect(searchBtn.find('.el-icon.is-loading').exists()).toBe(false);
+      expect(resetBtn.attributes('disabled')).toBeUndefined();
+
+      // 进入加载态：ElButton #icon 被 loading 互斥替换，绝不同时存在双图标，重置同步禁用
+      await wrapper.setProps({ searchLoading: true });
+      expect(searchBtn.classes()).toContain('is-loading');
+      expect(searchBtn.find('.el-icon.is-loading').exists()).toBe(true);
+      expect(searchBtn.find('.at-query-form__btn-icon').exists()).toBe(false);
+      expect(resetBtn.attributes('disabled')).toBeDefined();
+
+      // 加载结束恢复：恢复放大镜图标并解锁重置按钮
+      await wrapper.setProps({ searchLoading: false });
+      expect(searchBtn.classes()).not.toContain('is-loading');
+      expect(searchBtn.find('.el-icon.is-loading').exists()).toBe(false);
+      expect(searchBtn.find('.at-query-form__btn-icon').exists()).toBe(true);
+      expect(resetBtn.attributes('disabled')).toBeUndefined();
+    });
+
+    it('防闪烁保护 (loadingDelay)：短查询跳过转圈闪烁但保持静默期防重，长查询保持最小展示期', async () => {
+      vi.useFakeTimers();
+      try {
+        const mockSearch = vi.fn();
+        const mockReset = vi.fn();
+        const mockLoading = ref(false);
+
+        const pagination = {
+          query: reactive({ keyword: 'fast' }),
+          loading: mockLoading,
+          search: mockSearch,
+          reset: mockReset,
+        } as unknown as UsePaginationResult<Record<string, unknown>>;
+
+        wrapper = mount(AtengQueryForm, {
+          props: {
+            pagination,
+            loadingDelay: 150,
+            loadingMinDuration: 300,
+          },
+          attachTo: document.body,
+        });
+
+        const searchBtn = wrapper.find('.at-query-form__search-btn');
+        const resetBtn = wrapper.find('.at-query-form__reset-btn');
+
+        // 1. 短查询 (<150ms)：点击后进入静默期，未展示转圈但重复点击与重置已被拦截
+        mockLoading.value = true;
+        await wrapper.vm.$nextTick();
+        vi.advanceTimersByTime(80);
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).not.toContain('is-loading');
+
+        await searchBtn.trigger('click');
+        await resetBtn.trigger('click');
+        expect(mockSearch).not.toHaveBeenCalled();
+        expect(mockReset).not.toHaveBeenCalled();
+
+        // 在 150ms 前完成请求：全程零闪圈
+        mockLoading.value = false;
+        await wrapper.vm.$nextTick();
+        vi.advanceTimersByTime(100);
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).not.toContain('is-loading');
+
+        // 2. 长查询 (>=150ms)：突破阈值后展示转圈并同步禁用重置，且维持 300ms 最小展示期
+        mockLoading.value = true;
+        await wrapper.vm.$nextTick();
+        vi.advanceTimersByTime(150);
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).toContain('is-loading');
+        expect(resetBtn.attributes('disabled')).toBeDefined();
+
+        // 在第 200ms 完成请求：仍需等到满 300ms 展示期（剩余 250ms）再恢复
+        vi.advanceTimersByTime(50);
+        mockLoading.value = false;
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).toContain('is-loading');
+
+        vi.advanceTimersByTime(249);
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).toContain('is-loading');
+
+        vi.advanceTimersByTime(1);
+        await wrapper.vm.$nextTick();
+        expect(searchBtn.classes()).not.toContain('is-loading');
+        expect(resetBtn.attributes('disabled')).toBeUndefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

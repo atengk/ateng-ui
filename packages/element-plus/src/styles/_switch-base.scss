@@ -1,0 +1,14 @@
+/**
+ * `@atengk/element-plus` Switch 无 Preflight 基础盒模型防线。
+ *
+ * 修复在禁用 Tailwind CSS Preflight 时，Element Plus 默认 `.el-switch__inner`
+ * 因缺少 `box-sizing: border-box` 导致的 `width: 100% + padding` 溢出及内嵌文案与滑块圆点重叠问题。
+ * 保持自然 CSS 特异度（不附带任何强制提权修饰符），由 `dist/index.css` 与 `dist/theme-pro.css` 共同复用。
+ *
+ * @author Ateng
+ * @since 2026-11-27
+ */
+
+.el-switch__core .el-switch__inner {
+  box-sizing: border-box;
+}

@@ -172,6 +172,20 @@ export interface AtengQueryFormProps<T extends object = Record<string, unknown>>
   searchLoading?: boolean;
 
   /**
+   * 查询按钮加载态防闪烁延迟保护窗口（毫秒）。
+   * 默认 `0`（即时反馈，保持向后兼容）；配置为大于 `0` 时在静默窗口内跳过短查询闪圈，点击仍即时防重。
+   * @default 0
+   */
+  loadingDelay?: number;
+
+  /**
+   * 防闪烁生效后加载态最小持续展示时间（毫秒）。
+   * 仅当 `loadingDelay > 0` 时生效，避免闪现一帧转圈。
+   * @default 300
+   */
+  loadingMinDuration?: number;
+
+  /**
    * 表单是否处于全局禁用状态。
    * @default false
    */

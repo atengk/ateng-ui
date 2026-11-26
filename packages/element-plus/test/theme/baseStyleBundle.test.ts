@@ -21,6 +21,7 @@ import * as path from 'node:path';
 describe('Base Style Bundle (dist/index.css) 产物完整性与解耦门禁', () => {
   const indexCssPath = path.resolve(__dirname, '../../dist/index.css');
   const loadingBaseScssPath = path.resolve(__dirname, '../../src/styles/_loading-base.scss');
+  const switchBaseScssPath = path.resolve(__dirname, '../../src/styles/_switch-base.scss');
   const themeSwitchScssPath = path.resolve(__dirname, '../../src/styles/_theme-switch.scss');
   const readIndexCss = () => fs.readFileSync(indexCssPath, 'utf-8');
 
@@ -96,12 +97,23 @@ describe('Base Style Bundle (dist/index.css) 产物完整性与解耦门禁', ()
 
   it('抽离的共用功能样式源码存在且严格遵守零 !important 铁律', () => {
     expect(fs.existsSync(loadingBaseScssPath)).toBe(true);
+    expect(fs.existsSync(switchBaseScssPath)).toBe(true);
     expect(fs.existsSync(themeSwitchScssPath)).toBe(true);
 
     const loadingBaseContent = fs.readFileSync(loadingBaseScssPath, 'utf-8');
+    const switchBaseContent = fs.readFileSync(switchBaseScssPath, 'utf-8');
     const themeSwitchContent = fs.readFileSync(themeSwitchScssPath, 'utf-8');
 
     expect(loadingBaseContent.match(/!important/g)).toBeNull();
+    expect(switchBaseContent.match(/!important/g)).toBeNull();
     expect(themeSwitchContent.match(/!important/g)).toBeNull();
+  });
+
+  it('包含 ElSwitch 无 Preflight 盒模型防线与 AtengTable 刷新按钮旋转动画', () => {
+    const content = readIndexCss();
+    expect(content).toContain('.el-switch__core .el-switch__inner');
+    expect(content).toContain('box-sizing:border-box');
+    expect(content).toContain('.at-table__tool-btn');
+    expect(content).toContain('at-table-spin');
   });
 });
