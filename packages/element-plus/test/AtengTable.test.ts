@@ -1395,7 +1395,11 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
 
     it('autoHeight 测量基准：从 .at-table__main 起算并扣减分页栏与表面底部内边距', async () => {
       const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
-      Object.defineProperty(window, 'innerHeight', { value: 900, writable: true, configurable: true });
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        writable: true,
+        configurable: true,
+      });
 
       try {
         wrapper = mount(AtengTable, {

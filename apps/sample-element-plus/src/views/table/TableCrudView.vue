@@ -290,8 +290,8 @@ const handleDatasetPresetChange = () => {
         💡 提示 3：已开启<strong>「跨页多选记忆 (reserve-selection)」</strong>，在第 1
         页勾选数据后切换至第 2 页，底部批量操作栏与 <code>v-model:selectedKeys</code> 始终保留已选的
         64 位分布式雪花 ID 字符串。<br />
-        💡 提示 4：下方 <code>AtengTable</code> 已去除外层冗余 <code>ElCard</code>，直接呈现「检索卡 +
-        表格表面卡」双卡分体；可切换窄容器 <code>560px</code> / <code>400px</code>
+        💡 提示 4：下方 <code>AtengTable</code> 已去除外层冗余 <code>ElCard</code>，直接呈现「检索卡
+        + 表格表面卡」双卡分体；可切换窄容器 <code>560px</code> / <code>400px</code>
         及单页/空数据集观察分页自适应收敛。
       </div>
     </ElCard>

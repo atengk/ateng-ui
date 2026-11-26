@@ -110,8 +110,7 @@ export function useTableLayout(options: UseTableLayoutOptions): UseTableLayoutRe
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
       return;
     }
-    const needsObserver =
-      Boolean(options.autoHeight.value) || options.responsivePagination.value;
+    const needsObserver = Boolean(options.autoHeight.value) || options.responsivePagination.value;
     if (!needsObserver) {
       disconnectRootResizeObserver();
       return;

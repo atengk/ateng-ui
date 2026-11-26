@@ -977,239 +977,239 @@ defineExpose<AtengTableExpose<T>>({
     <div ref="tableSurfaceRef" class="at-table__surface">
       <!-- 企业级工具栏区域 -->
       <div v-if="shouldShowToolbar" class="at-table__toolbar">
-      <!-- 左侧操作插槽 -->
-      <div class="at-table__toolbar-left">
-        <slot name="toolbar-left" />
-      </div>
+        <!-- 左侧操作插槽 -->
+        <div class="at-table__toolbar-left">
+          <slot name="toolbar-left" />
+        </div>
 
-      <!-- 右侧自定义与原子工具区 -->
-      <div class="at-table__toolbar-right">
-        <slot name="toolbar-right" />
+        <!-- 右侧自定义与原子工具区 -->
+        <div class="at-table__toolbar-right">
+          <slot name="toolbar-right" />
 
-        <div v-if="hasEnabledTools" class="at-table__tools">
-          <!-- 1. 刷新 -->
-          <el-tooltip v-if="isToolEnabled('refresh')" content="刷新" placement="top">
-            <button
-              type="button"
-              class="at-table__tool-btn"
-              :class="{ 'is-loading': isLoading }"
-              :disabled="isLoading"
-              aria-label="刷新"
-              @click="handleRefresh"
+          <div v-if="hasEnabledTools" class="at-table__tools">
+            <!-- 1. 刷新 -->
+            <el-tooltip v-if="isToolEnabled('refresh')" content="刷新" placement="top">
+              <button
+                type="button"
+                class="at-table__tool-btn"
+                :class="{ 'is-loading': isLoading }"
+                :disabled="isLoading"
+                aria-label="刷新"
+                @click="handleRefresh"
+              >
+                <IconRefresh />
+              </button>
+            </el-tooltip>
+
+            <!-- 2. 密度 -->
+            <el-dropdown
+              v-if="isToolEnabled('density')"
+              trigger="click"
+              @command="handleDensityCommand"
             >
-              <IconRefresh />
-            </button>
-          </el-tooltip>
-
-          <!-- 2. 密度 -->
-          <el-dropdown
-            v-if="isToolEnabled('density')"
-            trigger="click"
-            @command="handleDensityCommand"
-          >
-            <div>
-              <el-tooltip content="密度" placement="top">
-                <button type="button" class="at-table__tool-btn" aria-label="密度">
-                  <IconDensity />
-                </button>
-              </el-tooltip>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  command="large"
-                  :class="{ 'is-active': currentDensity === 'large' }"
-                >
-                  宽松
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="default"
-                  :class="{ 'is-active': currentDensity === 'default' }"
-                >
-                  默认
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="small"
-                  :class="{ 'is-active': currentDensity === 'small' }"
-                >
-                  紧凑
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-          <!-- 3. 斑马纹 -->
-          <el-tooltip v-if="isToolEnabled('stripe')" content="斑马纹" placement="top">
-            <button
-              type="button"
-              class="at-table__tool-btn"
-              :class="{ 'is-active': currentStripe }"
-              aria-label="斑马纹"
-              @click="toggleStripe"
-            >
-              <IconStripe />
-            </button>
-          </el-tooltip>
-
-          <!-- 4. 全屏 -->
-          <el-tooltip
-            v-if="isToolEnabled('fullscreen')"
-            :content="isFullscreen ? '还原' : '全屏'"
-            placement="top"
-          >
-            <button
-              type="button"
-              class="at-table__tool-btn"
-              :class="{ 'is-active': isFullscreen }"
-              :aria-label="isFullscreen ? '还原' : '全屏'"
-              @click="toggleFullscreen"
-            >
-              <IconFullscreenExit v-if="isFullscreen" />
-              <IconFullscreen v-else />
-            </button>
-          </el-tooltip>
-
-          <!-- 5. 列设置 Popover -->
-          <el-popover
-            v-if="isToolEnabled('column-setting')"
-            trigger="click"
-            placement="bottom-end"
-            :width="220"
-          >
-            <template #reference>
               <div>
-                <el-tooltip content="列设置" placement="top">
-                  <button type="button" class="at-table__tool-btn" aria-label="列设置">
-                    <IconColumnSetting />
+                <el-tooltip content="密度" placement="top">
+                  <button type="button" class="at-table__tool-btn" aria-label="密度">
+                    <IconDensity />
                   </button>
                 </el-tooltip>
               </div>
-            </template>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    command="large"
+                    :class="{ 'is-active': currentDensity === 'large' }"
+                  >
+                    宽松
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="default"
+                    :class="{ 'is-active': currentDensity === 'default' }"
+                  >
+                    默认
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="small"
+                    :class="{ 'is-active': currentDensity === 'small' }"
+                  >
+                    紧凑
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
 
-            <div class="at-table-column-setting">
-              <div class="at-table-column-setting__header">
-                <el-checkbox
-                  :model-value="isAllColumnsVisible"
-                  :indeterminate="isColumnIndeterminate"
-                  @change="handleToggleAllColumns"
-                >
-                  列展示 ({{ visibleColumnCount }}/{{ totalColumnCount }})
-                </el-checkbox>
-                <el-button link type="primary" size="small" @click="handleResetColumns">
-                  重置
-                </el-button>
-              </div>
-              <div class="at-table-column-setting__divider" />
-              <div class="at-table-column-setting__list">
-                <div
-                  v-for="(item, index) in columnSettings"
-                  :key="item.prop || item.label || item.type"
-                  class="at-table-column-setting__item"
-                  draggable="true"
-                  @dragstart="onColumnDragStart($event, index)"
-                  @dragover.prevent="onColumnDragOver($event, index)"
-                  @drop="onColumnDrop($event, index)"
-                >
-                  <span class="at-table-column-setting__handle" title="按住拖拽排序">⋮⋮</span>
+            <!-- 3. 斑马纹 -->
+            <el-tooltip v-if="isToolEnabled('stripe')" content="斑马纹" placement="top">
+              <button
+                type="button"
+                class="at-table__tool-btn"
+                :class="{ 'is-active': currentStripe }"
+                aria-label="斑马纹"
+                @click="toggleStripe"
+              >
+                <IconStripe />
+              </button>
+            </el-tooltip>
+
+            <!-- 4. 全屏 -->
+            <el-tooltip
+              v-if="isToolEnabled('fullscreen')"
+              :content="isFullscreen ? '还原' : '全屏'"
+              placement="top"
+            >
+              <button
+                type="button"
+                class="at-table__tool-btn"
+                :class="{ 'is-active': isFullscreen }"
+                :aria-label="isFullscreen ? '还原' : '全屏'"
+                @click="toggleFullscreen"
+              >
+                <IconFullscreenExit v-if="isFullscreen" />
+                <IconFullscreen v-else />
+              </button>
+            </el-tooltip>
+
+            <!-- 5. 列设置 Popover -->
+            <el-popover
+              v-if="isToolEnabled('column-setting')"
+              trigger="click"
+              placement="bottom-end"
+              :width="220"
+            >
+              <template #reference>
+                <div>
+                  <el-tooltip content="列设置" placement="top">
+                    <button type="button" class="at-table__tool-btn" aria-label="列设置">
+                      <IconColumnSetting />
+                    </button>
+                  </el-tooltip>
+                </div>
+              </template>
+
+              <div class="at-table-column-setting">
+                <div class="at-table-column-setting__header">
                   <el-checkbox
-                    v-model="item.visible"
-                    :label="item.label || item.prop || item.type"
-                    @change="handleColumnVisibilityChange"
-                  />
+                    :model-value="isAllColumnsVisible"
+                    :indeterminate="isColumnIndeterminate"
+                    @change="handleToggleAllColumns"
+                  >
+                    列展示 ({{ visibleColumnCount }}/{{ totalColumnCount }})
+                  </el-checkbox>
+                  <el-button link type="primary" size="small" @click="handleResetColumns">
+                    重置
+                  </el-button>
+                </div>
+                <div class="at-table-column-setting__divider" />
+                <div class="at-table-column-setting__list">
+                  <div
+                    v-for="(item, index) in columnSettings"
+                    :key="item.prop || item.label || item.type"
+                    class="at-table-column-setting__item"
+                    draggable="true"
+                    @dragstart="onColumnDragStart($event, index)"
+                    @dragover.prevent="onColumnDragOver($event, index)"
+                    @drop="onColumnDrop($event, index)"
+                  >
+                    <span class="at-table-column-setting__handle" title="按住拖拽排序">⋮⋮</span>
+                    <el-checkbox
+                      v-model="item.visible"
+                      :label="item.label || item.prop || item.type"
+                      @change="handleColumnVisibilityChange"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </el-popover>
+            </el-popover>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 表格主体容器 -->
-    <div ref="tableMainRef" class="at-table__main">
-      <el-table
-        ref="tableRef"
-        v-loading="isLoading"
-        v-bind="$attrs"
-        :data="tableData"
-        :row-key="rowKey"
-        :border="border"
-        :stripe="currentStripe"
-        :height="effectiveTableHeight"
-        class="at-table__inner"
-        @selection-change="handleSelectionChange"
-        @sort-change="handleSortChange"
-        @header-dragend="onHeaderDragend"
-      >
-        <!-- 属性列合并渲染 -->
-        <template v-for="col in activeAttributeColumns" :key="col.prop || col.label">
-          <el-table-column v-bind="col" />
-        </template>
-
-        <!-- 原生默认插槽列渲染 -->
-        <component :is="renderFilteredSlotColumns" />
-
-        <!-- 底部追加插槽透传 -->
-        <template v-if="$slots.append" #append>
-          <slot name="append" />
-        </template>
-
-        <!-- 空数据与异常状态插槽透传 -->
-        <template #empty>
-          <slot v-if="$slots.empty" name="empty" />
-          <template v-else-if="!isLoading && tableData.length === 0">
-            <AtengEmpty v-if="hasError" status="network-error" :description="errorDescription">
-              <el-button type="primary" :loading="isLoading" @click="handleRefresh">
-                点击重试
-              </el-button>
-            </AtengEmpty>
-            <AtengEmpty
-              v-else-if="isSearchEmpty"
-              status="search"
-              :description="
-                searchEmptyDescription || emptyDescription || '未找到符合条件的检索结果'
-              "
-            >
-              <el-button
-                type="primary"
-                :loading="isLoading"
-                class="at-table__empty-reset-btn"
-                @click="handleResetFromEmpty"
-              >
-                清空筛选条件
-              </el-button>
-            </AtengEmpty>
-            <AtengEmpty v-else status="empty" :description="emptyDescription" />
+      <!-- 表格主体容器 -->
+      <div ref="tableMainRef" class="at-table__main">
+        <el-table
+          ref="tableRef"
+          v-loading="isLoading"
+          v-bind="$attrs"
+          :data="tableData"
+          :row-key="rowKey"
+          :border="border"
+          :stripe="currentStripe"
+          :height="effectiveTableHeight"
+          class="at-table__inner"
+          @selection-change="handleSelectionChange"
+          @sort-change="handleSortChange"
+          @header-dragend="onHeaderDragend"
+        >
+          <!-- 属性列合并渲染 -->
+          <template v-for="col in activeAttributeColumns" :key="col.prop || col.label">
+            <el-table-column v-bind="col" />
           </template>
-        </template>
-      </el-table>
 
-      <!-- 底部粘滞批量操作悬浮条 -->
-      <transition name="at-fade-slide">
-        <div v-if="shouldShowBatchBar && selectedCount > 0" class="at-table__batch-bar">
-          <div class="at-table__batch-bar-left">
-            <span class="at-table__batch-bar-text">
-              已选择 <strong class="at-table__batch-bar-count">{{ selectedCount }}</strong> 项
-            </span>
-            <el-button
-              link
-              type="primary"
-              size="small"
-              class="at-table__batch-bar-clear"
-              @click="clearSelection"
-            >
-              清空
-            </el-button>
+          <!-- 原生默认插槽列渲染 -->
+          <component :is="renderFilteredSlotColumns" />
+
+          <!-- 底部追加插槽透传 -->
+          <template v-if="$slots.append" #append>
+            <slot name="append" />
+          </template>
+
+          <!-- 空数据与异常状态插槽透传 -->
+          <template #empty>
+            <slot v-if="$slots.empty" name="empty" />
+            <template v-else-if="!isLoading && tableData.length === 0">
+              <AtengEmpty v-if="hasError" status="network-error" :description="errorDescription">
+                <el-button type="primary" :loading="isLoading" @click="handleRefresh">
+                  点击重试
+                </el-button>
+              </AtengEmpty>
+              <AtengEmpty
+                v-else-if="isSearchEmpty"
+                status="search"
+                :description="
+                  searchEmptyDescription || emptyDescription || '未找到符合条件的检索结果'
+                "
+              >
+                <el-button
+                  type="primary"
+                  :loading="isLoading"
+                  class="at-table__empty-reset-btn"
+                  @click="handleResetFromEmpty"
+                >
+                  清空筛选条件
+                </el-button>
+              </AtengEmpty>
+              <AtengEmpty v-else status="empty" :description="emptyDescription" />
+            </template>
+          </template>
+        </el-table>
+
+        <!-- 底部粘滞批量操作悬浮条 -->
+        <transition name="at-fade-slide">
+          <div v-if="shouldShowBatchBar && selectedCount > 0" class="at-table__batch-bar">
+            <div class="at-table__batch-bar-left">
+              <span class="at-table__batch-bar-text">
+                已选择 <strong class="at-table__batch-bar-count">{{ selectedCount }}</strong> 项
+              </span>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                class="at-table__batch-bar-clear"
+                @click="clearSelection"
+              >
+                清空
+              </el-button>
+            </div>
+            <div class="at-table__batch-bar-right">
+              <slot
+                name="batch-actions"
+                :selected-rows="selectedRows"
+                :clear-selection="clearSelection"
+              />
+            </div>
           </div>
-          <div class="at-table__batch-bar-right">
-            <slot
-              name="batch-actions"
-              :selected-rows="selectedRows"
-              :clear-selection="clearSelection"
-            />
-          </div>
-        </div>
-      </transition>
-    </div>
+        </transition>
+      </div>
 
       <!-- 表格底部分页区域 -->
       <div
