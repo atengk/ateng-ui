@@ -205,7 +205,7 @@ export interface AtengTabsNavEmits {
  */
 export interface AtengTabsNavSlots {
   /**
-   * 自定义标签项渲染插槽。
+   * 自定义标签项渲染插槽（渲染于 role="tab" 容器内部，请避免在插槽内嵌套交互式 button/a/input）。
    */
   tab?: (scope: { tab: TabItem; active: boolean; index: number }) => unknown;
 

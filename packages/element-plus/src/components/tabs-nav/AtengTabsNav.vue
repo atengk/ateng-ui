@@ -33,6 +33,7 @@ import type {
 } from './types';
 import { useTabsScroll } from './useTabsScroll';
 import { useTabsDrag } from './useTabsDrag';
+import { useTabsAccessibility } from './useTabsAccessibility';
 
 defineOptions({
   name: 'AtengTabsNav',
@@ -130,6 +131,27 @@ const handleQuickCommand = (command: TabCommand | string): void => {
   handleCommand(command, activeTab.value, activeIndex.value);
 };
 
+const {
+  focusableIndex,
+  contextDropdownRef,
+  isContextMenuVisible,
+  contextVirtualRef,
+  resolvedContextEntry,
+  onTabContextMenu,
+  handleContextMenuCommand,
+  onTabItemKeydown,
+} = useTabsAccessibility({
+  trackRef,
+  tabs: () => props.tabs,
+  activeTab,
+  activeIndex,
+  closable: () => props.closable,
+  contextMenu: () => props.contextMenu,
+  onActivateTab: onTabItemClick,
+  onCloseTab: tab => emit('tabClose', tab.key, tab),
+  onExecuteCommand: handleCommand,
+});
+
 const proLayoutContext = inject(ATENG_PRO_LAYOUT_KEY, null);
 const effectiveMaximized = computed<boolean>(
   () => Boolean(props.isMaximized) || (proLayoutContext?.isMaximized?.value ?? false),
@@ -148,7 +170,6 @@ const toggleMaximize = (): void => {
     class="at-tabs-nav"
     :class="[`at-tabs-nav--${styleType}`]"
     :style="{ height: containerHeight, minHeight: containerHeight }"
-    role="tablist"
   >
     <div v-if="$slots.prefix" class="at-tabs-nav__prefix">
       <slot name="prefix" />
@@ -162,31 +183,35 @@ const toggleMaximize = (): void => {
       aria-label="向左滚动"
       @click="scrollByOffset(-200)"
     >
-      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor" aria-hidden="true">
         <path :d="TAB_ACTION_ICON_PATHS.scrollLeft" />
       </svg>
     </button>
 
     <div ref="viewportRef" class="at-tabs-nav__viewport" @wheel="onWheelScroll">
-      <div ref="trackRef" class="at-tabs-nav__track">
+      <div
+        ref="trackRef"
+        class="at-tabs-nav__track"
+        :role="tabs.length > 0 ? 'tablist' : undefined"
+        :aria-label="tabs.length > 0 ? '页面标签栏' : undefined"
+      >
         <TabsNavItem
           v-for="(tab, index) in tabs"
           :key="tab.key"
           :tab="tab"
-          :tabs="tabs"
           :index="index"
           :active="tab.key === modelValue"
+          :tabindex="index === focusableIndex ? 0 : -1"
           :style-type="styleType"
           :show-icon="showIcon"
           :closable="isTabClosable(tab, closable)"
           :draggable="draggable"
-          :context-menu="contextMenu"
           :is-dragover="dragTargetIndex === index"
-          :menu-icons="menuIcons"
           :icon-resolver="iconResolver"
           @click="onTabItemClick"
           @close="onTabItemClose"
-          @command="handleCommand"
+          @contextmenu="onTabContextMenu"
+          @keydown="onTabItemKeydown"
           @dragstart="onDragStart"
           @dragover="onDragOver"
           @dragleave="onDragLeave"
@@ -199,12 +224,50 @@ const toggleMaximize = (): void => {
           <template v-if="$slots.tabIcon" #tabIcon="slotProps">
             <slot name="tabIcon" v-bind="slotProps" />
           </template>
-          <template v-if="$slots.menuIcon" #menuIcon="slotProps">
-            <slot name="menuIcon" v-bind="slotProps" />
-          </template>
         </TabsNavItem>
       </div>
     </div>
+
+    <ElDropdown
+      v-if="contextMenu"
+      ref="contextDropdownRef"
+      class="at-tabs-nav__context-dropdown"
+      trigger="contextmenu"
+      virtual-triggering
+      :virtual-ref="contextVirtualRef"
+      teleported
+      @command="handleContextMenuCommand"
+      @visible-change="
+        (val: boolean) => {
+          isContextMenuVisible = val;
+        }
+      "
+    >
+      <template #dropdown>
+        <TabsNavMenu
+          :tab="resolvedContextEntry.tab"
+          :include-close="true"
+          :disable-close="
+            !(resolvedContextEntry.tab && isTabClosable(resolvedContextEntry.tab, closable))
+          "
+          :disable-close-others="
+            !(resolvedContextEntry.tab && canCloseOthers(tabs, resolvedContextEntry.tab))
+          "
+          :disable-close-left="
+            !(resolvedContextEntry.index >= 0 && canCloseLeft(tabs, resolvedContextEntry.index))
+          "
+          :disable-close-right="
+            !(resolvedContextEntry.index >= 0 && canCloseRight(tabs, resolvedContextEntry.index))
+          "
+          :disable-close-all="!canCloseAll(tabs)"
+          :menu-icons="menuIcons"
+        >
+          <template v-if="$slots.menuIcon" #menuIcon="slotProps">
+            <slot name="menuIcon" v-bind="slotProps" />
+          </template>
+        </TabsNavMenu>
+      </template>
+    </ElDropdown>
 
     <button
       v-if="overflow.hasOverflow"
@@ -214,7 +277,7 @@ const toggleMaximize = (): void => {
       aria-label="向右滚动"
       @click="scrollByOffset(200)"
     >
-      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor">
+      <svg viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor" aria-hidden="true">
         <path :d="TAB_ACTION_ICON_PATHS.scrollRight" />
       </svg>
     </button>
@@ -233,7 +296,13 @@ const toggleMaximize = (): void => {
             title="标签快捷操作"
             aria-label="标签快捷操作"
           >
-            <svg viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor">
+            <svg
+              viewBox="0 0 1024 1024"
+              width="14"
+              height="14"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path :d="TAB_ACTION_ICON_PATHS.quickMenu" />
             </svg>
           </button>
@@ -265,7 +334,7 @@ const toggleMaximize = (): void => {
         :aria-label="effectiveMaximized ? '还原视图' : '内容最大化'"
         @click="toggleMaximize"
       >
-        <svg viewBox="0 0 1024 1024" width="13" height="13" fill="currentColor">
+        <svg viewBox="0 0 1024 1024" width="13" height="13" fill="currentColor" aria-hidden="true">
           <path
             :d="effectiveMaximized ? TAB_ACTION_ICON_PATHS.restore : TAB_ACTION_ICON_PATHS.maximize"
           />
@@ -320,6 +389,11 @@ const toggleMaximize = (): void => {
 
     &:active:not(:disabled) {
       transform: scale(0.95);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--el-color-primary, #409eff);
+      outline-offset: 1px;
     }
   }
 
@@ -382,12 +456,13 @@ const toggleMaximize = (): void => {
     height: 100%;
     gap: 6px;
     white-space: nowrap;
-    :deep(.el-dropdown) {
-      height: 100%;
-      display: inline-flex;
-      align-items: center;
-      line-height: normal;
-    }
+  }
+  &__context-dropdown {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
   &--pill &__track {
     gap: 4px;

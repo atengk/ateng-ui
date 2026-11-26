@@ -20,6 +20,7 @@ import { nextTick } from 'vue';
 import { ElTable, ElPagination, ElButton, ElAlert } from 'element-plus';
 import { createHttpClient } from '@atengk/core';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AtengDialog } from '../src/components/dialog';
 import { AtengExcelFeedback, type ExcelFeedbackItem } from '../src/components/excel-feedback';
 
 describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
@@ -447,5 +448,40 @@ describe('AtengExcelFeedback 导入错误明细弹窗交互测试', () => {
     expect(typeof exposed.exportErrorsAsCsv).toBe('function');
     expect(exposed.downloadLoading).toBeDefined();
     expect(exposed.dialogRef).toBeDefined();
+  });
+
+  it('生命周期事件透传：正确透传底层 AtengDialog 的 open、opened 与 closed 事件', async () => {
+    wrapper = mount(AtengExcelFeedback, {
+      props: {
+        modelValue: false,
+        errors: mockErrors,
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    // 1. modelValue 由 false 切换为 true，底层 ElDialog -> AtengDialog 触发 open 并透传出来
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+    expect(wrapper.emitted('open')).toHaveLength(1);
+
+    // 2. 底层 AtengDialog 派发 opened / closed 时，AtengExcelFeedback 原样透传
+    const dialog = wrapper.findComponent(AtengDialog);
+    expect(dialog.exists()).toBe(true);
+
+    dialog.vm.$emit('opened');
+    await nextTick();
+    expect(wrapper.emitted('opened')).toHaveLength(1);
+
+    await wrapper.setProps({ modelValue: false });
+    dialog.vm.$emit('closed');
+    await nextTick();
+    expect(wrapper.emitted('closed')).toHaveLength(1);
+
+    // 3. 验证典型场景：在 closed 回调后清空 errors 不应崩溃且计数归零
+    await wrapper.setProps({ errors: [] });
+    await nextTick();
+    const table = wrapper.findComponent(ElTable);
+    expect(table.props('data')).toEqual([]);
   });
 });

@@ -161,6 +161,15 @@ const handleExportError = (err: unknown) => {
 const handleExportSuccess = () => {
   addLog('正常导出任务完成并已触发浏览器下载');
 };
+
+const handleDialogLifecycle = (scene: string, stage: 'open' | 'opened' | 'closed') => {
+  const descMap = {
+    open: '弹窗开始打开（open）',
+    opened: '弹窗入场动画结束（opened）',
+    closed: '弹窗退场动画彻底结束（closed，可安全清理错误明细）',
+  } as const;
+  addLog(`${scene} 生命周期事件：${descMap[stage]}`);
+};
 </script>
 
 <template>
@@ -261,6 +270,9 @@ const handleExportSuccess = () => {
       :download-action="handleMockDownloadAction"
       file-name="员工导入校验失败批注清单.xlsx"
       :page-size="5"
+      @open="handleDialogLifecycle('场景 A', 'open')"
+      @opened="handleDialogLifecycle('场景 A', 'opened')"
+      @closed="handleDialogLifecycle('场景 A', 'closed')"
       @copy="handleCopySuccess"
       @download-success="handleDownloadSuccess"
       @download-error="handleDownloadError"
@@ -274,6 +286,9 @@ const handleExportSuccess = () => {
       csv-file-name="员工导入错误明细清单(本地导出).csv"
       download-csv-text="导出错误清单 (CSV)"
       :page-size="5"
+      @open="handleDialogLifecycle('场景 B', 'open')"
+      @opened="handleDialogLifecycle('场景 B', 'opened')"
+      @closed="handleDialogLifecycle('场景 B', 'closed')"
       @copy="handleCopySuccess"
       @download-success="handleDownloadSuccess"
       @download-error="handleDownloadError"

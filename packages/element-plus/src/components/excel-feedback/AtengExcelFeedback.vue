@@ -283,7 +283,10 @@ defineExpose<AtengExcelFeedbackExpose>({
     :show-confirm="false"
     :show-cancel="false"
     @update:model-value="handleVisibleChange"
+    @open="emit('open')"
+    @opened="emit('opened')"
     @close="handleClose"
+    @closed="emit('closed')"
   >
     <!-- 1. 顶部醒目统计警示条 -->
     <div class="at-excel-feedback__alert">

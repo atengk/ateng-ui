@@ -118,6 +118,14 @@ flowchart TD
   - 批量关闭命令默认保留 `tabClose` + `update:tabs` + `update:modelValue` 100% 向后兼容，同时新增语义化 `@batch-close` 事件（载荷 `{ command, closedTabs, remainingTabs, nextActiveKey }`）与可选 `emitCloseOnBatch?: boolean`（默认 `true`）；
   - 将右键与快捷菜单硬编码 Emoji 全部替换为可配置/隐藏的纯矢量 SVG 图标（支持 `menuIcons` / `#menuIcon`），补全快捷下拉面板 5 项 `:disabled` 状态判定；完善 `TabItem.icon` 对函数式组件（`typeof === 'function'`）的支持，新增 `iconResolver` 与 `#tabIcon` 插槽。
 
+### 9. WAI-ARIA 无障碍结构收敛与右键菜单虚拟触发解耦 (Accessibility & Shared Context Menu)
+
+针对 Lighthouse / Axe-core `aria-required-children`、`aria-allowed-attr` 与 `nested-interactive` 无障碍审计规约，确立以下刻意权衡与结构不变量（**禁止后续将其回退为外层 `tablist` 或嵌套 `<button>`**）：
+
+- **`role="tablist"` 严格收口至轨道节点**：`role="tablist"` 与默认 `aria-label="页面标签栏"` 仅挂载于真正承载页签列表的 `.at-tabs-nav__track`（且仅在 `tabs.length > 0` 时挂载，规避空 `tablist` 违规）；`#prefix`、`#suffix`、`#extra`、左右滚动按钮、快捷操作菜单与最大化按钮全部置于 `tablist` 之外。因 `AtengTabsNav` 仅作为无面板绑定的导航条使用，不伪造指向不存在 DOM ID 的 `aria-controls`。
+- **扁平 `tablist > tab` 层次与非交互关闭图标**：`.at-tabs-nav__item` 直接作为 `.at-tabs-nav__track` 的子元素承担 `role="tab"`、`:aria-selected` 与 Roving `tabindex`（`0` / `-1`），支持 `ArrowLeft` / `ArrowRight` / `Home` / `End` 自动激活导航、`Enter` / `Space` 激活与 `Delete` / `Backspace` 键盘关闭（对齐 Element Plus `ElTabs` 并放行 `#tab` 自定义插槽内嵌编辑控件按键）；行内关闭触发器 `.at-tabs-nav__close` 刻意采用非交互 `<span aria-hidden="true">`，防止在 `role="tab"` 内嵌套 `<button>` 引发 `nested-interactive` 或 `aria-required-children` 报错。
+- **轨道外共享 `virtual-triggering` 右键菜单**：Element Plus `ElDropdown` 在默认包裹模式下会生成 `.el-dropdown` 包装节点并通过 `ElOnlyChild` 向子节点强行注入 `role="button"` 与 `aria-haspopup`/`aria-controls` 覆盖 `role="tab"`。因此将右键菜单提升至轨道外单个共享 `<ElDropdown virtual-triggering>`，配合非 Element 位置代理对象（`{ getBoundingClientRect }`）规避 `ElPopperTrigger` 识别可聚焦节点并篡改页签 ARIA 属性，同时将 Popper 实例开销从 $O(N)$ 降至 $O(1)$。
+
 ---
 
 ## 决策后果 (Consequences)

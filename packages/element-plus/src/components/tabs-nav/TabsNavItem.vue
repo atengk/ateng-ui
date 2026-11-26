@@ -1,23 +1,14 @@
 <script setup lang="ts">
 /**
- * AtengTabsNav 单个标签节点（含右键上下文菜单包装）渲染子组件。
+ * AtengTabsNav 单个页签节点（role="tab"）渲染子组件。
  *
  * @author Ateng
  * @since 2026-11-24
  */
 
 import { computed, type Component } from 'vue';
-import { ElDropdown } from 'element-plus';
-import TabsNavMenu from './TabsNavMenu.vue';
-import {
-  canCloseAll,
-  canCloseLeft,
-  canCloseOthers,
-  canCloseRight,
-  isVueComponentIcon,
-  resolveTabIcon,
-} from './tabsCommands';
-import type { TabCommand, TabIconResolver, TabItem, TabMenuIcons, TabsStyle } from './types';
+import { isVueComponentIcon, resolveTabIcon } from './tabsCommands';
+import type { TabIconResolver, TabItem, TabsStyle } from './types';
 
 defineOptions({
   name: 'TabsNavItem',
@@ -26,26 +17,23 @@ defineOptions({
 const props = withDefaults(
   defineProps<{
     tab: TabItem;
-    tabs: TabItem[];
     index: number;
     active: boolean;
+    tabindex?: number;
     styleType?: TabsStyle;
     showIcon?: boolean;
     closable?: boolean;
     draggable?: boolean;
-    contextMenu?: boolean;
     isDragover?: boolean;
-    menuIcons?: TabMenuIcons;
     iconResolver?: TabIconResolver;
   }>(),
   {
+    tabindex: -1,
     styleType: 'card',
     showIcon: true,
     closable: true,
     draggable: true,
-    contextMenu: true,
     isDragover: false,
-    menuIcons: undefined,
     iconResolver: undefined,
   },
 );
@@ -53,7 +41,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'click', tab: TabItem): void;
   (e: 'close', event: MouseEvent, tab: TabItem): void;
-  (e: 'command', command: TabCommand | string, tab: TabItem, index: number): void;
+  (e: 'contextmenu', event: MouseEvent, tab: TabItem, index: number): void;
+  (e: 'keydown', event: KeyboardEvent, tab: TabItem, index: number): void;
   (e: 'dragstart', event: DragEvent, index: number, tab: TabItem): void;
   (e: 'dragover', event: DragEvent, index: number, tab: TabItem): void;
   (e: 'dragleave', index: number): void;
@@ -69,89 +58,62 @@ defineSlots<{
     active: boolean;
     index: number;
   }) => unknown;
-  menuIcon?: (scope: { command: TabCommand; tab?: TabItem }) => unknown;
 }>();
 
 const resolvedIcon = computed(() => resolveTabIcon(props.tab, props.index, props.iconResolver));
 </script>
 
 <template>
-  <component
-    :is="contextMenu ? ElDropdown : 'div'"
-    v-bind="contextMenu ? { trigger: 'contextmenu', teleported: true } : {}"
-    :class="{ 'at-tabs-nav__item-host': !contextMenu }"
-    @command="(cmd: string) => emit('command', cmd, tab, index)"
+  <div
+    class="at-tabs-nav__item"
+    :class="[
+      `at-tabs-nav__item--${styleType}`,
+      {
+        'is-active': active,
+        'is-affix': tab.affix,
+        'is-dragover': isDragover,
+      },
+    ]"
+    role="tab"
+    :aria-selected="active"
+    :tabindex="tabindex"
+    :draggable="draggable && !tab.affix ? 'true' : 'false'"
+    @click="emit('click', tab)"
+    @contextmenu="emit('contextmenu', $event, tab, index)"
+    @keydown="emit('keydown', $event, tab, index)"
+    @dragstart="emit('dragstart', $event, index, tab)"
+    @dragover="emit('dragover', $event, index, tab)"
+    @dragleave="emit('dragleave', index)"
+    @drop="emit('drop', $event, index, tab)"
+    @dragend="emit('dragend')"
   >
-    <div
-      class="at-tabs-nav__item"
-      :class="[
-        `at-tabs-nav__item--${styleType}`,
-        {
-          'is-active': active,
-          'is-affix': tab.affix,
-          'is-dragover': isDragover,
-        },
-      ]"
-      role="tab"
-      :aria-selected="active"
-      :draggable="draggable && !tab.affix ? 'true' : 'false'"
-      @click="emit('click', tab)"
-      @dragstart="emit('dragstart', $event, index, tab)"
-      @dragover="emit('dragover', $event, index, tab)"
-      @dragleave="emit('dragleave', index)"
-      @drop="emit('drop', $event, index, tab)"
-      @dragend="emit('dragend')"
-    >
-      <slot name="tab" :tab="tab" :active="active" :index="index">
-        <span v-if="showIcon && resolvedIcon" class="at-tabs-nav__icon">
-          <slot name="tabIcon" :icon="resolvedIcon" :tab="tab" :active="active" :index="index">
-            <component :is="resolvedIcon" v-if="isVueComponentIcon(resolvedIcon)" />
-            <i v-else-if="typeof resolvedIcon === 'string'" :class="resolvedIcon" />
-          </slot>
-        </span>
-        <span class="at-tabs-nav__title">{{ tab.title }}</span>
-        <button
-          v-if="closable"
-          type="button"
-          class="at-tabs-nav__close"
-          aria-label="关闭标签"
-          @click="emit('close', $event, tab)"
-        >
-          <svg viewBox="0 0 1024 1024" width="10" height="10" fill="currentColor">
-            <path
-              d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
-            />
-          </svg>
-        </button>
-      </slot>
-    </div>
-
-    <template v-if="contextMenu" #dropdown>
-      <TabsNavMenu
-        :tab="tab"
-        :include-close="true"
-        :disable-close="!closable"
-        :disable-close-others="!canCloseOthers(tabs, tab)"
-        :disable-close-left="!canCloseLeft(tabs, index)"
-        :disable-close-right="!canCloseRight(tabs, index)"
-        :disable-close-all="!canCloseAll(tabs)"
-        :menu-icons="menuIcons"
+    <slot name="tab" :tab="tab" :active="active" :index="index">
+      <span v-if="showIcon && resolvedIcon" class="at-tabs-nav__icon">
+        <slot name="tabIcon" :icon="resolvedIcon" :tab="tab" :active="active" :index="index">
+          <component :is="resolvedIcon" v-if="isVueComponentIcon(resolvedIcon)" />
+          <i v-else-if="typeof resolvedIcon === 'string'" :class="resolvedIcon" />
+        </slot>
+      </span>
+      <span class="at-tabs-nav__title">{{ tab.title }}</span>
+      <!-- 保持非交互节点以避免 role="tab" 内嵌 button 触发 nested-interactive；键盘关闭由页签 Delete/Backspace 承接 -->
+      <span
+        v-if="closable"
+        class="at-tabs-nav__close"
+        aria-hidden="true"
+        title="关闭标签"
+        @click="emit('close', $event, tab)"
       >
-        <template v-if="$slots.menuIcon" #menuIcon="slotProps">
-          <slot name="menuIcon" v-bind="slotProps" />
-        </template>
-      </TabsNavMenu>
-    </template>
-  </component>
+        <svg viewBox="0 0 1024 1024" width="10" height="10" fill="currentColor" aria-hidden="true">
+          <path
+            d="M576 512l277.333-277.333c17.067-17.067 17.067-44.8 0-61.867s-44.8-17.067-61.867 0L512 450.133 234.667 172.8c-17.067-17.067-44.8-17.067-61.867 0s-17.067 44.8 0 61.867L450.133 512 172.8 789.333c-17.067 17.067-17.067 44.8 0 61.867 8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8L512 573.867l277.333 277.333c8.533 8.533 19.2 12.8 30.933 12.8s22.4-4.267 30.933-12.8c17.067-17.067 17.067-44.8 0-61.867L576 512z"
+          />
+        </svg>
+      </span>
+    </slot>
+  </div>
 </template>
 
 <style scoped lang="scss">
-.at-tabs-nav__item-host {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-}
-
 .at-tabs-nav__item {
   display: inline-flex;
   align-items: center;
@@ -165,6 +127,11 @@ const resolvedIcon = computed(() => resolveTabIcon(props.tab, props.index, props
   transition:
     all 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.15s ease;
+
+  &:focus-visible {
+    outline: 2px solid var(--el-color-primary, #409eff);
+    outline-offset: -2px;
+  }
 
   &:hover {
     color: var(--el-color-primary, #409eff);

@@ -112,7 +112,10 @@ export interface AtengExcelFeedbackProps {
  */
 export interface AtengExcelFeedbackEmits {
   (e: 'update:modelValue', visible: boolean): void;
+  (e: 'open'): void;
+  (e: 'opened'): void;
   (e: 'close'): void;
+  (e: 'closed'): void;
   (e: 'copy', text: string): void;
   (e: 'download-success', filename: string): void;
   (e: 'download-error', error: unknown): void;

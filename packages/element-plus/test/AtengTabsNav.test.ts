@@ -335,4 +335,161 @@ describe('AtengTabsNav Component', () => {
     expect(slotWrapper.find('.custom-tab-icon-slot').attributes('data-active')).toBe('true');
     slotWrapper.unmount();
   });
+
+  it('14. ARIA 结构合规：role="tablist" 仅收口于轨道节点，辅助区与关闭图标无嵌套角色冲突', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/users',
+        contextMenu: true,
+        showQuickActions: true,
+        showMaximize: true,
+      },
+      slots: {
+        prefix: () => h('button', { type: 'button', class: 'slot-prefix-btn' }, '前置按钮'),
+        suffix: () => h('button', { type: 'button', class: 'slot-suffix-btn' }, '后置按钮'),
+        extra: () => h('button', { type: 'button', class: 'slot-extra-btn' }, '扩展按钮'),
+      },
+    });
+
+    // 1. 根容器不应再承担 role="tablist"
+    expect(wrapper.attributes('role')).toBeUndefined();
+
+    // 2. role="tablist" 严格收口到 .at-tabs-nav__track 且具备可访问名称
+    const tablist = wrapper.find('.at-tabs-nav__track');
+    expect(tablist.attributes('role')).toBe('tablist');
+    expect(tablist.attributes('aria-label')).toBe('页面标签栏');
+
+    // 3. 辅助插槽、快捷菜单、最大化与共享右键菜单容器均在 tablist 之外
+    expect(tablist.find('.slot-prefix-btn').exists()).toBe(false);
+    expect(tablist.find('.slot-suffix-btn').exists()).toBe(false);
+    expect(tablist.find('.slot-extra-btn').exists()).toBe(false);
+    expect(tablist.find('.at-tabs-nav__quick-actions').exists()).toBe(false);
+    expect(tablist.find('.at-tabs-nav__maximize-btn').exists()).toBe(false);
+    expect(tablist.find('.el-dropdown').exists()).toBe(false);
+
+    // 4. tablist 直接子元素全部为 role="tab"，无 role="button" / aria-haspopup 污染，且无嵌套 button
+    const directChildren = Array.from(tablist.element.children);
+    expect(directChildren).toHaveLength(3);
+    directChildren.forEach((child, idx) => {
+      expect(child.getAttribute('role')).toBe('tab');
+      expect(child.getAttribute('aria-selected')).toBe(idx === 1 ? 'true' : 'false');
+      expect(child.hasAttribute('aria-haspopup')).toBe(false);
+      expect(child.hasAttribute('aria-controls')).toBe(false);
+      expect(child.querySelector('button, a, [role="button"]')).toBeNull();
+    });
+
+    // 5. 关闭图标以非交互节点渲染并对外隐藏（aria-hidden="true"）
+    const closeIcons = wrapper.findAll('.at-tabs-nav__close');
+    expect(closeIcons).toHaveLength(2);
+    closeIcons.forEach(node => {
+      expect(node.element.tagName).toBe('SPAN');
+      expect(node.attributes('aria-hidden')).toBe('true');
+    });
+
+    // 6. 空标签列表不挂载 role="tablist"，防止触发空 tablist 违规
+    await wrapper.setProps({ tabs: [] });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+  });
+
+  it('15. Roving tabindex 与键盘导航：方向键移动焦点并自动激活，Delete/Backspace 关闭可关闭页签', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs, // [/home (affix), /users, /settings]
+        modelValue: '/home',
+      },
+      attachTo: document.body,
+    });
+
+    const items = wrapper.findAll('[role="tab"]');
+    expect(items).toHaveLength(3);
+    expect(items[0]!.attributes('tabindex')).toBe('0');
+    expect(items[1]!.attributes('tabindex')).toBe('-1');
+    expect(items[2]!.attributes('tabindex')).toBe('-1');
+
+    // ArrowRight 移动到下一个页签并激活
+    await items[0]!.trigger('keydown', { key: 'ArrowRight' });
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['/users']);
+    expect(wrapper.emitted('tabClick')?.[0]?.[0]).toEqual(mockTabs[1]);
+    expect(document.activeElement).toBe(items[1]!.element);
+    await wrapper.setProps({ modelValue: '/users' });
+    expect(items[0]!.attributes('tabindex')).toBe('-1');
+    expect(items[1]!.attributes('tabindex')).toBe('0');
+
+    // End 跳至末项，Home 跳回首项，ArrowLeft 环形回到末项
+    await items[1]!.trigger('keydown', { key: 'End' });
+    expect(wrapper.emitted('update:modelValue')?.[1]).toEqual(['/settings']);
+    expect(document.activeElement).toBe(items[2]!.element);
+    await wrapper.setProps({ modelValue: '/settings' });
+    expect(items[2]!.attributes('tabindex')).toBe('0');
+
+    await items[2]!.trigger('keydown', { key: 'Home' });
+    expect(wrapper.emitted('update:modelValue')?.[2]).toEqual(['/home']);
+    expect(document.activeElement).toBe(items[0]!.element);
+    await wrapper.setProps({ modelValue: '/home' });
+
+    await items[0]!.trigger('keydown', { key: 'ArrowLeft' });
+    expect(wrapper.emitted('update:modelValue')?.[3]).toEqual(['/settings']);
+    expect(document.activeElement).toBe(items[2]!.element);
+
+    // Affix 项按 Delete 不触发关闭；普通项按 Delete / Backspace 触发 tabClose
+    await items[0]!.trigger('keydown', { key: 'Delete' });
+    expect(wrapper.emitted('tabClose')).toBeUndefined();
+
+    await items[1]!.trigger('keydown', { key: 'Delete' });
+    expect(wrapper.emitted('tabClose')?.[0]?.[0]).toBe('/users');
+
+    await items[2]!.trigger('keydown', { key: 'Backspace' });
+    expect(wrapper.emitted('tabClose')?.[1]?.[0]).toBe('/settings');
+
+    // 自定义 #tab 内输入元素按键不被劫持
+    wrapper.unmount();
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs,
+        modelValue: '/home',
+      },
+      slots: {
+        tab: ({ tab }: { tab: TabItem }) =>
+          h('input', { class: 'slot-inline-input', value: tab.title }),
+      },
+      attachTo: document.body,
+    });
+    const innerInput = wrapper.find('.slot-inline-input');
+    await innerInput.trigger('keydown', { key: 'ArrowRight' });
+    await innerInput.trigger('keydown', { key: 'Delete' });
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect(wrapper.emitted('tabClose')).toBeUndefined();
+  });
+
+  it('16. 轨道外共享右键菜单：右键非激活页签时精确锁定目标页签执行关闭或刷新', async () => {
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: mockTabs, // [/home (affix), /users, /settings]
+        modelValue: '/home',
+        contextMenu: true,
+        showQuickActions: true,
+      },
+    });
+
+    const items = wrapper.findAll('[role="tab"]');
+    await items[2]!.trigger('contextmenu', { clientX: 240, clientY: 32 });
+    await nextTick();
+
+    const contextDropdown = wrapper.find('.at-tabs-nav__context-dropdown');
+    expect(contextDropdown.exists()).toBe(true);
+    const contextDropdownVm = wrapper.findComponent({ ref: 'contextDropdownRef' });
+    expect(contextDropdownVm.exists()).toBe(true);
+
+    // 触发右键菜单“关闭当前”，应精准命中右键的 /settings 而非激活项 /home
+    contextDropdownVm.vm.$emit('command', 'close');
+    expect(wrapper.emitted('tabClose')?.[0]?.[0]).toBe('/settings');
+    expect(wrapper.emitted('tabClose')?.[0]?.[1]).toEqual(mockTabs[2]);
+
+    // 右键切换到 /users 并触发“刷新当前”
+    await items[1]!.trigger('contextmenu', { clientX: 160, clientY: 32 });
+    await nextTick();
+    contextDropdownVm.vm.$emit('command', 'refresh');
+    expect(wrapper.emitted('tabRefresh')?.[0]?.[0]).toBe('/users');
+  });
 });
