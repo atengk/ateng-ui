@@ -76,6 +76,20 @@ export type TableDensity = 'large' | 'default' | 'small';
 export type TableToolItem = 'refresh' | 'density' | 'stripe' | 'column-setting' | 'fullscreen';
 
 /**
+ * 表格容器表面外观模式。
+ * - `'card'`：独立表格表面卡片形态，具备圆角、边框与默认内边距（默认）
+ * - `'plain'`：扁平无框形态，剥离表面背景/边框/内边距，适配嵌套在 ElCard 或弹窗内的场景
+ */
+export type TableSurface = 'card' | 'plain';
+
+/**
+ * 分页栏主轴分布模式。
+ * - `'between'`：总条数居左、其余分页控件靠右两端对齐（默认）
+ * - `'end'`：全部控件靠右对齐
+ */
+export type TablePaginationAlign = 'between' | 'end';
+
+/**
  * AtengTable 属性接口。
  *
  * @template T 表格行数据实体模型类型
@@ -191,9 +205,46 @@ export interface AtengTableProps<
   paginationLayout?: string;
 
   /**
-   * 是否显示底部分页条。未指定时若有 pagination 或 total 则自动为 true。
+   * 是否显示底部分页条。未指定时若有 pagination 或 total（且非空或已关闭 hidePaginationOnEmpty）则自动为 true。
+   * 显式传入 true 或 false 时拥有最高优先级。
    */
   showPagination?: boolean;
+
+  /**
+   * 表格容器外观表面模式（card 独立卡片表面 / plain 扁平无框）。
+   * @default 'card'
+   */
+  surface?: TableSurface;
+
+  /**
+   * 底部分页栏主轴分布方式（between 左右两端分布 / end 整体右对齐）。
+   * @default 'between'
+   */
+  paginationAlign?: TablePaginationAlign;
+
+  /**
+   * 是否启用基于根容器宽度的窄容器响应式分页降级（<640px 降级 pagerCount 并隐藏 jumper，<480px 进一步隐藏 sizes 并切换小尺寸）。
+   * @default true
+   */
+  responsivePagination?: boolean;
+
+  /**
+   * 桌面端默认页码按钮数量（必须为 5~21 之间的奇数，窄容器下将自动收敛至 5）。
+   * @default 7
+   */
+  paginationPagerCount?: number;
+
+  /**
+   * 当 total 为 0 且未显式覆盖 showPagination 时，是否自动隐藏底部分页栏。
+   * @default true
+   */
+  hidePaginationOnEmpty?: boolean;
+
+  /**
+   * 当数据仅有单页（总页数 <= 1）时，是否自动从布局中收敛隐藏冗余的 jumper 跳页控件。
+   * @default true
+   */
+  hideJumperOnSinglePage?: boolean;
 
   /**
    * 是否在有多选选中项时显示底部悬浮批量操作栏。

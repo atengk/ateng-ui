@@ -15,7 +15,7 @@
  * @since 2026-10-21
  */
 
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import {
   ElCard,
   ElFormItem,
@@ -26,6 +26,8 @@ import {
   ElTag,
   ElButton,
   ElSwitch,
+  ElRadioGroup,
+  ElRadioButton,
   ElMessage,
   ElMessageBox,
 } from 'element-plus';
@@ -35,6 +37,8 @@ import {
   AtengQueryForm,
   AtengExcelExport,
   type AtengTableInstance,
+  type TableSurface,
+  type TablePaginationAlign,
 } from '@atengk/element-plus';
 import type { PageQuery, PageResult } from '@atengk/core';
 
@@ -64,8 +68,18 @@ const ALL_MOCK_USERS: UserItem[] = Array.from({ length: 100 }, (_, index) => {
   };
 });
 
-// 2. 模拟网络异常开关
+// 2. 模拟网络异常与 #379 双卡表面/分页自验控制器
 const mockNetworkError = ref(false);
+const tableSurface = ref<TableSurface>('card');
+const paginationAlign = ref<TablePaginationAlign>('between');
+const previewContainerWidth = ref<'100%' | '560px' | '400px'>('100%');
+const datasetPreset = ref<'multi' | 'single' | 'empty'>('multi');
+
+const datasetLimitMap = {
+  multi: 100,
+  single: 8,
+  empty: 0,
+} as const;
 
 // 3. 模拟分页后端服务
 const fetchUsersApi = async (
@@ -78,7 +92,7 @@ const fetchUsersApi = async (
     throw new Error('模拟后端网关 502 Bad Gateway 异常');
   }
 
-  let filtered = [...ALL_MOCK_USERS];
+  let filtered = ALL_MOCK_USERS.slice(0, datasetLimitMap[datasetPreset.value]);
 
   // 模糊匹配姓名
   if (params.username) {
@@ -172,6 +186,15 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 
 // 7. 进阶特性演示状态
 const enableAutoHeight = ref(false);
+const tableWrapperStyle = computed(() => ({
+  width: previewContainerWidth.value,
+  maxWidth: '100%',
+  transition: 'width 0.2s ease',
+}));
+
+const handleDatasetPresetChange = () => {
+  pagination.changePage(1);
+};
 </script>
 
 <template>
@@ -195,6 +218,36 @@ const enableAutoHeight = ref(false);
             active-text="开启自适应 (撑满视口防双滚动条)"
             inactive-text="固定高度/自适应行高"
           />
+        </div>
+        <div class="control-item">
+          <span class="ctrl-title">表面外观 (surface)：</span>
+          <ElRadioGroup v-model="tableSurface" size="small">
+            <ElRadioButton value="card">双卡分体 (card)</ElRadioButton>
+            <ElRadioButton value="plain">扁平无框 (plain)</ElRadioButton>
+          </ElRadioGroup>
+        </div>
+        <div class="control-item">
+          <span class="ctrl-title">分页分布 (paginationAlign)：</span>
+          <ElRadioGroup v-model="paginationAlign" size="small">
+            <ElRadioButton value="between">两端分布 (between)</ElRadioButton>
+            <ElRadioButton value="end">右对齐 (end)</ElRadioButton>
+          </ElRadioGroup>
+        </div>
+        <div class="control-item">
+          <span class="ctrl-title">容器宽度模拟：</span>
+          <ElRadioGroup v-model="previewContainerWidth" size="small">
+            <ElRadioButton value="100%">桌面全宽</ElRadioButton>
+            <ElRadioButton value="560px">窄容器 560px</ElRadioButton>
+            <ElRadioButton value="400px">超窄 400px</ElRadioButton>
+          </ElRadioGroup>
+        </div>
+        <div class="control-item">
+          <span class="ctrl-title">数据集规模：</span>
+          <ElRadioGroup v-model="datasetPreset" size="small" @change="handleDatasetPresetChange">
+            <ElRadioButton value="multi">多页 (100条)</ElRadioButton>
+            <ElRadioButton value="single">单页 (8条藏 jumper)</ElRadioButton>
+            <ElRadioButton value="empty">空数据 (0条藏分页)</ElRadioButton>
+          </ElRadioGroup>
         </div>
         <div class="control-item">
           <ElButton size="small" @click="pagination.refresh"> 状态机刷新 (refresh) </ElButton>
@@ -236,16 +289,21 @@ const enableAutoHeight = ref(false);
         多态缺省态与<strong>「清空筛选条件」</strong>按钮，点击后自动联动表单重置并恢复第一页数据。<br />
         💡 提示 3：已开启<strong>「跨页多选记忆 (reserve-selection)」</strong>，在第 1
         页勾选数据后切换至第 2 页，底部批量操作栏与 <code>v-model:selectedKeys</code> 始终保留已选的
-        64 位分布式雪花 ID 字符串。
+        64 位分布式雪花 ID 字符串。<br />
+        💡 提示 4：下方 <code>AtengTable</code> 已去除外层冗余 <code>ElCard</code>，直接呈现「检索卡 +
+        表格表面卡」双卡分体；可切换窄容器 <code>560px</code> / <code>400px</code>
+        及单页/空数据集观察分页自适应收敛。
       </div>
     </ElCard>
 
-    <!-- 主表格核心容器 -->
-    <ElCard shadow="hover" class="main-card">
+    <!-- 主表格核心容器（双卡分体表面直接落于页面底板） -->
+    <div :style="tableWrapperStyle" class="table-stage">
       <AtengTable
         ref="tableRef"
         v-model:selected-keys="selectedKeys"
         :pagination="pagination"
+        :surface="tableSurface"
+        :pagination-align="paginationAlign"
         :auto-height="enableAutoHeight ? 32 : false"
         reserve-selection
         row-key="id"
@@ -322,7 +380,7 @@ const enableAutoHeight = ref(false);
           <ElButton size="small" @click="clearSelection"> 取消选择 </ElButton>
         </template>
       </AtengTable>
-    </ElCard>
+    </div>
 
     <!-- 独立导出功能演示卡片（无 AtengTable 上下文，纯属性直传与下拉菜单多模切换） -->
     <ElCard shadow="hover" class="export-demo-card" header="AtengExcelExport 独立页面导出演示">
@@ -391,8 +449,8 @@ const enableAutoHeight = ref(false);
   color: var(--el-text-color-primary);
 }
 
-.main-card {
-  border-radius: 8px;
+.table-stage {
+  margin: 0 auto;
 }
 
 .export-demo-card {

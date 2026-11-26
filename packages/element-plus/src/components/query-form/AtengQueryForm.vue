@@ -49,6 +49,7 @@ const props = withDefaults(defineProps<AtengQueryFormProps<T>>(), {
   searchLoading: undefined,
   disabled: false,
   gutter: 16,
+  surface: 'card',
   customClass: '',
 });
 
@@ -327,7 +328,7 @@ defineExpose<AtengQueryFormExpose<T>>({
     :label-width="labelWidth"
     :label-position="labelPosition"
     :disabled="disabled"
-    :class="['at-query-form', customClass]"
+    :class="['at-query-form', `at-query-form--surface-${surface}`, customClass]"
     @keydown="handleFormKeyDown"
   >
     <div class="at-query-form__grid" :style="gridStyle">
@@ -409,11 +410,26 @@ defineExpose<AtengQueryFormExpose<T>>({
 
 <style scoped lang="scss">
 .at-query-form {
-  padding: 18px 18px 2px;
-  background-color: var(--el-bg-color);
-  border-radius: var(--el-border-radius-base);
-  margin-bottom: 16px;
+  width: 100%;
+  margin-bottom: var(--at-query-form-margin-bottom, 16px);
   box-sizing: border-box;
+
+  &--surface-card {
+    padding: var(--at-query-form-padding, 16px 16px 0);
+    background-color: var(--el-bg-color);
+    border: var(--at-query-form-border, 1px solid var(--el-border-color-light, #e4e7ed));
+    border-radius: var(
+      --at-query-form-radius,
+      var(--at-radius-card, var(--el-border-radius-base, 6px))
+    );
+  }
+
+  &--surface-plain {
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+  }
 
   &__grid {
     width: 100%;

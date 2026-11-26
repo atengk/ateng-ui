@@ -176,6 +176,8 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('--at-radius-dialog');
     expect(content).toContain('--at-z-index-base');
     expect(content).toContain('--at-bg-overlay-translucent');
+    expect(content).toContain('.at-table__surface');
+    expect(content).toContain('.at-query-form--surface-card');
   });
 
   it('暗黑模式 SSOT 治理：组件规则中无硬编码 #0c1017 泄露', () => {

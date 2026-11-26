@@ -576,5 +576,21 @@ describe('AtengQueryForm 组件规范与交互测试', () => {
       expect(mockReset).not.toHaveBeenCalled();
       expect(tableReset).not.toHaveBeenCalled();
     });
+
+    it('外观模式：默认启用 surface="card"，支持切换为 surface="plain" 铺平双框', async () => {
+      wrapper = mount(AtengQueryForm, {
+        props: {
+          model: { keyword: '' },
+        },
+        attachTo: document.body,
+      });
+
+      expect(wrapper.classes()).toContain('at-query-form--surface-card');
+      expect(wrapper.classes()).not.toContain('at-query-form--surface-plain');
+
+      await wrapper.setProps({ surface: 'plain' });
+      expect(wrapper.classes()).toContain('at-query-form--surface-plain');
+      expect(wrapper.classes()).not.toContain('at-query-form--surface-card');
+    });
   });
 });

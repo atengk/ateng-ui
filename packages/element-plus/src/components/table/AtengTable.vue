@@ -28,7 +28,6 @@ import {
   watch,
   onMounted,
   onUnmounted,
-  nextTick,
   provide,
   toValue,
   type ComputedRef,
@@ -71,6 +70,8 @@ import type {
   TableToolItem,
 } from './types';
 import { parseColumnVNodes, filterAndSortColumnVNodes } from './utils/vnode';
+import { resolveEffectivePagination, type ResolvedPaginationState } from './utils/pagination';
+import { useTableLayout } from './utils/useTableLayout';
 
 defineOptions({
   name: 'AtengTable',
@@ -97,6 +98,12 @@ const props = withDefaults(defineProps<AtengTableProps<T, TParams>>(), {
   pageSizes: () => [10, 20, 50, 100],
   paginationLayout: 'total, sizes, prev, pager, next, jumper',
   showPagination: undefined,
+  surface: 'card',
+  paginationAlign: 'between',
+  responsivePagination: true,
+  paginationPagerCount: 7,
+  hidePaginationOnEmpty: true,
+  hideJumperOnSinglePage: true,
   showBatchBar: true,
   reserveSelection: false,
   selection: undefined,
@@ -160,7 +167,50 @@ const shouldShowPagination = computed<boolean>(() => {
   if (props.showPagination !== undefined) {
     return props.showPagination;
   }
-  return props.pagination !== undefined || props.total !== undefined;
+  const hasPaginationSource = props.pagination !== undefined || props.total !== undefined;
+  if (!hasPaginationSource) {
+    return false;
+  }
+  if (props.hidePaginationOnEmpty !== false && currentTotal.value <= 0) {
+    return false;
+  }
+  return true;
+});
+
+const isFullscreen = ref<boolean>(false);
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value;
+  emit('fullscreen-change', isFullscreen.value);
+};
+
+const tableRootRef = ref<HTMLElement | null>(null);
+const tableSurfaceRef = ref<HTMLElement | null>(null);
+const tableMainRef = ref<HTMLElement | null>(null);
+const paginationContainerRef = ref<HTMLElement | null>(null);
+
+const { tableContainerWidth, calculatedHeight } = useTableLayout({
+  tableRootRef,
+  tableSurfaceRef,
+  tableMainRef,
+  paginationContainerRef,
+  autoHeight: computed(() => props.autoHeight),
+  responsivePagination: computed(() => props.responsivePagination !== false),
+  shouldShowPagination,
+  surface: computed(() => props.surface),
+  isFullscreen: computed(() => isFullscreen.value),
+});
+
+const effectivePagination = computed<ResolvedPaginationState>(() => {
+  return resolveEffectivePagination({
+    layout: props.paginationLayout,
+    total: currentTotal.value,
+    pageSize: currentPageSize.value,
+    align: props.paginationAlign,
+    hideJumperOnSinglePage: props.hideJumperOnSinglePage !== false,
+    responsive: props.responsivePagination !== false,
+    containerWidth: tableContainerWidth.value,
+    pagerCount: props.paginationPagerCount,
+  });
 });
 
 const handleCurrentChange = async (val: number) => {
@@ -235,12 +285,6 @@ const toggleStripe = () => {
   emit('update:stripe', nextVal);
 };
 
-const isFullscreen = ref<boolean>(false);
-const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value;
-  emit('fullscreen-change', isFullscreen.value);
-};
-
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && isFullscreen.value) {
     toggleFullscreen();
@@ -251,16 +295,12 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('keydown', handleKeydown);
   }
-  if (props.autoHeight) {
-    attachAutoHeightObserver();
-  }
 });
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeydown);
   }
-  detachAutoHeightObserver();
 });
 
 // 原子工具项判断
@@ -582,60 +622,6 @@ const renderFilteredSlotColumns = () => {
     resizable: props.enableColumnResize,
   });
 };
-
-// 视口高度自适应状态与监听器
-const tableRootRef = ref<HTMLElement | null>(null);
-const calculatedHeight = ref<number | undefined>(undefined);
-let resizeObserver: ResizeObserver | null = null;
-
-function updateAutoHeight(): void {
-  if (!props.autoHeight || typeof window === 'undefined' || !tableRootRef.value) {
-    return;
-  }
-  const rect = tableRootRef.value.getBoundingClientRect();
-  const bottomOffset = typeof props.autoHeight === 'number' ? props.autoHeight : 32;
-  const availableHeight = Math.max(150, Math.floor(window.innerHeight - rect.top - bottomOffset));
-  calculatedHeight.value = availableHeight;
-}
-
-function detachAutoHeightObserver(): void {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', updateAutoHeight);
-  }
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
-  calculatedHeight.value = undefined;
-}
-
-function attachAutoHeightObserver(): void {
-  if (typeof window === 'undefined') return;
-  detachAutoHeightObserver();
-  if (!props.autoHeight) return;
-
-  nextTick(() => {
-    updateAutoHeight();
-    if ('ResizeObserver' in window && tableRootRef.value) {
-      resizeObserver = new ResizeObserver(() => {
-        updateAutoHeight();
-      });
-      resizeObserver.observe(tableRootRef.value);
-    }
-    window.addEventListener('resize', updateAutoHeight);
-  });
-}
-
-watch(
-  () => props.autoHeight,
-  newVal => {
-    if (newVal) {
-      attachAutoHeightObserver();
-    } else {
-      detachAutoHeightObserver();
-    }
-  },
-);
 
 const effectiveTableHeight = computed(() => {
   if (props.autoHeight && calculatedHeight.value) {
@@ -977,6 +963,7 @@ defineExpose<AtengTableExpose<T>>({
     :class="[
       'at-table',
       `at-table--${currentDensity}`,
+      `at-table--surface-${surface}`,
       isFullscreen && 'at-table--fullscreen',
       customClass,
     ]"
@@ -986,8 +973,10 @@ defineExpose<AtengTableExpose<T>>({
       <slot name="query" />
     </div>
 
-    <!-- 企业级工具栏区域 -->
-    <div v-if="shouldShowToolbar" class="at-table__toolbar">
+    <!-- 表格卡片表面容器：统一承载工具栏、表格主体与底部分页区 -->
+    <div ref="tableSurfaceRef" class="at-table__surface">
+      <!-- 企业级工具栏区域 -->
+      <div v-if="shouldShowToolbar" class="at-table__toolbar">
       <!-- 左侧操作插槽 -->
       <div class="at-table__toolbar-left">
         <slot name="toolbar-left" />
@@ -1136,7 +1125,7 @@ defineExpose<AtengTableExpose<T>>({
     </div>
 
     <!-- 表格主体容器 -->
-    <div class="at-table__main">
+    <div ref="tableMainRef" class="at-table__main">
       <el-table
         ref="tableRef"
         v-loading="isLoading"
@@ -1222,21 +1211,32 @@ defineExpose<AtengTableExpose<T>>({
       </transition>
     </div>
 
-    <!-- 表格底部分页区域 -->
-    <div v-if="shouldShowPagination" class="at-table__pagination">
-      <slot name="pagination">
-        <el-pagination
-          :current-page="currentPage"
-          :page-size="currentPageSize"
-          :total="currentTotal"
-          :page-sizes="pageSizes"
-          :layout="paginationLayout"
-          :disabled="isLoading"
-          background
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
-        />
-      </slot>
+      <!-- 表格底部分页区域 -->
+      <div
+        v-if="shouldShowPagination"
+        ref="paginationContainerRef"
+        :class="[
+          'at-table__pagination',
+          `at-table__pagination--${paginationAlign}`,
+          !effectivePagination.hasSplitRight && 'at-table__pagination--no-split',
+        ]"
+      >
+        <slot name="pagination">
+          <el-pagination
+            :current-page="currentPage"
+            :page-size="currentPageSize"
+            :total="currentTotal"
+            :page-sizes="pageSizes"
+            :pager-count="effectivePagination.pagerCount"
+            :size="effectivePagination.size"
+            :layout="effectivePagination.layout"
+            :disabled="isLoading"
+            background
+            @current-change="handleCurrentChange"
+            @size-change="handleSizeChange"
+          />
+        </slot>
+      </div>
     </div>
   </div>
 </template>
@@ -1244,11 +1244,36 @@ defineExpose<AtengTableExpose<T>>({
 <style scoped lang="scss">
 .at-table {
   width: 100%;
-  background-color: var(--el-bg-color);
+  background-color: transparent;
   box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 
   &__query {
-    margin-bottom: 0;
+    margin-bottom: var(--at-table-query-gap, 16px);
+    --at-query-form-margin-bottom: 0px;
+  }
+
+  &__surface {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  &--surface-card:not(&--fullscreen) > &__surface {
+    padding: var(--at-table-surface-padding, 16px);
+    background-color: var(--el-bg-color);
+    border: var(--at-table-card-border, 1px solid var(--el-border-color-light, #e4e7ed));
+    border-radius: var(
+      --at-table-card-radius,
+      var(--at-radius-card, var(--el-border-radius-base, 6px))
+    );
+  }
+
+  &--surface-plain > &__surface {
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
   }
 
   &__toolbar {
@@ -1329,10 +1354,50 @@ defineExpose<AtengTableExpose<T>>({
 
   &__pagination {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 12px 0 0 0;
     box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+
+    &--between {
+      justify-content: space-between;
+    }
+
+    &--end {
+      justify-content: flex-end;
+    }
+
+    :deep(.el-pagination) {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      white-space: normal;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum';
+      --el-pagination-item-gap: 0px;
+      --el-pagination-border-radius: var(--el-border-radius-base, 6px);
+    }
+
+    :deep(.el-pagination__rightwrapper) {
+      display: flex;
+      flex: 1 1 auto;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    &--end :deep(.el-pagination),
+    &--no-split :deep(.el-pagination) {
+      justify-content: flex-end;
+    }
   }
 
   &__batch-bar {
@@ -1392,6 +1457,14 @@ defineExpose<AtengTableExpose<T>>({
     padding: 16px;
     overflow: auto;
     box-sizing: border-box;
+
+    > .at-table__surface {
+      padding: 0;
+      background-color: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
   }
 
   // 密度变体

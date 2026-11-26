@@ -72,6 +72,30 @@ Accepted (已采纳 / 已实装)
   - `AtengTableExpose<T>`：`selectedRows: ComputedRef<T[]>`, `getSelectionRows: () => T[]`, `toggleRowSelection: (row: T, selected?: boolean) => void`；
 - 下游调用端在使用组件时，无需任何类型断言，由 TypeScript 原生推导完整获得智能补全与静态排错。
 
+### 5. 双卡分体表面容器、设计令牌与全屏防双框契约 (Dual-Card Surface, 2026-11-26 增量修订)
+
+- **透明根容器与 `.at-table__surface` 分体结构**：
+  - `.at-table` 根容器保持透明背景；`#query` 插槽（`.at-table__query`）底部保留 `--at-table-query-gap`（默认 `16px`）间隔，并自动消解子级 `AtengQueryForm` 的 `--at-query-form-margin-bottom` 以防双倍间距；
+  - 工具栏、表格主体与底部分页区统一收拢于 `.at-table__surface` 内部卡片容器，默认提供 `16px` 四周内边距、细线边框与圆角；`.at-table--fullscreen` 全屏模式下自动剥离 `.at-table__surface` 边框、圆角与重复内边距，保持单层画布正常滚动；
+  - `autoHeight` 测量基准迁移至 `.at-table__main` 顶部（含单测零高度兜底），动态扣减分页栏高度与 `'card'` 模式表面底部内边距，确保底部分页条在视口内完整可见；
+- **防嵌套双框逃生门 (`surface?: 'card' | 'plain'`)**：
+  - `AtengTable` 与 `AtengQueryForm` 同步提供 `surface?: 'card' | 'plain'`（默认 `'card'`）；嵌入 `ElCard`、`AtengCard`、弹窗或非 `ghost` `AtengPageContainer` 时可设 `surface="plain"` 铺平背景、边框、圆角与外围内边距；
+- **双样式包对齐令牌**：
+  - `AtengTable` 暴露 `--at-table-card-radius`（回退 `var(--at-radius-card, var(--el-border-radius-base, 6px))`）、`--at-table-card-border`（回退 `1px solid var(--el-border-color-light, #e4e7ed)`）、`--at-table-surface-padding`（`16px`）、`--at-table-query-gap`（`16px`）；
+  - `AtengQueryForm` 暴露 `--at-query-form-border`、`--at-query-form-radius`、`--at-query-form-padding`（`'card'` 默认 `16px 16px 0`，`'plain'` 为 `0`）、`--at-query-form-margin-bottom`（独立默认 `16px`）；
+  - 可选 `theme-pro/_tables.scss` 额外为 `'card'` 模式提供 `var(--el-box-shadow-light)` 微影与暗黑边框质感（恪守零 `!important`）。
+
+### 6. 分页栏主轴分布、容器响应式降级与空/单页收敛 (Adaptive Pagination Convergence, 2026-11-26 增量修订)
+
+- **主轴分布与等宽安全换行**：
+  - 新增 `paginationAlign?: 'between' | 'end'`（默认 `'between'`）；当为 `'between'` 且有效 `layout` 含 `total`、不含 `->` 且 `total` 不在末尾时，在 `total` 后自动注入 `->` 以复用 Element Plus `.el-pagination__rightwrapper` 右侧分组（换行后右侧控件组仍整体右对齐），无 `total` 或置尾时平稳退化右对齐；
+  - `AtengTable` 与 `AtengExcelFeedback` 分页容器在 SFC `scoped` 样式内置 `font-variant-numeric: tabular-nums`、`flex-wrap: wrap`、`gap: 8px` 与 `--el-pagination-border-radius` 现代圆角，不依赖 `theme-pro.css` 独立生效；
+- **容器宽度自适应降级**：
+  - 新增 `responsivePagination?: boolean`（默认 `true`）与 `paginationPagerCount?: number`（默认 `7`，校验合法奇数 $5 \sim 21$）；基于根容器 `ResizeObserver` 监听宽度：`< 640px` 降级 `pagerCount <= 5` 并隐藏 `jumper`；`< 480px` 进一步隐藏 `sizes` 并切换 `size="small"`；
+- **空数据与单页自动收敛**：
+  - 新增 `hidePaginationOnEmpty?: boolean`（默认 `true`）与 `hideJumperOnSinglePage?: boolean`（默认 `true`）；
+  - 显式 `showPagination` 拥有最高优先级；未显式覆盖时 `total <= 0` 自动隐藏分页区（含 `#pagination` 插槽）；`total > 0` 且总页数 $\le 1$ 时自动从有效 `layout` 剔除 `jumper`（保底防止自定义极简 layout 被置空），总页数 $\ge 2$ 自动恢复。
+
 ## 效果与影响
 
 - **收益 (Benefits)**：

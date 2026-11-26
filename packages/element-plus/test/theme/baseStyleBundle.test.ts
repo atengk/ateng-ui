@@ -37,6 +37,16 @@ describe('Base Style Bundle (dist/index.css) 产物完整性与解耦门禁', ()
     expect(content).toContain('at-skeleton-pulse');
   });
 
+  it('包含 AtengTable 双卡表面、AtengQueryForm 与分页容器自洽样式规则', () => {
+    const content = readIndexCss();
+    expect(content).toContain('.at-table__surface');
+    expect(content).toContain('--at-table-card-radius');
+    expect(content).toContain('--at-table-query-gap');
+    expect(content).toContain('--at-query-form-border');
+    expect(content).toContain('.at-table__pagination');
+    expect(content).toContain('.at-excel-feedback__pagination');
+  });
+
   it('包含 AtengLoadingBar 核心样式与 RGB 变量 CSS Fallback', () => {
     const content = readIndexCss();
     expect(content).toContain('.at-loading-bar');

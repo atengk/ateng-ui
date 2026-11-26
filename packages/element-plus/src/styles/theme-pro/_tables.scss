@@ -234,6 +234,15 @@ html.dark {
 // ========================================================
 // 6. 企业级增强表格组件 (AtengTable) 现代质感
 // ========================================================
+.at-table--surface-card:not(.at-table--fullscreen) > .at-table__surface,
+.at-query-form--surface-card {
+  box-shadow: var(--el-box-shadow-light);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .at-table {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
@@ -259,9 +268,19 @@ html.dark {
   }
 }
 
-// 暗黑模式下批量操作条
+// 暗黑模式下批量操作条与双卡表面
 :root.dark,
 .dark {
+  .at-table--surface-card:not(.at-table--fullscreen) > .at-table__surface {
+    border: var(--at-table-card-border, 1px solid var(--el-border-color));
+    box-shadow: var(--el-box-shadow-light);
+  }
+
+  .at-query-form--surface-card {
+    border: var(--at-query-form-border, 1px solid var(--el-border-color));
+    box-shadow: var(--el-box-shadow-light);
+  }
+
   .at-table__batch-bar {
     background-color: var(--at-bg-overlay-translucent, var(--el-bg-color-overlay));
     border: 1px solid rgba(255, 255, 255, 0.16);

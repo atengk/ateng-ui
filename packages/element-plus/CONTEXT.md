@@ -204,6 +204,14 @@ _Avoid_: 媒体查询断点, 视口断点, WindowBreakpoints
 AtengQueryForm 支持配置展示前 N 行表单项并在末行尾部吸附操作按钮的高级折叠交互编排能力。
 _Avoid_: 动态折叠, 多行展开, ExpandRows
 
+**双卡分体表面 (Dual-Card Surface)**:
+`AtengTable` 与 `AtengQueryForm` 通过 `surface`（`'card' | 'plain'`）外观模式与设计令牌将顶部检索卡与 `.at-table__surface` 表格表面卡分体对齐，并在嵌套或全屏态下按需铺平防双框的容器表面架构。
+_Avoid_: DoubleWrapper, OuterBox, CardShell, TableCard
+
+**自适应分页收敛 (Adaptive Pagination Convergence)**:
+`AtengTable` 底部分页区基于 `paginationAlign`（`'between' | 'end'`）、根容器 `ResizeObserver` 窄宽断点（`< 640px` / `< 480px`）以及空数据或单页状态自动执行主轴分组、控件精简与收敛隐藏的响应式分页机制。
+_Avoid_: SmartPager, AutoHidePager, MobilePagination
+
 ## 现代多主题设计引擎 (Theme Engine)
 
 **Base Style Bundle**:

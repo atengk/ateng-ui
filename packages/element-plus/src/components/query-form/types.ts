@@ -52,6 +52,13 @@ export interface QueryFormResponsiveCols {
 }
 
 /**
+ * 查询表单外观表面模式。
+ * - `'card'`：带边框、圆角与外围内边距的检索卡片形态（默认）
+ * - `'plain'`：剥离边框、圆角、背景与外围内边距，适配外部已包卡片或弹窗场景
+ */
+export type QueryFormSurface = 'card' | 'plain';
+
+/**
  * AtengQueryForm 属性接口。
  */
 export interface AtengQueryFormProps<T extends object = Record<string, unknown>> {
@@ -175,6 +182,12 @@ export interface AtengQueryFormProps<T extends object = Record<string, unknown>>
    * @default 16
    */
   gutter?: number;
+
+  /**
+   * 查询表单外观表面模式（card 卡片形态 / plain 扁平无框）。
+   * @default 'card'
+   */
+  surface?: QueryFormSurface;
 
   /**
    * 根容器自定义样式类名。

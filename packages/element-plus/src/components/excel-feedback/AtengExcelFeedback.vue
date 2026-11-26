@@ -384,7 +384,25 @@ defineExpose<AtengExcelFeedbackExpose>({
   &__pagination {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 12px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+
+    :deep(.el-pagination) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      white-space: normal;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum';
+      --el-pagination-item-gap: 0px;
+      --el-pagination-border-radius: var(--el-border-radius-base, 6px);
+    }
   }
 
   &__footer {

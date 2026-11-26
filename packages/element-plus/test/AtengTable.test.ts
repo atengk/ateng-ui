@@ -1354,4 +1354,381 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       expect(localStorage.getItem(storageKey)).toBeNull();
     });
   });
+
+  describe('AtengTable 双卡分体表面与自适应分页收敛测试', () => {
+    it('双卡分体表面结构：默认启用 surface="card"，.at-table__surface 包裹工具栏/表格/分页且与 #query 分离', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: mockData,
+          total: 50,
+        },
+        slots: {
+          query: () => h('div', { class: 'mock-query-slot' }, '检索条件'),
+          'toolbar-left': () => h('button', { class: 'mock-toolbar-btn' }, '新建'),
+          default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      expect(wrapper.classes()).toContain('at-table--surface-card');
+      expect(wrapper.classes()).not.toContain('at-table--surface-plain');
+
+      const queryEl = wrapper.find('.at-table__query');
+      const surfaceEl = wrapper.find('.at-table__surface');
+      expect(queryEl.exists()).toBe(true);
+      expect(surfaceEl.exists()).toBe(true);
+
+      // #query 位于 .at-table__surface 之外，工具栏/主体/分页收拢于 .at-table__surface 之内
+      expect(surfaceEl.find('.at-table__query').exists()).toBe(false);
+      expect(surfaceEl.find('.at-table__toolbar').exists()).toBe(true);
+      expect(surfaceEl.find('.at-table__main').exists()).toBe(true);
+      expect(surfaceEl.find('.at-table__pagination').exists()).toBe(true);
+
+      // 切换为 surface="plain" 铺平外观
+      await wrapper.setProps({ surface: 'plain' });
+      await doubleWait();
+      expect(wrapper.classes()).toContain('at-table--surface-plain');
+      expect(wrapper.classes()).not.toContain('at-table--surface-card');
+    });
+
+    it('autoHeight 测量基准：从 .at-table__main 起算并扣减分页栏与表面底部内边距', async () => {
+      const originalInnerHeightDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+      Object.defineProperty(window, 'innerHeight', { value: 900, writable: true, configurable: true });
+
+      try {
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            total: 50,
+            autoHeight: false,
+          },
+          slots: {
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+
+        const mainEl = wrapper.find('.at-table__main').element as HTMLElement;
+        const paginationEl = wrapper.find('.at-table__pagination').element as HTMLElement;
+
+        vi.spyOn(mainEl, 'getBoundingClientRect').mockReturnValue({
+          top: 240,
+          left: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 360,
+          x: 0,
+          y: 240,
+          toJSON: () => ({}),
+        } as DOMRect);
+
+        vi.spyOn(paginationEl, 'getBoundingClientRect').mockReturnValue({
+          top: 620,
+          left: 0,
+          right: 1000,
+          bottom: 664,
+          width: 1000,
+          height: 44,
+          x: 0,
+          y: 620,
+          toJSON: () => ({}),
+        } as DOMRect);
+
+        // card 模式下扣减分页高度 44 + 表面默认底内边距 16 + bottomOffset 32 => 900 - 240 - 44 - 16 - 32 = 568
+        await wrapper.setProps({ autoHeight: 32 });
+        await doubleWait();
+
+        const elTable = wrapper.findComponent({ name: 'ElTable' });
+        expect(elTable.props('height')).toBe(568);
+
+        // plain 模式下无需扣减表面底内边距 => 900 - 240 - 44 - 0 - 32 = 584
+        await wrapper.setProps({ surface: 'plain' });
+        await doubleWait();
+        expect(elTable.props('height')).toBe(584);
+
+        // 全屏模式下剥离表面底部内边距，恢复 card 并开启全屏 => 900 - 240 - 44 - 0 - 32 = 584
+        await wrapper.setProps({ surface: 'card' });
+        await doubleWait();
+        await wrapper.find('button[aria-label="全屏"]').trigger('click');
+        await doubleWait();
+        expect(wrapper.classes()).toContain('at-table--fullscreen');
+        expect(wrapper.find('.at-table__surface').exists()).toBe(true);
+        expect(elTable.props('height')).toBe(584);
+
+        // 退出全屏，total 为 0 且自动隐藏分页时，分页扣减为 0 => 900 - 240 - 0 - 16 - 32 = 612
+        await wrapper.find('button[aria-label="还原"]').trigger('click');
+        await wrapper.setProps({ total: 0 });
+        await doubleWait();
+        expect(elTable.props('height')).toBe(612);
+      } finally {
+        if (originalInnerHeightDesc) {
+          Object.defineProperty(window, 'innerHeight', originalInnerHeightDesc);
+        }
+      }
+    });
+
+    it('paginationAlign 分页对齐：默认 between 自动注入 -> 分组，支持切换 end 及非 total 布局与 #pagination 插槽', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: mockData,
+          total: 50,
+        },
+        slots: {
+          default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const paginationContainer = wrapper.find('.at-table__pagination');
+      const elPagination = wrapper.findComponent({ name: 'ElPagination' });
+
+      // 默认 between，且自动在 total 后插入 ->
+      expect(paginationContainer.classes()).toContain('at-table__pagination--between');
+      expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next, jumper');
+
+      // 切换为 end
+      await wrapper.setProps({ paginationAlign: 'end' });
+      await doubleWait();
+      expect(paginationContainer.classes()).toContain('at-table__pagination--end');
+      expect(elPagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper');
+
+      // end 模式下即使 layout 显式包含 ->，也应剥离并靠右
+      await wrapper.setProps({
+        paginationAlign: 'end',
+        paginationLayout: 'total, ->, prev, pager, next',
+      });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('total, prev, pager, next');
+
+      // 自定义无 total 布局时，即使 between 也不强行注入 ->
+      await wrapper.setProps({
+        paginationAlign: 'between',
+        paginationLayout: 'prev, pager, next',
+      });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('prev, pager, next');
+      expect(paginationContainer.classes()).toContain('at-table__pagination--no-split');
+
+      // total 在末尾时，不注入尾随 ->
+      await wrapper.setProps({
+        paginationLayout: 'prev, pager, next, total',
+      });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('prev, pager, next, total');
+
+      // 已包含 -> 时不重复注入
+      await wrapper.setProps({
+        paginationLayout: 'total, ->, prev, pager, next',
+      });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('total, ->, prev, pager, next');
+      wrapper.unmount();
+
+      // 自定义 #pagination 插槽支持 between / end 类名与 total=0 强制展示
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [],
+          total: 0,
+          showPagination: true,
+        },
+        slots: {
+          default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          pagination: () => h('div', { class: 'custom-slot-pager' }, '自定义分页'),
+        },
+        attachTo: document.body,
+      });
+      await doubleWait();
+
+      const slotContainer = wrapper.find('.at-table__pagination');
+      expect(slotContainer.exists()).toBe(true);
+      expect(slotContainer.find('.custom-slot-pager').exists()).toBe(true);
+      expect(slotContainer.classes()).toContain('at-table__pagination--between');
+
+      await wrapper.setProps({ paginationAlign: 'end' });
+      await doubleWait();
+      expect(slotContainer.classes()).toContain('at-table__pagination--end');
+    });
+
+    it('空数据与单页收敛：total=0 默认隐藏分页（显式 showPagination=true 可覆盖），单页默认收敛 jumper', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [],
+          total: 0,
+        },
+        slots: {
+          default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      // 1. total=0 默认隐藏分页条
+      expect(wrapper.find('.at-table__pagination').exists()).toBe(false);
+
+      // 2. 显式 showPagination=true 优先级最高，强制展示
+      await wrapper.setProps({ showPagination: true });
+      await doubleWait();
+      expect(wrapper.find('.at-table__pagination').exists()).toBe(true);
+
+      // 3. hidePaginationOnEmpty=false 且 showPagination 未传时，total=0 也展示
+      await wrapper.setProps({ showPagination: undefined, hidePaginationOnEmpty: false });
+      await doubleWait();
+      expect(wrapper.find('.at-table__pagination').exists()).toBe(true);
+
+      // 4. 恢复 hidePaginationOnEmpty=true，切换到单页（total=8, size=10）时隐藏 jumper
+      await wrapper.setProps({
+        hidePaginationOnEmpty: true,
+        data: mockData,
+        total: 8,
+        size: 10,
+      });
+      await doubleWait();
+      const elPagination = wrapper.findComponent({ name: 'ElPagination' });
+      expect(elPagination.exists()).toBe(true);
+      expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next');
+
+      // 5. 关闭 hideJumperOnSinglePage 时保留 jumper
+      await wrapper.setProps({ hideJumperOnSinglePage: false });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next, jumper');
+
+      // 6. 恢复 hideJumperOnSinglePage=true，翻到多页（total=25, size=10）时自动恢复 jumper
+      await wrapper.setProps({ hideJumperOnSinglePage: true, total: 25, size: 10 });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next, jumper');
+
+      // 7. 极简仅传 'jumper' 时单页不置空保底
+      await wrapper.setProps({ total: 8, size: 10, paginationLayout: 'jumper' });
+      await doubleWait();
+      expect(elPagination.props('layout')).toBe('jumper');
+    });
+
+    it('窄容器响应式分页降级：基于 ResizeObserver 在 <640px / <480px 渐进精简，并在卸载时断开监听', async () => {
+      interface ObserverRecord {
+        callback: ResizeObserverCallback;
+        target: Element | null;
+        disconnected: boolean;
+      }
+      const observers: ObserverRecord[] = [];
+
+      class MockResizeObserver {
+        private record: ObserverRecord;
+        constructor(callback: ResizeObserverCallback) {
+          this.record = { callback, target: null, disconnected: false };
+          observers.push(this.record);
+        }
+        observe(target: Element) {
+          this.record.target = target;
+        }
+        disconnect() {
+          this.record.disconnected = true;
+        }
+        unobserve() {}
+      }
+
+      const originalRO = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+
+      const triggerWidth = async (width: number) => {
+        const rootEl = wrapper?.element as Element | undefined;
+        const rootObservers = observers.filter(
+          item => item.target === rootEl && !item.disconnected,
+        );
+        expect(rootObservers.length).toBeGreaterThan(0);
+        for (const item of rootObservers) {
+          item.callback(
+            [
+              {
+                contentRect: { width } as DOMRectReadOnly,
+                target: item.target!,
+              } as ResizeObserverEntry,
+            ],
+            {} as ResizeObserver,
+          );
+        }
+        await doubleWait();
+      };
+
+      try {
+        wrapper = mount(AtengTable, {
+          props: {
+            data: mockData,
+            total: 100,
+            paginationPagerCount: 9,
+          },
+          slots: {
+            default: () => [h(ElTableColumn, { prop: 'username', label: '姓名' })],
+          },
+          attachTo: document.body,
+        });
+
+        await doubleWait();
+        const rootObserver = observers.find(item => item.target === wrapper?.element);
+        expect(rootObserver).toBeDefined();
+
+        const elPagination = wrapper.findComponent({ name: 'ElPagination' });
+
+        // 1. 宽容器 (>= 640px)
+        await triggerWidth(900);
+        expect(elPagination.props('pagerCount')).toBe(9);
+        expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next, jumper');
+        expect(elPagination.props('size')).toBeUndefined();
+
+        // 2. 窄容器 (< 640px, >= 480px): 降级 pagerCount=5 且隐藏 jumper
+        await triggerWidth(560);
+        expect(elPagination.props('pagerCount')).toBe(5);
+        expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next');
+        expect(elPagination.props('size')).toBeUndefined();
+
+        // 3. 超窄容器 (< 480px): 进一步隐藏 sizes 并切换 small
+        await triggerWidth(400);
+        expect(elPagination.props('pagerCount')).toBe(5);
+        expect(elPagination.props('layout')).toBe('total, ->, prev, pager, next');
+        expect(elPagination.props('size')).toBe('small');
+
+        // 4. 关闭 responsivePagination 后立即恢复桌面态
+        await wrapper.setProps({ responsivePagination: false });
+        await doubleWait();
+        expect(elPagination.props('pagerCount')).toBe(9);
+        expect(elPagination.props('layout')).toBe('total, ->, sizes, prev, pager, next, jumper');
+        expect(elPagination.props('size')).toBeUndefined();
+
+        // 5. 开启后再动态关闭 autoHeight，响应式分页监听仍保持存活
+        await wrapper.setProps({ responsivePagination: true, autoHeight: true });
+        await doubleWait();
+        await wrapper.setProps({ autoHeight: false });
+        await doubleWait();
+        await triggerWidth(420);
+        expect(elPagination.props('size')).toBe('small');
+
+        // 6. 非法偶数或越界 paginationPagerCount 安全规范化（6 -> 7, 3 -> 5）
+        await triggerWidth(900);
+        await wrapper.setProps({ paginationPagerCount: 6 });
+        await doubleWait();
+        expect(elPagination.props('pagerCount')).toBe(7);
+
+        await wrapper.setProps({ paginationPagerCount: 3 });
+        await doubleWait();
+        expect(elPagination.props('pagerCount')).toBe(5);
+
+        // 7. 卸载时确定性清理 AtengTable 自身的 ResizeObserver
+        const rootEl = wrapper.element;
+        const rootObservers = observers.filter(item => item.target === rootEl);
+        expect(rootObservers.length).toBeGreaterThan(0);
+        wrapper.unmount();
+        wrapper = null;
+        expect(rootObservers.every(item => item.disconnected)).toBe(true);
+      } finally {
+        globalThis.ResizeObserver = originalRO;
+      }
+    });
+  });
 });

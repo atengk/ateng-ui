@@ -27,7 +27,7 @@ import {
   ElTree,
   ElAlert,
 } from 'element-plus';
-import { AtengQueryForm, AtengSplitLayout } from '@atengk/element-plus';
+import { AtengQueryForm, AtengSplitLayout, type QueryFormSurface } from '@atengk/element-plus';
 import { usePagination } from '@atengk/vue';
 import type { PageQuery, PageResult } from '@atengk/core';
 
@@ -74,6 +74,7 @@ const queryModel = reactive({
 const selectedCols = ref<number | 'auto'>('auto');
 const activeCols = computed(() => (selectedCols.value === 'auto' ? undefined : selectedCols.value));
 const collapsedRows = ref(1);
+const formSurface = ref<QueryFormSurface>('plain');
 
 // 3. 提交与重置日志记录
 const submitLogs = ref<string[]>([]);
@@ -123,7 +124,12 @@ const handleReset = () => {
         <div class="card-header">
           <span>🔍 AtengQueryForm 企业级响应式高级搜索表单</span>
           <div class="controls">
-            <span class="ctrl-tip">折叠常驻行数：</span>
+            <span class="ctrl-tip">表面模式：</span>
+            <ElRadioGroup v-model="formSurface" size="small">
+              <ElRadioButton value="plain">无框 (plain)</ElRadioButton>
+              <ElRadioButton value="card">卡片 (card)</ElRadioButton>
+            </ElRadioGroup>
+            <span class="ctrl-tip" style="margin-left: 12px">折叠常驻行数：</span>
             <ElRadioGroup v-model="collapsedRows" size="small">
               <ElRadioButton :value="1">单行折叠 (1)</ElRadioButton>
               <ElRadioButton :value="2">双行折叠 (2)</ElRadioButton>
@@ -140,12 +146,13 @@ const handleReset = () => {
         </div>
       </template>
 
-      <!-- 搜索表单容器 -->
+      <!-- 搜索表单容器（外层已有 ElCard，默认传入 surface="plain"，可切换为 card 对比效果） -->
       <AtengQueryForm
         :model="queryModel"
         :cols="activeCols"
         :collapsed-rows="collapsedRows"
         :default-collapsed="true"
+        :surface="formSurface"
         label-width="90px"
         @search="handleSearch"
         @reset="handleReset"
@@ -217,7 +224,7 @@ const handleReset = () => {
         <code>:model</code>、<code>@search</code> 或 <code>@reset</code>。在任意输入框内直接按
         <strong>Enter 回车键</strong> 即自动触发搜索，并在查询按钮上呈现 loading 联动。
       </div>
-      <AtengQueryForm :pagination="demoPagination" label-width="80px">
+      <AtengQueryForm :pagination="demoPagination" surface="plain" label-width="80px">
         <ElFormItem label="用户工号" prop="userCode">
           <ElInput
             v-model="demoPagination.query.userCode"
@@ -305,7 +312,7 @@ const handleReset = () => {
               :closable="false"
               style="margin-bottom: 12px"
             />
-            <AtengQueryForm :model="splitQueryModel" label-width="70px">
+            <AtengQueryForm :model="splitQueryModel" surface="plain" label-width="70px">
               <ElFormItem label="员工姓名" prop="name">
                 <ElInput v-model="splitQueryModel.name" placeholder="姓名" clearable />
               </ElFormItem>
