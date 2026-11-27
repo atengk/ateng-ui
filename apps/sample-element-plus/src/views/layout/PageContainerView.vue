@@ -285,7 +285,8 @@ const handleFullscreen = (val: boolean) => {
 .control-panel {
   display: flex;
   align-items: center;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 12px 24px;
   padding: 12px 16px;
   background-color: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);

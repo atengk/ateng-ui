@@ -8,14 +8,23 @@
 
 import { ref, watchEffect } from 'vue';
 import { useAuth } from '@atengk/vue';
-import { ElCard, ElRadioGroup, ElRadioButton, ElButton, ElAlert, ElTag } from 'element-plus';
+import {
+  ElCard,
+  ElRadioGroup,
+  ElRadioButton,
+  ElSwitch,
+  ElButton,
+  ElAlert,
+  ElTag,
+} from 'element-plus';
 
 const auth = useAuth();
 
 const currentRole = ref('editor');
+const grantAllDualRoles = ref(false);
 
 watchEffect(() => {
-  auth.setRoles([currentRole.value]);
+  auth.setRoles(grantAllDualRoles.value ? ['editor', 'user'] : [currentRole.value]);
 });
 </script>
 
@@ -43,9 +52,19 @@ watchEffect(() => {
 
       <div class="status-tags">
         <span class="label">生效角色：</span>
-        <ElTag type="success">{{ currentRole }}</ElTag>
+        <ElTag v-if="!grantAllDualRoles" type="success">{{ currentRole }}</ElTag>
+        <template v-else>
+          <ElTag type="success">editor</ElTag>
+          <ElTag type="success">user</ElTag>
+        </template>
+        <ElSwitch
+          v-model="grantAllDualRoles"
+          size="small"
+          active-text="联合授权 (editor + user)"
+          inactive-text="单角色模式"
+        />
         <span
-          v-if="currentRole === 'admin' || currentRole === 'super_admin'"
+          v-if="!grantAllDualRoles && (currentRole === 'admin' || currentRole === 'super_admin')"
           style="color: var(--el-color-warning); font-size: 13px"
         >
           提示：v-role 仅校验真实角色归属，超管放行特权仅作用于 v-permission / hasPermission。
@@ -68,6 +87,18 @@ watchEffect(() => {
           <ElButton v-role.disabled="'editor'" type="primary"> 运营功能 (置灰态) </ElButton>
         </div>
       </div>
+
+      <div class="demo-section">
+        <h3>3. 联合角色全匹配控制 (.all)</h3>
+        <div class="btn-group">
+          <ElButton v-role.all="['editor', 'user']" type="warning">
+            同时具备 editor 与 user 可见 (.all)
+          </ElButton>
+          <ElButton v-role.all.disabled="['editor', 'user']" type="info">
+            双角色联合校验 (缺一即置灰 .all.disabled)
+          </ElButton>
+        </div>
+      </div>
     </ElCard>
   </div>
 </template>
@@ -78,6 +109,7 @@ watchEffect(() => {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 .label {

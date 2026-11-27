@@ -227,11 +227,23 @@ const pageSize = ref(10);
   gap: 16px;
 }
 
+.theme-cards-navigations-view > *,
+.cards-grid > * {
+  min-width: 0;
+}
+
 .preset-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.preset-bar :deep(.el-radio-group),
+.pagination-showcase :deep(.el-pagination) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .label {
@@ -248,7 +260,7 @@ const pageSize = ref(10);
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 16px;
 }
 

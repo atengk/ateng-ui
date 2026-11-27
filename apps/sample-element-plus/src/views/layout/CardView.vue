@@ -214,7 +214,7 @@ const handleFullscreen = (val: boolean) => {
 
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -222,6 +222,7 @@ const handleFullscreen = (val: boolean) => {
 .embedded-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 16px;
   padding: 10px 14px;

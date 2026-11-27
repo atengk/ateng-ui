@@ -15,10 +15,10 @@
 
 ---
 
-## 2. 运行环境与 Mock 双模切换
+## 2. 运行环境与离线自洽模式
 
-- **默认/CI 模式**：内置离线自洽 Mock 数据，无需启动任何外部后端服务即可直接体验完整交互与跑通自动化检查；
-- **Local 真实网关模式**：若需连接真实后端服务，复制 `.env.example` 为 `.env.local` 并配置 `VITE_API_BASE_URL`，重启开发服务即可直连真实微服务网关接口（该环境配置受 Git 忽略，CI 零风险）。
+- **默认/CI 纯离线模式**：展厅内置全量本地 Mock 数据与无头状态机，无需连接任何外部后端服务即可直接运行、完整交互并通过全部构建校验（当前所有示例页面均不依赖外部 `VITE_API_BASE_URL` 网关）；
+- **本地开发环境变量（可选）**：如需自定义开发端口（默认固定 `3003`），可复制 `.env.example` 为 `.env.local` 并调整 `VITE_PORT`（`.env.local` 受 `.gitignore` 忽略，严禁提交敏感凭据）。
 
 ---
 
@@ -29,7 +29,7 @@
 | 场景分类     | 场景看板组件 / 路由路径                                     | 核心可视化交互操作                                                                                                                                                                                                           | 验证重点                                                                                                                                           |
 | :----------- | :---------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **权限指令** | `PermissionView.vue`<br/>(`/directives/permission`)         | 勾选权限码或开启 `super_admin` / `*:*:*` 开关，观察操作按钮的即时显隐与置灰状态                                                                                                                                              | 验证 `v-permission` 权限码控制、`*:*:*` 通配、超管放行、DOM 物理移除插回与 `.disabled` 修饰符                                                      |
-| **角色指令** | `RoleView.vue`<br/>(`/directives/role`)                     | 切换 `admin` / `super_admin` / `editor` / `user`，验证仅真实匹配角色时才放行操作按钮                                                                                                                                         | 验证 `v-role` 基于真实角色列表的严格判定（超管角色不触发全局放行）与 `.disabled` 修饰符                                                            |
+| **角色指令** | `RoleView.vue`<br/>(`/directives/role`)                     | 切换 `admin` / `super_admin` / `editor` / `user` 及联合角色开关，验证单角色与双角色全匹配放行行为                                                                                                                            | 验证 `v-role` 基于真实角色列表的严格判定（超管角色不触发全局放行）、`.disabled` 与 `.all` 联合角色修饰符                                           |
 | **防重指令** | `IdempotentView.vue`<br/>(`/directives/idempotent`)         | 高频疯狂点击“模拟下单”与“异步支付”按钮；测试超时防死锁机制                                                                                                                                                                   | 验证 `v-idempotent` 毫秒级时间窗口防刷、异步 Promise 锁与捕获阶段连击拦截                                                                          |
 | **工具指令** | `CopyView.vue`<br/>(`/directives/copy`)                     | 点击复制优惠券码、订单号与动态 Getter 函数生成的订单详情，观察轻量气泡反馈                                                                                                                                                   | 验证 `v-copy` 原生剪贴板 API 调用、execCommand 降级及 ElMessage 联动                                                                               |
 | **工具指令** | `WatermarkView.vue`<br/>(`/directives/watermark`)           | 动态修改水印文本与颜色；打开浏览器控制台尝试删除水印 DOM 或篡改样式                                                                                                                                                          | 验证 `v-watermark` 局部/全屏双模、Canvas 高清离线渲染与 MutationObserver 篡改自愈                                                                  |
@@ -77,10 +77,11 @@
 ## 4. 全真自动化回归命令
 
 ```bash
+pnpm run format:check && \
 pnpm --filter @atengk/element-plus --filter sample-element-plus typecheck && \
 pnpm --filter @atengk/element-plus --filter sample-element-plus lint && \
-pnpm --filter @atengk/element-plus test && \
-pnpm --filter sample-element-plus build
+pnpm --filter @atengk/element-plus --filter sample-element-plus test && \
+pnpm --filter @atengk/element-plus --filter sample-element-plus build
 ```
 
 > 详细原理机制、Props/Options 接口清单与生产边界，请参阅核心子包文档：[@atengk/element-plus README](../../packages/element-plus/README.md)。

@@ -1705,6 +1705,7 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow-x: clip;
 }
 
 /* 顶部微妙物理微光 (Ambient Radial Glow) */
@@ -1806,8 +1807,12 @@ onUnmounted(() => {
 /* 双列栅格 */
 .grid-two-col {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 14px;
+}
+
+.grid-two-col > * {
+  min-width: 0;
 }
 
 .section-desc {

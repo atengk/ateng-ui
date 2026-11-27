@@ -66,6 +66,8 @@ const standardMenuData: ProMenuItem[] = [
 
 // 2. 状态控制与 useTabsNav 状态机集成
 const activeLayout = ref<'side' | 'top' | 'mix'>('side');
+// 动态操作栏定位演示状态（默认 sticky 贴合布局底栏，可切换为真实视口 fixed 验证不受容器 transform 截断）
+const demo3FooterPosition = ref<'sticky' | 'fixed'>('sticky');
 const collapsed = ref(false);
 const activeMenu = ref('/system/user');
 const mixAutoSelectFirstLeaf = ref(true);
@@ -451,10 +453,19 @@ const backendCollapsed = ref(false);
     <!-- 演示 3: AtengFooterBar 避让总线联动 -->
     <ElCard class="sample-card" header="3. 吸底操作栏（AtengFooterBar）智能避让总线联动">
       <p class="section-desc">
-        在 <code>AtengProLayout</code> 内部使用 <code>AtengFooterBar</code> 时， 无需手动计算
-        <code>leftOffset</code>。操作栏通过 <code>ATENG_PRO_LAYOUT_KEY</code>
-        自动感知侧边栏展开（220px）与折叠（64px），并在折叠展开时平滑过渡对齐！
+        在 <code>AtengProLayout</code> 内部使用 <code>AtengFooterBar</code> 时，无需手动计算
+        <code>leftOffset</code>。操作栏通过 <code>ATENG_PRO_LAYOUT_KEY</code> 自动感知侧边栏展开
+        （220px）与折叠（64px），默认使用 <code>sticky</code> 贴合局部容器底边，切换为
+        <code>fixed</code> 后将在真实浏览器视口底部悬浮对齐。
       </p>
+
+      <div class="card-controls">
+        <span class="control-label">底栏定位模式：</span>
+        <ElRadioGroup v-model="demo3FooterPosition" size="small">
+          <ElRadioButton value="sticky">容器贴底 (sticky)</ElRadioButton>
+          <ElRadioButton value="fixed">真实视口悬浮 (fixed)</ElRadioButton>
+        </ElRadioGroup>
+      </div>
 
       <div class="demo-viewport" style="height: 380px">
         <AtengProLayout
@@ -466,13 +477,14 @@ const backendCollapsed = ref(false);
         >
           <div class="sandbox-content" style="min-height: 140px">
             <ElButton size="small" type="primary" @click="collapsed = !collapsed">
-              点击切换折叠（观察底部操作栏 left 自动随动）
+              点击切换折叠（观察底部操作栏对齐随动）
             </ElButton>
           </div>
 
           <template #footer>
             <AtengFooterBar
-              position="fixed"
+              :position="demo3FooterPosition"
+              :auto-offset="demo3FooterPosition === 'fixed'"
               show-submit
               show-reset
               show-cancel
@@ -510,7 +522,10 @@ const backendCollapsed = ref(false);
       </div>
 
       <!-- 模拟窄屏移动端容器 -->
-      <div class="demo-viewport" style="max-width: 480px; height: 380px; position: relative">
+      <div
+        class="demo-viewport demo-viewport--drawer"
+        style="max-width: 480px; height: 380px; position: relative"
+      >
         <AtengProLayout
           v-model:collapsed="mobileDrawerCollapsed"
           layout="side"
@@ -566,7 +581,8 @@ const backendCollapsed = ref(false);
 .card-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   margin-bottom: 16px;
 }
 
@@ -599,6 +615,10 @@ const backendCollapsed = ref(false);
   overflow: hidden;
   box-shadow: var(--el-box-shadow-light);
   position: relative;
+}
+
+.demo-viewport--drawer {
+  /* 仅移动端抽屉演示沙箱建立包含块，避免 fixed 遮罩穿透覆盖外层展厅导航 */
   transform: translateZ(0);
 }
 
@@ -718,5 +738,11 @@ const backendCollapsed = ref(false);
   align-items: center;
   font-size: 13px;
   color: var(--el-text-color-regular);
+}
+
+@media (max-width: 767px) {
+  .pro-layout-sample-page {
+    padding: 12px;
+  }
 }
 </style>

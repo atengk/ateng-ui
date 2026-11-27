@@ -68,7 +68,7 @@ const resolvedMenuIcons = computed<TabMenuIcons | undefined>(() =>
     : undefined,
 );
 
-let tabCounter = 1;
+let tabCounter = 0;
 
 // 集成 useTabsNav 无头状态机
 const {
@@ -211,6 +211,7 @@ const addNewTab = (): void => {
 
 // 重置所有标签
 const resetTabs = (): void => {
+  tabCounter = 0;
   tabs.value = [
     { key: '/dashboard', title: '工作台首页', affix: true, componentName: 'DashboardView' },
     { key: '/system/user', title: '用户权限管理', componentName: 'UserManagement' },

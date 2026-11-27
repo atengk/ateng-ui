@@ -97,7 +97,7 @@ const handleResetQuery = () => {
               value-format="YYYY-MM-DD HH:mm:ss"
               start-placeholder="开始时间"
               end-placeholder="结束时间"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
           </ElFormItem>
         </ElForm>
@@ -132,7 +132,7 @@ const handleResetQuery = () => {
               :auto-time="autoTime"
               value-format="YYYY-MM-DD HH:mm:ss"
               placeholder="请选择日期范围"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">
               绑定值：{{ dateTimeRange ? JSON.stringify(dateTimeRange) : '未选择' }}
@@ -152,7 +152,7 @@ const handleResetQuery = () => {
               v-model="basicRange"
               value-format="YYYY-MM-DD"
               format="YYYY-MM-DD"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint"
               >点击查看内置 9 大自然周期：今天/昨天/近7天/近30天/本周/上周/本月/本季度/本年</span
@@ -164,7 +164,7 @@ const handleResetQuery = () => {
               v-model="customRange"
               :shortcuts="customShortcuts"
               value-format="YYYY-MM-DD"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">自定义「近 60 天」「本季度」扩展</span>
           </ElFormItem>
@@ -185,7 +185,7 @@ const handleResetQuery = () => {
               disable-future
               value-format="YYYY-MM-DD"
               placeholder="大于今天的日期置灰"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">业务日志、历史回溯场景常用</span>
           </ElFormItem>
@@ -196,7 +196,7 @@ const handleResetQuery = () => {
               disable-past
               value-format="YYYY-MM-DD"
               placeholder="小于今天的日期置灰"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">活动规划、未来排期场景常用</span>
           </ElFormItem>
@@ -207,7 +207,7 @@ const handleResetQuery = () => {
               :max-range-days="30"
               value-format="YYYY-MM-DD"
               placeholder="选定第一天后前后限30天"
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">选定起始日后自动动态置灰超出 30 天的日期</span>
           </ElFormItem>
@@ -234,6 +234,8 @@ const handleResetQuery = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .ctrl-toggle {
@@ -251,9 +253,21 @@ const handleResetQuery = () => {
   margin-top: 10px;
 }
 
+.demo-form :deep(.el-form-item) {
+  flex-wrap: wrap;
+}
+
+.demo-form :deep(.el-form-item__content) {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .state-preview {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
   background-color: var(--el-fill-color-light);
@@ -275,5 +289,11 @@ const handleResetQuery = () => {
   margin-left: 14px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+@media (max-width: 767px) {
+  .value-hint {
+    margin-left: 0;
+  }
 }
 </style>

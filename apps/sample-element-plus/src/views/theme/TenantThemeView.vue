@@ -36,10 +36,38 @@ import {
 // 1. 全局品牌色动态设定
 const currentGlobalColor = ref('#4f46e5');
 const customHexInput = ref('#0d9488');
+let darkClassObserver: MutationObserver | null = null;
+
+/**
+ * 判断调色板色块是否属于高亮度浅色阶（依据 W3C WCAG 2.1 相对亮度交叉阈值 L > 0.179）。
+ */
+const isLightSwatch = (hex: string): boolean => {
+  const clean = hex.trim().replace(/^#/, '');
+  const full =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map(ch => ch + ch)
+          .join('')
+      : clean;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) {
+    return false;
+  }
+  const toLinear = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const r = toLinear(parseInt(full.slice(0, 2), 16));
+  const g = toLinear(parseInt(full.slice(2, 4), 16));
+  const b = toLinear(parseInt(full.slice(4, 6), 16));
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.179;
+};
 
 const applyGlobalColor = (hex: string) => {
   currentGlobalColor.value = hex;
-  const success = setThemeColor(hex);
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  const success = setThemeColor(hex, { isDark: isDarkMode });
   if (success) {
     ElMessage.success(`已动态演算并应用全局品牌色: ${hex}`);
     updatePalettePreview(hex);
@@ -52,23 +80,29 @@ const applyGlobalColor = (hex: string) => {
 interface ColorStep {
   name: string;
   hex: string;
+  isLight: boolean;
 }
 const paletteSteps = ref<ColorStep[]>([]);
 
+const buildColorStep = (name: string, hex: string): ColorStep => ({
+  name,
+  hex,
+  isLight: isLightSwatch(hex),
+});
+
 const updatePalettePreview = (hex: string) => {
-  const steps: ColorStep[] = [{ name: 'primary', hex }];
+  const isDarkMode = document.documentElement.classList.contains('dark');
   const tempEl = document.createElement('div');
-  setThemeColor(hex, { target: tempEl });
+  const valid = setThemeColor(hex, { target: tempEl, isDark: isDarkMode });
+  if (!valid) return;
+  const resolvedPrimary = tempEl.style.getPropertyValue('--el-color-primary').trim() || hex;
+  const steps: ColorStep[] = [buildColorStep('primary', resolvedPrimary)];
   for (let i = 1; i <= 9; i++) {
-    steps.push({
-      name: `light-${i}`,
-      hex: tempEl.style.getPropertyValue(`--el-color-primary-light-${i}`),
-    });
+    const stepHex = tempEl.style.getPropertyValue(`--el-color-primary-light-${i}`).trim();
+    steps.push(buildColorStep(`light-${i}`, stepHex));
   }
-  steps.push({
-    name: 'dark-2',
-    hex: tempEl.style.getPropertyValue('--el-color-primary-dark-2'),
-  });
+  const dark2Hex = tempEl.style.getPropertyValue('--el-color-primary-dark-2').trim();
+  steps.push(buildColorStep('dark-2', dark2Hex));
   paletteSteps.value = steps;
 };
 
@@ -113,9 +147,20 @@ onMounted(() => {
     localThemeMode.value = localThemeManager.getMode();
     localActiveTheme.value = localThemeManager.getActiveTheme();
   }
+  if (typeof MutationObserver !== 'undefined') {
+    darkClassObserver = new MutationObserver(() => {
+      updatePalettePreview(currentGlobalColor.value);
+    });
+    darkClassObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
 });
 
 onUnmounted(() => {
+  darkClassObserver?.disconnect();
+  darkClassObserver = null;
   localThemeManager?.cleanup();
   localThemeManager = null;
 });
@@ -159,6 +204,7 @@ onUnmounted(() => {
             v-for="step in paletteSteps"
             :key="step.name"
             class="palette-card"
+            :class="{ 'is-light-swatch': step.isLight }"
             :style="{ backgroundColor: step.hex }"
           >
             <span class="step-name">{{ step.name }}</span>
@@ -301,27 +347,32 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  color: var(--el-color-white);
+  box-shadow: inset 0 0 0 1px var(--el-border-color-light);
   transition: transform 0.2s;
+}
+
+.palette-card.is-light-swatch {
+  color: var(--el-color-black);
 }
 
 .palette-card:hover {
   transform: translateY(-2px);
 }
 
+.step-name,
+.step-hex {
+  color: inherit;
+  font-family: var(--at-font-mono, monospace);
+}
+
 .step-name {
   font-size: 11px;
   font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  font-family: var(--at-font-mono, monospace);
 }
 
 .step-hex {
   font-size: 10px;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  font-family: var(--at-font-mono, monospace);
 }
 
 .controls-preview-row {

@@ -9,7 +9,7 @@
  * @since 2026-10-21
  */
 
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   ElContainer,
@@ -27,9 +27,26 @@ import {
   ElIcon,
 } from 'element-plus';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
-import { VERSION } from '@atengk/element-plus';
+import { initTheme, VERSION, type ThemeManager, type ThemeMode } from '@atengk/element-plus';
 
 const route = useRoute();
+const MOBILE_QUERY = '(max-width: 767px)';
+
+// 移动端断点探测与抽屉导航状态
+const isMobile = ref(false);
+const mobileDrawerOpen = ref(false);
+let mediaQueryList: MediaQueryList | null = null;
+
+const syncViewportMode = (matches: boolean) => {
+  isMobile.value = matches;
+  if (!matches) {
+    mobileDrawerOpen.value = false;
+  }
+};
+
+const handleMediaChange = (event: MediaQueryListEvent) => {
+  syncViewportMode(event.matches);
+};
 
 // 侧边栏折叠状态
 const isCollapse = ref(false);
@@ -37,23 +54,59 @@ const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value;
 };
 
+watch(
+  () => route.fullPath,
+  () => {
+    if (isMobile.value) {
+      mobileDrawerOpen.value = false;
+    }
+  },
+);
+
 // 全局尺寸控制 (large | default | small)
 const globalSize = ref<'large' | 'default' | 'small'>('default');
 
-// 暗黑模式控制
+// 暗黑模式与多主题引擎联动控制
 const isDark = ref(false);
+let themeManager: ThemeManager | null = null;
 
 const toggleDark = () => {
-  isDark.value = !isDark.value;
-  if (isDark.value) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+  const nextMode: ThemeMode = isDark.value ? 'light' : 'dark';
+  const inlinePrimary = document.documentElement.style
+    .getPropertyValue('--el-color-primary')
+    .trim();
+  if (themeManager) {
+    // 同步子页面动态注入的租户主色，确保明暗切换时衍生色阶 (light-1..9 / dark-2) 重新适配
+    if (inlinePrimary) {
+      themeManager.setColor(inlinePrimary);
+    }
+    themeManager.setMode(nextMode);
+    isDark.value = themeManager.getActiveTheme() === 'dark';
+    return;
   }
+  isDark.value = nextMode === 'dark';
+  document.documentElement.classList.toggle('dark', isDark.value);
 };
 
 onMounted(() => {
-  isDark.value = document.documentElement.classList.contains('dark');
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    mediaQueryList = window.matchMedia(MOBILE_QUERY);
+    syncViewportMode(mediaQueryList.matches);
+    mediaQueryList.addEventListener('change', handleMediaChange);
+  }
+  themeManager = initTheme({
+    storageKey: 'sample-element-plus-theme-mode',
+    defaultMode: 'light',
+    listenSystemPreference: false,
+  });
+  isDark.value = themeManager.getActiveTheme() === 'dark';
+});
+
+onBeforeUnmount(() => {
+  mediaQueryList?.removeEventListener('change', handleMediaChange);
+  mediaQueryList = null;
+  themeManager?.cleanup();
+  themeManager = null;
 });
 </script>
 
@@ -63,6 +116,15 @@ onMounted(() => {
       <!-- 顶部 Header -->
       <ElHeader class="layout-header">
         <div class="logo-area">
+          <ElButton
+            v-if="isMobile"
+            class="mobile-menu-btn"
+            size="small"
+            aria-label="切换导航菜单"
+            @click="mobileDrawerOpen = !mobileDrawerOpen"
+          >
+            {{ mobileDrawerOpen ? '✕' : '☰ 菜单' }}
+          </ElButton>
           <span class="logo-title">@atengk/element-plus 基础设施全特性展厅</span>
           <span class="version-tag">v{{ VERSION }}</span>
         </div>
@@ -82,15 +144,29 @@ onMounted(() => {
       </ElHeader>
 
       <ElContainer class="layout-body">
-        <!-- 左侧导航侧边栏 (由 CSS 统一受管驱动，彻底消除内联 width 冲突与收发展开抽搐) -->
-        <ElAside class="layout-aside" :class="{ 'is-collapsed': isCollapse }">
+        <!-- 移动端抽屉背景遮罩 -->
+        <div
+          v-if="isMobile && mobileDrawerOpen"
+          class="mobile-backdrop"
+          @click="mobileDrawerOpen = false"
+        />
+
+        <!-- 左侧导航侧边栏 (桌面常驻可折叠，移动端 <768px 自动转为抽屉浮层避免挤压内容区) -->
+        <ElAside
+          class="layout-aside"
+          :class="{
+            'is-collapsed': !isMobile && isCollapse,
+            'is-mobile': isMobile,
+            'is-mobile-open': isMobile && mobileDrawerOpen,
+          }"
+        >
           <div class="aside-inner">
             <!-- 虚拟悬浮滚动条：0px 物理挤占，彻底消除折叠展开抖动与横向溢出 -->
             <ElScrollbar class="aside-scrollbar" wrap-class="aside-scrollbar-wrap">
               <ElMenu
                 router
                 unique-opened
-                :collapse="isCollapse"
+                :collapse="!isMobile && isCollapse"
                 :collapse-transition="false"
                 :default-active="route.path"
                 class="layout-menu"
@@ -298,8 +374,9 @@ onMounted(() => {
               </ElMenu>
             </ElScrollbar>
 
-            <!-- 底部一键折叠收起控制把手 -->
+            <!-- 底部一键折叠收起控制把手（移动端抽屉模式隐藏折叠，提供关闭条） -->
             <div
+              v-if="!isMobile"
               class="collapse-footer"
               :title="isCollapse ? '展开侧边栏' : '收起侧边栏'"
               @click="toggleCollapse"
@@ -337,6 +414,9 @@ onMounted(() => {
                 <path d="M13 15l3-3-3-3" />
               </svg>
               <span v-if="!isCollapse" class="collapse-label">收起侧边栏</span>
+            </div>
+            <div v-else class="collapse-footer" @click="mobileDrawerOpen = false">
+              <span class="collapse-label">收起导航抽屉</span>
             </div>
           </div>
         </ElAside>
@@ -446,6 +526,38 @@ body,
   max-width: 64px;
 }
 
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+  background-color: var(--el-overlay-color-lighter);
+}
+
+.layout-aside.is-mobile {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 2000;
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    visibility 0s linear 0.25s;
+}
+
+.layout-aside.is-mobile.is-mobile-open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  box-shadow: var(--el-box-shadow-dark);
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    visibility 0s;
+}
+
 .aside-inner {
   height: 100%;
   display: flex;
@@ -542,8 +654,54 @@ body,
 }
 
 .layout-main {
+  flex: 1;
+  min-width: 0;
   padding: 20px;
   overflow-y: auto;
   background-color: var(--el-bg-color-page);
+}
+
+@media (max-width: 767px) {
+  .layout-header {
+    height: auto;
+    min-height: 52px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .logo-area {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .logo-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .version-tag {
+    flex-shrink: 0;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ctrl-label {
+    display: none;
+  }
+
+  .layout-main {
+    padding: 12px;
+  }
 }
 </style>

@@ -332,4 +332,27 @@ const handleAnchorChange = (_href: string) => {
   font-size: 13px;
   color: var(--el-text-color-regular);
 }
+
+@media (max-width: 767px) {
+  .content-layout {
+    flex-direction: column;
+  }
+
+  .anchor-sidebar {
+    width: 100%;
+    order: -1;
+  }
+
+  .sticky-box {
+    position: static;
+  }
+
+  .current-tag {
+    margin-left: 0;
+  }
+
+  .info-card-box {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

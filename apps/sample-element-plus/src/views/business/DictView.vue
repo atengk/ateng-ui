@@ -252,7 +252,7 @@ onMounted(() => {
               dict-code="sys_user_gender"
               placeholder="请选择性别"
               clearable
-              style="width: 280px"
+              style="width: 100%; max-width: 280px"
             />
             <span class="value-hint">当前值: {{ genderValue }}</span>
           </ElFormItem>
@@ -267,7 +267,7 @@ onMounted(() => {
               placeholder="请选择角色"
               clearable
               filterable
-              style="width: 380px"
+              style="width: 100%; max-width: 380px"
             />
             <span class="value-hint">当前值: {{ rolesValue }}</span>
           </ElFormItem>
@@ -278,7 +278,7 @@ onMounted(() => {
               :options="staticOptions"
               placeholder="请选择城市"
               clearable
-              style="width: 280px"
+              style="width: 100%; max-width: 280px"
             />
             <span class="value-hint">当前值: {{ staticValue }}</span>
           </ElFormItem>
@@ -289,7 +289,7 @@ onMounted(() => {
               :loader="customLoader"
               placeholder="请选择部门"
               clearable
-              style="width: 280px"
+              style="width: 100%; max-width: 280px"
             />
             <span class="value-hint">当前值: {{ loaderValue }}</span>
           </ElFormItem>
@@ -308,7 +308,7 @@ onMounted(() => {
               :options="nonStandardDeptOptions"
               :field-names="{ label: 'deptName', value: 'deptId', tagType: 'deptTag' }"
               placeholder="请选择非标部门"
-              style="width: 280px"
+              style="width: 100%; max-width: 280px"
             />
             <span class="value-hint">绑定值 (deptId): {{ mappedSelectValue }}</span>
           </ElFormItem>
@@ -332,7 +332,7 @@ onMounted(() => {
               dict-code="sys_user_status"
               value-type="auto"
               placeholder="选项数值1与字符'1'自适应"
-              style="width: 280px"
+              style="width: 100%; max-width: 280px"
             />
             <span class="value-hint">
               绑定的为字符串 '{{ weakCoerceValue }}' (类型:
@@ -544,16 +544,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .cache-status-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 14px;
   background-color: var(--el-fill-color-light);
@@ -593,10 +597,27 @@ onMounted(() => {
   margin-top: 12px;
 }
 
+.demo-form :deep(.el-form-item) {
+  flex-wrap: wrap;
+}
+
+.demo-form :deep(.el-form-item__content) {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .value-hint {
   margin-left: 14px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+@media (max-width: 767px) {
+  .value-hint {
+    margin-left: 0;
+  }
 }
 
 .tag-row {

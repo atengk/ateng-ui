@@ -264,13 +264,13 @@ const runFlickerSimulation = () => {
 
 .grid-three-col {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 16px;
 }
 
 .grid-two-col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 16px;
 }
 
@@ -390,8 +390,14 @@ const runFlickerSimulation = () => {
   color: var(--el-color-danger);
 }
 
+.grid-three-col > *,
+.grid-two-col > * {
+  min-width: 0;
+}
+
 .flex {
   display: flex;
+  flex-wrap: wrap;
 }
 
 .items-center {
