@@ -103,6 +103,12 @@ export interface AtengSplitLayoutProps {
    * 默认 false。
    */
   disabled?: boolean;
+
+  /**
+   * 次栏（主内容区）根 HTML 标签名。
+   * 默认自适应：无外层 <main> 地标时为 'main'，嵌套于布局/页面/分栏容器内时自动降级为 'div'。
+   */
+  secondTag?: string;
 }
 
 /**

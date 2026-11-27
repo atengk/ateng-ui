@@ -576,4 +576,31 @@ describe('AtengPageContainer 组件测试', () => {
     await nextTick();
     expect(header.attributes('style') || '').not.toContain('top:');
   });
+
+  it('窄屏操作区共生：同时渲染长标题、#extra 插槽、extraActions 折叠流与全屏按钮时结构完整', () => {
+    wrapper = mount(AtengPageContainer, {
+      props: {
+        title: '超长企业级页面容器标题在窄屏下应保持安全边界',
+        subTitle: '支持自动折行与溢出菜单折叠',
+        showFullscreen: true,
+        maxVisibleActions: 2,
+        extraActions: [
+          { key: 'a', label: '操作一' },
+          { key: 'b', label: '操作二' },
+          { key: 'c', label: '操作三' },
+        ],
+      },
+      slots: {
+        extra: '<button class="extra-btn">自定义操作</button>',
+      },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.find('.at-page-container__main-row').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__extra-wrapper').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__extra .extra-btn').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__extra-actions').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__actions-dropdown').exists()).toBe(true);
+    expect(wrapper.find('.at-page-container__fullscreen-btn').exists()).toBe(true);
+  });
 });

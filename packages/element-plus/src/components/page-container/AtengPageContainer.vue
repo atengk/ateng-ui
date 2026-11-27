@@ -60,6 +60,7 @@ import {
 import AtengWatermark from '../watermark/AtengWatermark.vue';
 import type { AtengWatermarkProps } from '../watermark/types';
 import { ATENG_PRO_LAYOUT_KEY } from '../pro-layout/context';
+import { useMainLandmarkTag } from '../shared/useMainLandmark';
 import {
   PAGE_CONTAINER_INJECTION_KEY,
   type AtengPageContainerProps,
@@ -99,6 +100,7 @@ const props = withDefaults(defineProps<AtengPageContainerProps>(), {
   watermark: undefined,
   extraActions: () => [],
   maxVisibleActions: 3,
+  contentTag: undefined,
 });
 
 const emit = defineEmits<AtengPageContainerEmits>();
@@ -346,6 +348,8 @@ const normalizedPadding = computed(() => {
 });
 
 // 6. 容器上下文总线 (Container Context Bus) 依赖注入
+const resolvedContentTag = useMainLandmarkTag(() => props.contentTag);
+
 const footerHeights = ref<Map<symbol, number>>(new Map());
 
 const totalFooterHeight = computed(() => {
@@ -622,7 +626,8 @@ defineExpose({
         </header>
 
         <!-- 主体内容区 -->
-        <main
+        <component
+          :is="resolvedContentTag"
           ref="contentRef"
           class="at-page-container__content"
           :style="{
@@ -655,7 +660,7 @@ defineExpose({
               <slot />
             </template>
           </template>
-        </main>
+        </component>
 
         <!-- 底部固定/悬浮插槽 -->
         <div v-if="$slots.footer" class="at-page-container__footer">
@@ -671,6 +676,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -683,6 +689,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   min-height: 100%;
   box-sizing: border-box;
   background-color: var(--el-bg-color-page);
@@ -708,6 +715,7 @@ defineExpose({
 
 /* 页头样式 */
 .at-page-container__header {
+  min-width: 0;
   padding: 16px 24px;
   background-color: var(--el-bg-color);
   border-bottom: 1px solid var(--el-border-color-lighter);
@@ -764,6 +772,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -772,6 +781,8 @@ defineExpose({
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .at-page-container__back-btn {
@@ -793,6 +804,9 @@ defineExpose({
 }
 
 .at-page-container__title {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: 20px;
   font-weight: 600;
   line-height: 28px;
@@ -800,6 +814,9 @@ defineExpose({
 }
 
 .at-page-container__sub-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: 14px;
   color: var(--el-text-color-secondary);
   line-height: 22px;
@@ -808,26 +825,35 @@ defineExpose({
 .at-page-container__tags {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 8px;
 }
 
 .at-page-container__extra-wrapper {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .at-page-container__extra {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .at-page-container__action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
   border: none;
@@ -853,6 +879,7 @@ defineExpose({
 
 /* 主体内容样式 */
 .at-page-container__content {
+  min-width: 0;
   box-sizing: border-box;
   flex: 1 1 auto;
 }
@@ -886,6 +913,9 @@ defineExpose({
 .at-page-container__extra-actions {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 8px;
 }
 
@@ -896,5 +926,20 @@ defineExpose({
 
 .at-page-container__watermark {
   min-height: 100%;
+}
+
+@media (max-width: 767px) {
+  .at-page-container__header {
+    padding: 12px 16px;
+  }
+
+  .at-page-container__main-row {
+    gap: 12px;
+  }
+
+  .at-page-container__extra-wrapper {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 </style>

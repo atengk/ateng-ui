@@ -218,6 +218,12 @@ export interface AtengPageContainerProps {
    * 默认 3。
    */
   maxVisibleActions?: number;
+
+  /**
+   * 主体内容区根 HTML 标签名。
+   * 默认自适应：无外层 <main> 地标时为 'main'，嵌套于布局或页面容器内时自动降级为 'div'。
+   */
+  contentTag?: string;
 }
 
 /**

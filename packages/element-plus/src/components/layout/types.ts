@@ -163,7 +163,7 @@ export interface AtengContentProps {
 
   /**
    * 自定义根 HTML 标签名。
-   * 默认 'main'。
+   * 默认自适应：无外层 <main> 地标时为 'main'，嵌套时自动降级为 'div'。
    */
   tag?: string;
 }

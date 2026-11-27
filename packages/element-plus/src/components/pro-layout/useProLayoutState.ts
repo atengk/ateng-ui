@@ -43,9 +43,9 @@ export function useProLayoutState(props: AtengProLayoutProps, handlers: ProLayou
   let mql: MediaQueryList | null = null;
   let mqlListener: ((e: MediaQueryListEvent | MediaQueryList) => void) | null = null;
 
-  const updateMobileState = (matches: boolean, isInit = false) => {
+  const updateMobileState = (matches: boolean) => {
     isMobile.value = matches;
-    if (matches && !isInit) {
+    if (matches && !internalCollapsed.value) {
       internalCollapsed.value = true;
       handlers.onUpdateCollapsed(true);
       handlers.onCollapseChange(true);
@@ -90,9 +90,9 @@ export function useProLayoutState(props: AtengProLayoutProps, handlers: ProLayou
       props.responsive !== false
     ) {
       mql = window.matchMedia(`(max-width: ${props.mobileBreakpoint ?? 768}px)`);
-      updateMobileState(mql.matches, true);
+      updateMobileState(mql.matches);
       mqlListener = (e: MediaQueryListEvent | MediaQueryList) => {
-        updateMobileState(e.matches, false);
+        updateMobileState(e.matches);
       };
       if (typeof mql.addEventListener === 'function') {
         mql.addEventListener('change', mqlListener);

@@ -258,7 +258,35 @@ describe('AtengProLayout Component', () => {
     expect(aside.text()).toContain('用户列表');
   });
 
-  it('12. 移动端响应式断点识别与抽屉遮罩渲染', async () => {
+  const mockMatchMedia = (initialMatches = true) => {
+    let changeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+    const removeEventListener = vi.fn();
+    const mockMql = {
+      matches: initialMatches,
+      media: '(max-width: 768px)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(() => true),
+      addEventListener: vi.fn((event: string, cb: EventListenerOrEventListenerObject) => {
+        if (event === 'change' && typeof cb === 'function') {
+          changeHandler = cb as (e: MediaQueryListEvent) => void;
+        }
+      }),
+      removeEventListener,
+    };
+    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as unknown as MediaQueryList);
+    return {
+      mockMql,
+      removeEventListener,
+      triggerChange: (matches: boolean) => {
+        mockMql.matches = matches;
+        changeHandler?.({ matches } as MediaQueryListEvent);
+      },
+    };
+  };
+
+  it('12. 移动端响应式断点识别：首次挂载自动收起抽屉，点击展开后渲染遮罩', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let capturedContext: any = null;
     const ChildComponent = defineComponent({
@@ -268,13 +296,7 @@ describe('AtengProLayout Component', () => {
       },
     });
 
-    const mockMql = {
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+    mockMatchMedia(true);
 
     wrapper = mount(AtengProLayout, {
       props: {
@@ -288,20 +310,22 @@ describe('AtengProLayout Component', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.classes()).toContain('is-mobile');
-    expect(wrapper.find('.at-pro-layout__drawer-mask').exists()).toBe(true);
+    expect(wrapper.classes()).toContain('is-collapsed');
+    expect(wrapper.find('.at-pro-layout__drawer-mask').exists()).toBe(false);
     expect(wrapper.find('.at-pro-layout__aside').classes()).toContain('is-mobile-drawer');
+    expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
     expect(capturedContext.isMobile?.value).toBe(true);
     expect(capturedContext.asideWidth.value).toBe('0px');
+
+    // 用户主动点击顶栏展开按钮后，移动端抽屉与遮罩呈现
+    await wrapper.find('.at-pro-layout__collapse-btn').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+    expect(wrapper.find('.at-pro-layout__drawer-mask').exists()).toBe(true);
   });
 
-  it('13. 移动端抽屉：点击遮罩或选中叶子菜单自动收起抽屉', async () => {
-    const mockMql = {
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+  it('13. 移动端抽屉：展开后点击遮罩自动收起抽屉', async () => {
+    mockMatchMedia(true);
 
     wrapper = mount(AtengProLayout, {
       props: {
@@ -311,24 +335,23 @@ describe('AtengProLayout Component', () => {
     });
     await wrapper.vm.$nextTick();
 
+    // 主动呼出移动抽屉
+    await wrapper.find('.at-pro-layout__collapse-btn').trigger('click');
+    await wrapper.vm.$nextTick();
+
     const mask = wrapper.find('.at-pro-layout__drawer-mask');
     expect(mask.exists()).toBe(true);
     await mask.trigger('click');
 
-    expect(wrapper.emitted('update:collapsed')).toBeTruthy();
-    expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
-    expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
+    expect(wrapper.classes()).toContain('is-collapsed');
+    const collapseEvents = wrapper.emitted('update:collapsed') || [];
+    expect(collapseEvents[collapseEvents.length - 1]?.[0]).toBe(true);
+    const changeEvents = wrapper.emitted('collapseChange') || [];
+    expect(changeEvents[changeEvents.length - 1]?.[0]).toBe(true);
   });
 
   it('14. 确定性生命周期清理：组件销毁时解绑 matchMedia 监听器', () => {
-    const removeEventListener = vi.fn();
-    const mockMql = {
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener,
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+    const { removeEventListener } = mockMatchMedia(true);
 
     wrapper = mount(AtengProLayout);
     wrapper.unmount();
@@ -337,14 +360,8 @@ describe('AtengProLayout Component', () => {
     expect(removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
   });
 
-  it('15. 移动端抽屉：点击叶子菜单项自动收起抽屉', async () => {
-    const mockMql = {
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(window, 'matchMedia').mockReturnValue(mockMql as any);
+  it('15. 移动端抽屉：展开后点击叶子菜单项自动收起抽屉', async () => {
+    mockMatchMedia(true);
 
     wrapper = mount(AtengProLayout, {
       props: {
@@ -354,14 +371,83 @@ describe('AtengProLayout Component', () => {
     });
     await wrapper.vm.$nextTick();
 
+    await wrapper.find('.at-pro-layout__collapse-btn').trigger('click');
+    await wrapper.vm.$nextTick();
+
     const menuItems = wrapper.findAll('.el-menu-item');
     const dashboardItem = menuItems.find(item => item.text().includes('工作台首页'));
     expect(dashboardItem).toBeDefined();
     await dashboardItem!.trigger('click');
 
-    expect(wrapper.emitted('update:collapsed')).toBeTruthy();
+    expect(wrapper.classes()).toContain('is-collapsed');
+    const collapseEvents = wrapper.emitted('update:collapsed') || [];
+    expect(collapseEvents[collapseEvents.length - 1]?.[0]).toBe(true);
+    const changeEvents = wrapper.emitted('collapseChange') || [];
+    expect(changeEvents[changeEvents.length - 1]?.[0]).toBe(true);
+  });
+
+  it('15a. 断点热切换：从桌面宽度缩窄至移动端断点时自动收敛为收起态', async () => {
+    const { triggerChange } = mockMatchMedia(false);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: false,
+        menuData: mockMenuData,
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).not.toContain('is-mobile');
+    expect(wrapper.classes()).not.toContain('is-collapsed');
+
+    triggerChange(true);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain('is-mobile');
+    expect(wrapper.classes()).toContain('is-collapsed');
     expect(wrapper.emitted('update:collapsed')?.[0]?.[0]).toBe(true);
-    expect(wrapper.emitted('collapseChange')?.[0]?.[0]).toBe(true);
+  });
+
+  it('15b. 移动端抽屉无障碍防护：收起态设置 aria-hidden 与 inert，展开后恢复可用；桌面折叠态不隐藏', async () => {
+    const { mockMql } = mockMatchMedia(true);
+
+    wrapper = mount(AtengProLayout, {
+      props: {
+        menuData: mockMenuData,
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    const aside = wrapper.find('.at-pro-layout__aside');
+    expect(aside.attributes('aria-hidden')).toBe('true');
+    expect(aside.attributes('inert')).toBeDefined();
+
+    // 展开抽屉后解除无障碍隐藏
+    await wrapper.find('.at-pro-layout__collapse-btn').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(aside.attributes('aria-hidden')).toBeUndefined();
+    expect(aside.attributes('inert')).toBeUndefined();
+
+    // 再次点击遮罩收起恢复隔离
+    await wrapper.find('.at-pro-layout__drawer-mask').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(aside.attributes('aria-hidden')).toBe('true');
+    expect(aside.attributes('inert')).toBeDefined();
+
+    wrapper.unmount();
+
+    // 桌面折叠态保持可见图标导航，不添加 aria-hidden / inert
+    mockMql.matches = false;
+    wrapper = mount(AtengProLayout, {
+      props: {
+        collapsed: true,
+        menuData: mockMenuData,
+      },
+    });
+    await wrapper.vm.$nextTick();
+    const desktopAside = wrapper.find('.at-pro-layout__aside');
+    expect(desktopAside.attributes('aria-hidden')).toBeUndefined();
+    expect(desktopAside.attributes('inert')).toBeUndefined();
   });
 
   it('16. showTabs 与 tabsProps：开启 showTabs 自动内置渲染 AtengTabsNav 并透传 tabsProps', () => {

@@ -19,6 +19,7 @@ defineProps<{
   tabsHeight?: number | string;
   tabsProps?: AtengTabsNavProps;
   isMaximized?: boolean;
+  contentTag?: string;
 }>();
 
 const emit = defineEmits<{
@@ -78,7 +79,7 @@ defineSlots<{
     </template>
   </ProLayoutTabs>
 
-  <AtengContent class="at-pro-layout__content">
+  <AtengContent class="at-pro-layout__content" :tag="contentTag">
     <slot />
   </AtengContent>
 

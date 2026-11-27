@@ -60,3 +60,12 @@ export interface AtengTableContext {
 }
 
 export const ATENG_TABLE_CONTEXT_KEY: InjectionKey<AtengTableContext> = Symbol('AtengTableContext');
+
+/**
+ * 语义主内容地标 (<main>) 上下文注入 Key。
+ *
+ * 当外层布局或页面容器已渲染 <main> 地标时向后代提供标记，
+ * 嵌套子容器未显式指定 tag 时自动收敛为 <div>，保证单页面仅存在唯一主 <main> 地标。
+ */
+export const ATENG_MAIN_LANDMARK_KEY: InjectionKey<ComputedRef<boolean> | boolean> =
+  Symbol('ATENG_MAIN_LANDMARK_KEY');

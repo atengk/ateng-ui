@@ -54,6 +54,7 @@ const props = withDefaults(defineProps<AtengProLayoutProps>(), {
   isMaximized: false,
   contentPadding: '16px',
   escExit: true,
+  contentTag: undefined,
 });
 
 const emit = defineEmits<AtengProLayoutEmits>();
@@ -89,6 +90,7 @@ const sharedMainBindings = computed(() => ({
   tabsHeight: props.tabsHeight,
   tabsProps: props.tabsProps,
   isMaximized: internalMaximized.value,
+  contentTag: props.contentTag,
   'onUpdate:modelValue': (key: string) => emit('update:modelValue', key),
   'onUpdate:isMaximized': (val: boolean) => toggleMaximize(val),
   onMaximizeChange: (val: boolean) => toggleMaximize(val),
@@ -475,10 +477,13 @@ defineExpose<AtengProLayoutExpose>({
 .at-pro-layout__drawer-mask {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(15, 23, 42, 0.5);
   z-index: 1999;
-  backdrop-filter: blur(2px);
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+:global(:root.dark) .at-pro-layout__drawer-mask,
+:global(.dark) .at-pro-layout__drawer-mask {
+  background-color: rgba(7, 9, 14, 0.72);
 }
 :deep(.at-pro-layout__aside.is-mobile-drawer) {
   position: fixed;
@@ -490,14 +495,21 @@ defineExpose<AtengProLayoutExpose>({
   box-shadow: var(--el-box-shadow-dark);
   transition:
     transform 0.25s cubic-bezier(0.2, 0, 0, 1),
-    width 0.25s;
+    width 0.25s,
+    visibility 0s;
 }
 .at-pro-layout.is-mobile.is-collapsed :deep(.at-pro-layout__aside.is-mobile-drawer) {
   transform: translateX(-100%);
   pointer-events: none;
+  visibility: hidden;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    width 0.25s,
+    visibility 0s linear 0.25s;
 }
 .at-pro-layout.is-mobile:not(.is-collapsed) :deep(.at-pro-layout__aside.is-mobile-drawer) {
   transform: translateX(0);
+  visibility: visible;
 }
 .at-pro-layout.is-maximized :deep(.at-pro-layout__header),
 .at-pro-layout.is-maximized :deep(.at-pro-layout__aside),

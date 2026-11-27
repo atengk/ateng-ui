@@ -12,6 +12,7 @@
  */
 
 import { ref, computed } from 'vue';
+import { useMainLandmarkTag } from '../shared/useMainLandmark';
 import type { AtengContentProps, AtengContentSlots } from './types';
 
 defineOptions({
@@ -22,10 +23,11 @@ defineSlots<AtengContentSlots>();
 
 const props = withDefaults(defineProps<AtengContentProps>(), {
   background: undefined,
-  tag: 'main',
+  tag: undefined,
 });
 
 const contentRef = ref<HTMLElement | null>(null);
+const resolvedTag = useMainLandmarkTag(() => props.tag);
 
 const contentStyle = computed(() => {
   return {
@@ -39,7 +41,7 @@ defineExpose({
 </script>
 
 <template>
-  <component :is="tag" ref="contentRef" class="at-content" :style="contentStyle">
+  <component :is="resolvedTag" ref="contentRef" class="at-content" :style="contentStyle">
     <slot />
   </component>
 </template>

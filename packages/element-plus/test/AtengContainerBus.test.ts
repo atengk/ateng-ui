@@ -15,6 +15,8 @@ import {
 } from '../src/components/page-container';
 import { AtengFooterBar } from '../src/components/footer-bar';
 import { AtengAnchor } from '../src/components/anchor';
+import { AtengProLayout } from '../src/components/pro-layout';
+import { AtengSplitLayout } from '../src/components/split-layout';
 
 describe('容器上下文总线 (Container Context Bus) 协同测试', () => {
   let wrapper: VueWrapper | null = null;
@@ -183,5 +185,79 @@ describe('容器上下文总线 (Container Context Bus) 协同测试', () => {
     });
     expect(anchorWrapper.classes()).toContain('at-anchor');
     anchorWrapper.unmount();
+  });
+
+  it('语义地标去重：组合嵌套 AtengProLayout / AtengPageContainer / AtengSplitLayout 时仅保留最外层唯一 <main>，并支持显式 tag 覆盖', () => {
+    const NestedSuite = defineComponent({
+      setup() {
+        return () =>
+          h(AtengProLayout, { title: '外层框架' }, () =>
+            h(AtengPageContainer, { title: '内层页面' }, () =>
+              h(AtengSplitLayout, null, {
+                first: () => h('div', '左侧树'),
+                second: () => h('div', '右侧主体'),
+              }),
+            ),
+          );
+      },
+    });
+
+    wrapper = mount(NestedSuite, { attachTo: document.body });
+    const mains = wrapper.findAll('main');
+    expect(mains.length).toBe(1);
+    expect(mains[0].classes()).toContain('at-pro-layout__content');
+    expect(wrapper.find('.at-page-container__content').element.tagName.toLowerCase()).toBe('div');
+    expect(wrapper.find('.at-split-layout__second').element.tagName.toLowerCase()).toBe('div');
+
+    wrapper.unmount();
+
+    // 显式指定 contentTag / secondTag 时可自由覆盖（含外层 <main> 降级为 <div>）
+    const CustomTagSuite = defineComponent({
+      setup() {
+        return () =>
+          h(AtengProLayout, { title: '沙箱布局', contentTag: 'div' }, () =>
+            h(AtengPageContainer, { title: '独立语义页', contentTag: 'section' }, () =>
+              h(
+                AtengSplitLayout,
+                { secondTag: 'article' },
+                {
+                  first: () => h('div', '左'),
+                  second: () => h('div', '右'),
+                },
+              ),
+            ),
+          );
+      },
+    });
+
+    wrapper = mount(CustomTagSuite, { attachTo: document.body });
+    expect(wrapper.findAll('main').length).toBe(0);
+    expect(wrapper.find('.at-pro-layout__content').element.tagName.toLowerCase()).toBe('div');
+    expect(wrapper.find('.at-page-container__content').element.tagName.toLowerCase()).toBe(
+      'section',
+    );
+    expect(wrapper.find('.at-split-layout__second').element.tagName.toLowerCase()).toBe('article');
+
+    wrapper.unmount();
+
+    // 外层 AtengPageContainer 显式设为 div 时，内层 AtengPageContainer 仍可成为唯一主 <main>
+    const OuterDivInnerPage = defineComponent({
+      setup() {
+        return () =>
+          h(AtengPageContainer, { title: '外层壳容器', contentTag: 'div' }, () =>
+            h(AtengPageContainer, { title: '内层主工作区' }),
+          );
+      },
+    });
+
+    wrapper = mount(OuterDivInnerPage, { attachTo: document.body });
+    const innerMains = wrapper.findAll('main');
+    expect(innerMains.length).toBe(1);
+    expect(wrapper.findAll('.at-page-container__content')[0].element.tagName.toLowerCase()).toBe(
+      'div',
+    );
+    expect(wrapper.findAll('.at-page-container__content')[1].element.tagName.toLowerCase()).toBe(
+      'main',
+    );
   });
 });

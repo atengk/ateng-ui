@@ -517,5 +517,29 @@ describe('AtengFooterBar 组件测试', () => {
     fixedAside.value = true;
     await nextTick();
     expect(bar.attributes('style')).toContain('left: 220px');
+    expect(bar.attributes('style')).toContain('width: auto');
+  });
+
+  it('fixed 且非 autoOffset 时设置 width: auto 覆盖基础 100% 宽度，防止 leftOffset 与 right: 0 冲突溢出', async () => {
+    wrapper = mount(AtengFooterBar, {
+      props: {
+        position: 'fixed',
+        autoOffset: false,
+        leftOffset: '260px',
+      },
+      attachTo: document.body,
+    });
+
+    const bar = wrapper.find('.at-footer-bar');
+    const style = bar.attributes('style') || '';
+    expect(style).toContain('position: fixed');
+    expect(style).toContain('left: 260px');
+    expect(style).toContain('right: 0');
+    expect(style).toContain('width: auto');
+
+    await wrapper.setProps({ leftOffset: 180 });
+    await nextTick();
+    expect(bar.attributes('style')).toContain('left: 180px');
+    expect(bar.attributes('style')).toContain('width: auto');
   });
 });

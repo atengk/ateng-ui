@@ -269,6 +269,12 @@ export interface AtengProLayoutProps {
    * 最大化模式下是否支持按 Escape 键自动退出还原，默认 true。
    */
   escExit?: boolean;
+
+  /**
+   * 主内容区域根 HTML 标签名。
+   * 默认自适应：无外层 <main> 地标时为 'main'，嵌套时自动降级为 'div'。
+   */
+  contentTag?: string;
 }
 
 /**

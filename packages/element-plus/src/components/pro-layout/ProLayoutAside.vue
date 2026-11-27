@@ -58,6 +58,8 @@ defineSlots<{
     :width="asideWidth"
     :collapsed-width="asideCollapsedWidth"
     :collapsed="collapsed"
+    :aria-hidden="isMobile && collapsed ? 'true' : undefined"
+    :inert="isMobile && collapsed ? true : undefined"
   >
     <div v-if="showLogo" class="at-pro-layout__logo">
       <slot name="logo" :collapsed="collapsed" :title="title" :logo="logo">

@@ -14,6 +14,7 @@
  */
 
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { useMainLandmarkTag } from '../shared/useMainLandmark';
 import type { AtengSplitLayoutProps, AtengSplitLayoutEmits } from './types';
 
 defineOptions({
@@ -35,9 +36,11 @@ const props = withDefaults(defineProps<AtengSplitLayoutProps>(), {
   storageKey: '',
   snapThreshold: 30,
   disabled: false,
+  secondTag: undefined,
 });
 
 const emit = defineEmits<AtengSplitLayoutEmits>();
+const resolvedSecondTag = useMainLandmarkTag(() => props.secondTag);
 
 // 1. 容器引用与状态管理
 const containerRef = ref<HTMLElement | null>(null);
@@ -550,7 +553,7 @@ defineExpose({
     </div>
 
     <!-- 次栏（右/下 主体） -->
-    <main class="at-split-layout__second" :style="secondPaneStyle">
+    <component :is="resolvedSecondTag" class="at-split-layout__second" :style="secondPaneStyle">
       <slot name="second">
         <slot v-if="direction === 'horizontal'" name="right">
           <slot />
@@ -559,7 +562,7 @@ defineExpose({
           <slot />
         </slot>
       </slot>
-    </main>
+    </component>
   </div>
 </template>
 

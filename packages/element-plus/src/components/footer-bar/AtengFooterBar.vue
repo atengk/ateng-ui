@@ -305,8 +305,9 @@ const fixedStyles = computed(() => {
     return styles;
   }
 
-  // 默认固定视口悬浮
+  // 默认固定视口悬浮：显式以 width: 'auto' 覆盖基础样式 width: 100%，确保 left 与 right: 0 共同约束宽度不溢出
   styles.right = 0;
+  styles.width = 'auto';
   if (props.leftOffset !== 'auto') {
     styles.left = typeof props.leftOffset === 'number' ? `${props.leftOffset}px` : props.leftOffset;
   } else if (
