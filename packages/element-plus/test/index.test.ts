@@ -95,6 +95,8 @@ import AtengElementPlus, {
   type AtengUploadProps,
   type AtengUploadInstance,
   type AtengTableColumn,
+  type AtengTableProps,
+  type TableColumnKey,
   type AtengQueryFormField,
 } from '../src/index';
 
@@ -358,6 +360,22 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
 
     const mockColumn: AtengTableColumn = { prop: 'id', label: 'ID' };
     expect(mockColumn.prop).toBe('id');
+
+    interface DemoUserRow {
+      id: string;
+      username: string;
+      status: string;
+    }
+    const hiddenKeys: readonly TableColumnKey<DemoUserRow>[] = [
+      'status',
+      '操作',
+      'selection',
+    ] as const;
+    const mockTableProps: AtengTableProps<DemoUserRow> = {
+      data: [],
+      defaultHiddenColumns: hiddenKeys,
+    };
+    expect(mockTableProps.defaultHiddenColumns).toEqual(['status', '操作', 'selection']);
 
     const mockField: AtengQueryFormField = { prop: 'keyword', label: '关键词' };
     expect(mockField.prop).toBe('keyword');

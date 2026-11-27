@@ -36,6 +36,11 @@ Accepted (已接受)
    - 组件通过 `defineExpose` 显式收敛导出高频方法：`clearSelection`、`toggleRowSelection`、`getSelectionRows`、`refresh`；
    - 同时透传底层 `tableRef: ShallowRef<ElTableInstance | null>`，保留开发者调用原生 Element Plus 底层全部方法的能力；
    - 入口 `index.ts` 具名导出专属类型 `AtengTableInstance` 与 `AtengQueryFormInstance`。
+6. **插槽模式强类型默认隐藏列契约 (`defaultHiddenColumns`, 2026-11-28 增量修订)**：
+   - **背景与被否决方案**：Element Plus 原生 `TableColumnProps` 不包含 `visible` 属性，开启 `vue-tsc` 严格校验后无法在 `<el-table-column>` 上直接声明 `:visible="false"`。架构上否决了两项备选路径：① 封装 `<AtengTableColumn>` 包装组件（违背“原生 `<el-table-column>` 作为第一公民”原则，抬高模板迁移成本）；② 对 `element-plus` 进行全局模块类型增强（污染宿主工程全局类型并引入跨表格隐式副作用）；
+   - **集中式强类型属性**：在 `AtengTableProps<T, TParams>` 新增可选属性 `defaultHiddenColumns?: readonly ((keyof T & string) | (string & {}))[]`（向下 100% 兼容 `string[]` 与 `as const` 只读元组，在 `<AtengTable<T>>` 泛型下提供行字段补全，同时兼容 `'操作'`、`'selection'` 等非 `prop` 键），按既有列唯一键推导规则（`prop || label || String(type)`）匹配；
+   - **双轨并集与四级优先级**：收口统一默认显隐辅助函数，以 `col.visible === false || defaultHiddenSet.has(key)` 判定默认隐藏，确保 `:columns` 与 `<el-table-column>` 插槽模式语义一致且不破坏 `parseColumnVNodes` 返回值契约；列最终显隐优先级锁定为 `localStorage[storageKey].visible[key] > 会话内用户手动显隐覆盖 > 默认隐藏 > true`（保持 `savePersistedColumns()` 既有 `{ order, visible, widths }` 全量快照契约不变）；
+   - **重置与响应式同步边界**：点击列设置「重置」或调用 `resetColumns()` 时同步清空本地持久化与会话内覆盖，并按 `defaultHiddenColumns` 及 `col.visible` 还原默认显隐态；`defaultHiddenColumns` 响应式变化按规范化键集合内容签名比对（避免模板内联字面量重渲染误触发），仅重算未持久化且未被当前会话手动改过的列并保留当前列序与列宽，且保持静默不主动派发 `@columns-change`。
 
 ## 效果与权衡
 

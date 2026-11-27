@@ -66,6 +66,14 @@ export interface TableColumnConfig {
 }
 
 /**
+ * 表格列唯一键类型（支持行数据字段名智能补全，同时兼容 label 或特殊列 type 键名）。
+ *
+ * @template T 表格行数据实体模型类型
+ */
+export type TableColumnKey<T extends object = Record<string, unknown>> =
+  (keyof T & string) | (string & {});
+
+/**
  * 表格行高密度类型。
  */
 export type TableDensity = 'large' | 'default' | 'small';
@@ -157,6 +165,13 @@ export interface AtengTableProps<
    * 用户列配置本地持久化 Storage 键名。
    */
   storageKey?: string;
+
+  /**
+   * 默认隐藏的列唯一键集合（非受控初始默认值）。
+   * 键名规则与列设置一致：`prop || label || String(type)`，同时兼容 `<el-table-column>` 插槽模式与 `:columns` 配置模式。
+   * 优先级低于 `localStorage[storageKey]` 已持久化配置与当前会话内用户手动调整；点击重置时按此默认值还原。
+   */
+  defaultHiddenColumns?: readonly TableColumnKey<T>[];
 
   /**
    * 是否启用表头拖拽调整列宽与本地持久化记忆。

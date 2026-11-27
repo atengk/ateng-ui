@@ -37,6 +37,7 @@ import {
   AtengQueryForm,
   AtengExcelExport,
   type AtengTableInstance,
+  type TableColumnKey,
   type TableSurface,
   type TablePaginationAlign,
   type TableAutoHeightMode,
@@ -189,6 +190,16 @@ const handleBatchDelete = (selectedRows: UserItem[], clearSelection: () => void)
 // 7. 进阶特性演示状态
 const enableAutoHeight = ref(false);
 const autoHeightMode = ref<TableAutoHeightMode>('max');
+const defaultHiddenPreset = ref<'standard' | 'compact' | 'none'>('standard');
+const defaultHiddenColumns = computed<readonly TableColumnKey<UserItem>[]>(() => {
+  if (defaultHiddenPreset.value === 'compact') {
+    return ['id', 'gender', 'role', 'createTime'] as const;
+  }
+  if (defaultHiddenPreset.value === 'none') {
+    return [] as const;
+  }
+  return ['gender', 'createTime'] as const;
+});
 const tableWrapperStyle = computed(() => ({
   width: previewContainerWidth.value,
   maxWidth: '100%',
@@ -261,6 +272,14 @@ const handleDatasetPresetChange = () => {
           </ElRadioGroup>
         </div>
         <div class="control-item">
+          <span class="ctrl-title">默认隐藏列 (defaultHiddenColumns)：</span>
+          <ElRadioGroup v-model="defaultHiddenPreset" size="small">
+            <ElRadioButton value="standard">标准 (藏 gender / createTime)</ElRadioButton>
+            <ElRadioButton value="compact">精简 (藏 4 列)</ElRadioButton>
+            <ElRadioButton value="none">全部显示</ElRadioButton>
+          </ElRadioGroup>
+        </div>
+        <div class="control-item">
           <ElButton size="small" @click="pagination.refresh"> 状态机刷新 (refresh) </ElButton>
           <ElButton size="small" type="warning" plain @click="handleMockEmptySearch">
             模拟无匹配搜索 (触发 search 缺省态)
@@ -308,7 +327,13 @@ const handleDatasetPresetChange = () => {
         <code>fixed</code>（撑满定高）与 <code>max</code>（弹性封顶）：在<strong
           >「少数据 (3条)」</strong
         >下可对比留白消除效果；在<strong>「多页 (100条)」</strong>将每页条数调至 <code>50</code> 或
-        <code>100</code> 时，<code>max</code> 模式将自动封顶并在表格体内部滚动。
+        <code>100</code> 时，<code>max</code> 模式将自动封顶并在表格体内部滚动。<br />
+        💡 提示 6：通过 <code>:default-hidden-columns</code> 可在原生
+        <code>&lt;el-table-column&gt;</code>
+        插槽模式下强类型默认隐藏低频列，用户仍可在右上角<strong>「列设置」</strong>一键勾选恢复；若已写入
+        <code>storageKey</code>
+        持久化偏好，持久化状态优先于默认值，点击<strong>「重置列排版」</strong>或 Popover
+        内<strong>「重置」</strong>后按当前默认隐藏列预设还原。
       </div>
     </ElCard>
 
@@ -325,6 +350,7 @@ const handleDatasetPresetChange = () => {
         reserve-selection
         row-key="id"
         storage-key="sample-crud-table-columns"
+        :default-hidden-columns="defaultHiddenColumns"
         border
       >
         <!-- 1. 顶部查询表单插槽（通过 Provide/Inject 与 Table 自动双向联动） -->

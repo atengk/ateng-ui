@@ -90,6 +90,7 @@ const props = withDefaults(defineProps<AtengTableProps<T, TParams>>(), {
   density: 'default',
   tools: true,
   storageKey: undefined,
+  defaultHiddenColumns: undefined,
   enableColumnResize: true,
   minResizeWidth: 40,
   autoHeight: false,
@@ -337,6 +338,40 @@ const getColumnKey = (col: TableColumnConfig): string => {
   return col.prop || col.label || (col.type ? String(col.type) : '');
 };
 
+const defaultHiddenSet = computed<Set<string>>(() => {
+  const hiddenKeys = props.defaultHiddenColumns;
+  if (!Array.isArray(hiddenKeys) || hiddenKeys.length === 0) {
+    return new Set<string>();
+  }
+  const normalized = new Set<string>();
+  for (const key of hiddenKeys) {
+    if (typeof key === 'string' && key.length > 0) {
+      normalized.add(key);
+    }
+  }
+  return normalized;
+});
+
+const defaultHiddenSignature = computed<string>(() => {
+  return Array.from(defaultHiddenSet.value).sort().join('\0');
+});
+
+/**
+ * 记录当前会话内由用户通过列设置手动调整过显隐状态的列，防止动态变更 defaultHiddenColumns 时覆盖用户意图。
+ */
+const sessionVisibilityOverrides = new Map<string, boolean>();
+
+/**
+ * 判定列的默认显隐状态（兼容 :columns 的 visible: false 与 defaultHiddenColumns 并集）。
+ */
+const resolveDefaultColumnVisible = (col: TableColumnConfig): boolean => {
+  if (col.visible === false) {
+    return false;
+  }
+  const key = getColumnKey(col);
+  return !(key && defaultHiddenSet.value.has(key));
+};
+
 const parsedSlotColumns = computed<TableColumnConfig[]>(() => {
   const defaultSlot = slots.default ? (slots.default() as VNode[]) : [];
   return parseColumnVNodes(defaultSlot);
@@ -395,14 +430,33 @@ const savePersistedColumns = () => {
   }
 };
 
+/**
+ * 按四级优先级解析列最终显隐状态：localStorage 持久化 > 会话内手动调整 > 默认隐藏规则 > true。
+ */
+const resolveColumnVisible = (
+  col: TableColumnConfig,
+  persisted: PersistedColumnConfig | null,
+  rawCol: TableColumnConfig = col,
+): boolean => {
+  const key = getColumnKey(col);
+  const persistedVisible =
+    persisted?.visible && key && key in persisted.visible ? persisted.visible[key] : undefined;
+  if (persistedVisible !== undefined) {
+    return persistedVisible;
+  }
+  const sessionVisible = key ? sessionVisibilityOverrides.get(key) : undefined;
+  if (sessionVisible !== undefined) {
+    return sessionVisible;
+  }
+  return resolveDefaultColumnVisible(rawCol);
+};
+
 const resolveColumnProps = (
   col: TableColumnConfig,
   persisted: PersistedColumnConfig | null,
 ): { visible: boolean; width: string | number | undefined } => {
   const key = getColumnKey(col);
-  const persistedVisible =
-    persisted?.visible && key && key in persisted.visible ? persisted.visible[key] : undefined;
-  const visible = persistedVisible !== undefined ? persistedVisible : col.visible !== false;
+  const visible = resolveColumnVisible(col, persisted);
   const width =
     persisted?.widths && key && key in persisted.widths ? persisted.widths[key] : col.width;
   return { visible, width };
@@ -471,6 +525,38 @@ const onColumnDrop = (_e: DragEvent, targetIndex: number) => {
   emit('columns-change', columnSettings.value);
 };
 
+const syncDefaultHiddenColumns = () => {
+  const persisted = loadPersistedColumns();
+  const rawMap = new Map<string, TableColumnConfig>();
+  for (const col of rawColumns.value) {
+    const key = getColumnKey(col);
+    if (key) {
+      rawMap.set(key, col);
+    }
+  }
+
+  let hasChanged = false;
+  const nextSettings = columnSettings.value.map(col => {
+    const key = getColumnKey(col);
+    if (!key) {
+      return col;
+    }
+    const nextVisible = resolveColumnVisible(col, persisted, rawMap.get(key) ?? col);
+    if (col.visible === nextVisible) {
+      return col;
+    }
+    hasChanged = true;
+    return {
+      ...col,
+      visible: nextVisible,
+    };
+  });
+
+  if (hasChanged) {
+    columnSettings.value = nextSettings;
+  }
+};
+
 watch(
   rawColumns,
   () => {
@@ -479,7 +565,17 @@ watch(
   { immediate: true },
 );
 
-const handleColumnVisibilityChange = () => {
+watch(defaultHiddenSignature, () => {
+  syncDefaultHiddenColumns();
+});
+
+const handleColumnVisibilityChange = (col: TableColumnConfig, val?: string | number | boolean) => {
+  const key = getColumnKey(col);
+  const nextVisible = val !== undefined ? Boolean(val) : col.visible !== false;
+  col.visible = nextVisible;
+  if (key) {
+    sessionVisibilityOverrides.set(key, nextVisible);
+  }
   savePersistedColumns();
   emit('columns-change', columnSettings.value);
 };
@@ -492,10 +588,11 @@ const handleResetColumns = () => {
       // 弹性防御
     }
   }
+  sessionVisibilityOverrides.clear();
   customWidths.value = {};
   columnSettings.value = rawColumns.value.map(col => ({
     ...col,
-    visible: col.visible !== false,
+    visible: resolveDefaultColumnVisible(col),
     width: col.width,
   }));
   emit('columns-change', columnSettings.value);
@@ -551,10 +648,16 @@ const isColumnIndeterminate = computed(
 
 const handleToggleAllColumns = (val: string | number | boolean) => {
   const isVisible = Boolean(val);
-  columnSettings.value = columnSettings.value.map(col => ({
-    ...col,
-    visible: isVisible,
-  }));
+  columnSettings.value = columnSettings.value.map(col => {
+    const key = getColumnKey(col);
+    if (key) {
+      sessionVisibilityOverrides.set(key, isVisible);
+    }
+    return {
+      ...col,
+      visible: isVisible,
+    };
+  });
   savePersistedColumns();
   emit('columns-change', columnSettings.value);
 };
@@ -1212,7 +1315,7 @@ defineExpose<AtengTableExpose<T>>({
                     <el-checkbox
                       v-model="item.visible"
                       :label="item.label || item.prop || item.type"
-                      @change="handleColumnVisibilityChange"
+                      @change="val => handleColumnVisibilityChange(item, val)"
                     />
                   </div>
                 </div>
@@ -1239,7 +1342,7 @@ defineExpose<AtengTableExpose<T>>({
           @expand-change="handleExpandChange"
         >
           <!-- 属性列合并渲染 -->
-          <template v-for="col in activeAttributeColumns" :key="col.prop || col.label">
+          <template v-for="col in activeAttributeColumns" :key="col.prop || col.label || col.type">
             <el-table-column v-bind="col" />
           </template>
 

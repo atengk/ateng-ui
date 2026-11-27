@@ -192,6 +192,10 @@ _Avoid_: 页面框架全家桶, PageScaffoldSet, FullContainerLayout
 在 AtengTable 中基于原生表头拖拽监听与 storageKey 联合存储列顺序、显隐与像素级宽度的生命周期持久化机制。
 _Avoid_: 动态列宽存储, 自定义拖拽列宽, ColumnWidthSaver
 
+**默认隐藏列 (Default Hidden Columns)**:
+`AtengTable` 面向 `<el-table-column>` 插槽与 `:columns` 双轨列架构提供的非受控初始隐藏列键集合契约（`defaultHiddenColumns`），按列唯一键（`prop || label || String(type)`）匹配生效；优先级低于 `storageKey` 持久化与会话内用户手动调整，并在列重置时作为恢复基准。
+_Avoid_: hiddenColumns, excludeColumns, invisibleColumns, hideCols
+
 **多态缺省态 (Polymorphic Empty State)**:
 AtengTable 依据网络异常、全局空数据与活跃筛选条件动态呈现 empty、search、network-error 状态插画与一键清空/重试的自愈感知机制。
 _Avoid_: 动态空状态, 搜索空状态, SmartEmpty

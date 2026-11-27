@@ -2095,4 +2095,412 @@ describe('AtengTable 组件规范与基础骨架测试', () => {
       }
     });
   });
+
+  describe('AtengTable defaultHiddenColumns 默认隐藏列契约测试', () => {
+    it('插槽模式默认隐藏：支持按 prop / label / type 隐藏列、全选半选联动及列设置恢复显示', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [
+            { id: '1001', username: '张三', gender: '男', role: '架构师' },
+            { id: '1002', username: '李四', gender: '女', role: '工程师' },
+          ],
+          defaultHiddenColumns: ['gender', '操作', 'index', '', 'gender', 'nonexistent_col'],
+        },
+        slots: {
+          default: () => [
+            h(ElTableColumn, { type: 'index', label: '', width: 55 }),
+            h(ElTableColumn, { prop: 'username', label: '姓名' }),
+            h(ElTableColumn, { prop: 'gender', label: '性别' }),
+            h(ElTableColumn, { label: '操作', width: 120 }, () => '详情'),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      // 1. vm.columns 保留全部 4 列元数据，其中命中 defaultHiddenColumns 的列 visible 为 false
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      expect(vm.columns.map(col => [col.prop || col.label || col.type, col.visible])).toEqual([
+        ['index', false],
+        ['username', true],
+        ['gender', false],
+        ['操作', false],
+      ]);
+
+      // 2. 表格主体仅渲染可见列，隐藏列不渲染
+      const renderedColumns = wrapper
+        .findAllComponents({ name: 'ElTableColumn' })
+        .map(c => c.props('prop') || c.props('label') || c.props('type'));
+      expect(renderedColumns).toEqual(['username']);
+      const elTableText = wrapper.find('.el-table').text();
+      expect(elTableText).toContain('姓名');
+      expect(elTableText).not.toContain('性别');
+
+      // 3. 打开列设置并验证顶部“全选”复选框呈现半选态，且计数为 (1/4)
+      const colSettingBtn = wrapper.find('button[aria-label="列设置"]');
+      await colSettingBtn.trigger('click');
+      await doubleWait();
+
+      const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+      const toggleAllCheckbox = checkboxes[0];
+      expect(toggleAllCheckbox).toBeDefined();
+      expect(toggleAllCheckbox.props('modelValue')).toBe(false);
+      expect(toggleAllCheckbox.props('indeterminate')).toBe(true);
+      const headerEl =
+        document.body.querySelector('.at-table-column-setting__header') ||
+        wrapper.find('.at-table-column-setting__header').element;
+      expect(headerEl?.textContent).toContain('列展示 (1/4)');
+
+      // 4. 在列设置中勾选恢复“性别”列后，该列恢复渲染并保留原始位置
+      const genderCheckbox = checkboxes.find(c => c.text().includes('性别'));
+      expect(genderCheckbox).toBeDefined();
+      if (!genderCheckbox) {
+        throw new Error('Expected gender checkbox to exist');
+      }
+      genderCheckbox.vm.$emit('update:modelValue', true);
+      genderCheckbox.vm.$emit('change', true);
+      await doubleWait();
+
+      expect(
+        wrapper
+          .findAllComponents({ name: 'ElTableColumn' })
+          .map(c => c.props('prop') || c.props('label') || c.props('type')),
+      ).toEqual(['username', 'gender']);
+      expect(wrapper.find('.el-table').text()).toContain('性别');
+
+      // 5. 点击顶部全选复选框一键恢复全部列显示，半选态消除
+      toggleAllCheckbox.vm.$emit('change', true);
+      await doubleWait();
+      expect(toggleAllCheckbox.props('modelValue')).toBe(true);
+      expect(toggleAllCheckbox.props('indeterminate')).toBe(false);
+      expect(
+        wrapper
+          .findAllComponents({ name: 'ElTableColumn' })
+          .map(c => c.props('prop') || c.props('label') || c.props('type')),
+      ).toEqual(['index', 'username', 'gender', '操作']);
+    });
+
+    it('边界场景：全部列均在 defaultHiddenColumns 中时半选为 false，点击全选可全部显示', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: mockData,
+          defaultHiddenColumns: ['username', 'role'],
+        },
+        slots: {
+          default: () => [
+            h(ElTableColumn, { prop: 'username', label: '姓名' }),
+            h(ElTableColumn, { prop: 'role', label: '角色' }),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      await wrapper.find('button[aria-label="列设置"]').trigger('click');
+      await doubleWait();
+
+      const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+      const toggleAllCheckbox = checkboxes[0];
+      expect(toggleAllCheckbox.props('modelValue')).toBe(false);
+      expect(toggleAllCheckbox.props('indeterminate')).toBe(false);
+      const headerEl =
+        document.body.querySelector('.at-table-column-setting__header') ||
+        wrapper.find('.at-table-column-setting__header').element;
+      expect(headerEl?.textContent).toContain('列展示 (0/2)');
+      expect(wrapper.findAllComponents({ name: 'ElTableColumn' })).toHaveLength(0);
+
+      toggleAllCheckbox.vm.$emit('change', true);
+      await doubleWait();
+
+      expect(toggleAllCheckbox.props('modelValue')).toBe(true);
+      expect(wrapper.findAllComponents({ name: 'ElTableColumn' })).toHaveLength(2);
+    });
+
+    it('配置列并集与持久化优先：storageKey 已持久化项覆盖默认值，点击重置或调用 resetColumns 还原 defaultHiddenColumns', async () => {
+      const storageKey = 'test-default-hidden-priority';
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          order: ['username', 'gender', 'age', 'createTime', 'remark'],
+          visible: { gender: true, age: false },
+        }),
+      );
+
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [
+            {
+              id: '1001',
+              username: '张三',
+              gender: '男',
+              age: 25,
+              createTime: '2026-10-01',
+              remark: '备忘',
+            },
+          ],
+          storageKey,
+          defaultHiddenColumns: ['gender', 'createTime'],
+          columns: [
+            { prop: 'username', label: '姓名', visible: true },
+            { prop: 'gender', label: '性别', visible: true },
+            { prop: 'age', label: '年龄' },
+            { prop: 'createTime', label: '创建时间', visible: true },
+            { prop: 'remark', label: '备注', visible: false },
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      // 1. saved.visible[key] > 默认隐藏（col.visible === false || defaultHiddenColumns）> true
+      // gender 因持久化 true 显示；age 因持久化 false 隐藏；createTime 未持久化命中 defaultHiddenColumns 隐藏；remark 因 col.visible === false 隐藏
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', true],
+        ['age', false],
+        ['createTime', false],
+        ['remark', false],
+      ]);
+      expect(
+        wrapper.findAllComponents({ name: 'ElTableColumn' }).map(c => c.props('prop')),
+      ).toEqual(['username', 'gender']);
+
+      // 2. 点击列设置中的“重置”按钮：清空 storageKey，并按 col.visible === false || defaultHiddenColumns 还原默认显隐态
+      await wrapper.find('button[aria-label="列设置"]').trigger('click');
+      await doubleWait();
+      const resetBtn = (document.body.querySelector('.at-table-column-setting__header button') ||
+        wrapper.find('.at-table-column-setting__header button')
+          .element) as HTMLButtonElement | null;
+      expect(resetBtn).not.toBeNull();
+      resetBtn?.click();
+      await doubleWait();
+
+      expect(localStorage.getItem(storageKey)).toBeNull();
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', false],
+        ['age', true],
+        ['createTime', false],
+        ['remark', false],
+      ]);
+      expect(wrapper.emitted('columns-change')).toBeTruthy();
+      expect(
+        wrapper.findAllComponents({ name: 'ElTableColumn' }).map(c => c.props('prop')),
+      ).toEqual(['username', 'age']);
+
+      // 3. 在插槽模式下直接勾选恢复后调用 vm.resetColumns()，同样还原 defaultHiddenColumns 初始态
+      wrapper.unmount();
+      const slotStorageKey = 'test-default-hidden-slot-reset';
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [{ id: '1001', username: '张三', gender: '男', createTime: '2026-10-01' }],
+          storageKey: slotStorageKey,
+          defaultHiddenColumns: ['gender', 'createTime'],
+        },
+        slots: {
+          default: () => [
+            h(ElTableColumn, { prop: 'username', label: '姓名' }),
+            h(ElTableColumn, { prop: 'gender', label: '性别' }),
+            h(ElTableColumn, { prop: 'createTime', label: '创建时间' }),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+      await wrapper.find('button[aria-label="列设置"]').trigger('click');
+      await doubleWait();
+
+      const slotCheckboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+      slotCheckboxes[0].vm.$emit('change', true);
+      await doubleWait();
+
+      const slotVm = wrapper.vm as unknown as AtengTableInstance;
+      expect(slotVm.columns.every(c => c.visible)).toBe(true);
+      expect(localStorage.getItem(slotStorageKey)).not.toBeNull();
+
+      slotVm.resetColumns();
+      await doubleWait();
+
+      expect(localStorage.getItem(slotStorageKey)).toBeNull();
+      expect(slotVm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', false],
+        ['createTime', false],
+      ]);
+      expect(slotVm.columns).toHaveLength(3);
+      const renderedSlotProps = wrapper
+        .findAllComponents({ name: 'ElTableColumn' })
+        .map(c => c.props('prop'));
+      expect(renderedSlotProps).toEqual(['username']);
+    });
+
+    it('响应式更新与会话覆盖：无 storageKey 时保留手动覆盖/列序/列宽，等价内容不重算且静默不派发 columns-change', async () => {
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [
+            {
+              id: '1001',
+              username: '张三',
+              gender: '男',
+              age: 25,
+              createTime: '2026-10-01',
+            },
+          ],
+          defaultHiddenColumns: ['gender'],
+          columns: [
+            { prop: 'username', label: '姓名', width: 120 },
+            { prop: 'gender', label: '性别', width: 80 },
+            { prop: 'age', label: '年龄', width: 90 },
+            { prop: 'createTime', label: '创建时间', width: 160 },
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', false],
+        ['age', true],
+        ['createTime', true],
+      ]);
+
+      // 1. 用户未手动操作时，响应式替换 defaultHiddenColumns：gender 恢复显示，createTime 隐藏，且静默不触发 columns-change
+      const emittedBeforeUpdate = wrapper.emitted('columns-change')?.length ?? 0;
+      await wrapper.setProps({ defaultHiddenColumns: ['createTime'] });
+      await doubleWait();
+
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', true],
+        ['age', true],
+        ['createTime', false],
+      ]);
+      expect(wrapper.emitted('columns-change')?.length ?? 0).toBe(emittedBeforeUpdate);
+
+      // 2. 切回 ['gender']，模拟用户手动勾选恢复 gender、拖拽列序 (age 移到首位) 与拖拽列宽 (username -> 200)
+      await wrapper.setProps({ defaultHiddenColumns: ['gender'] });
+      await doubleWait();
+      await wrapper.find('button[aria-label="列设置"]').trigger('click');
+      await doubleWait();
+
+      const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' });
+      const genderCheckbox = checkboxes.find(c => c.text().includes('性别'));
+      expect(genderCheckbox).toBeDefined();
+      if (!genderCheckbox) {
+        throw new Error('Expected gender checkbox to exist');
+      }
+      genderCheckbox.vm.$emit('update:modelValue', true);
+      genderCheckbox.vm.$emit('change', true);
+      await doubleWait();
+
+      const items = document.querySelectorAll('.at-table-column-setting__item');
+      items[2].dispatchEvent(new Event('dragstart', { bubbles: true }));
+      items[0].dispatchEvent(new Event('dragover', { bubbles: true }));
+      items[0].dispatchEvent(new Event('drop', { bubbles: true }));
+      await doubleWait();
+
+      const elTable = wrapper.findComponent({ name: 'ElTable' });
+      elTable.vm.$emit(
+        'header-dragend',
+        200,
+        120,
+        { property: 'username', label: '姓名' },
+        new MouseEvent('mouseup'),
+      );
+      await doubleWait();
+
+      expect(vm.columns.map(col => col.prop)).toEqual(['age', 'username', 'gender', 'createTime']);
+      expect(vm.columns.find(col => col.prop === 'username')?.width).toBe(200);
+
+      // 3. 传入内容等价但引用不同的数组（模拟父组件重渲染内联字面量），不触发重置也不派发事件
+      const emittedBeforeEquivalent = wrapper.emitted('columns-change')?.length ?? 0;
+      await wrapper.setProps({ defaultHiddenColumns: ['gender', 'gender', ''] });
+      await doubleWait();
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['age', true],
+        ['username', true],
+        ['gender', true],
+        ['createTime', true],
+      ]);
+      expect(vm.columns.find(col => col.prop === 'username')?.width).toBe(200);
+      expect(wrapper.emitted('columns-change')?.length ?? 0).toBe(emittedBeforeEquivalent);
+
+      // 4. defaultHiddenColumns 真正变更为 ['gender', 'age']：已手动恢复的 gender 保持 true，未触碰的 age 变为 false，列序与列宽保留
+      await wrapper.setProps({ defaultHiddenColumns: ['gender', 'age'] });
+      await doubleWait();
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['age', false],
+        ['username', true],
+        ['gender', true],
+        ['createTime', true],
+      ]);
+      expect(vm.columns.find(col => col.prop === 'username')?.width).toBe(200);
+      expect(wrapper.emitted('columns-change')?.length ?? 0).toBe(emittedBeforeEquivalent);
+
+      // 5. 调用 resetColumns()：清空会话覆盖，完全还原初始顺序、初始宽度与最新 defaultHiddenColumns
+      vm.resetColumns();
+      await doubleWait();
+      expect(vm.columns.map(col => [col.prop, col.visible, col.width])).toEqual([
+        ['username', true, 120],
+        ['gender', false, 80],
+        ['age', false, 90],
+        ['createTime', true, 160],
+      ]);
+    });
+
+    it('部分持久化响应边界：有 storageKey 且仅持久化部分列时，defaultHiddenColumns 变化仅重算未持久化列', async () => {
+      const storageKey = 'test-default-hidden-partial-persist';
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          visible: { gender: true },
+        }),
+      );
+
+      wrapper = mount(AtengTable, {
+        props: {
+          data: [{ id: '1001', username: '张三', gender: '男', age: 25, createTime: '2026-10-01' }],
+          storageKey,
+          defaultHiddenColumns: ['gender', 'age'],
+        },
+        slots: {
+          default: () => [
+            h(ElTableColumn, { prop: 'username', label: '姓名' }),
+            h(ElTableColumn, { prop: 'gender', label: '性别' }),
+            h(ElTableColumn, { prop: 'age', label: '年龄' }),
+            h(ElTableColumn, { prop: 'createTime', label: '创建时间' }),
+          ],
+        },
+        attachTo: document.body,
+      });
+
+      await doubleWait();
+
+      const vm = wrapper.vm as unknown as AtengTableInstance;
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', true],
+        ['age', false],
+        ['createTime', true],
+      ]);
+
+      await wrapper.setProps({ defaultHiddenColumns: ['gender', 'createTime'] });
+      await doubleWait();
+
+      expect(vm.columns.map(col => [col.prop, col.visible])).toEqual([
+        ['username', true],
+        ['gender', true],
+        ['age', true],
+        ['createTime', false],
+      ]);
+    });
+  });
 });
