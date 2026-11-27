@@ -69,7 +69,9 @@ const iconResolver: ProMenuIconResolver = icon => {
         plain
         @click="collapsed = !collapsed"
       >
-        {{ collapsed ? '展开侧栏' : '折叠侧栏 (验证居中与首字回退)' }}
+        <span class="at-btn__label-stable" data-sizer="折叠侧栏 (验证居中与首字回退)">
+          {{ collapsed ? '展开侧栏' : '折叠侧栏 (验证居中与首字回退)' }}
+        </span>
       </ElButton>
 
       <ElSwitch

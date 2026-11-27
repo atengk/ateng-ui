@@ -339,6 +339,7 @@ defineExpose<AtengExcelFeedbackExpose>({
           </el-button>
           <el-button
             v-if="hasAnnotatedFile"
+            class="at-btn--loading-stable"
             type="success"
             :loading="downloadLoading"
             @click="downloadAnnotatedExcel"
@@ -347,6 +348,7 @@ defineExpose<AtengExcelFeedbackExpose>({
           </el-button>
           <el-button
             v-else-if="allowCsvFallback"
+            class="at-btn--loading-stable"
             type="warning"
             plain
             :disabled="totalErrors === 0"

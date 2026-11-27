@@ -123,7 +123,9 @@ onBeforeUnmount(() => {
             aria-label="切换导航菜单"
             @click="mobileDrawerOpen = !mobileDrawerOpen"
           >
-            {{ mobileDrawerOpen ? '✕' : '☰ 菜单' }}
+            <span class="at-btn__label-stable" data-sizer="☰ 菜单">
+              {{ mobileDrawerOpen ? '✕' : '☰ 菜单' }}
+            </span>
           </ElButton>
           <span class="logo-title">@atengk/element-plus 基础设施全特性展厅</span>
           <span class="version-tag">v{{ VERSION }}</span>
@@ -138,7 +140,9 @@ onBeforeUnmount(() => {
             </ElRadioGroup>
           </div>
           <ElButton size="small" @click="toggleDark">
-            {{ isDark ? '☀️ 浅色模式' : '🌙 暗黑模式' }}
+            <span class="at-btn__label-stable" data-sizer="🌙 暗黑模式">
+              {{ isDark ? '☀️ 浅色模式' : '🌙 暗黑模式' }}
+            </span>
           </ElButton>
         </div>
       </ElHeader>

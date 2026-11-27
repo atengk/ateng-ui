@@ -30,6 +30,7 @@ export interface IllustrationProps {
  */
 export const IllustrationEmpty: FunctionalComponent<IllustrationProps> = props => {
   const size = props.size ?? 160;
+  const strokeColor = 'var(--el-border-color-darker, var(--el-border-color))';
   return h(
     'svg',
     {
@@ -41,69 +42,78 @@ export const IllustrationEmpty: FunctionalComponent<IllustrationProps> = props =
       xmlns: 'http://www.w3.org/2000/svg',
     },
     [
-      // 底盘阴影椭圆
+      // 底盘投影椭圆
       h('ellipse', {
         cx: 80,
-        cy: 136,
-        rx: 56,
-        ry: 10,
-        fill: 'var(--el-fill-color-darker)',
-        opacity: 0.25,
+        cy: 124,
+        rx: 48,
+        ry: 8,
+        fill: 'var(--el-empty-fill-color-8, var(--el-fill-color-darker))',
+        opacity: 0.45,
       }),
-      // 盒子底座与内部
+      // 后左翻盖（先绘制以位于箱口后方）
       h('path', {
-        d: 'M32 64L80 44L128 64L80 84L32 64Z',
-        fill: 'var(--el-fill-color-light)',
-        stroke: 'var(--el-border-color)',
-        'stroke-width': 2,
+        d: 'M46 60L80 46L69 33L35 47Z',
+        fill: 'var(--el-empty-fill-color-2, var(--el-fill-color-light))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
-      // 盒子正面左侧
+      // 后右翻盖
       h('path', {
-        d: 'M32 64L80 84V124L32 104V64Z',
-        fill: 'var(--el-fill-color)',
-        stroke: 'var(--el-border-color)',
-        'stroke-width': 2,
+        d: 'M80 46L114 60L125 47L91 33Z',
+        fill: 'var(--el-empty-fill-color-2, var(--el-fill-color-light))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
-      // 盒子正面右侧
+      // 箱内左壁（深陷阴影）
       h('path', {
-        d: 'M80 84L128 64V104L80 124V84Z',
-        fill: 'var(--el-fill-color-dark)',
-        stroke: 'var(--el-border-color)',
-        'stroke-width': 2,
+        d: 'M46 60L80 46V74L46 60Z',
+        fill: 'var(--el-empty-fill-color-9, var(--el-fill-color-darker))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
-      // 盒子左开盖翻页
+      // 箱内右壁（次深阴影）
       h('path', {
-        d: 'M32 64L16 48L64 32L80 44L32 64Z',
-        fill: 'var(--el-fill-color-light)',
-        stroke: 'var(--el-border-color)',
-        'stroke-width': 2,
+        d: 'M80 46L114 60L80 74V46Z',
+        fill: 'var(--el-empty-fill-color-7, var(--el-fill-color-dark))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
-      // 右翻盖
+      // 箱体正面左侧
       h('path', {
-        d: 'M128 64L144 48L96 32L80 44L128 64Z',
-        fill: 'var(--el-fill-color-light)',
-        stroke: 'var(--el-border-color)',
-        'stroke-width': 2,
+        d: 'M46 60L80 74V112L46 98Z',
+        fill: 'var(--el-empty-fill-color-4, var(--el-fill-color))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
-      // 悬浮装饰：主色高亮光点与空虚线
-      h('circle', {
-        cx: 80,
-        cy: 32,
-        r: 3,
-        fill: 'var(--el-color-primary)',
-      }),
-      h('circle', {
-        cx: 116,
-        cy: 28,
-        r: 2,
-        fill: 'var(--el-color-primary-light-5)',
-      }),
+      // 箱体正面右侧
       h('path', {
-        d: 'M68 64H92',
-        stroke: 'var(--el-color-primary)',
-        'stroke-width': 2,
-        'stroke-linecap': 'round',
-        'stroke-dasharray': '3 3',
+        d: 'M80 74L114 60V98L80 112Z',
+        fill: 'var(--el-empty-fill-color-6, var(--el-fill-color-dark))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
+      }),
+      // 前左翻盖
+      h('path', {
+        d: 'M46 60L80 74L68 85L34 71Z',
+        fill: 'var(--el-empty-fill-color-1, var(--el-bg-color))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
+      }),
+      // 前右翻盖
+      h('path', {
+        d: 'M80 74L114 60L126 71L92 85Z',
+        fill: 'var(--el-empty-fill-color-1, var(--el-bg-color))',
+        stroke: strokeColor,
+        'stroke-width': 1.5,
+        'stroke-linejoin': 'round',
       }),
     ],
   );
@@ -184,6 +194,7 @@ export const IllustrationSearch: FunctionalComponent<IllustrationProps> = props 
       // 放大镜高光反射
       h('path', {
         d: 'M80 76C84 72 90 70 96 70',
+        fill: 'none',
         stroke: 'var(--el-color-primary-light-3)',
         'stroke-width': 2.5,
         'stroke-linecap': 'round',
@@ -381,6 +392,7 @@ export const Illustration500: FunctionalComponent<IllustrationProps> = props => 
       // 齿轮外齿装饰
       h('path', {
         d: 'M72 40V46M72 102V108M38 74H44M100 74H106M48 50L52 54M92 94L96 98M48 98L52 94M92 54L96 50',
+        fill: 'none',
         stroke: 'var(--el-border-color)',
         'stroke-width': 4,
         'stroke-linecap': 'round',

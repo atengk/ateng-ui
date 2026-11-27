@@ -656,4 +656,18 @@ describe('AtengDialog 组件规范与交互测试', () => {
       removeSpy.mockRestore();
     }
   });
+
+  it('确定按钮默认装配 .at-btn--loading-stable 零偏移防线', async () => {
+    wrapper = mount(AtengDialog, {
+      props: {
+        modelValue: true,
+        title: '确认按钮零偏移校验',
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    const confirmBtn = wrapper.find('.at-dialog__confirm-btn');
+    expect(confirmBtn.classes()).toContain('at-btn--loading-stable');
+  });
 });

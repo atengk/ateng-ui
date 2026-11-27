@@ -542,4 +542,19 @@ describe('AtengFooterBar 组件测试', () => {
     expect(bar.attributes('style')).toContain('left: 180px');
     expect(bar.attributes('style')).toContain('width: auto');
   });
+
+  it('预置提交按钮与声明式 actions 按钮均装配 .at-btn--loading-stable 零偏移防线', async () => {
+    wrapper = mount(AtengFooterBar, {
+      props: {
+        showSubmit: true,
+        actions: [{ key: 'save', label: '暂存草稿', type: 'primary' }],
+      },
+      attachTo: document.body,
+    });
+
+    const buttons = wrapper.findAll('.at-footer-bar__actions .el-button');
+    expect(buttons.length).toBe(2);
+    expect(buttons[0].classes()).toContain('at-btn--loading-stable');
+    expect(buttons[1].classes()).toContain('at-btn--loading-stable');
+  });
 });

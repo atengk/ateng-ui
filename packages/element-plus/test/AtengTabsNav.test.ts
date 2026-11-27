@@ -492,4 +492,35 @@ describe('AtengTabsNav Component', () => {
     contextDropdownVm.vm.$emit('command', 'refresh');
     expect(wrapper.emitted('tabRefresh')?.[0]?.[0]).toBe('/users');
   });
+
+  it('17. 页签与菜单传入 SVG 图标组件时保持专用图标容器包裹以命中 1em 约束', () => {
+    const CustomTabSvg = () => h('svg', { viewBox: '0 0 1024 1024', class: 'custom-tab-svg' });
+    const CustomMenuSvg = () => h('svg', { viewBox: '0 0 1024 1024', class: 'custom-menu-svg' });
+
+    wrapper = mount(AtengTabsNav, {
+      props: {
+        tabs: [{ key: '/home', title: '首页', affix: true, icon: CustomTabSvg }],
+        modelValue: '/home',
+        showQuickActions: true,
+        menuIcons: { refresh: CustomMenuSvg },
+      },
+      global: {
+        stubs: {
+          ElDropdown: {
+            template: '<div class="stub-el-dropdown"><slot /><slot name="dropdown" /></div>',
+          },
+          ElDropdownMenu: {
+            template: '<ul class="stub-el-dropdown-menu"><slot /></ul>',
+          },
+          ElDropdownItem: {
+            props: { command: String, disabled: Boolean, divided: Boolean },
+            template: '<li class="stub-el-dropdown-item" :data-command="command"><slot /></li>',
+          },
+        },
+      },
+    });
+
+    expect(wrapper.find('.at-tabs-nav__icon > svg.custom-tab-svg').exists()).toBe(true);
+    expect(wrapper.find('.at-tabs-nav__menu-icon > svg.custom-menu-svg').exists()).toBe(true);
+  });
 });

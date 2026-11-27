@@ -320,7 +320,7 @@ defineExpose<AtengDialogExpose>({
           </el-button>
           <el-button
             v-if="showConfirm"
-            class="at-dialog__confirm-btn"
+            class="at-dialog__confirm-btn at-btn--loading-stable"
             type="primary"
             :loading="isLoading"
             @click="handleConfirm"

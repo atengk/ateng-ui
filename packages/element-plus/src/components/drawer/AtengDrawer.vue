@@ -246,7 +246,7 @@ defineExpose<AtengDrawerExpose>({
           </el-button>
           <el-button
             v-if="showConfirm"
-            class="at-drawer__confirm-btn"
+            class="at-drawer__confirm-btn at-btn--loading-stable"
             type="primary"
             :loading="isLoading"
             @click="handleConfirm"

@@ -213,4 +213,24 @@ describe('AtengCaptcha 验证码与防刷新倒计时按钮交互与契约测试
 
     wrapper.unmount();
   });
+
+  it('按钮具备 .at-btn--loading-stable 零偏移防线及宽态 data-sizer 锚定', () => {
+    const wrapper = mount(AtengCaptcha, {
+      props: {
+        text: '获取验证码',
+        countdownText: '{s}s 重新获取',
+        retryText: '重新获取',
+        seconds: 60,
+      },
+    });
+
+    const btn = wrapper.find('button');
+    const label = wrapper.find('.at-captcha__label');
+    expect(btn.classes()).toContain('at-btn--loading-stable');
+    expect(label.exists()).toBe(true);
+    expect(label.attributes('data-sizer')).toBe('88s 重新获取');
+    expect(btn.text()).toBe('获取验证码');
+
+    wrapper.unmount();
+  });
 });

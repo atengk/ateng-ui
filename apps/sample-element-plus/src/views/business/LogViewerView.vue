@@ -76,7 +76,9 @@ onUnmounted(() => {
       <div class="control-bar">
         <ElSpace wrap :size="16">
           <ElButton :type="isGenerating ? 'danger' : 'primary'" @click="toggleLiveLogs">
-            {{ isGenerating ? '⏹ 停止模拟实时流' : '▶ 启动模拟实时日志流' }}
+            <span class="at-btn__label-stable" data-sizer="▶ 启动模拟实时日志流">
+              {{ isGenerating ? '⏹ 停止模拟实时流' : '▶ 启动模拟实时日志流' }}
+            </span>
           </ElButton>
           <ElButton @click="logViewerRef?.clear()"> 清空终端 </ElButton>
           <ElButton @click="logViewerRef?.download('sample_export.log')"> 导出日志 </ElButton>

@@ -470,7 +470,9 @@ onMounted(() => {
               重放 1.2s 冷加载对比
             </ElButton>
             <ElButton size="small" @click="manualExternalLoading = !manualExternalLoading">
-              切换受控 loading: {{ manualExternalLoading ? 'true' : 'false' }}
+              <span class="at-btn__label-stable" data-sizer="切换受控 loading: false">
+                切换受控 loading: {{ manualExternalLoading ? 'true' : 'false' }}
+              </span>
             </ElButton>
           </div>
         </div>

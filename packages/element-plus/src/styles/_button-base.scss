@@ -1,0 +1,40 @@
+/**
+ * `@atengk/element-plus` 按钮 Loading 态零偏移（Zero-CLS）基础样式防线。
+ *
+ * 解决 Element Plus `<el-button :loading="true">` 在无前置静态图标时动态插入旋转图标
+ * 并附加 `margin-left` 导致按钮宽度突增、加载完成后回弹挤压相邻元素的问题。
+ * 严格遵守零强制提权修饰符铁律，保持自然 CSS 特异度，由 `dist/index.css` 与 `dist/theme-pro.css` 共同复用。
+ *
+ * @author Ateng
+ * @since 2026-11-27
+ */
+
+.el-button.at-btn--loading-stable.is-loading:not(.is-circle):not(.is-link) {
+  > .el-icon.is-loading {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    z-index: 2;
+  }
+
+  > .el-icon.is-loading + span {
+    margin-left: 0;
+    visibility: hidden;
+  }
+}
+
+.at-btn__label-stable {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+
+  &::after {
+    content: attr(data-sizer);
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+}

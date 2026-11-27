@@ -31,6 +31,11 @@
       border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
       box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
+    // 轨道内嵌文案（浅色关闭态冷钛轨深色文字保证可读性）
+    .el-switch__inner-wrapper {
+      color: #334155;
+    }
+
     // 内部滑动圆钮 (knob)
     .el-switch__action {
       background-color: #ffffff;
@@ -55,6 +60,10 @@
 
       .el-switch__action {
         color: var(--el-color-primary);
+      }
+
+      .el-switch__inner-wrapper {
+        color: #ffffff;
       }
     }
   }
@@ -91,6 +100,10 @@
       background-color: var(--el-fill-color-darker, #334155);
       border-color: rgba(255, 255, 255, 0.1);
 
+      .el-switch__inner-wrapper {
+        color: #e2e8f0;
+      }
+
       .el-switch__action {
         background-color: #f1f5f9;
         box-shadow:
@@ -107,6 +120,10 @@
 
         .el-switch__action {
           color: var(--el-color-primary-dark-2);
+        }
+
+        .el-switch__inner-wrapper {
+          color: #ffffff;
         }
       }
     }

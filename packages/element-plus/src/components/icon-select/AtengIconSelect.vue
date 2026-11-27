@@ -155,11 +155,9 @@ defineExpose<AtengIconSelectExpose>({
                   <span v-if="currentIconItem?.svgPath" class="at-icon-select__preview">
                     <SafeSvgIcon :svg-path="currentIconItem.svgPath" />
                   </span>
-                  <component
-                    :is="currentIconItem.component"
-                    v-else-if="currentIconItem?.component"
-                    class="at-icon-select__preview"
-                  />
+                  <span v-else-if="currentIconItem?.component" class="at-icon-select__preview">
+                    <component :is="currentIconItem.component" />
+                  </span>
                   <span v-else-if="modelValue" class="at-icon-select__preview-text">
                     {{ modelValue.slice(0, 1) }}
                   </span>
@@ -207,11 +205,9 @@ defineExpose<AtengIconSelectExpose>({
               <span v-if="currentIconItem?.svgPath" class="at-icon-select__preview">
                 <SafeSvgIcon :svg-path="currentIconItem.svgPath" />
               </span>
-              <component
-                :is="currentIconItem.component"
-                v-else-if="currentIconItem?.component"
-                class="at-icon-select__preview"
-              />
+              <span v-else-if="currentIconItem?.component" class="at-icon-select__preview">
+                <component :is="currentIconItem.component" />
+              </span>
             </slot>
           </template>
         </ElInput>
@@ -260,9 +256,18 @@ defineExpose<AtengIconSelectExpose>({
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     color: var(--el-color-primary);
     font-size: 14px;
+    line-height: 1;
     margin-right: 4px;
+
+    :deep(svg) {
+      width: 1em;
+      height: 1em;
+      display: block;
+      flex-shrink: 0;
+    }
   }
 
   &__preview-text {

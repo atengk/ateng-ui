@@ -281,7 +281,9 @@ const backendCollapsed = ref(false);
           plain
           @click="layoutMaximized = !layoutMaximized"
         >
-          {{ layoutMaximized ? '退出最大化 (ESC)' : '全屏沉浸最大化' }}
+          <span class="at-btn__label-stable" data-sizer="退出最大化 (ESC)">
+            {{ layoutMaximized ? '退出最大化 (ESC)' : '全屏沉浸最大化' }}
+          </span>
         </ElButton>
       </div>
 
@@ -367,7 +369,7 @@ const backendCollapsed = ref(false);
                 type="primary"
                 plain
                 :loading="isRefreshing"
-                class="refresh-btn"
+                class="refresh-btn at-btn--loading-stable"
                 @click="handleTabRefresh(layoutActiveTab)"
               >
                 🔄 刷新当前视图 (refreshTab 调度)
@@ -416,7 +418,9 @@ const backendCollapsed = ref(false);
 
       <div class="card-controls" style="margin-bottom: 12px">
         <ElButton size="small" type="primary" plain @click="backendCollapsed = !backendCollapsed">
-          {{ backendCollapsed ? '展开侧边栏 (240px)' : '收起侧边栏 (测试首字回退 64px)' }}
+          <span class="at-btn__label-stable" data-sizer="收起侧边栏 (测试首字回退 64px)">
+            {{ backendCollapsed ? '展开侧边栏 (240px)' : '收起侧边栏 (测试首字回退 64px)' }}
+          </span>
         </ElButton>
         <span class="status-tip">
           状态: {{ backendCollapsed ? '已折叠（首字徽章高亮展示，悬停出 Tooltip）' : '已展开' }}

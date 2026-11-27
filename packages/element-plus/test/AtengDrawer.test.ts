@@ -710,4 +710,18 @@ describe('AtengDrawer 组件规范与交互测试', () => {
       });
     }
   });
+
+  it('确定按钮默认装配 .at-btn--loading-stable 零偏移防线', async () => {
+    wrapper = mount(AtengDrawer, {
+      props: {
+        modelValue: true,
+        title: '抽屉确认按钮零偏移校验',
+        appendToBody: false,
+      },
+    });
+    await nextTick();
+
+    const confirmBtn = wrapper.find('.at-drawer__confirm-btn');
+    expect(confirmBtn.classes()).toContain('at-btn--loading-stable');
+  });
 });

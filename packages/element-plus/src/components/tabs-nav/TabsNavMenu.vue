@@ -129,7 +129,15 @@ const menuEntries = computed<MenuEntryConfig[]>(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   font-size: 13px;
   line-height: 1;
+
+  :deep(svg) {
+    width: 1em;
+    height: 1em;
+    display: block;
+    flex-shrink: 0;
+  }
 }
 </style>

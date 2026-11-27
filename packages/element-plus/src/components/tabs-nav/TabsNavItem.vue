@@ -253,8 +253,18 @@ const resolvedIcon = computed(() => resolveTabIcon(props.tab, props.index, props
 .at-tabs-nav__icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   margin-right: 6px;
   font-size: 14px;
+  line-height: 1;
+
+  :deep(svg) {
+    width: 1em;
+    height: 1em;
+    display: block;
+    flex-shrink: 0;
+  }
 }
 
 .at-tabs-nav__title {

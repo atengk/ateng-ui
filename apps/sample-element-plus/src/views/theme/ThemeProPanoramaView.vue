@@ -155,6 +155,7 @@ const formModel = reactive({
 const hasFormError = ref(false);
 const switchAudit = ref(true);
 const switchDebug = ref(false);
+const switchInlineUnequal = ref(true);
 
 // 新型输入与表单布局校验状态
 const testFormRef = ref();
@@ -604,11 +605,11 @@ onUnmounted(() => {
             <div class="btn-cluster mb-3">
               <ElButton
                 type="primary"
-                class="btn-loading-stable"
+                class="at-btn--loading-stable"
                 :loading="isBtnLoading"
                 @click="triggerBtnLoading"
               >
-                {{ isBtnLoading ? '提交中...' : '点击触发 Loading' }}
+                点击触发 Loading
               </ElButton>
               <ElButton type="primary" class="at-btn-glow">脉冲微光发光 (.at-btn-glow)</ElButton>
             </div>
@@ -628,7 +629,9 @@ onUnmounted(() => {
                 :type="hasFormError ? 'danger' : 'default'"
                 @click="hasFormError = !hasFormError"
               >
-                {{ hasFormError ? '恢复正常' : '模拟 .is-error 错误' }}
+                <span class="at-btn__label-stable" data-sizer="模拟 .is-error 错误">
+                  {{ hasFormError ? '恢复正常' : '模拟 .is-error 错误' }}
+                </span>
               </ElButton>
             </template>
             <div class="section-desc mb-3">
@@ -705,6 +708,17 @@ onUnmounted(() => {
               <div class="switch-inline-item">
                 <span class="switch-title">实时 V8 堆内存探针</span>
                 <ElSwitch v-model="switchDebug" />
+              </div>
+              <div class="switch-inline-item">
+                <span class="switch-title">不等长内嵌文字开关（零偏移防抖）</span>
+                <ElSwitch v-model="switchInlineUnequal" inline-prompt>
+                  <template #active>
+                    <span class="at-switch__label-stable" data-sizer="已开启审计">已开启审计</span>
+                  </template>
+                  <template #inactive>
+                    <span class="at-switch__label-stable" data-sizer="已开启审计">关</span>
+                  </template>
+                </ElSwitch>
               </div>
               <div class="switch-inline-item">
                 <span class="switch-title">只读维护隔离锁 (Disabled)</span>
@@ -1660,7 +1674,12 @@ onUnmounted(() => {
                 </span>
                 <div class="dialog-footer-btns">
                   <ElButton :disabled="loading" @click="cancel">取消放弃</ElButton>
-                  <ElButton type="primary" :loading="loading" @click="confirm">
+                  <ElButton
+                    type="primary"
+                    class="at-btn--loading-stable"
+                    :loading="loading"
+                    @click="confirm"
+                  >
                     确认并同步发布
                   </ElButton>
                 </div>
@@ -1943,12 +1962,6 @@ onUnmounted(() => {
 
 .text-3xl {
   font-size: 28px;
-}
-
-/* 按钮加载态抗抖动稳定宽度 */
-.btn-loading-stable {
-  min-width: 148px;
-  justify-content: center;
 }
 
 /* 滑块弹性容器与手柄防裁切微内边距 */

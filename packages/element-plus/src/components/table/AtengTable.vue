@@ -1255,14 +1255,25 @@ defineExpose<AtengTableExpose<T>>({
           <template #empty>
             <slot v-if="$slots.empty" name="empty" />
             <template v-else-if="!isLoading && tableData.length === 0">
-              <AtengEmpty v-if="hasError" status="network-error" :description="errorDescription">
-                <el-button type="primary" :loading="isLoading" @click="handleRefresh">
+              <AtengEmpty
+                v-if="hasError"
+                status="network-error"
+                :image-size="120"
+                :description="errorDescription"
+              >
+                <el-button
+                  type="primary"
+                  :loading="isLoading"
+                  class="at-table__empty-retry-btn at-btn--loading-stable"
+                  @click="handleRefresh"
+                >
                   点击重试
                 </el-button>
               </AtengEmpty>
               <AtengEmpty
                 v-else-if="isSearchEmpty"
                 status="search"
+                :image-size="120"
                 :description="
                   searchEmptyDescription || emptyDescription || '未找到符合条件的检索结果'
                 "
@@ -1270,13 +1281,13 @@ defineExpose<AtengTableExpose<T>>({
                 <el-button
                   type="primary"
                   :loading="isLoading"
-                  class="at-table__empty-reset-btn"
+                  class="at-table__empty-reset-btn at-btn--loading-stable"
                   @click="handleResetFromEmpty"
                 >
                   清空筛选条件
                 </el-button>
               </AtengEmpty>
-              <AtengEmpty v-else status="empty" :description="emptyDescription" />
+              <AtengEmpty v-else status="empty" :image-size="120" :description="emptyDescription" />
             </template>
           </template>
         </el-table>
@@ -1452,6 +1463,15 @@ defineExpose<AtengTableExpose<T>>({
 
   &__inner {
     width: 100%;
+
+    :deep(.el-table__empty-text) {
+      width: 100%;
+      line-height: normal;
+    }
+
+    :deep(.at-empty) {
+      padding: 20px 0;
+    }
   }
 
   &__pagination {

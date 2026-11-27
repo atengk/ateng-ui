@@ -12,3 +12,20 @@
 .el-switch__core .el-switch__inner {
   box-sizing: border-box;
 }
+
+.at-switch__label-stable {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+
+  &::after {
+    content: attr(data-sizer);
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+}

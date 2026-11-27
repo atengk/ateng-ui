@@ -126,7 +126,9 @@ const customActions: FooterBarActionItem[] = [
           style="margin-left: 12px"
           @click="sidebarCollapsed = !sidebarCollapsed"
         >
-          {{ sidebarCollapsed ? '展开侧边栏 (240px)' : '折叠侧边栏 (64px)' }}
+          <span class="at-btn__label-stable" data-sizer="展开侧边栏 (240px)">
+            {{ sidebarCollapsed ? '展开侧边栏 (240px)' : '折叠侧边栏 (64px)' }}
+          </span>
         </ElButton>
       </div>
 

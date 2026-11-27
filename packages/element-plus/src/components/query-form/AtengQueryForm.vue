@@ -227,6 +227,20 @@ const displayedSearchLoading = useAntiFlicker(effectiveSearchLoading, {
   minDuration: antiFlickerDelay > 0 ? Math.max(0, props.loadingMinDuration) : 0,
 });
 
+function getLabelVisualWeight(label: string): number {
+  let weight = 0;
+  for (const ch of label) {
+    weight += ch.charCodeAt(0) > 127 ? 2 : 1;
+  }
+  return weight;
+}
+
+const collapseSizerText = computed<string>(() => {
+  return getLabelVisualWeight(props.expandText) >= getLabelVisualWeight(props.collapseText)
+    ? props.expandText
+    : props.collapseText;
+});
+
 // 6. 查询与重置交互调度
 let unregisterResetHandler: (() => void) | undefined;
 let unregisterQueryGetter: (() => void) | undefined;
@@ -424,7 +438,9 @@ defineExpose<AtengQueryFormExpose<T>>({
             class="at-query-form__collapse-btn"
             @click="toggleCollapse"
           >
-            <span>{{ isCollapsed ? expandText : collapseText }}</span>
+            <span class="at-btn__label-stable" :data-sizer="collapseSizerText">
+              {{ isCollapsed ? expandText : collapseText }}
+            </span>
             <el-icon class="at-query-form__collapse-icon" :class="{ 'is-expanded': !isCollapsed }">
               <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
                 <path

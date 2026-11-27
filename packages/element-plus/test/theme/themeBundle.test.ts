@@ -195,4 +195,9 @@ describe('ThemePro 样式产物构建与质量门禁', () => {
     expect(content).toContain('[data-theme=rose]');
     expect(content).toContain('.dark');
   });
+
+  it('包含按钮 Loading 态零偏移防线 (.at-btn--loading-stable)', () => {
+    const content = fs.readFileSync(cssPath, 'utf-8');
+    expect(content).toContain('.el-button.at-btn--loading-stable.is-loading');
+  });
 });

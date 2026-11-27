@@ -46,7 +46,22 @@ const switchValues = ref({
   debugMode: false,
   autoScaling: true,
   maintenance: false,
+  inlineEqual: true,
+  inlineUnequalAudit: true,
+  inlineUnequalMode: false,
+  asyncSwitch: true,
 });
+
+const asyncSwitchLoading = ref(false);
+const handleAsyncSwitchBeforeChange = (): Promise<boolean> => {
+  asyncSwitchLoading.value = true;
+  return new Promise(resolve => {
+    setTimeout(() => {
+      asyncSwitchLoading.value = false;
+      resolve(true);
+    }, 800);
+  });
+};
 
 // 3. 弹窗控制
 const dialogVisible = ref(false);
@@ -139,37 +154,108 @@ const triggerNotification = () => {
 
     <!-- 2. 精密数控滑动开关体系 -->
     <AtengCard title="🎛️ 精密数控滑动开关 (ElSwitch: 冷钛底、立体内凹滑块、柔光微晕)" class="mb-4">
-      <div class="switch-grid">
-        <div class="switch-card">
-          <div class="switch-info">
-            <span class="switch-name">系统全局审计跟踪</span>
-            <span class="switch-desc">记录每秒千万级分布式 RPC 调用链日志</span>
+      <div class="showcase-block mb-4">
+        <div class="block-title">2.1 基础无字数控开关</div>
+        <div class="switch-grid">
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">系统全局审计跟踪</span>
+              <span class="switch-desc">记录每秒千万级分布式 RPC 调用链日志</span>
+            </div>
+            <ElSwitch v-model="switchValues.systemAudit" />
           </div>
-          <ElSwitch v-model="switchValues.systemAudit" />
-        </div>
 
-        <div class="switch-card">
-          <div class="switch-info">
-            <span class="switch-name">生产实时 Debug 探针</span>
-            <span class="switch-desc">开启 V8 堆内存纳秒级采样 (冷钛关闭态)</span>
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">生产实时 Debug 探针</span>
+              <span class="switch-desc">开启 V8 堆内存纳秒级采样 (冷钛关闭态)</span>
+            </div>
+            <ElSwitch v-model="switchValues.debugMode" />
           </div>
-          <ElSwitch v-model="switchValues.debugMode" />
-        </div>
 
-        <div class="switch-card">
-          <div class="switch-info">
-            <span class="switch-name">Kubernetes 弹性伸缩联动</span>
-            <span class="switch-desc">自动根据实时 QPS 动态扩展 Pod 节点</span>
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">Kubernetes 弹性伸缩联动</span>
+              <span class="switch-desc">自动根据实时 QPS 动态扩展 Pod 节点</span>
+            </div>
+            <ElSwitch v-model="switchValues.autoScaling" />
           </div>
-          <ElSwitch v-model="switchValues.autoScaling" />
-        </div>
 
-        <div class="switch-card">
-          <div class="switch-info">
-            <span class="switch-name">只读维护隔离锁 (已禁用)</span>
-            <span class="switch-desc">禁用状态下的平滑降级与半透明质感</span>
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">只读维护隔离锁 (已禁用)</span>
+              <span class="switch-desc">禁用状态下的平滑降级与半透明质感</span>
+            </div>
+            <ElSwitch v-model="switchValues.maintenance" disabled />
           </div>
-          <ElSwitch v-model="switchValues.maintenance" disabled />
+        </div>
+      </div>
+
+      <div class="showcase-block">
+        <div class="block-title">2.2 内嵌文字与不等长双态开关（零偏移稳定宽度）</div>
+        <div class="switch-grid">
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">等长内嵌文字开关</span>
+              <span class="switch-desc">标准 inline-prompt（开 / 关）对比度与内边距校验</span>
+            </div>
+            <ElSwitch
+              v-model="switchValues.inlineEqual"
+              inline-prompt
+              active-text="开"
+              inactive-text="关"
+            />
+          </div>
+
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">不等长中文内嵌开关（零偏移锚定）</span>
+              <span class="switch-desc">已开启审计 vs 关：切换时轨道长度纹丝不动</span>
+            </div>
+            <ElSwitch v-model="switchValues.inlineUnequalAudit" inline-prompt>
+              <template #active>
+                <span class="at-switch__label-stable" data-sizer="已开启审计">已开启审计</span>
+              </template>
+              <template #inactive>
+                <span class="at-switch__label-stable" data-sizer="已开启审计">关</span>
+              </template>
+            </ElSwitch>
+          </div>
+
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">不等长中英内嵌开关（零偏移锚定）</span>
+              <span class="switch-desc">生产模式 vs OFF：自适应全局尺寸不回弹</span>
+            </div>
+            <ElSwitch v-model="switchValues.inlineUnequalMode" inline-prompt>
+              <template #active>
+                <span class="at-switch__label-stable" data-sizer="生产模式">生产模式</span>
+              </template>
+              <template #inactive>
+                <span class="at-switch__label-stable" data-sizer="生产模式">OFF</span>
+              </template>
+            </ElSwitch>
+          </div>
+
+          <div class="switch-card">
+            <div class="switch-info">
+              <span class="switch-name">异步切换 Loading 内嵌不等长开关</span>
+              <span class="switch-desc">已启用 vs 停：800ms 异步拦截期间宽度恒定</span>
+            </div>
+            <ElSwitch
+              v-model="switchValues.asyncSwitch"
+              inline-prompt
+              :loading="asyncSwitchLoading"
+              :before-change="handleAsyncSwitchBeforeChange"
+            >
+              <template #active>
+                <span class="at-switch__label-stable" data-sizer="已启用">已启用</span>
+              </template>
+              <template #inactive>
+                <span class="at-switch__label-stable" data-sizer="已启用">停</span>
+              </template>
+            </ElSwitch>
+          </div>
         </div>
       </div>
     </AtengCard>

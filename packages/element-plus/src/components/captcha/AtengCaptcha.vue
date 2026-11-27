@@ -184,6 +184,30 @@ const buttonLabel = computed<string>(() => {
   return props.text;
 });
 
+/**
+ * 估算文本视觉宽度权重（非 ASCII 字符按全角 2 计权，ASCII 按 1 计权），
+ * 用于取空闲/倒计时/重试三态中最宽文案作为按钮静态宽度锚点，避免切换时抖动。
+ */
+function getVisualWeight(label: string): number {
+  let weight = 0;
+  for (const ch of label) {
+    weight += ch.charCodeAt(0) > 127 ? 2 : 1;
+  }
+  return weight;
+}
+
+const sizerLabel = computed<string>(() => {
+  const maxDigits = Math.max(2, String(props.seconds).length);
+  const candidates = [
+    props.text,
+    props.countdownText.replace('{s}', '8'.repeat(maxDigits)),
+    props.retryText,
+  ];
+  return candidates.reduce((widest, cur) =>
+    getVisualWeight(cur) > getVisualWeight(widest) ? cur : widest,
+  );
+});
+
 // 图片验证码点击刷新
 async function handleImageClick(): Promise<void> {
   if (props.disabled || isLoading.value) return;
@@ -231,10 +255,10 @@ defineExpose<AtengCaptchaExpose>({
           :size="size"
           :disabled="disabled || isCounting"
           :loading="isLoading"
-          class="at-captcha__btn"
+          class="at-captcha__btn at-btn--loading-stable"
           @click="start"
         >
-          {{ buttonLabel }}
+          <span class="at-captcha__label" :data-sizer="sizerLabel">{{ buttonLabel }}</span>
         </ElButton>
       </slot>
     </template>
@@ -272,6 +296,22 @@ defineExpose<AtengCaptchaExpose>({
   &__btn {
     min-width: 110px;
     user-select: none;
+  }
+
+  &__label {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+
+    &::after {
+      content: attr(data-sizer);
+      height: 0;
+      overflow: hidden;
+      visibility: hidden;
+      pointer-events: none;
+      user-select: none;
+    }
   }
 
   &__image-box {

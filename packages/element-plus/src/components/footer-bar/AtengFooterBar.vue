@@ -370,6 +370,7 @@ defineExpose<AtengFooterBarExpose>({
           <el-button
             v-for="(action, index) in actions"
             :key="action.key || index"
+            class="at-btn--loading-stable"
             :type="action.type || 'default'"
             :plain="action.plain"
             :disabled="action.disabled || (action.key === 'submit' && computedSubmitLoading)"
@@ -390,6 +391,7 @@ defineExpose<AtengFooterBarExpose>({
           </el-button>
           <el-button
             v-if="isSubmitVisible"
+            class="at-btn--loading-stable"
             :type="submitType"
             :loading="computedSubmitLoading"
             :disabled="computedSubmitLoading"

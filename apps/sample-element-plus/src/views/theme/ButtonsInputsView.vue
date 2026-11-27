@@ -96,8 +96,13 @@ const triggerError = ref(false);
           <!-- 幽灵虚线按钮 -->
           <ElButton dashed>Ghost 虚线幽灵</ElButton>
           <!-- Loading 动态交互 -->
-          <ElButton type="primary" :loading="loadingBtn" @click="triggerLoading">
-            {{ loadingBtn ? '执行中...' : '点击触发 Loading' }}
+          <ElButton
+            type="primary"
+            class="at-btn--loading-stable"
+            :loading="loadingBtn"
+            @click="triggerLoading"
+          >
+            点击触发 Loading
           </ElButton>
           <!-- 禁用态对比 -->
           <ElButton type="primary" disabled>禁用状态</ElButton>
@@ -129,7 +134,9 @@ const triggerError = ref(false);
     <AtengCard title="⚡ 双层激光 Focus-Ring 表单输入控件 (4px 柔光扩散环)" class="mb-4">
       <div class="controls-panel mb-4">
         <ElButton :type="triggerError ? 'danger' : 'default'" @click="triggerError = !triggerError">
-          {{ triggerError ? '解除 .is-error 错误态' : '模拟激活 .is-error 错误红光联动' }}
+          <span class="at-btn__label-stable" data-sizer="模拟激活 .is-error 错误红光联动">
+            {{ triggerError ? '解除 .is-error 错误态' : '模拟激活 .is-error 错误红光联动' }}
+          </span>
         </ElButton>
       </div>
 

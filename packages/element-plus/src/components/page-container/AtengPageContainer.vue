@@ -540,6 +540,7 @@ defineExpose({
                   <el-button
                     v-for="action in visibleActions"
                     :key="action.key || action.label"
+                    :class="{ 'at-btn--loading-stable': !action.icon }"
                     :type="action.type || 'default'"
                     :plain="action.plain"
                     :disabled="action.disabled"
