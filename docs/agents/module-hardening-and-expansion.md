@@ -27,9 +27,9 @@ flowchart TD
     C --> D{"🚨 开发者审批门禁 (Human Gate)"}
     D -- "确认推进" --> E["阶段二: 核心重构与全场景能力补齐"]
     E --> F["阶段三: 对抗单测与 1:1 Sample 可视化实测"]
-    F --> G["阶梯二四合一验证: typecheck + lint + test + build"]
-    G --> H["阶段四: Sample-First 五维文档与领域模型同步"]
-    H --> I["15 项准出自检通过 & 工作区待命汇报"]
+    F --> G["Sample-First 五维文档与领域模型同步"]
+    G --> H["工作区待命汇报（日常不跑全套耗时门禁）"]
+    H --> I["推送前统一执行阶梯二四合一门禁 & 15 项准出自检"]
 ```
 
 ### 阶段一：差距诊断与全场景对标 (Gap Diagnosis & Scenario Benchmarking)
@@ -50,7 +50,7 @@ flowchart TD
 
 - 在 `packages/<name>` 内补齐白盒与对抗性极限单测（严格遵守 `wrapper.unmount()` DOM 还原、状态清零与 100% 离线 Mock 三铁律）；
 - 在 `apps/sample-<name>` 中实装真实业务语义的可视化多场景交互看板（遵循 [`documentation-specification.md`](./documentation-specification.md) 第 3 章分层展厅规范）；
-- 执行阶梯二定向四合一验证命令，确保 100% 全绿通过：
+- 以下阶梯二定向四合一验证命令**仅在准备推送代码前**（或用户明确要求全量校验时）统一执行，日常中间改动无需每次重复执行：
   ```bash
   pnpm --filter @atengk/<name> --filter sample-<name> typecheck && \
   pnpm --filter @atengk/<name> --filter sample-<name> lint && \
@@ -67,4 +67,4 @@ flowchart TD
 
 ## 3. 交付准出判据 (Exit Criteria)
 
-完成阶段四后，必须逐项通过 [`documentation-specification.md`](./documentation-specification.md) 第 4 章的 **《交付前 15 项强制自检清单》**，并在工作区向开发者汇报变更摘要（未收到明确提交/推送指令前严禁擅自执行 Git 提交）。
+完成阶段四后可先在工作区向开发者汇报变更摘要；在准备推送代码前（未收到明确提交/推送指令前严禁擅自执行 Git 提交），统一执行上述阶梯二四合一门禁与 [`documentation-specification.md`](./documentation-specification.md) 第 4 章的 **《交付前 15 项强制自检清单》**。

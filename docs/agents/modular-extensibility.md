@@ -29,9 +29,9 @@ _(注：既有存量子包从 1 到 N 的深度体检、能力补齐与加固重
 
 ---
 
-## 2. 阶梯二四合一准出验证命令
+## 2. 推送前阶梯二四合一准出验证命令
 
-新模块孵化完成后，必须执行定向四合一门禁验证并通过 [`documentation-specification.md`](./documentation-specification.md) 中的 **15 项交付前强制自检清单**：
+新模块孵化完成并准备推送代码前（或用户明确要求全量校验时），必须执行定向四合一门禁验证并通过 [`documentation-specification.md`](./documentation-specification.md) 中的 **15 项交付前强制自检清单**（日常中间改动无需每次重复执行全套耗时门禁）：
 
 ```bash
 pnpm --filter @atengk/<name> --filter sample-<name> typecheck && \

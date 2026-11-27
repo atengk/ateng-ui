@@ -159,11 +159,11 @@ pnpm --filter @atengk/<module> --filter sample-<module> build
 
 ## 4. Sample-First 逆向研发流与 15 项准出自检清单 (Audit Checklist & Red Card Gate)
 
-任何新特性的研发或存量特性的重构，必须严格遵循 **Sample 真实场景组件编码 $\rightarrow$ 可视化交互看板挂载 $\rightarrow$ 离线自洽单测与四合一门禁全绿 $\rightarrow$ 1:1 逆向提取至子包五维 `README.md` $\rightarrow$ 更新 Sample 四段式体验卡** 的单向流水线。
+任何新特性的研发或存量特性的重构，必须严格遵循 **Sample 真实场景组件编码 $\rightarrow$ 可视化交互看板挂载 $\rightarrow$ 1:1 逆向提取至子包五维 `README.md` $\rightarrow$ 更新 Sample 四段式体验卡 $\rightarrow$ 推送前统一跑通离线自洽单测与四合一门禁** 的单向流水线。
 
 ### 交付前 15 项强制自检清单 (Pre-Delivery Audit Checklist)
 
-在每次任务交付前或执行 `/code-review` 时，必须逐项核对以下 15 项判据（任一未通过直接触发 Red Card 阻断）：
+在推送代码前或执行 `/code-review` 时，必须逐项核对以下 15 项判据（日常单次改动与修复无需重复跑全套耗时门禁，统一在推送前执行）：
 
 - [ ] **1. 四层洋葱单向依赖律（`L3 ➔ L2 ➔ L1 ➔ L0`）**：零逆向跨层引用、零循环依赖；L0（`@atengk/core`, `@atengk/monitor`）100% 纯 TS 跨框架中立（零 Vue/React 依赖）；L1（`@atengk/vue`）100% 纯无头状态机（零 `ElMessage` 等 UI 组件耦合）。
 - [ ] **2. 后端契约与雪花 Long ID 防截断**：严格对齐 `Result<T>` 与 `PageResult<T>`（分页入参 `current`/`size`）；HTTP 管道在 `transformResponse` 阶段对 16 位以上长整型雪花 ID 正则加引号转 `string`（ADR-0003）。
@@ -179,4 +179,4 @@ pnpm --filter @atengk/<module> --filter sample-<module> build
 - [ ] **12. Sample 1:1 可视化多场景看板与双模配置**：子包所有公开特性在 `apps/sample-<name>` 中 100% 实装可视化交互看板（严禁白屏、纯 `console.log` 或单文件臃肿 `App.vue`）；Sample 标配 `.env.example` 与 `"private": true` 隔离。
 - [ ] **13. Sample-First 五维文档与三要素闭环**：子包 `README.md` 包含 100% 覆盖的全景速查矩阵，各特性章节在当前屏幕内实现“TS 类型/Props + 真实 Vue/TS 代码 + 核心机制”三要素闭环，按领域大章收敛，Sample `README.md` 采用四段式体验卡。
 - [ ] **14. Markdown 排版完整性与零绝对路径**：代码块闭合、块级元素空行隔离、表格列数严整（联合类型 `|` 转义为 `\|`）、Mermaid 特殊字符节点加双引号，文档内 100% 使用相对路径互链。
-- [ ] **15. 领域模型与阶梯二全量门禁全绿**：`packages/<name>/CONTEXT.md`、`CONTEXT-MAP.md` 与 [`docs/adr/README.md`](../adr/README.md) 同步对齐；执行 `format:check`、定向 `typecheck`、`lint`、`test`、`build` 门禁 100% PASS。
+- [ ] **15. 领域模型与推送前全量门禁全绿**：`packages/<name>/CONTEXT.md`、`CONTEXT-MAP.md` 与 [`docs/adr/README.md`](../adr/README.md) 同步对齐；推送代码前执行 `format:check`、定向 `typecheck`、`lint`、`test`、`build` 门禁 100% PASS。

@@ -46,8 +46,8 @@
 ## 4. 质量门禁、全自洽单测与文档/样例闭环
 
 - **三阶梯测试准出**（纯文档 `*.md` 修改豁免执行构建与单测）：
-  1. **阶梯一（日常自验）**：`pnpm --filter @atengk/<pkg> test` 与 `pnpm --filter @atengk/<pkg> typecheck`
-  2. **阶梯二（提交前四合一准出）**：`pnpm run format:check && pnpm --filter @atengk/<pkg> --filter sample-<pkg> typecheck && pnpm --filter @atengk/<pkg> --filter sample-<pkg> lint && pnpm --filter @atengk/<pkg> --filter sample-<pkg> test && pnpm --filter @atengk/<pkg> --filter sample-<pkg> build`（L0/L1 核心改动须运行根目录全量 `pnpm run format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build`）
+  1. **阶梯一（日常开发轻量自验）**：日常单次改动与修复**严禁自动执行耗时的全套门禁**（无需在每次任务结束后跑全量 `format:check` / `typecheck` / `lint` / 全套 `test` / `sample build`）；仅在改动子包源码且本地展厅需要即时预览时按需刷新子包产物，或针对受影响单文件按需自验，快速交付供人工验收。
+  2. **阶梯二（推送前四合一准出）**：**仅在推送代码（`push`）前**（或用户明确要求全量校验时）统一执行一次四合一准出：`pnpm run format:check && pnpm --filter @atengk/<pkg> --filter sample-<pkg> typecheck && pnpm --filter @atengk/<pkg> --filter sample-<pkg> lint && pnpm --filter @atengk/<pkg> --filter sample-<pkg> test && pnpm --filter @atengk/<pkg> --filter sample-<pkg> build`（L0/L1 核心改动在推送前执行根目录全量 `pnpm run format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build`）。
   3. **阶梯三（推送后 CI 守护）**：推送后通过 `gh run watch <run-id>` 监控远端 GitHub Actions 流水线至全绿。
 - **全自洽单测三铁律（ADR-0008）**：① 挂载组件测试必须在 `afterEach` 执行 `wrapper.unmount()` 并清理残留 DOM / Teleport 节点；② `localStorage`/`sessionStorage`、Pinia 状态与 `AuthManager` 凭据必须在 `beforeEach`/`afterEach` 重置；③ 100% 依托 Vitest Mock 或 MSW 拦截网络请求，严禁发起真实外部网络调用。
 - **极致 Tree-Shaking 与打包规范（ADR-0015）**：子包 `package.json` 必须声明 `"sideEffects": false`（含样式文件则收敛为 `["*.css", "*.scss"]`）；Vue 插件 `install(app)` 必须显式导出调用，严禁在顶层 `import` 执行全局自注册副作用。
@@ -67,12 +67,12 @@
 
 ## 6. Agent 执行状态机与专职规约路由表
 
-- **双模状态机与停止判据**：① **阶段 1~3（认领/探查 → TDD 与 Sample-First 实现 → 阶梯二四合一验证、15 项自检与 `/code-review` 双绿）**：未获授权提交推送前，完成阶段 3 后**必须停留在工作区汇报结果**；② **阶段 4~5（`scripts/commit.sh` 提交推送 → `gh run watch` 守护全绿 → `gh issue comment -F` 关单）**：仅在收到显式指令时触发。
+- **双模状态机与停止判据**：① **阶段 1~3（认领/探查 → TDD 与 Sample-First 实现 → 本地工作区轻量交付）**：日常编码或修复完成后按需刷新本地展厅产物即可**停留在工作区汇报结果**，**严禁在未触发推送前自动运行耗时的全量门禁校验**；② **阶段 4~5（推送前统一执行阶梯二四合一准出与 15 项自检 → `scripts/commit.sh` 提交推送 → `gh run watch` 守护全绿 → `gh issue comment -F` 关单）**：仅在收到显式提交/推送指令或明确全量校验指令时触发。
 - **专职规约前置唤醒路由表**：触及以下分支时，**必须在操作前调用 `read_file` 读取对应规约**：
 
 | 触发分支 / 任务场景                  | 必读权威规约文档                                                                                       | 核心完成判据                                                                                                         |
 | :----------------------------------- | :----------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------- |
-| **编写/修改 `README.md` 或 Sample**  | **[`docs/agents/documentation-specification.md`](./docs/agents/documentation-specification.md)**       | 可视化看板与四合一全绿、1:1 逆向提取、全景矩阵 100% 覆盖、通过 **15 项准出自检清单**                                 |
+| **编写/修改 `README.md` 或 Sample**  | **[`docs/agents/documentation-specification.md`](./docs/agents/documentation-specification.md)**       | 可视化看板挂载、1:1 逆向提取、全景矩阵 100% 覆盖、推送前通过 **15 项准出自检清单**与四合一门禁                       |
 | **从 0 到 1 孵化全新前端子包**       | **[`docs/agents/modular-extensibility.md`](./docs/agents/modular-extensibility.md)**                   | 交付“工业级六件套”（标杆对标、tsup/Tree-Shaking、洋葱解耦、1:1 展厅、五维文档、Domain/ADR）                          |
 | **对存量子包执行 1 到 N 体检或扩容** | **[`docs/agents/module-hardening-and-expansion.md`](./docs/agents/module-hardening-and-expansion.md)** | 执行四阶段流水线，阶段一输出 `module-health-check.md` 后**必须停下等待人工审批**                                     |
 | **探索模块边界或查阅/新增 ADR**      | **[`docs/agents/domain.md`](./docs/agents/domain.md)** & **[`CONTEXT-MAP.md`](./CONTEXT-MAP.md)**      | 对齐子包 `CONTEXT.md` 术语与 `Avoid` 词表，同步维护 `CONTEXT-MAP.md` 与 [`docs/adr/README.md`](./docs/adr/README.md) |

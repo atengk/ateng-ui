@@ -25,12 +25,12 @@
 
 1. **阶段 1（认领与上下文对齐）**：执行 `gh issue view <n> --comments` 研读诉求，对照 [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md) 与 [`docs/adr/README.md`](../adr/README.md) 确认四层拓扑边界；若获指令认领则执行 `gh issue edit <n> --add-assignee "@me"`。
 2. **阶段 2（TDD 与 Sample-First 实现）**：在目标子包 `packages/<name>` 与对应展厅 `apps/sample-<name>` 中实施编码、可视化看板挂载与离线 Mock 单测。
-3. **阶段 3（阶梯二四合一验证与 15 项准出自检）**：运行定向 `typecheck` + `lint` + `test` + `build` 四合一门禁全绿，完成 [`documentation-specification.md`](./documentation-specification.md) 的 15 项准出自检与 `/code-review`。
-   > **🛑 停止判据（Explicit Two-Tier Git Gate）**：若用户未在会话中明确下达“提交/commit”或“推送/push”指令，完成阶段 3 后**必须停留在本地工作区向用户汇报验证结果**，严禁擅自提交、推送或关闭 Issue。
+3. **阶段 3（工作区轻量交付）**：完成开发与本地展厅产物按需刷新（**日常单次任务不执行耗时的全套四合一门禁**），在本地工作区汇报修改摘要。
+   > **🛑 停止判据（Explicit Two-Tier Git Gate）**：若用户未在会话中明确下达“提交/commit”或“推送/push”指令，完成阶段 3 后**必须停留在本地工作区向用户汇报结果**，严禁擅自提交、推送或关闭 Issue。
 
 ### 阶段 4~5：显式授权交付闭环（仅在收到明确提交/推送指令后触发）
 
-4. **阶段 4（规范提交与 CI 守护）**：使用 `bash scripts/commit.sh -t <type> -s <scope> -m "<主说明>" [-l "<细项>"] -c <n> [-p] -y` 提交（若获批推送则附加 `-p`），随后立即通过 `gh run list -L 1` 与 `gh run watch <run-id>` 持续监控远端 CI 流水线直至 100% 全绿。
+4. **阶段 4（推送前准出、规范提交与 CI 守护）**：执行推送（`push`）前统一运行一次阶梯二定向 `format:check` + `typecheck` + `lint` + `test` + `build` 四合一门禁并核对 [`documentation-specification.md`](./documentation-specification.md) 的 15 项准出自检，使用 `bash scripts/commit.sh -t <type> -s <scope> -m "<主说明>" [-l "<细项>"] -c <n> [-p] -y` 提交（若获批推送则附加 `-p`），随后立即通过 `gh run list -L 1` 与 `gh run watch <run-id>` 持续监控远端 CI 流水线直至 100% 全绿。
 5. **阶段 5（验收报告回写与关单）**：使用 `gh issue comment <n> -F <report-file>` 回写测试结果与 Commit SHA，最后执行 `gh issue close <n>` 闭环。
 
 ## 4. 探路操作规范 (Wayfinding Operations)与外部 PR 分诊
