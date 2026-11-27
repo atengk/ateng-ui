@@ -13,7 +13,7 @@ import type { TenantManager } from '../tenant';
 import type { AbortCoordinator } from '../abort';
 import type { RequestDeduplicator } from '../dedupe';
 import type { RetryPolicy } from '../retry';
-import type { RequestSigner } from '../security';
+import type { RequestCipher, RequestSigner } from '../security';
 
 /**
  * 扩展 Axios 请求配置，赋予微服务路由、重复请求中断与结果自动解包控制能力。
@@ -48,6 +48,14 @@ export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D>, R
    * - undefined: 遵循客户端关联的 RequestSigner.shouldSign 判定（默认写操作签名）。
    */
   sign?: boolean;
+
+  /**
+   * 是否对当前请求启用传输层报文加解密。
+   * - true: 强制启用加密（仍会自动跳过 FormData/Blob/ArrayBuffer 等二进制载体）；
+   * - false: 强制跳过本次请求体加密与响应解密；
+   * - undefined: 遵循客户端关联的 RequestCipher.shouldEncrypt 判定。
+   */
+  encrypt?: boolean;
 
   /**
    * 是否自动解包 Result<T> 响应载荷。
@@ -105,6 +113,11 @@ export interface HttpClientOptions extends RetryPolicy {
    * API 请求防重放与防篡改签名器实例。若提供，请求拦截器将在发送前自动计算并注入签名 Header。
    */
   signer?: RequestSigner;
+
+  /**
+   * HTTP 传输层报文级混合加解密器实例。若提供，请求/响应拦截器将协同 signer 按 Encrypt-then-Sign 管道自动加解密。
+   */
+  cipher?: RequestCipher;
 
   /**
    * 客户端全局默认防重复提交与竞态中断开关。默认为 false。
@@ -170,6 +183,11 @@ export interface HttpClient {
    * 当前客户端绑定的防重放与防篡改签名器（若已配置）。
    */
   readonly signer?: RequestSigner;
+
+  /**
+   * 当前客户端绑定的传输层混合加解密器（若已配置）。
+   */
+  readonly cipher?: RequestCipher;
 
   /**
    * 发起通用网络请求。

@@ -23,7 +23,17 @@ import type { TenantManager } from '../tenant';
 import { generateRequestKey, isAbortError, type AbortCoordinator } from '../abort';
 import { checkBlobForJsonError } from '../file';
 import { isIdempotentMethod, isRetriableError, calculateBackoffDelay } from '../retry';
-import type { RequestSigner } from '../security';
+import type { RequestCipher, RequestSigner } from '../security';
+import {
+  applyInboundResponseSecurity,
+  applyOutboundRequestSecurity,
+  ensureRawResponseCapture,
+  hasRequestHeader,
+  normalizeResponseTransformers,
+  restoreSecurityStateForRetry,
+  setRequestHeader,
+  snapshotAndResetSecurityState,
+} from './security-pipeline';
 import type { HttpRequestConfig } from './types';
 
 /**
@@ -81,6 +91,7 @@ export interface InterceptorContext {
   authManager: AuthManager;
   tenantManager?: TenantManager;
   signer?: RequestSigner;
+  cipher?: RequestCipher;
   abortCoordinator: AbortCoordinator;
   defaultCancelDuplicate: boolean;
   defaultUnwrap: boolean;
@@ -118,7 +129,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       customConfig.unwrap = defaultUnwrap;
     }
 
-    // 1.2 微服务网关路由前缀匹配与 service 显式覆盖（保留原始路径防重试时二次路由篡改）
+    // 1.2 微服务网关路由前缀匹配与 service 显式覆盖（保留原始路径与原始载荷防重试时二次篡改/加密）
     const customRecord = customConfig as unknown as Record<string, unknown>;
     if (!customRecord.__originalUrl) {
       customRecord.__originalUrl = customConfig.url;
@@ -127,6 +138,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     if (customRecord.__originalSignal === undefined) {
       customRecord.__originalSignal = customConfig.signal;
     }
+    snapshotAndResetSecurityState(customConfig);
 
     const originalUrl = (customRecord.__originalUrl as string) ?? customConfig.url ?? '';
     const resolvedRoute = router.resolve({
@@ -139,96 +151,26 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       customConfig.url = resolvedRoute.url;
     }
 
-    // 1.3 双轨 Token 请求头自动注入（大小写无关匹配，兼容 AxiosHeaders 与普通对象）
+    // 1.3 双轨 Token 请求头与多租户上下文自动注入（大小写无关匹配）
     const authHeaders = authManager.getHeaders();
     customConfig.headers = customConfig.headers || {};
-    const hasHeader = (name: string): boolean => {
-      const h = customConfig.headers;
-      if (!h) return false;
-      if (typeof (h as unknown as { has?: (k: string) => boolean }).has === 'function') {
-        return Boolean((h as unknown as { has: (k: string) => boolean }).has(name));
-      }
-      const lower = name.toLowerCase();
-      return Object.keys(h as Record<string, unknown>).some(k => k.toLowerCase() === lower);
-    };
-    const setHeader = (name: string, val: string): void => {
-      const h = customConfig.headers;
-      if (!h) return;
-      if (typeof (h as unknown as { set?: (k: string, v: string) => void }).set === 'function') {
-        (h as unknown as { set: (k: string, v: string) => void }).set(name, val);
-      } else {
-        (h as Record<string, string>)[name] = val;
-      }
-    };
 
     for (const [key, value] of Object.entries(authHeaders)) {
-      if (!hasHeader(key) && value) {
-        setHeader(key, value);
+      if (!hasRequestHeader(customConfig.headers, key) && value) {
+        setRequestHeader(customConfig.headers, key, value);
       }
     }
 
-    // 1.3.1 多租户上下文请求头自动注入
     if (context.tenantManager) {
       const tenantHeaders = context.tenantManager.getHeaders();
       for (const [key, value] of Object.entries(tenantHeaders)) {
-        if (!hasHeader(key) && value) {
-          setHeader(key, value);
+        if (!hasRequestHeader(customConfig.headers, key) && value) {
+          setRequestHeader(customConfig.headers, key, value);
         }
       }
     }
 
-    // 1.3.2 API 请求防重放与防篡改签名自动注入
-    if (context.signer) {
-      const shouldSign =
-        customConfig.sign !== undefined
-          ? customConfig.sign
-          : context.signer.shouldSign(customConfig);
-
-      if (shouldSign) {
-        const timestamp = context.signer.generateTimestamp();
-        const nonce = context.signer.generateNonce();
-        const signResult = await context.signer.sign({
-          method: customConfig.method,
-          url: customConfig.url,
-          params: customConfig.params,
-          data: customConfig.data,
-          timestamp,
-          nonce,
-        });
-
-        for (const [key, value] of Object.entries(signResult.headers)) {
-          if (value) {
-            customConfig.headers[key] = value;
-          }
-        }
-      }
-    }
-
-    // 1.4 雪花 ID 大数防截断反序列化管道注入（去重防重复包装）
-    const hasSnowflakeTransformer =
-      Array.isArray(customConfig.transformResponse) &&
-      customConfig.transformResponse.includes(
-        transformSnowflakeResponse as AxiosResponseTransformer,
-      );
-
-    if (!hasSnowflakeTransformer) {
-      const existingTransformers: AxiosResponseTransformer[] = Array.isArray(
-        customConfig.transformResponse,
-      )
-        ? (customConfig.transformResponse as AxiosResponseTransformer[])
-        : customConfig.transformResponse
-          ? [customConfig.transformResponse as AxiosResponseTransformer]
-          : Array.isArray(axios.defaults.transformResponse)
-            ? (axios.defaults.transformResponse as AxiosResponseTransformer[])
-            : [];
-
-      customConfig.transformResponse = [
-        transformSnowflakeResponse as AxiosResponseTransformer,
-        ...existingTransformers,
-      ];
-    }
-
-    // 1.5 异步请求取消协调器与防竞态
+    // 1.4 异步请求取消协调器与防竞态（必须在加密改写请求体之前基于原始明文计算指纹）
     const shouldCancelDuplicate = customConfig.cancelDuplicate ?? defaultCancelDuplicate;
     const target = {
       method: customConfig.method,
@@ -237,7 +179,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       data: customConfig.data,
     };
     const requestKey = generateRequestKey(target);
-    (customConfig as unknown as Record<string, unknown>).__requestKey = requestKey;
+    customRecord.__requestKey = requestKey;
 
     const originalSignal =
       (customRecord.__originalSignal as AbortSignal | undefined) ??
@@ -251,6 +193,22 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
     });
 
     customConfig.signal = registration.signal;
+
+    // 1.5 Encrypt-then-Sign 传输层安全管道：先加密请求体，再对最终密文计算签名
+    await applyOutboundRequestSecurity(customConfig, {
+      signer: context.signer,
+      cipher: context.cipher,
+    });
+
+    // 1.6 雪花 ID 大数防截断反序列化管道与原始响应文本捕获注入（去重防重复包装）
+    const existingTransformers = normalizeResponseTransformers(customConfig);
+    if (!existingTransformers.includes(transformSnowflakeResponse as AxiosResponseTransformer)) {
+      customConfig.transformResponse = [
+        transformSnowflakeResponse as AxiosResponseTransformer,
+        ...existingTransformers,
+      ];
+    }
+    ensureRawResponseCapture(customConfig);
 
     return customConfig;
   });
@@ -293,9 +251,19 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
         return response.data;
       }
 
+      // 2.2.1 响应防篡改验签 + 密文解密还原（严格按 Encrypt-then-Sign 顺序）
+      const resolvedData = await applyInboundResponseSecurity(
+        response.data,
+        response.headers,
+        response.status,
+        response.config as HttpRequestConfig & InternalAxiosRequestConfig,
+        { signer: context.signer, cipher: context.cipher },
+        true,
+      );
+
       // 2.3 标准 Result 统一信封解包与业务状态码校验
-      if (isResult(response.data)) {
-        const result = response.data;
+      if (isResult(resolvedData)) {
+        const result = resolvedData;
 
         // 业务成功 (code === 200)
         if (result.code === 200) {
@@ -318,7 +286,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
       }
 
       // 2.4 非 Result 格式的常规数据直接原样透传
-      return response.data;
+      return resolvedData;
     },
     async (error: unknown) => {
       const errObj =
@@ -350,7 +318,23 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
         exception = error;
       } else if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? 500;
-        const responseData = error.response?.data;
+        let responseData = error.response?.data;
+        let securityError: unknown = undefined;
+
+        if (error.response && (context.signer || context.cipher)) {
+          try {
+            responseData = await applyInboundResponseSecurity(
+              responseData,
+              error.response.headers,
+              status,
+              config,
+              { signer: context.signer, cipher: context.cipher },
+              false,
+            );
+          } catch (secErr) {
+            securityError = secErr;
+          }
+        }
 
         // 401 凭据失效自动清理并通知
         if (status === 401) {
@@ -383,7 +367,8 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
             string | undefined;
         }
 
-        exception = new BusinessException(code, msg, traceId, error);
+        const cause = securityError !== undefined ? { responseError: error, securityError } : error;
+        exception = new BusinessException(code, msg, traceId, cause);
       } else {
         const message = error instanceof Error ? error.message : String(error);
         exception = new BusinessException(500, message, undefined, error);
@@ -424,7 +409,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
             // 指数退避等待（支持外部 AbortSignal 联动唤醒）
             await sleep(delayMs, originalSignal);
 
-            // 恢复原始 URL、baseURL 与 signal
+            // 恢复原始 URL、baseURL、signal 与原始明文请求体/清理安全头
             if (customRecord.__originalUrl) {
               config.url = customRecord.__originalUrl as string;
             }
@@ -434,6 +419,7 @@ export function setupInterceptors(instance: AxiosInstance, context: InterceptorC
             if (customRecord.__originalSignal !== undefined) {
               config.signal = customRecord.__originalSignal as AbortSignal | undefined;
             }
+            restoreSecurityStateForRetry(config);
 
             return instance.request(config);
           }

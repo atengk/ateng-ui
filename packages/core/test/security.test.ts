@@ -5,14 +5,20 @@
  * @since 2026-10-20
  */
 
+import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import {
   DefaultRequestSigner,
   createRequestSigner,
   sha256Hex,
+  hmacSha256,
   generateNonce,
   defaultBuildCanonicalString,
+  buildStandardCanonicalString,
+  buildResponseCanonicalString,
+  buildStandardSortedQueryString,
+  extractRequestUriPath,
   type SignTarget,
 } from '../src/security';
 import { createHttpClient } from '../src/http';
@@ -306,6 +312,176 @@ describe('RequestSigner (API 请求防重放与原生 WebCrypto 签名插件)', 
 
       await client.post('/api/test', { a: 1 }, { sign: false });
       expect(capturedHeaders?.['X-Signature']).toBeUndefined();
+    });
+  });
+
+  describe('6. 标准 HMAC-SHA256 与 ateng-boot-web 统一规范签协议', () => {
+    it('extractRequestUriPath 与 buildStandardSortedQueryString 应严格对齐 SignCanonicalUtil', () => {
+      expect(extractRequestUriPath('/api/orders?z=last&a=first#hash')).toBe('/api/orders');
+      expect(extractRequestUriPath('/v1/orders?page=1', 'https://gateway.ateng.io/api')).toBe(
+        '/api/v1/orders',
+      );
+      expect(
+        extractRequestUriPath('https://other.io/open/pay?k=1', 'https://gateway.ateng.io/api'),
+      ).toBe('/open/pay');
+      expect(extractRequestUriPath('')).toBe('/');
+
+      // 合并 URL query 与 params，并按 ASCII 字典序排列 key 与同 key 多值（不做二次 URL 编码）
+      expect(
+        buildStandardSortedQueryString('/api/orders?z=last&m=v2', {
+          a: 'first',
+          m: 'v1',
+          emptyNull: null,
+          emptyUndef: undefined,
+        }),
+      ).toBe('a=first&m=v1&m=v2&z=last');
+
+      expect(
+        buildStandardSortedQueryString('/api/orders?name=%E9%98%BF%E8%85%BE', { age: 18 }),
+      ).toBe('age=18&name=阿腾');
+    });
+
+    it('buildStandardCanonicalString 应输出与后端逐字节一致的 6 行规范待签串', async () => {
+      const payload = { orderNo: 'ORD-001', amount: 188 };
+      const bodyRaw = JSON.stringify(payload);
+      const expectedBodyHash = await sha256Hex(bodyRaw);
+
+      const canonical = await buildStandardCanonicalString({
+        method: 'post',
+        url: '/api/orders?name=ateng&age=18',
+        timestamp: 1729000000,
+        nonce: 'nonce123',
+        data: payload,
+      });
+
+      expect(canonical).toBe(
+        `POST\n/api/orders\n1729000000\nnonce123\nage=18&name=ateng\n${expectedBodyHash}`,
+      );
+
+      // GET/DELETE/HEAD/OPTIONS 的 BodySha256 固定为空串 SHA-256
+      const emptyHash = await sha256Hex('');
+      const getCanonical = await buildStandardCanonicalString({
+        method: 'GET',
+        url: '/api/orders',
+        params: { name: 'ateng' },
+        data: { ignored: true },
+        timestamp: 1729000000,
+        nonce: 'nonce123',
+      });
+      expect(getCanonical).toBe(`GET\n/api/orders\n1729000000\nnonce123\nname=ateng\n${emptyHash}`);
+    });
+
+    it('hmacSha256 应与 Node crypto 标准 HMAC-SHA256 逐字节一致', async () => {
+      const msg =
+        'POST\n/api/orders\n1729000000\nnonce123\nage=18&name=ateng\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+      const secret = 'ateng-boot-sign-secret-2026';
+
+      const expectedBase64 = createHmac('sha256', secret).update(msg, 'utf8').digest('base64');
+      const expectedHex = createHmac('sha256', secret).update(msg, 'utf8').digest('hex');
+
+      expect(await hmacSha256(msg, secret, 'base64')).toBe(expectedBase64);
+      expect(await hmacSha256(msg, secret, 'hex')).toBe(expectedHex);
+    });
+
+    it('canonicalPreset=standard 应默认联动 hmac-sha256 (Base64) 并注入 X-App-Id', async () => {
+      const secret = 'std-secret-key';
+      const signer = createRequestSigner({
+        canonicalPreset: 'standard',
+        secret,
+        appId: 'app-web-01',
+      });
+
+      expect(signer.headerNames.appId).toBe('X-App-Id');
+
+      const target: SignTarget = {
+        method: 'POST',
+        baseURL: 'https://api.ateng.local/gw',
+        url: '/orders/create?source=web',
+        params: { biz: 'trade' },
+        data: { orderId: '9007199254740995123', amount: 100 },
+        timestamp: 1729411200000,
+        nonce: 'fixed-nonce-std',
+      };
+
+      const result = await signer.sign(target);
+      const canonical = await buildStandardCanonicalString(target);
+      const expectedSig = createHmac('sha256', secret).update(canonical, 'utf8').digest('base64');
+
+      expect(result.signature).toBe(expectedSig);
+      expect(result.headers['X-App-Id']).toBe('app-web-01');
+      expect(result.headers['X-Timestamp']).toBe('1729411200000');
+      expect(result.headers['X-Nonce']).toBe('fixed-nonce-std');
+      expect(result.headers['X-Signature']).toBe(expectedSig);
+    });
+
+    it('应支持自定义异步 signer 钩子与 3 行响应验签（Base64/Hex 双兼容）', async () => {
+      const customSign = vi.fn(async (canonical: string) => `SIG:${canonical.split('\n')[0]}`);
+      const customSigner = createRequestSigner({
+        canonicalPreset: 'standard',
+        signer: customSign,
+        appId: 'custom-app',
+        appIdHeader: 'App-Id',
+      });
+
+      const customRes = await customSigner.sign({
+        method: 'PUT',
+        url: '/api/profile',
+        timestamp: 1729411200000,
+        nonce: 'n1',
+      });
+      expect(customSign).toHaveBeenCalledTimes(1);
+      expect(customRes.signature).toBe('SIG:PUT');
+      expect(customRes.headers['App-Id']).toBe('custom-app');
+
+      // 响应验签
+      const secret = 'resp-verify-secret';
+      const respSigner = createRequestSigner({
+        canonicalPreset: 'standard',
+        secret,
+        verifyResponse: true,
+      });
+
+      const rawBody = '{"code":200,"data":{"id":9007199254740995123}}';
+      const bodyHash = await sha256Hex(rawBody);
+      const respCanonical = await buildResponseCanonicalString(
+        '1729411200000',
+        'resp-nonce-1',
+        bodyHash,
+      );
+      const validBase64 = createHmac('sha256', secret)
+        .update(respCanonical, 'utf8')
+        .digest('base64');
+      const validHex = createHmac('sha256', secret).update(respCanonical, 'utf8').digest('hex');
+
+      expect(
+        await respSigner.verifyResponse?.({
+          timestamp: '1729411200000',
+          nonce: 'resp-nonce-1',
+          signature: validBase64,
+          rawBody,
+          headers: {},
+        }),
+      ).toBe(true);
+
+      expect(
+        await respSigner.verifyResponse?.({
+          timestamp: '1729411200000',
+          nonce: 'resp-nonce-1',
+          signature: validHex,
+          rawBody,
+          headers: {},
+        }),
+      ).toBe(true);
+
+      expect(
+        await respSigner.verifyResponse?.({
+          timestamp: '1729411200000',
+          nonce: 'resp-nonce-1',
+          signature: validBase64,
+          rawBody: '{"code":200,"data":{"id":9007199254740995124}}',
+          headers: {},
+        }),
+      ).toBe(false);
     });
   });
 });

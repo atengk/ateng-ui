@@ -6,7 +6,7 @@
  */
 
 import { http, BusinessException, isAbortError } from '@atengk/core';
-import { microserviceClient, signedClient } from '../client';
+import { getEncryptedClient, microserviceClient, signedClient } from '../client';
 
 /**
  * 渲染 HTTP 客户端管道与调度治理看板 HTML 模板。
@@ -55,17 +55,30 @@ export function renderHttpCard(): string {
       <div class="log-box" id="log-resilience">// 韧性重试与去重合并执行日志...</div>
     </div>
 
-    <!-- 卡片 12: API 请求防重放与原生 WebCrypto 签名 -->
+    <!-- 卡片 12: API 请求防重放与标准 HMAC-SHA256 签名 -->
     <div class="dashboard-card" id="card-http-sign">
       <div class="card-title">
-        <span>12. 请求防重放与原生签名 (RequestSigner)</span>
-        <span style="font-size: 12px; color: #7c3aed;">WebCrypto SHA-256</span>
+        <span>12. 标准 HMAC-SHA256 规范签与响应验签 (RequestSigner)</span>
+        <span style="font-size: 12px; color: #7c3aed;">WebCrypto HMAC-SHA256</span>
       </div>
-      <p class="card-desc">自动在写操作请求头注入 X-Timestamp、X-Nonce 唯一排重随机数与稳定排序的十六进制签名摘要。</p>
+      <p class="card-desc">严格对齐后端 ateng-boot-web 6 行待签串与 X-App-Id 注入，支持 3 行出站响应防篡改验签。</p>
       <div class="actions-row">
-        <button class="btn btn-primary" id="btn-sign-post">发起 POST 带签名安全请求</button>
+        <button class="btn btn-primary" id="btn-sign-post">发起 POST 标准签名与响应验签请求</button>
       </div>
-      <div class="log-box" id="log-sign">// 签名计算与服务端验签结果...</div>
+      <div class="log-box" id="log-sign">// 签名计算与服务端双向验签结果...</div>
+    </div>
+
+    <!-- 卡片 13: 传输层混合加解密与 Encrypt-then-Sign 协同 -->
+    <div class="dashboard-card" id="card-http-cipher">
+      <div class="card-title">
+        <span>13. Encrypt-then-Sign 混合加解密 (RequestCipher)</span>
+        <span style="font-size: 12px; color: #059669;">RSA-OAEP + AES-256-GCM</span>
+      </div>
+      <p class="card-desc">请求阶段先加密为 {"cipherText":"..."} 再计算 HMAC 签名；响应阶段先验签再解密并保护 64 位雪花 ID。</p>
+      <div class="actions-row">
+        <button class="btn btn-success" id="btn-cipher-post">发起 Encrypt-then-Sign 双向加密请求</button>
+      </div>
+      <div class="log-box" id="log-cipher">// 混合加解密信封与雪花大数还原结果...</div>
     </div>
   `;
 }
@@ -211,16 +224,17 @@ export function initHttpScenario(): void {
     }
   });
 
-  // 4. API 请求防重放与原生签名
+  // 4. API 请求防重放与标准 HMAC-SHA256 签名
   const logSign = document.getElementById('log-sign');
   document.getElementById('btn-sign-post')?.addEventListener('click', async () => {
     if (logSign) {
-      logSign.textContent = '正在计算 SHA-256 签名并发送 POST 请求...';
+      logSign.textContent = '正在按 6 行标准规范串计算 HMAC-SHA256 签名并验证响应签名...';
     }
 
     try {
       const res = await signedClient.post<{
         verified: boolean;
+        receivedAppId: string;
         receivedTimestamp: string;
         receivedNonce: string;
         receivedSignature: string;
@@ -231,17 +245,52 @@ export function initHttpScenario(): void {
 
       if (logSign) {
         logSign.textContent = [
-          '[API 请求签名与防重放验证成功]',
-          `- 服务端验签结果: ${res.verified ? '100% 匹配通过 (Verified)' : '失败'}`,
-          `- 自动注入时间戳 (X-Timestamp): ${res.receivedTimestamp}`,
-          `- 唯一排重随机数 (X-Nonce): ${res.receivedNonce}`,
-          `- 原生 SHA-256 签名 (X-Signature): ${res.receivedSignature}`,
-          '杜绝了网络重放反向攻击与载荷中间人篡改！',
+          '[API 标准 HMAC-SHA256 双向验签成功]',
+          `- 服务端入站验签: ${res.verified ? '100% 匹配通过 (Verified)' : '失败'}`,
+          `- 客户端出站响应验签: 已基于原始 JSON 字节通过 3 行响应验签`,
+          `- 应用标识 (X-App-Id): ${res.receivedAppId}`,
+          `- 时间戳 (X-Timestamp): ${res.receivedTimestamp}`,
+          `- 唯一随机数 (X-Nonce): ${res.receivedNonce}`,
+          `- Base64 签名 (X-Signature): ${res.receivedSignature}`,
         ].join('\n');
       }
     } catch (err) {
       if (logSign) {
         logSign.textContent = `[签名请求失败] ${String(err)}`;
+      }
+    }
+  });
+
+  // 5. RequestCipher + RequestSigner Encrypt-then-Sign 双向混合加解密
+  const logCipher = document.getElementById('log-cipher');
+  document.getElementById('btn-cipher-post')?.addEventListener('click', async () => {
+    if (logCipher) {
+      logCipher.textContent =
+        '正在执行 RSA-OAEP-SHA256 + AES-256-GCM 加密与 Encrypt-then-Sign 加签...';
+    }
+
+    try {
+      const client = await getEncryptedClient();
+      const res = await client.post<{
+        orderId: string;
+        verifiedCipherTextLength: number;
+        serverDecrypted: Record<string, unknown>;
+      }>('/api/security/encrypt-then-sign', {
+        orderNo: 'ORD-CIPHER-2026',
+        amount: 18800,
+      });
+
+      if (logCipher) {
+        logCipher.textContent = [
+          '[Encrypt-then-Sign 双向加密与验签闭环成功]',
+          `- 入站密文信封长度: ${res.verifiedCipherTextLength} bytes`,
+          `- 服务端解密明文回显: ${JSON.stringify(res.serverDecrypted)}`,
+          `- 出站解密后雪花 ID (string 保真): ${res.orderId} (${typeof res.orderId})`,
+        ].join('\n');
+      }
+    } catch (err) {
+      if (logCipher) {
+        logCipher.textContent = `[混合加解密调用失败] ${String(err)}`;
       }
     }
   });

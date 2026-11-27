@@ -8,11 +8,17 @@
 import {
   http,
   createHttpClient,
+  createRequestCipher,
   createRequestSigner,
   createStreamClient,
   type HttpClient,
 } from '@atengk/core';
-import { installMockAdapter, createMockStreamFetch, createMockWebSocketServer } from './mock';
+import {
+  installMockAdapter,
+  createMockStreamFetch,
+  createMockWebSocketServer,
+  setMockCryptoMaterial,
+} from './mock';
 
 type UnauthorizedCallback = (msg: string) => void;
 let unauthorizedCallback: UnauthorizedCallback | null = null;
@@ -40,11 +46,85 @@ export const microserviceClient: HttpClient = createHttpClient({
 });
 
 /**
- * 请求防重放与原生签名客户端实例。
+ * 请求防重放与原生签名客户端实例（对齐服务端标准 HMAC-SHA256 6 行规范签与 3 行响应验签）。
  */
 export const signedClient: HttpClient = createHttpClient({
-  signer: createRequestSigner({ secret: 'ateng-sample-secret-2026' }),
+  signer: createRequestSigner({
+    appId: 'sample-web-01',
+    secret: 'ateng-sample-secret-2026',
+    canonicalPreset: 'standard',
+    verifyResponse: true,
+  }),
 });
+
+let encryptedClientPromise: Promise<HttpClient> | null = null;
+
+function encodeBytesBase64(bytes: Uint8Array): string {
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 0x8000)));
+  }
+  return btoa(chunks.join(''));
+}
+
+async function generateRuntimeRsaPemPair(): Promise<{ publicPem: string; privatePem: string }> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256',
+    },
+    true,
+    ['encrypt', 'decrypt'],
+  );
+  const spki = new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey));
+  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey('pkcs8', keyPair.privateKey));
+  return {
+    publicPem: `-----BEGIN PUBLIC KEY-----\n${encodeBytesBase64(spki)}\n-----END PUBLIC KEY-----`,
+    privatePem: `-----BEGIN PRIVATE KEY-----\n${encodeBytesBase64(pkcs8)}\n-----END PRIVATE KEY-----`,
+  };
+}
+
+/**
+ * 懒初始化 Encrypt-then-Sign 混合加解密演示客户端（运行时动态生成 RSA 密钥对，零硬编码私钥）。
+ */
+export function getEncryptedClient(): Promise<HttpClient> {
+  if (!encryptedClientPromise) {
+    encryptedClientPromise = (async () => {
+      const serverPair = await generateRuntimeRsaPemPair();
+      const clientPair = await generateRuntimeRsaPemPair();
+      const appId = 'sample-crypto-01';
+      const signSecret = 'ateng-sample-cipher-sign-secret';
+
+      setMockCryptoMaterial({
+        serverPrivateKeyPem: serverPair.privatePem,
+        clientPublicKeyPem: clientPair.publicPem,
+        signSecret,
+        appId,
+      });
+
+      const client = createHttpClient({
+        cipher: createRequestCipher({
+          appId,
+          keyId: 'v1',
+          bindAad: true,
+          serverPublicKey: serverPair.publicPem,
+          clientPrivateKey: clientPair.privatePem,
+        }),
+        signer: createRequestSigner({
+          appId,
+          secret: signSecret,
+          canonicalPreset: 'standard',
+          verifyResponse: true,
+        }),
+      });
+      installMockAdapter(client.instance);
+      return client;
+    })();
+  }
+  return encryptedClientPromise;
+}
 
 /**
  * Web 原生流式响应客户端实例。

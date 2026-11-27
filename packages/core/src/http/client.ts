@@ -15,7 +15,7 @@ import { authManager as defaultAuthManager, type AuthManager } from '../auth';
 import { tenantManager as defaultTenantManager, type TenantManager } from '../tenant';
 import { createAbortCoordinator, type AbortCoordinator } from '../abort';
 import { createRequestDeduplicator, type RequestDeduplicator } from '../dedupe';
-import type { RequestSigner } from '../security';
+import type { RequestCipher, RequestSigner } from '../security';
 import { parseContentDispositionFilename, saveBlobAsFile } from '../file';
 import { setupInterceptors, getBlobDisposition } from './interceptors';
 import type { HttpClient, HttpClientOptions, HttpRequestConfig } from './types';
@@ -60,6 +60,11 @@ export class DefaultHttpClient implements HttpClient {
   readonly signer?: RequestSigner;
 
   /**
+   * 当前客户端绑定的传输层混合加解密器。
+   */
+  readonly cipher?: RequestCipher;
+
+  /**
    * 客户端全局默认是否对并发同指纹只读请求去重合并。
    */
   private readonly defaultDedupeInFlight: boolean;
@@ -78,6 +83,7 @@ export class DefaultHttpClient implements HttpClient {
       authManager = defaultAuthManager,
       tenantManager = defaultTenantManager,
       signer,
+      cipher,
       abortCoordinator = createAbortCoordinator(),
       deduplicator = createRequestDeduplicator(),
       cancelDuplicate = false,
@@ -93,6 +99,7 @@ export class DefaultHttpClient implements HttpClient {
     this.authManager = authManager;
     this.tenantManager = tenantManager;
     this.signer = signer;
+    this.cipher = cipher;
     this.abortCoordinator = abortCoordinator;
     this.deduplicator = deduplicator;
     this.defaultDedupeInFlight = dedupeInFlight;
@@ -111,6 +118,7 @@ export class DefaultHttpClient implements HttpClient {
       authManager: this.authManager,
       tenantManager: this.tenantManager,
       signer: this.signer,
+      cipher: this.cipher,
       abortCoordinator: this.abortCoordinator,
       defaultCancelDuplicate: cancelDuplicate,
       defaultUnwrap: unwrap,

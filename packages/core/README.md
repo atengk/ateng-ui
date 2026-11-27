@@ -6,47 +6,49 @@
 
 ## 0. 特性与公共 API 全景速查矩阵
 
-| 特性分类             | 特性名称            | 核心门面 / 方法 / 类型                                                                                               | 关键参数 / 返回类型                              | 核心行为说明                                                     | 锚定验证源头 (*Test / Sample)                                                                                     |
-| :------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| **基础导出**         | 基线版本标识        | `VERSION`                                                                                                            | `string`                                         | 导出当前模块编译版本基线                                         | [index.test.ts](./test/index.test.ts)                                                                             |
-| **统一响应契约**     | 统一 API 响应载荷   | `Result<T>`                                                                                                          | `code, data, msg, traceId`                       | 统一泛型响应数据信封与链路追踪                                   | [contracts.test.ts](./test/contracts.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
-| **统一响应契约**     | 分页查询与响应      | `PageResult<T>`, `PageQuery`, `SortItem`, `SortDirection`                                                            | `records, total`, `current, size, sorts`         | 标准分页入参与出参实体契约                                       | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
-| **统一响应契约**     | 统一因果业务异常    | `BusinessException`                                                                                                  | `code, msg, traceId, cause`                      | 保留原始底层调用堆栈的因果业务异常类                             | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
-| **网络数据转换**     | 雪花 ID 大数防截断  | `parseSnowflakeJson`, `transformSnowflakeResponse`                                                                   | `json: string => unknown`                        | 纳秒级正则匹配 16 位以上无引号数字加引号固化                     | [snowflake.test.ts](./test/snowflake.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
-| **网关多路由引擎**   | 路由调度引擎与工厂  | `GatewayRouter`, `createGatewayRouter`                                                                               | `routes, defaultTarget => ResolvedRoute`         | 多微服务网关前缀最长匹配与路径重写分发                           | [routing.test.ts](./test/routing.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)               |
-| **网关多路由引擎**   | 路由纯函数门面      | `resolveGatewayRoute`                                                                                                | `url, routes, defaultTarget => ResolvedRoute`    | 开箱即用单次路由与服务覆盖解析                                   | [routing.test.ts](./test/routing.test.ts)                                                                         |
-| **内存真明文脱敏**   | 通用文本掩码        | `formatMask`                                                                                                         | `(val, start, end, char?) => string`             | 底层通用前后保留文本掩码展示计算                                 | [mask.test.ts](./test/mask.test.ts)                                                                               |
-| **内存真明文脱敏**   | 手机号脱敏          | `formatMaskPhone`                                                                                                    | `(phone, char?) => string`                       | 3-4-4 手机号掩码脱敏与分隔符容错                                 | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
-| **内存真明文脱敏**   | 身份证号脱敏        | `formatMaskIdCard`                                                                                                   | `(idCard, start?, end?, char?) => string`        | 18位/15位二代与一代身份证出生日期脱敏                            | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
-| **内存真明文脱敏**   | 邮箱地址脱敏        | `formatMaskEmail`                                                                                                    | `(email, char?) => string`                       | 用户名动态掩码并完整保留域名后缀                                 | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
-| **内存真明文脱敏**   | 中文姓名脱敏        | `formatMaskName`                                                                                                     | `(name, char?) => string`                        | 2字末尾/3字居中/多字中间自适应脱敏                               | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
-| **鉴权凭据门面**     | 鉴权凭据操作门面    | `AuthManager`, `createAuthManager`, `authManager`, `AuthManagerOptions`                                              | `getToken, setToken, clearToken, getHeaders`     | 双轨请求头注入 (`token` + `Bearer`) 与 401 自动清理广播          | [auth.test.ts](./test/auth.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                     |
-| **鉴权凭据门面**     | 跨宿主存储适配器    | `AuthStorage`, `MemoryAuthStorage`, `LocalStorageAuthStorage`, `createDefaultAuthStorage`, `isLocalStorageAvailable` | `getItem, setItem, removeItem, clear?`           | 浏览器 LocalStorage 与 Node/SSR 内存环境自适应探测存储契约       | [auth.test.ts](./test/auth.test.ts)                                                                               |
-| **请求取消与防竞态** | 请求取消协调器      | `AbortCoordinator`, `createAbortCoordinator`, `RegisterAbortOptions`, `AbortRegistration`                            | `register, cancel, cancelAll, remove, isPending` | 未决请求生命周期托管、`cancelDuplicate` 防竞态中断与外部信号级联 | [abort.test.ts](./test/abort.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                   |
-| **请求取消与防竞态** | 指纹生成与错误判定  | `generateRequestKey`, `isAbortError`, `RequestKeyTarget`                                                             | `target => string`, `error => boolean`           | 基于 Method+URL+Params+Data 的确定性请求键生成与受控中断判定     | [abort.test.ts](./test/abort.test.ts)                                                                             |
-| **文件与Blob处理**   | 文件名解析          | `parseContentDispositionFilename`                                                                                    | `disposition: string => string`                  | 优先解析 RFC 5987/6266 filename* 与常规 filename，支持容错清理   | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
-| **文件与Blob处理**   | Blob双态异常识别    | `checkBlobForJsonError`                                                                                              | `(data, contentType?, status?) => Promise<void>` | 探测 Blob 载荷是否为 JSON 业务错误并反序列化转译为业务异常       | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
-| **文件与Blob处理**   | 安全文件下载        | `saveBlobAsFile`, `SaveBlobOptions`                                                                                  | `(blob, filename, options?) => boolean`          | 平台环境守卫（Node/SSR降级）、内存确定性回收与安全触发浏览器下载 | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
-| **HTTP 客户端**      | 全局默认客户端      | `http`                                                                                                               | `HttpClient`                                     | 开箱即用的工业级单例，默认自动解包 `Promise<T>` 与统一拦截管道   | [http.test.ts](./test/http.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts)           |
-| **HTTP 客户端**      | 客户端工厂与门面    | `createHttpClient`, `DefaultHttpClient`, `HttpClient`, `HttpClientOptions`, `HttpRequestConfig`                      | `options => HttpClient`                          | 创建具备独立路由表、鉴权域与取消协调器的客户端实例               | [http.test.ts](./test/http.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                     |
-| **HTTP 客户端**      | 拦截器管道挂载      | `setupInterceptors`, `InterceptorContext`                                                                            | `(instance, context) => void`                    | 为自定义 Axios 实例挂载全套工业级请求与响应拦截器                | [http.test.ts](./test/http.test.ts)                                                                               |
-| **高可用韧性防线**   | 幂等安全重试策略    | `RetryPolicy`, `isIdempotentMethod`, `isRetriableError`, `calculateBackoffDelay`                                     | `(method) => boolean, (error) => boolean`        | 安全重试不变量（GET/HEAD指数退避，POST/PUT/DELETE严禁重试）      | [retry.test.ts](./test/retry.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                   |
-| **高可用韧性防线**   | 飞行中请求合并去重  | `RequestDeduplicator`, `createRequestDeduplicator`, `requestDeduplicator`, `generateDedupeKey`, `DedupeTarget`       | `(key, task) => Promise<T>`                      | 基于 Method+URL+Params 指纹合并未决 Promise，N 次调用降为 1 次   | [dedupe.test.ts](./test/dedupe.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                 |
-| **金融级金额计算**   | 原生金额换算与格式  | `toCents`, `toYuan`, `formatCurrency`, `Currency`                                                                    | `(yuan) => number, (cents) => number`            | 纯原生位移补齐，彻底杜绝浮点数精度失真（元分互转、标准千分位）   | [currency.test.ts](./test/currency.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)     |
-| **强类型条件断言**   | 业务断言与类型收窄  | `assert`, `assertNonNull`, `isEmpty`, `isNotEmpty`, `Assertions`                                                     | `(condition, msg) => asserts condition`          | 卫语句校验失败抛出 BusinessException，并在编译期实现类型安全收窄 | [assertions.test.ts](./test/assertions.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts) |
-| **多租户隔离门面**   | 多租户上下文操作    | `TenantManager`, `createTenantManager`, `tenantManager`, `TenantStorage`                                             | `getTenantId, setTenantId, clearTenantId`        | 自动化 `X-Tenant-Id` 请求头注入与多租户跨宿主隔离存储            | [tenant.test.ts](./test/tenant.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                 |
-| **时效命名空间缓存** | 带TTL本地键值缓存   | `CacheStorage`, `createCacheStorage`, `cacheStorage`, `CacheStorageOptions`                                          | `get, set(key, val, ttl?), remove, clear`        | 命名空间前缀隔离、毫秒级存活时间（TTL）与自动惰性垃圾清理        | [cache.test.ts](./test/cache.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                   |
-| **请求防重放与签名** | WebCrypto 签名门面  | `RequestSigner`, `DefaultRequestSigner`, `createRequestSigner`, `RequestSignerOptions`, `SignTarget`, `SignResult`   | `(target) => Promise<SignResult>`                | 基于原生 WebCrypto 计算 SHA-256 签名，注入时间戳与 Nonce 防重放  | [security.test.ts](./test/security.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)             |
-| **请求防重放与签名** | 签名原语与字符串化  | `sha256Hex`, `generateNonce`, `defaultBuildCanonicalString`                                                          | `(msg) => Promise<string>, () => string`         | 原生哈希摘要、唯一排重随机数与键字典序规范化序列化               | [security.test.ts](./test/security.test.ts)                                                                       |
-| **Web 原生流式响应** | 流式通信门面        | `StreamClient`, `DefaultStreamClient`, `createStreamClient`, `streamClient`, `StreamClientOptions`                   | `subscribe(url, opt), stream(url, opt)`          | 原生 fetch 与 ReadableStream 封装，支持打字机与指数退避重连      | [stream.test.ts](./test/stream.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts)       |
-| **Web 原生流式响应** | SSE 协议增量解析器  | `SseParser`, `SseEvent`, `StreamRequestOptions`                                                                      | `feed(chunk), flush(), reset() => SseEvent[]`    | W3C 标准 SSE 事件解析、换行合并、心跳过滤与抗网络撕裂分包        | [stream.test.ts](./test/stream.test.ts)                                                                           |
-| **大文件切片上传**   | 纯原生文件切片      | `createFileChunks`, `DEFAULT_CHUNK_SIZE`, `FileChunk`                                                                | `(file, chunkSize?) => FileChunk[]`              | 原生 Blob.slice 安全字节区间切分与起始偏移计算                   | [upload.test.ts](./test/upload.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)             |
-| **大文件切片上传**   | 受控并发上传协调器  | `UploadCoordinator`, `createUploadCoordinator`, `IUploadCoordinator`, `UploadCoordinatorOptions`                     | `upload(chunks, signal?), uploadFile(...)`       | 最大并发连接数限制、单调加权进度、分片局部重试与级联中断         | [upload.test.ts](./test/upload.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)             |
-| **全双工长连接**     | WebSocket客户端门面 | `WebSocketClient`, `createWebSocketClient`, `WebSocketClientOptions`, `WebSocketStatus`, `destroy()`                 | `options => WebSocketClient`                     | 纯原生全双工长连接客户端，集成四态状态机、编解码与凭据自动透传   | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
-| **全双工长连接**     | 双向心跳保活探针    | `WebSocketHeartbeatOptions`                                                                                          | `interval, timeout, pingMessage, pongMessage`    | 定时应用层 Ping 发送、Pong 超时假死切断与确定性定时器回收        | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
-| **全双工长连接**     | 指数退避自动重连    | `WebSocketReconnectOptions`, `WebSocketEventMap`                                                                     | `baseDelay, maxDelay, factor, maxRetries`        | 异常断开与假死超时指数退避重连，支持主动 close 永久阻断          | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
-| **全双工长连接**     | 离线发送缓冲队列    | `bufferWhileConnecting`, `maxBufferSize`, `getBufferSize()`, `clearBuffer()`                                         | `send(data) => boolean`                          | 未连接排队暂存并在就绪后按序 Flush，容量溢出丢弃防内存泄露       | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
-| **全双工长连接**     | 主题订阅精准分发    | `subscribe<T>`                                                                                                       | `(type, handler) => unbind`                      | 按照业务载荷 `{ type, data: T }` 模式精准分发与安全注销          | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
+| 特性分类             | 特性名称            | 核心门面 / 方法 / 类型                                                                                                                                                                               | 关键参数 / 返回类型                              | 核心行为说明                                                                                               | 锚定验证源头 (*Test / Sample)                                                                                     |
+| :------------------- | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| **基础导出**         | 基线版本标识        | `VERSION`                                                                                                                                                                                            | `string`                                         | 导出当前模块编译版本基线                                                                                   | [index.test.ts](./test/index.test.ts)                                                                             |
+| **统一响应契约**     | 统一 API 响应载荷   | `Result<T>`                                                                                                                                                                                          | `code, data, msg, traceId`                       | 统一泛型响应数据信封与链路追踪                                                                             | [contracts.test.ts](./test/contracts.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
+| **统一响应契约**     | 分页查询与响应      | `PageResult<T>`, `PageQuery`, `SortItem`, `SortDirection`                                                                                                                                            | `records, total`, `current, size, sorts`         | 标准分页入参与出参实体契约                                                                                 | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
+| **统一响应契约**     | 统一因果业务异常    | `BusinessException`                                                                                                                                                                                  | `code, msg, traceId, cause`                      | 保留原始底层调用堆栈的因果业务异常类                                                                       | [contracts.test.ts](./test/contracts.test.ts)                                                                     |
+| **网络数据转换**     | 雪花 ID 大数防截断  | `parseSnowflakeJson`, `transformSnowflakeResponse`                                                                                                                                                   | `json: string => unknown`                        | 纳秒级正则匹配 16 位以上无引号数字加引号固化                                                               | [snowflake.test.ts](./test/snowflake.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts) |
+| **网关多路由引擎**   | 路由调度引擎与工厂  | `GatewayRouter`, `createGatewayRouter`                                                                                                                                                               | `routes, defaultTarget => ResolvedRoute`         | 多微服务网关前缀最长匹配与路径重写分发                                                                     | [routing.test.ts](./test/routing.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)               |
+| **网关多路由引擎**   | 路由纯函数门面      | `resolveGatewayRoute`                                                                                                                                                                                | `url, routes, defaultTarget => ResolvedRoute`    | 开箱即用单次路由与服务覆盖解析                                                                             | [routing.test.ts](./test/routing.test.ts)                                                                         |
+| **内存真明文脱敏**   | 通用文本掩码        | `formatMask`                                                                                                                                                                                         | `(val, start, end, char?) => string`             | 底层通用前后保留文本掩码展示计算                                                                           | [mask.test.ts](./test/mask.test.ts)                                                                               |
+| **内存真明文脱敏**   | 手机号脱敏          | `formatMaskPhone`                                                                                                                                                                                    | `(phone, char?) => string`                       | 3-4-4 手机号掩码脱敏与分隔符容错                                                                           | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
+| **内存真明文脱敏**   | 身份证号脱敏        | `formatMaskIdCard`                                                                                                                                                                                   | `(idCard, start?, end?, char?) => string`        | 18位/15位二代与一代身份证出生日期脱敏                                                                      | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
+| **内存真明文脱敏**   | 邮箱地址脱敏        | `formatMaskEmail`                                                                                                                                                                                    | `(email, char?) => string`                       | 用户名动态掩码并完整保留域名后缀                                                                           | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
+| **内存真明文脱敏**   | 中文姓名脱敏        | `formatMaskName`                                                                                                                                                                                     | `(name, char?) => string`                        | 2字末尾/3字居中/多字中间自适应脱敏                                                                         | [mask.test.ts](./test/mask.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)             |
+| **鉴权凭据门面**     | 鉴权凭据操作门面    | `AuthManager`, `createAuthManager`, `authManager`, `AuthManagerOptions`                                                                                                                              | `getToken, setToken, clearToken, getHeaders`     | 双轨请求头注入 (`token` + `Bearer`) 与 401 自动清理广播                                                    | [auth.test.ts](./test/auth.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                     |
+| **鉴权凭据门面**     | 跨宿主存储适配器    | `AuthStorage`, `MemoryAuthStorage`, `LocalStorageAuthStorage`, `createDefaultAuthStorage`, `isLocalStorageAvailable`                                                                                 | `getItem, setItem, removeItem, clear?`           | 浏览器 LocalStorage 与 Node/SSR 内存环境自适应探测存储契约                                                 | [auth.test.ts](./test/auth.test.ts)                                                                               |
+| **请求取消与防竞态** | 请求取消协调器      | `AbortCoordinator`, `createAbortCoordinator`, `RegisterAbortOptions`, `AbortRegistration`                                                                                                            | `register, cancel, cancelAll, remove, isPending` | 未决请求生命周期托管、`cancelDuplicate` 防竞态中断与外部信号级联                                           | [abort.test.ts](./test/abort.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                   |
+| **请求取消与防竞态** | 指纹生成与错误判定  | `generateRequestKey`, `isAbortError`, `RequestKeyTarget`                                                                                                                                             | `target => string`, `error => boolean`           | 基于 Method+URL+Params+Data 的确定性请求键生成与受控中断判定                                               | [abort.test.ts](./test/abort.test.ts)                                                                             |
+| **文件与Blob处理**   | 文件名解析          | `parseContentDispositionFilename`                                                                                                                                                                    | `disposition: string => string`                  | 优先解析 RFC 5987/6266 filename* 与常规 filename，支持容错清理                                             | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
+| **文件与Blob处理**   | Blob双态异常识别    | `checkBlobForJsonError`                                                                                                                                                                              | `(data, contentType?, status?) => Promise<void>` | 探测 Blob 载荷是否为 JSON 业务错误并反序列化转译为业务异常                                                 | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
+| **文件与Blob处理**   | 安全文件下载        | `saveBlobAsFile`, `SaveBlobOptions`                                                                                                                                                                  | `(blob, filename, options?) => boolean`          | 平台环境守卫（Node/SSR降级）、内存确定性回收与安全触发浏览器下载                                           | [file.test.ts](./test/file.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)                 |
+| **HTTP 客户端**      | 全局默认客户端      | `http`                                                                                                                                                                                               | `HttpClient`                                     | 开箱即用的工业级单例，默认自动解包 `Promise<T>` 与统一拦截管道                                             | [http.test.ts](./test/http.test.ts) / [contracts.ts](../../apps/sample-core/src/scenarios/contracts.ts)           |
+| **HTTP 客户端**      | 客户端工厂与门面    | `createHttpClient`, `DefaultHttpClient`, `HttpClient`, `HttpClientOptions`, `HttpRequestConfig`                                                                                                      | `options => HttpClient`                          | 创建具备独立路由表、鉴权域与取消协调器的客户端实例                                                         | [http.test.ts](./test/http.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                     |
+| **HTTP 客户端**      | 拦截器管道挂载      | `setupInterceptors`, `InterceptorContext`                                                                                                                                                            | `(instance, context) => void`                    | 为自定义 Axios 实例挂载全套工业级请求与响应拦截器                                                          | [http.test.ts](./test/http.test.ts)                                                                               |
+| **高可用韧性防线**   | 幂等安全重试策略    | `RetryPolicy`, `isIdempotentMethod`, `isRetriableError`, `calculateBackoffDelay`                                                                                                                     | `(method) => boolean, (error) => boolean`        | 安全重试不变量（GET/HEAD指数退避，POST/PUT/DELETE严禁重试）                                                | [retry.test.ts](./test/retry.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                   |
+| **高可用韧性防线**   | 飞行中请求合并去重  | `RequestDeduplicator`, `createRequestDeduplicator`, `requestDeduplicator`, `generateDedupeKey`, `DedupeTarget`                                                                                       | `(key, task) => Promise<T>`                      | 基于 Method+URL+Params 指纹合并未决 Promise，N 次调用降为 1 次                                             | [dedupe.test.ts](./test/dedupe.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                 |
+| **金融级金额计算**   | 原生金额换算与格式  | `toCents`, `toYuan`, `formatCurrency`, `Currency`                                                                                                                                                    | `(yuan) => number, (cents) => number`            | 纯原生位移补齐，彻底杜绝浮点数精度失真（元分互转、标准千分位）                                             | [currency.test.ts](./test/currency.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts)     |
+| **强类型条件断言**   | 业务断言与类型收窄  | `assert`, `assertNonNull`, `isEmpty`, `isNotEmpty`, `Assertions`                                                                                                                                     | `(condition, msg) => asserts condition`          | 卫语句校验失败抛出 BusinessException，并在编译期实现类型安全收窄                                           | [assertions.test.ts](./test/assertions.test.ts) / [security.ts](../../apps/sample-core/src/scenarios/security.ts) |
+| **多租户隔离门面**   | 多租户上下文操作    | `TenantManager`, `createTenantManager`, `tenantManager`, `TenantStorage`                                                                                                                             | `getTenantId, setTenantId, clearTenantId`        | 自动化 `X-Tenant-Id` 请求头注入与多租户跨宿主隔离存储                                                      | [tenant.test.ts](./test/tenant.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                 |
+| **时效命名空间缓存** | 带TTL本地键值缓存   | `CacheStorage`, `createCacheStorage`, `cacheStorage`, `CacheStorageOptions`                                                                                                                          | `get, set(key, val, ttl?), remove, clear`        | 命名空间前缀隔离、毫秒级存活时间（TTL）与自动惰性垃圾清理                                                  | [cache.test.ts](./test/cache.test.ts) / [auth.ts](../../apps/sample-core/src/scenarios/auth.ts)                   |
+| **请求防重放与签名** | WebCrypto 签名门面  | `RequestSigner`, `DefaultRequestSigner`, `createRequestSigner`, `RequestSignerOptions`, `SignTarget`, `SignResult`                                                                                   | `(target) => Promise<SignResult>`                | 支持遗留 SHA-256 与标准 `HMAC-SHA256` 6 行规范签、`X-App-Id` 注入、可插拔签名函数与 3 行响应验签           | [security.test.ts](./test/security.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)             |
+| **请求防重放与签名** | 签名原语与规范串    | `sha256Hex`, `hmacSha256`, `generateNonce`, `defaultBuildCanonicalString`, `buildStandardCanonicalString`, `buildResponseCanonicalString`, `buildStandardSortedQueryString`, `extractRequestUriPath` | `(msg) => Promise<string>, () => string`         | 原生 SHA-256 / HMAC-SHA256、唯一排重随机数与对齐 `ateng-boot-web` 的 6 行请求 / 3 行响应规范串构建         | [security.test.ts](./test/security.test.ts)                                                                       |
+| **传输层混合加解密** | 混合加解密门面      | `RequestCipher`, `DefaultRequestCipher`, `createRequestCipher`, `RequestCipherOptions`, `RequestEncryptResult`                                                                                       | `(data) => Promise<RequestEncryptResult>`        | 基于原生 WebCrypto `RSA-OAEP-SHA256 + AES-256-GCM` 的 `{"cipherText":"<Base64>"}` 传输加密与多版本轮换解密 | [cipher.test.ts](./test/cipher.test.ts) / [http.ts](../../apps/sample-core/src/scenarios/http.ts)                 |
+| **传输层混合加解密** | 算法适配器与 AAD    | `CipherAdapter`, `RsaAesGcmCipherAdapter`, `buildStandardAad`, `CipherKeyResolver`, `CryptoAlgorithmName`                                                                                            | `encrypt(...) / decrypt(...)`                    | 支持 `RSA_AES_GCM` 原生实现、`appId\|keyId\|algorithm` AAD 绑定及国密 `SM2_SM4_GCM` 等自定义注入           | [cipher.test.ts](./test/cipher.test.ts)                                                                           |
+| **Web 原生流式响应** | 流式通信门面        | `StreamClient`, `DefaultStreamClient`, `createStreamClient`, `streamClient`, `StreamClientOptions`                                                                                                   | `subscribe(url, opt), stream(url, opt)`          | 原生 fetch 与 ReadableStream 封装，支持打字机与指数退避重连                                                | [stream.test.ts](./test/stream.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts)       |
+| **Web 原生流式响应** | SSE 协议增量解析器  | `SseParser`, `SseEvent`, `StreamRequestOptions`                                                                                                                                                      | `feed(chunk), flush(), reset() => SseEvent[]`    | W3C 标准 SSE 事件解析、换行合并、心跳过滤与抗网络撕裂分包                                                  | [stream.test.ts](./test/stream.test.ts)                                                                           |
+| **大文件切片上传**   | 纯原生文件切片      | `createFileChunks`, `DEFAULT_CHUNK_SIZE`, `FileChunk`                                                                                                                                                | `(file, chunkSize?) => FileChunk[]`              | 原生 Blob.slice 安全字节区间切分与起始偏移计算                                                             | [upload.test.ts](./test/upload.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)             |
+| **大文件切片上传**   | 受控并发上传协调器  | `UploadCoordinator`, `createUploadCoordinator`, `IUploadCoordinator`, `UploadCoordinatorOptions`                                                                                                     | `upload(chunks, signal?), uploadFile(...)`       | 最大并发连接数限制、单调加权进度、分片局部重试与级联中断                                                   | [upload.test.ts](./test/upload.test.ts) / [upload.ts](../../apps/sample-core/src/scenarios/upload.ts)             |
+| **全双工长连接**     | WebSocket客户端门面 | `WebSocketClient`, `createWebSocketClient`, `WebSocketClientOptions`, `WebSocketStatus`, `destroy()`                                                                                                 | `options => WebSocketClient`                     | 纯原生全双工长连接客户端，集成四态状态机、编解码与凭据自动透传                                             | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
+| **全双工长连接**     | 双向心跳保活探针    | `WebSocketHeartbeatOptions`                                                                                                                                                                          | `interval, timeout, pingMessage, pongMessage`    | 定时应用层 Ping 发送、Pong 超时假死切断与确定性定时器回收                                                  | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
+| **全双工长连接**     | 指数退避自动重连    | `WebSocketReconnectOptions`, `WebSocketEventMap`                                                                                                                                                     | `baseDelay, maxDelay, factor, maxRetries`        | 异常断开与假死超时指数退避重连，支持主动 close 永久阻断                                                    | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
+| **全双工长连接**     | 离线发送缓冲队列    | `bufferWhileConnecting`, `maxBufferSize`, `getBufferSize()`, `clearBuffer()`                                                                                                                         | `send(data) => boolean`                          | 未连接排队暂存并在就绪后按序 Flush，容量溢出丢弃防内存泄露                                                 | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
+| **全双工长连接**     | 主题订阅精准分发    | `subscribe<T>`                                                                                                                                                                                       | `(type, handler) => unbind`                      | 按照业务载荷 `{ type, data: T }` 模式精准分发与安全注销                                                    | [websocket.test.ts](./test/websocket.test.ts) / [stream-ws.ts](../../apps/sample-core/src/scenarios/stream-ws.ts) |
 
 ---
 
@@ -72,7 +74,7 @@ flowchart TD
     subgraph L0["@atengk/core 纯原生核心底座 (L0)"]
         CONTRACTS["统一强类型响应契约<br/>Result&lt;T&gt; / PageResult&lt;T&gt; / BusinessException"]
         HTTP["HTTP 客户端管道<br/>HttpClient / GatewayRouter / AbortCoordinator"]
-        RESILIENCE["高可用韧性防线<br/>RetryPolicy / RequestDeduplicator / RequestSigner"]
+        RESILIENCE["高可用韧性防线<br/>RetryPolicy / RequestDeduplicator / RequestSigner / RequestCipher"]
         AUTH["凭据与多租户门面<br/>AuthManager / TenantManager / CacheStorage"]
         STREAM["Web 原生流式与全双工<br/>StreamClient / SseParser / WebSocketClient"]
         FILE["二进制与大文件切片<br/>saveBlobAsFile / BlobDualState / UploadCoordinator"]
@@ -381,38 +383,67 @@ const [r1, r2, r3, r4, r5] = await Promise.all([
 
 ---
 
-### 4.4 WebCrypto 原生防重放签名 (RequestSigner)
+### 4.4 WebCrypto 原生防重放签名与标准规范签 (RequestSigner)
 
-基于 W3C 标准 WebCrypto 纯原生计算 SHA-256 签名，注入时间戳与唯一排重随机数防网络重放攻击。
+基于 W3C 标准 WebCrypto 纯原生计算 `HMAC-SHA256` 或 `SHA-256` 签名，支持遗留模式向后兼容与严格对齐 `ateng-boot-web` 服务端 `SignCanonicalUtil` / `HmacSha256Signer` 的 6 行请求规范签与 3 行响应防篡改验签。
 
 #### 专属 TypeScript 契约片段
 
 ```ts
+export type SignatureAlgorithm = 'legacy-sha256' | 'hmac-sha256';
+export type CanonicalPreset = 'legacy' | 'standard';
+export type SignatureEncoding = 'base64' | 'hex';
+
 export interface RequestSignerOptions {
-  secret: string; // 客户端签名密钥
+  /** 签名密钥（Secret / AppSecret） */
+  secret?: string;
+  /** 可选应用标识（设置后自动注入 X-App-Id） */
+  appId?: string;
+  /** 应用标识 Header 键名，默认 'X-App-Id' */
+  appIdHeader?: string;
   timestampHeader?: string; // 默认 'X-Timestamp'
   nonceHeader?: string; // 默认 'X-Nonce'
   signatureHeader?: string; // 默认 'X-Signature'
+  /** 待签串预设：'standard' 自动联动 'hmac-sha256'（6 行待签串），默认 'legacy' 保持兼容 */
+  canonicalPreset?: CanonicalPreset;
+  /** 签名算法，默认按 canonicalPreset 联动 */
+  algorithm?: SignatureAlgorithm;
+  /** 签名输出编码：'hmac-sha256' 默认 'base64'，'legacy-sha256' 默认 'hex' */
+  outputEncoding?: SignatureEncoding;
+  /** 可插拔异步签名函数（供 RSA / SM2 等外部算法接入） */
+  signer?: (
+    canonicalString: string,
+    target: SignTarget,
+    secret?: string,
+  ) => string | Promise<string>;
+  /** 响应验签：true 启用标准 3 行响应待签串校验，或传自定义验签回调 */
+  verifyResponse?: boolean | ResponseVerifier;
+  /** 严格响应验签：true 时缺失签名头亦拒收并抛 403 BusinessException */
+  strictResponseVerify?: boolean;
 }
 
-export function createRequestSigner(options: RequestSignerOptions): RequestSigner;
+export function createRequestSigner(options?: RequestSignerOptions): RequestSigner;
 ```
 
 #### 实战业务 TS 代码示例
 
-代码逆向提取自 [apps/sample-core/src/scenarios/http.ts](../../apps/sample-core/src/scenarios/http.ts)：
+代码逆向提取自 [apps/sample-core/src/client.ts](../../apps/sample-core/src/client.ts) 与 [apps/sample-core/src/scenarios/http.ts](../../apps/sample-core/src/scenarios/http.ts)：
 
 ```ts
 import { createHttpClient, createRequestSigner } from '@atengk/core';
 
-const secureClient = createHttpClient({
+const signedClient = createHttpClient({
   signer: createRequestSigner({
+    appId: 'sample-web-01',
     secret: 'YOUR_PRODUCTION_SECRET',
+    canonicalPreset: 'standard',
+    verifyResponse: true,
   }),
 });
 
-// 写操作请求拦截器自动计算并注入 X-Timestamp、X-Nonce 与 X-Signature
-const res = await secureClient.post('/api/order/pay', {
+// 自动按 METHOD\nURI\nTimestamp\nNonce\nSortedQueryString\nBodySha256 计算 HMAC-SHA256 (Base64)
+// 注入 X-App-Id、X-Timestamp、X-Nonce、X-Signature，并在响应阶段基于原始响应文本完成 3 行验签
+const res = await signedClient.post('/api/security/sign-verify', {
   goodsId: 'PROD-8888',
   price: 9900,
 });
@@ -420,8 +451,123 @@ const res = await secureClient.post('/api/order/pay', {
 
 #### 核心机制与生产边界
 
-- **字典序规范化**：按参数键名 ASCII 升序排列并拼接，确保相同载荷在各端计算的哈希指纹完全一致；
-- **防重放保护**：结合服务端的 Nonce 缓存与时间戳滑动窗口（如 ±5 分钟），彻底封死网络抓包重放。
+- **6 行入站 / 3 行出站字节级对齐**：Query 按解码后键值 ASCII 码位升序拼接明文，`GET`/`DELETE`/`HEAD`/`OPTIONS` 请求体哈希固定为空串 SHA-256，出站基于未解析原始响应文本校验 `Timestamp\nNonce\nResponseBodySha256`（兼容 Base64 与 Hex）；
+- **安全异常隔离不误踢下线**：响应验签失败统一抛出非 401 的 `BusinessException(403)`，绝不触发 `authManager.handleUnauthorized()` 与 `onUnauthorized` 登出广播。
+
+---
+
+### 4.5 传输层报文级混合加解密与 Encrypt-then-Sign (RequestCipher)
+
+基于原生 WebCrypto `RSA-OAEP-SHA256 + AES-256-GCM` 实现请求/响应报文级混合加解密，支持多版本 `keyId` 密钥轮换、AAD 防头部替换、`CipherAdapter` 国密扩展，并与 `RequestSigner` 按 **Encrypt-then-Sign** 严格顺序协同。
+
+#### 专属 TypeScript 契约片段
+
+```ts
+export type CryptoAlgorithmName = 'RSA_AES_GCM' | 'SM2_SM4_GCM' | (string & {});
+
+export interface CipherEncryptInput {
+  plaintext: Uint8Array;
+  publicKey?: string;
+  appId: string;
+  keyId: string;
+  algorithm: CryptoAlgorithmName;
+  aad?: Uint8Array;
+}
+
+export interface CipherDecryptInput {
+  encryptedKey: string;
+  iv: string;
+  cipherText: string;
+  privateKey?: string;
+  appId: string;
+  keyId: string;
+  algorithm: CryptoAlgorithmName;
+  aad?: Uint8Array;
+  headers?: Record<string, string | undefined>;
+}
+
+export type CipherKeyResolver =
+  | string
+  | Record<string, string>
+  | ((
+      keyId: string,
+      algorithm: CryptoAlgorithmName,
+    ) => string | undefined | Promise<string | undefined>);
+
+export interface CipherAdapter {
+  readonly algorithm: CryptoAlgorithmName;
+  encrypt(input: CipherEncryptInput): Promise<CipherEncryptOutput>;
+  decrypt(input: CipherDecryptInput): Promise<Uint8Array>;
+}
+
+export interface RequestCipher {
+  readonly appId: string;
+  readonly keyId: string;
+  readonly algorithm: CryptoAlgorithmName;
+  readonly strictResponseDecrypt: boolean;
+  shouldEncrypt(config: HttpRequestConfig): boolean;
+  encryptRequest(data: unknown): Promise<RequestEncryptResult>;
+  isEncryptedResponse(headers: unknown, data?: unknown): boolean;
+  decryptResponse(data: unknown, headers: unknown): Promise<string>;
+}
+
+export interface RequestCipherOptions {
+  /** 服务端 RSA 公钥（SPKI PEM/Base64），用于封装入站请求随机 AES 会话密钥 */
+  serverPublicKey?: string;
+  /** 客户端 RSA 私钥（支持字符串、按 keyId 映射字典或异步回调），用于解密出站响应 */
+  clientPrivateKey?: CipherKeyResolver;
+  /** 应用标识，默认 'default' */
+  appId?: string;
+  /** 当前密钥版本标识，默认 'v1' */
+  keyId?: string;
+  /** 是否启用 AAD 附加认证数据绑定（appId|keyId|algorithm），默认 false */
+  bindAad?: boolean;
+  /** 密文信封格式，默认 'json-envelope'（输出 {"cipherText":"<Base64>"}） */
+  payloadMode?: 'json-envelope' | 'raw-text';
+  /** 可插拔算法适配器（如注入国密 SM2_SM4_GCM 实现） */
+  adapter?: CipherAdapter;
+  /** 严格响应解密模式：true 时无加密头响应直接抛 403 拒收，默认 false 兼容明文错误帧 */
+  strictResponseDecrypt?: boolean;
+}
+
+export function createRequestCipher(options?: RequestCipherOptions): RequestCipher;
+```
+
+#### 实战业务 TS 代码示例
+
+代码逆向提取自 [apps/sample-core/src/client.ts](../../apps/sample-core/src/client.ts) 与 [apps/sample-core/src/scenarios/http.ts](../../apps/sample-core/src/scenarios/http.ts)：
+
+```ts
+import { createHttpClient, createRequestCipher, createRequestSigner } from '@atengk/core';
+
+const secureClient = createHttpClient({
+  cipher: createRequestCipher({
+    appId: 'sample-crypto-01',
+    keyId: 'v1',
+    bindAad: true,
+    serverPublicKey: 'YOUR_SERVER_RSA_PUBLIC_KEY_PEM',
+    clientPrivateKey: { v1: 'YOUR_CLIENT_RSA_PRIVATE_KEY_PEM' },
+  }),
+  signer: createRequestSigner({
+    appId: 'sample-crypto-01',
+    secret: 'YOUR_HMAC_SECRET',
+    canonicalPreset: 'standard',
+    verifyResponse: true,
+  }),
+});
+
+// 1. 明文计算 cancelDuplicate 指纹 -> 2. 加密请求体 -> 3. 对密文信封算 HMAC 签名
+// 4. 响应先基于原始密文文本验签 -> 5. 解密还原并经 parseSnowflakeJson 保留 64 位雪花 ID
+const order = await secureClient.post<{ orderId: string }>('/api/security/encrypt-then-sign', {
+  orderNo: 'ORD-CIPHER-2026',
+  amount: 18800,
+});
+```
+
+#### 核心机制与生产边界
+
+- **二进制与无体请求自动旁路**：自动跳过 `FormData`、`Blob`、`ArrayBuffer`、`URLSearchParams`、`ReadableStream` 与 `responseType: 'blob' | 'arraybuffer' | 'stream'`；`GET`/`HEAD`/`OPTIONS`/`TRACE` 与无体 `DELETE` 自动跳过请求加密，但仍可解密服务端 `@ApiEncrypt` 返回的加密响应；
+- **Retry 与雪花大数护栏**：重试前自动恢复原始明文载荷并清理上轮生成的安全头部重新加密加签（杜绝双重加密与旧 Nonce 冲突）；解密后明文自动经 `parseSnowflakeJson()` 解析，保障加密接口中的 16 位以上雪花 ID 仍为 `string`。
 
 ---
 
@@ -911,6 +1057,7 @@ export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D>, R
   dedupeInFlight?: boolean;
   dedupeKey?: string;
   sign?: boolean;
+  encrypt?: boolean;
   unwrap?: boolean;
 }
 
@@ -924,6 +1071,7 @@ export interface HttpClientOptions extends RetryPolicy {
   abortCoordinator?: AbortCoordinator;
   deduplicator?: RequestDeduplicator;
   signer?: RequestSigner;
+  cipher?: RequestCipher;
   cancelDuplicate?: boolean;
   dedupeInFlight?: boolean;
   unwrap?: boolean;
@@ -1005,5 +1153,96 @@ export interface UploadCoordinatorOptions {
   onProgress?: (percent: number, loaded: number, total: number) => void;
   onChunkSuccess?: (chunk: FileChunk) => void;
   uploadChunk: (chunk: FileChunk, signal?: AbortSignal) => Promise<unknown>;
+}
+
+// ==================== 6. 安全签名与传输层混合加解密 ====================
+export type SignatureAlgorithm = 'legacy-sha256' | 'hmac-sha256';
+export type CanonicalPreset = 'legacy' | 'standard';
+export type SignatureEncoding = 'base64' | 'hex';
+export type CryptoAlgorithmName = 'RSA_AES_GCM' | 'SM2_SM4_GCM' | (string & {});
+export type CipherPayloadMode = 'json-envelope' | 'raw-text';
+
+export interface CipherEncryptInput {
+  plaintext: Uint8Array;
+  publicKey?: string;
+  appId: string;
+  keyId: string;
+  algorithm: CryptoAlgorithmName;
+  aad?: Uint8Array;
+}
+
+export interface CipherDecryptInput {
+  encryptedKey: string;
+  iv: string;
+  cipherText: string;
+  privateKey?: string;
+  appId: string;
+  keyId: string;
+  algorithm: CryptoAlgorithmName;
+  aad?: Uint8Array;
+  headers?: Record<string, string | undefined>;
+}
+
+export type CipherKeyResolver =
+  | string
+  | Record<string, string>
+  | ((
+      keyId: string,
+      algorithm: CryptoAlgorithmName,
+    ) => string | undefined | Promise<string | undefined>);
+
+export interface CipherAdapter {
+  readonly algorithm: CryptoAlgorithmName;
+  encrypt(input: CipherEncryptInput): Promise<CipherEncryptOutput>;
+  decrypt(input: CipherDecryptInput): Promise<Uint8Array>;
+}
+
+export interface RequestCipher {
+  readonly appId: string;
+  readonly keyId: string;
+  readonly algorithm: CryptoAlgorithmName;
+  readonly strictResponseDecrypt: boolean;
+  shouldEncrypt(config: HttpRequestConfig): boolean;
+  encryptRequest(data: unknown): Promise<RequestEncryptResult>;
+  isEncryptedResponse(headers: unknown, data?: unknown): boolean;
+  decryptResponse(data: unknown, headers: unknown): Promise<string>;
+}
+
+export interface RequestSignerOptions {
+  secret?: string;
+  appId?: string;
+  appIdHeader?: string;
+  timestampHeader?: string;
+  nonceHeader?: string;
+  signatureHeader?: string;
+  algorithm?: SignatureAlgorithm;
+  canonicalPreset?: CanonicalPreset;
+  outputEncoding?: SignatureEncoding;
+  signer?: CustomSignFn;
+  verifyResponse?: boolean | ResponseVerifier;
+  strictResponseVerify?: boolean;
+  timestampUnit?: 'ms' | 's';
+  nonceGenerator?: () => string;
+  buildCanonicalString?: (target: SignTarget, secret?: string) => string | Promise<string>;
+  shouldSign?: (config: HttpRequestConfig) => boolean;
+}
+
+export interface RequestCipherOptions {
+  serverPublicKey?: string;
+  clientPrivateKey?: CipherKeyResolver;
+  appId?: string;
+  keyId?: string;
+  algorithm?: CryptoAlgorithmName;
+  bindAad?: boolean;
+  payloadMode?: CipherPayloadMode;
+  cipherTextField?: string;
+  adapter?: CipherAdapter;
+  appIdHeader?: string;
+  encryptKeyHeader?: string;
+  encryptIvHeader?: string;
+  keyIdHeader?: string;
+  encryptAlgHeader?: string;
+  strictResponseDecrypt?: boolean;
+  shouldEncrypt?: (config: HttpRequestConfig) => boolean;
 }
 ```

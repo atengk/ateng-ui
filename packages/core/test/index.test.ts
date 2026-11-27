@@ -123,8 +123,17 @@ describe('@atengk/core baseline', () => {
     expect(core.DefaultRequestSigner).toBeDefined();
     expect(core.createRequestSigner).toBeDefined();
     expect(core.sha256Hex).toBeDefined();
+    expect(core.hmacSha256).toBeDefined();
     expect(core.generateNonce).toBeDefined();
     expect(core.defaultBuildCanonicalString).toBeDefined();
+    expect(core.buildStandardCanonicalString).toBeDefined();
+    expect(core.buildResponseCanonicalString).toBeDefined();
+    expect(core.buildStandardSortedQueryString).toBeDefined();
+    expect(core.extractRequestUriPath).toBeDefined();
+    expect(core.RsaAesGcmCipherAdapter).toBeDefined();
+    expect(core.DefaultRequestCipher).toBeDefined();
+    expect(core.createRequestCipher).toBeDefined();
+    expect(core.buildStandardAad).toBeDefined();
   });
 
   it('should export stream client and sse parser items from root index', async () => {

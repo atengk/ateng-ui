@@ -67,8 +67,16 @@ _Avoid_: TenantService, TenantContext, TenantHolder
 _Avoid_: requestCache, promiseShare, swrMerge
 
 **RequestSigner**:
-API 请求防重放与防篡改签名门面，自动注入时间戳、Nonce 与原生 WebCrypto 签名摘要。
+API 请求防重放与防篡改签名门面，自动注入应用标识（`X-App-Id`）、时间戳与 Nonce，支持标准 `HMAC-SHA256` 6 行请求待签串与 3 行响应验签（兼容遗留 SHA-256 模式与自定义异步签名器）。
 _Avoid_: SecurityHelper, SignManager, AntiReplay, CryptoUtil
+
+**RequestCipher**:
+HTTP 传输层报文级混合加解密门面，基于原生 WebCrypto `RSA-OAEP-SHA256 + AES-256-GCM` 实现 `{"cipherText":"<Base64>"}` 密文信封传输、5 项标准加密头注入、可选 AAD 绑定与多版本密钥轮换解析，并与 `RequestSigner` 按 Encrypt-then-Sign 管道协同。
+_Avoid_: CryptoManager, EncryptHelper, PayloadEncryptor, AesUtil
+
+**CipherAdapter**:
+可插拔传输层加解密算法适配契约，支撑内置原生 WebCrypto 与外部国密 `SM2/SM4` 等加密套件的零依赖注入扩展。
+_Avoid_: CryptoProvider, EncryptDriver, SmAdapter
 
 ## 存储与数据原语
 

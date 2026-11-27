@@ -13,9 +13,32 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import {
+  RsaAesGcmCipherAdapter,
+  buildResponseCanonicalString,
+  buildStandardAad,
+  hmacSha256,
+  sha256Hex,
+} from '@atengk/core';
 
 let transientFailCount = 0;
 let dedupeNetworkCallCount = 0;
+
+export interface MockCryptoMaterial {
+  serverPrivateKeyPem: string;
+  clientPublicKeyPem: string;
+  signSecret: string;
+  appId: string;
+}
+
+let mockCryptoMaterial: MockCryptoMaterial | null = null;
+
+/**
+ * 注入供离线 Mock 使用的运行时动态密钥对，避免硬编码私钥。
+ */
+export function setMockCryptoMaterial(material: MockCryptoMaterial): void {
+  mockCryptoMaterial = material;
+}
 
 /**
  * 获取飞行中去重模拟的网络实际调用计数。
@@ -249,25 +272,108 @@ export function installMockAdapter(targetAxios: AxiosInstance): void {
       };
     }
 
-    // 8.1 模拟防重放签名校验
+    // 8.1 模拟标准 HMAC-SHA256 防重放签名与 3 行出站回签
     if (url.includes('/api/security/sign-verify')) {
       const headers = (config.headers ?? {}) as Record<string, string>;
-      return {
+      const timestamp = String(headers['X-Timestamp'] || Date.now());
+      const nonce = String(headers['X-Nonce'] || 'mock-nonce');
+      const rawBody = JSON.stringify({
+        code: 200,
         data: {
-          code: 200,
-          data: {
-            verified: true,
-            receivedTimestamp: headers['X-Timestamp'],
-            receivedNonce: headers['X-Nonce'],
-            receivedSignature: headers['X-Signature'],
-            receivedTenant: headers['X-Tenant-Id'],
-          },
-          msg: '服务端签名与时间戳防重放校验通过',
-          traceId: 'tr-sign-verified-001',
+          verified: true,
+          receivedAppId: headers['X-App-Id'],
+          receivedTimestamp: timestamp,
+          receivedNonce: nonce,
+          receivedSignature: headers['X-Signature'],
+          receivedTenant: headers['X-Tenant-Id'],
         },
+        msg: '服务端 HMAC-SHA256 6 行规范签校验通过',
+        traceId: 'tr-sign-verified-001',
+      });
+      const bodyHash = await sha256Hex(rawBody);
+      const respCanonical = await buildResponseCanonicalString(timestamp, nonce, bodyHash);
+      const respSig = await hmacSha256(respCanonical, 'ateng-sample-secret-2026', 'base64');
+
+      let parsed: unknown = rawBody;
+      if (Array.isArray(config.transformResponse)) {
+        for (const fn of config.transformResponse) {
+          parsed = fn.call(config, parsed, config.headers);
+        }
+      }
+
+      return {
+        data: parsed,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: {
+          'X-Timestamp': timestamp,
+          'X-Nonce': nonce,
+          'X-Signature': respSig,
+        },
+        config,
+      };
+    }
+
+    // 8.2 模拟 Encrypt-then-Sign 混合加解密双向闭环
+    if (url.includes('/api/security/encrypt-then-sign') && mockCryptoMaterial) {
+      const headers = (config.headers ?? {}) as Record<string, string>;
+      const adapter = new RsaAesGcmCipherAdapter();
+      const keyId = String(headers['X-Key-Id'] || 'v1');
+      const appId = String(headers['X-App-Id'] || mockCryptoMaterial.appId);
+      const aad = buildStandardAad(appId, keyId, 'RSA_AES_GCM');
+      const reqEnvelope = JSON.parse(String(config.data || '{}')) as { cipherText: string };
+
+      const plainBytes = await adapter.decrypt({
+        encryptedKey: String(headers['X-Encrypt-Key'] || ''),
+        iv: String(headers['X-Encrypt-Iv'] || ''),
+        cipherText: reqEnvelope.cipherText,
+        privateKey: mockCryptoMaterial.serverPrivateKeyPem,
+        appId,
+        keyId,
+        algorithm: 'RSA_AES_GCM',
+        aad,
+      });
+      const decryptedReq = JSON.parse(new TextDecoder().decode(plainBytes)) as Record<
+        string,
+        unknown
+      >;
+
+      const rawRespPlain = `{"code":200,"data":{"orderId":9007199254740995888,"verifiedCipherTextLength":${reqEnvelope.cipherText.length},"serverDecrypted":${JSON.stringify(decryptedReq)}},"msg":"Encrypt-then-Sign 双向加解密与验签通过","traceId":"tr-cipher-2026"}`;
+      const encResp = await adapter.encrypt({
+        plaintext: new TextEncoder().encode(rawRespPlain),
+        publicKey: mockCryptoMaterial.clientPublicKeyPem,
+        appId,
+        keyId,
+        algorithm: 'RSA_AES_GCM',
+        aad,
+      });
+      const respEnvelopeRaw = JSON.stringify({ cipherText: encResp.cipherText });
+      const ts = String(headers['X-Timestamp'] || Date.now());
+      const nonce = String(headers['X-Nonce'] || 'cipher-nonce');
+      const respHash = await sha256Hex(respEnvelopeRaw);
+      const respCan = await buildResponseCanonicalString(ts, nonce, respHash);
+      const respSig = await hmacSha256(respCan, mockCryptoMaterial.signSecret, 'base64');
+
+      let transformed: unknown = respEnvelopeRaw;
+      if (Array.isArray(config.transformResponse)) {
+        for (const fn of config.transformResponse) {
+          transformed = fn.call(config, transformed, config.headers);
+        }
+      }
+
+      return {
+        data: transformed,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          'X-Timestamp': ts,
+          'X-Nonce': nonce,
+          'X-Signature': respSig,
+          'X-Encrypt-Key': encResp.encryptedKey,
+          'X-Encrypt-Iv': encResp.iv,
+          'X-Key-Id': keyId,
+          'X-Encrypt-Alg': 'RSA_AES_GCM',
+        },
         config,
       };
     }

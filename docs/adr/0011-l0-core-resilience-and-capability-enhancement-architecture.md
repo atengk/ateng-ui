@@ -38,9 +38,15 @@ Accepted (已接受)
 7. **大文件切片与并发上传协调器 (`UploadCoordinator`)**：
    - 提供原生 `createFileChunks` 切片纯函数与受控并发上传调度器，支持最大并发度限制、切片进度统计、单片重试与中断取消。
 8. **防重放与原生签名机制 (`RequestSigner`)**：
-   - 基于原生 Web Crypto API (`crypto.subtle.digest`) 计算 SHA-256 签名，支持时间戳校验与 Nonce 防重放。
-9. **业务强类型断言与类型收窄工具箱 (`Assertions`)**：
-   - 提供 `assert` 与 `assertNonNull` 卫语句，不满足时统一抛出 `BusinessException`，并在编译期实现 TypeScript 类型安全收窄。
+   - 基于原生 Web Crypto API (`crypto.subtle`) 计算签名，支持 `legacy` 遗留模式与严格对齐后端 `ateng-boot-web` 的 `standard` 规范协议（标准 `HMAC-SHA256`、`X-App-Id`、6 行入站待签串 `METHOD\nURI\nTimestamp\nNonce\nSortedQueryString\nBodySha256` 与 3 行出站响应验签 `Timestamp\nNonce\nResponseBodySha256`，支持可插拔异步签名/验签函数）；
+   - 支持时间戳校验与 Nonce 防重放；响应验签失败统一抛出非 401 的 `BusinessException(403)`，避免误触发登出状态重置。
+9. **传输层报文级混合加解密 (`RequestCipher` & `CipherAdapter`)**（2026-11-27 增量演进）：
+   - 默认基于原生 WebCrypto 实现 `RSA-OAEP-SHA256 + AES-256-GCM` 混合加解密，传输采用标准信封 `{"cipherText":"<Base64>"}`（可选 `raw-text`）、5 大标准头（`X-App-Id`、`X-Encrypt-Key`、`X-Encrypt-Iv`、`X-Key-Id`、`X-Encrypt-Alg`）、可选 AEAD `AAD`（`${appId}|${keyId}|${algorithm}`）与多版本 `keyId` 轮换解析；
+   - 提供零耦合 `CipherAdapter` SPI 供国密 `SM2_SM4_GCM` 等算法外部注入，严格零重型第三方密码学依赖；
+   - 与 `RequestSigner` 按 **Encrypt-then-Sign** 严格顺序协同：请求阶段明文计算 `cancelDuplicate` 指纹 ➔ 加密请求体（自动跳过二进制载体与 GET/HEAD/OPTIONS/TRACE）➔ 对密文计算 SHA-256 并加签；响应阶段先校验响应签名（基于未解析原始响应文本）➔ 解密还原明文 ➔ 经 `parseSnowflakeJson` 防截断解析。
+10. **业务强类型断言与类型收窄工具箱 (`Assertions`)**：
+
+- 提供 `assert` 与 `assertNonNull` 卫语句，不满足时统一抛出 `BusinessException`，并在编译期实现 TypeScript 类型安全收窄。
 
 ## 效果与权衡
 
