@@ -8,6 +8,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createApp, defineComponent, nextTick } from 'vue';
 import { mount, type VueWrapper } from '@vue/test-utils';
+import pkg from '../package.json';
 import AtengElementPlus, {
   install,
   installer,
@@ -30,7 +31,6 @@ import AtengElementPlus, {
   AtengUpload,
   DictManager,
   AtengGrid,
-  AtengAnchor,
   AtengLayout,
   AtengHeader,
   AtengAside,
@@ -78,7 +78,8 @@ describe('全局插件安装器与统一导出规范测试', () => {
   });
 
   it('顶级入口纯声明式具名导出全部核心门面与元数据', () => {
-    expect(VERSION).toBe('0.1.0');
+    expect(VERSION).toBe(pkg.version);
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+(?:-[\w.]+)?$/);
     expect(typeof install).toBe('function');
     expect(installer).toBeDefined();
     expect(AtengElementPlus).toBe(installer);

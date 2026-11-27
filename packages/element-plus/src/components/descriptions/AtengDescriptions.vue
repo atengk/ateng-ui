@@ -14,7 +14,7 @@
  */
 
 import { computed, useSlots, ref, onUnmounted, Fragment, type VNode, type Slot } from 'vue';
-import { ElDescriptions, ElDescriptionsItem, ElTooltip } from 'element-plus';
+import { ElDescriptions, ElDescriptionsItem, ElTooltip, ElMessage } from 'element-plus';
 import {
   formatMask,
   formatMaskPhone,
@@ -204,17 +204,46 @@ const handleCopy = async (item: DescriptionsItemConfig<T>) => {
       if (copiedProp.value === item.prop) {
         copiedProp.value = null;
       }
+      copyTimer = null;
     }, 1500);
   } catch {
-    // 降级容错
+    ElMessage.error('复制失败');
   }
 };
 
 onUnmounted(() => {
   if (copyTimer) {
     clearTimeout(copyTimer);
+    copyTimer = null;
   }
 });
+
+const DATE_LIKE_STRING_RE = /^\d{4}[-/]\d{1,2}([-/]\d{1,2})?([T\s].*)?$|GMT|UTC/i;
+
+/**
+ * 将 Date 对象、类日期字符串或有限时间戳统一格式化为本地可读时间；
+ * 无效 Date / 非有限数值 / 空白串回退至空安全文本，非日期业务串保持原值降级。
+ */
+const formatDateValue = (rawVal: unknown, fallbackEmpty: string): string => {
+  if (rawVal instanceof Date) {
+    return Number.isNaN(rawVal.getTime()) ? fallbackEmpty : rawVal.toLocaleString();
+  }
+  if (typeof rawVal === 'number') {
+    if (!Number.isFinite(rawVal)) return fallbackEmpty;
+    const parsed = new Date(rawVal);
+    return Number.isNaN(parsed.getTime()) ? fallbackEmpty : parsed.toLocaleString();
+  }
+  if (typeof rawVal === 'string') {
+    const trimmed = rawVal.trim();
+    if (!trimmed) return fallbackEmpty;
+    if (/^\d+$/.test(trimmed) || !DATE_LIKE_STRING_RE.test(trimmed)) {
+      return String(rawVal);
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? String(rawVal) : parsed.toLocaleString();
+  }
+  return String(rawVal);
+};
 
 /**
  * 格式化单项展示文本（内置脱敏、金额千分位、日期与空安全保底）。
@@ -260,12 +289,9 @@ function renderItemValue(item: DescriptionsItemConfig<T>): string {
     });
   }
 
-  // 5. 预置格式化：日期展示
+  // 5. 预置格式化：日期展示（兼容 Date、ISO/日期字符串与有限时间戳）
   if (item.type === 'date') {
-    if (rawVal instanceof Date) {
-      return rawVal.toLocaleString();
-    }
-    return String(rawVal);
+    return formatDateValue(rawVal, item.emptyText || props.emptyText);
   }
 
   return String(rawVal);

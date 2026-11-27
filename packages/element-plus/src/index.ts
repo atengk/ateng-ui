@@ -10,7 +10,10 @@
 import './styles/index.scss';
 import installer from './installer';
 
-export const VERSION: string = '0.1.0';
+declare const __ATENG_ELEMENT_PLUS_VERSION__: string | undefined;
+
+export const VERSION: string =
+  typeof __ATENG_ELEMENT_PLUS_VERSION__ !== 'undefined' ? __ATENG_ELEMENT_PLUS_VERSION__ : '1.1.0';
 
 export * from './installer';
 export * from './directives';

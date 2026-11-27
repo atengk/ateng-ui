@@ -7,8 +7,9 @@
  */
 
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { ElInput, ElButton, ElTooltip, ElTag } from 'element-plus';
+import { ElInput, ElTooltip, ElTag } from 'element-plus';
 import { IconClear, IconDownload, IconScrollPause, IconScrollPlay } from './icons';
+import { TokenSegments, type HighlightSegment } from '../shared/TokenSegments';
 import type {
   AtengLogViewerProps,
   AtengLogViewerEmits,
@@ -134,7 +135,43 @@ function handleScroll(): void {
   }
 }
 
-// 安全转义 HTML 实体，杜绝日志注入与 XSS 风险
+const keywordRegex = computed<RegExp | null>(() => {
+  const kw = searchKeyword.value.trim();
+  if (!kw) return null;
+  const escaped = kw.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  return new RegExp(escaped, 'gi');
+});
+
+// 将单行日志拆分为关键词高亮与普通文本片段（免 v-html 注入）
+function splitHighlightSegments(text: string): HighlightSegment[] {
+  const baseRegex = keywordRegex.value;
+  if (!baseRegex) return [{ text }];
+
+  const matcher = new RegExp(baseRegex.source, baseRegex.flags);
+  const segments: HighlightSegment[] = [];
+  let lastIndex = 0;
+
+  for (let match = matcher.exec(text); match !== null; match = matcher.exec(text)) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index) });
+    }
+    if (match[0]) {
+      segments.push({ text: match[0], className: 'at-log-kw' });
+    }
+    lastIndex = matcher.lastIndex;
+    if (match[0].length === 0) {
+      matcher.lastIndex += 1;
+    }
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex) });
+  }
+
+  return segments.length > 0 ? segments : [{ text }];
+}
+
+// 安全转义 HTML 实体，供 #line 作用域插槽 highlighted 字段使用
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -144,14 +181,15 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
-// 高亮关键词（安全转义后注入标记）
+// 高亮关键词（兼容 #line="{ highlighted }" 作用域插槽）
 function highlightKeyword(text: string): string {
-  const safeText = escapeHtml(text);
-  const kw = searchKeyword.value.trim();
-  if (!kw) return safeText;
-  const safeKw = escapeHtml(kw);
-  const escaped = safeKw.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-  return safeText.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="at-log-kw">$1</mark>');
+  return splitHighlightSegments(text)
+    .map(seg =>
+      seg.className
+        ? `<mark class="${seg.className}">${escapeHtml(seg.text)}</mark>`
+        : escapeHtml(seg.text),
+    )
+    .join('');
 }
 
 // 监听静态 logs 属性变动
@@ -292,7 +330,11 @@ defineExpose<AtengLogViewerExpose>({
         <div v-for="(line, idx) in filteredLines" :key="idx" class="at-log-viewer__line">
           <slot name="line" :text="line" :index="idx" :highlighted="highlightKeyword(line)">
             <span class="at-log-viewer__line-no">{{ idx + 1 }}</span>
-            <span class="at-log-viewer__line-content" v-html="highlightKeyword(line)" />
+            <TokenSegments
+              :segments="splitHighlightSegments(line)"
+              highlight-tag="mark"
+              wrapper-class="at-log-viewer__line-content"
+            />
           </slot>
         </div>
       </template>

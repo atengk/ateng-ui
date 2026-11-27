@@ -11,7 +11,8 @@
 
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { ElTooltip, ElMessage } from 'element-plus';
-import { highlightLine } from './highlight';
+import { tokenizeLine, tokensToHtml, type HighlightToken } from './highlight';
+import { TokenSegments } from '../shared/TokenSegments';
 import { useCodeFolding } from './useCodeFolding';
 import { writeClipboard } from '../../directives/copy';
 import type {
@@ -90,9 +91,15 @@ const lines = computed<string[]>(() => {
 
 const lineCount = computed<number>(() => lines.value.length);
 
-// 4. 每行语法高亮
+// 4. 每行结构化分词与 HTML 视图兼容映射
+const tokenizedLines = computed<HighlightToken[][]>(() => {
+  return lines.value.map(line => tokenizeLine(line, props.language));
+});
+
 const highlightedLines = computed<string[]>(() => {
-  return lines.value.map(line => highlightLine(line, props.language));
+  return lines.value.map((line, index) =>
+    line ? tokensToHtml(tokenizedLines.value[index] ?? []) : '&nbsp;',
+  );
 });
 
 // 5. 折叠逻辑外抽状态机
@@ -119,7 +126,7 @@ async function copy(): Promise<boolean> {
     }, 2000);
     emit('copy', text);
     return true;
-  } catch (_err) {
+  } catch {
     ElMessage.error('复制失败');
     return false;
   }
@@ -224,9 +231,8 @@ defineExpose<AtengCodeViewExpose>({
 
       <!-- 代码内容 -->
       <div class="at-code-view__content">
-        <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-for="item in visibleLines" :key="item.lineIndex" class="at-code-view__line">
-          <span v-html="item.html" />
+          <TokenSegments :segments="tokenizedLines[item.lineIndex] ?? []" />
           <span
             v-if="item.isFolded && item.placeholder"
             class="at-code-view__fold-marker"

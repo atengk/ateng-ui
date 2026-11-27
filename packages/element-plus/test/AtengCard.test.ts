@@ -5,8 +5,10 @@
  * @since 2026-10-22
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
+import { nextTick } from 'vue';
+import { ElSelect, ElOption } from 'element-plus';
 import { AtengCard } from '../src/components/card';
 
 describe('AtengCard 组件测试', () => {
@@ -276,5 +278,94 @@ describe('AtengCard 组件测试', () => {
     expect(wrapper.find('.at-card__header-tabs.is-bottom').exists()).toBe(true);
     expect(wrapper.find('.sub-row-tabs').text()).toBe('次行沉降多标签页');
     expect(wrapper.find('.at-card__header').classes()).toContain('tabs-pos-bottom');
+  });
+
+  it('全屏下聚焦 ElSelect 时，首次 ESC 仅关闭下拉、二次 ESC 退出全屏并还原滚动锁且注销捕获监听', async () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    document.body.style.overflow = 'auto';
+
+    try {
+      wrapper = mount(
+        {
+          components: { AtengCard, ElSelect, ElOption },
+          data() {
+            return { val: 'day' };
+          },
+          template: `
+            <AtengCard title="全屏嵌套下拉" :fullscreenable="true">
+              <template #extra>
+                <ElSelect v-model="val" :teleported="true" style="width: 140px">
+                  <ElOption label="按天" value="day" />
+                  <ElOption label="按周" value="week" />
+                </ElSelect>
+              </template>
+              <div>主体内容</div>
+            </AtengCard>
+          `,
+        },
+        { attachTo: document.body },
+      );
+
+      // 进入全屏
+      await wrapper.find('.at-card__action-btn').trigger('click');
+      await nextTick();
+      expect(wrapper.find('.at-card').classes()).toContain('is-fullscreen');
+      expect(document.body.style.overflow).toBe('hidden');
+
+      // 点击展开 ElSelect 下拉并聚焦内部 combobox input
+      await wrapper.find('.el-select__wrapper').trigger('click');
+      await nextTick();
+      const inputEl = wrapper.find('.el-select__input').element as HTMLInputElement;
+      inputEl.focus();
+      expect(inputEl.getAttribute('aria-expanded')).toBe('true');
+
+      // 第 1 次 ESC：仅关闭下拉，全屏保持激活
+      inputEl.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+      await nextTick();
+      expect(inputEl.getAttribute('aria-expanded')).toBe('false');
+      expect(wrapper.find('.at-card').classes()).toContain('is-fullscreen');
+      expect(document.body.style.overflow).toBe('hidden');
+
+      // 第 2 次 ESC（下拉已收起、焦点仍停留在 ElSelect 内）：应退出全屏并恢复 body overflow
+      inputEl.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+      await nextTick();
+      expect(wrapper.find('.at-card').classes()).not.toContain('is-fullscreen');
+      expect(document.body.style.overflow).toBe('auto');
+
+      wrapper.unmount();
+      wrapper = null;
+      expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+    } finally {
+      removeSpy.mockRestore();
+      document.body.style.overflow = '';
+    }
+  });
+
+  it('内嵌非浮层展开节点（aria-expanded 无 aria-haspopup）与祖先遮罩不阻塞 ESC 退出全屏', async () => {
+    wrapper = mount(
+      {
+        components: { AtengCard },
+        template: `
+          <div class="el-overlay">
+            <AtengCard title="遮罩内带折叠节卡片" :fullscreenable="true">
+              <div role="treeitem" aria-expanded="true">展开的非浮层树节点</div>
+            </AtengCard>
+          </div>
+        `,
+      },
+      { attachTo: document.body },
+    );
+
+    await wrapper.find('.at-card__action-btn').trigger('click');
+    await nextTick();
+    expect(wrapper.find('.at-card').classes()).toContain('is-fullscreen');
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await nextTick();
+    expect(wrapper.find('.at-card').classes()).not.toContain('is-fullscreen');
   });
 });

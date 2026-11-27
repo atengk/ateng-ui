@@ -5,7 +5,7 @@
  * @since 2026-10-21
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { AtengStatistic } from '../src/components/statistic';
 

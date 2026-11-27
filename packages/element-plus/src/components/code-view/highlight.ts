@@ -6,6 +6,12 @@
  */
 
 import type { CodeViewLanguage } from './types';
+import type { HighlightSegment } from '../shared/TokenSegments';
+
+/**
+ * 语法高亮单个词法单元。
+ */
+export type HighlightToken = HighlightSegment;
 
 /**
  * 严格 HTML 字符安全转义（彻底杜绝 XSS）。
@@ -128,6 +134,70 @@ const JS_KEYWORDS = new Set([
   'void',
 ]);
 
+function tokenizeWithRegex(
+  source: string,
+  regex: RegExp,
+  mapMatch: (match: RegExpExecArray) => HighlightToken[],
+): HighlightToken[] {
+  const tokens: HighlightToken[] = [];
+  let lastIndex = 0;
+
+  for (let match = regex.exec(source); match !== null; match = regex.exec(source)) {
+    if (match.index > lastIndex) {
+      tokens.push({ text: source.slice(lastIndex, match.index) });
+    }
+    tokens.push(...mapMatch(match));
+    lastIndex = regex.lastIndex;
+    if (match[0].length === 0) {
+      regex.lastIndex += 1;
+    }
+  }
+
+  if (lastIndex < source.length) {
+    tokens.push({ text: source.slice(lastIndex) });
+  }
+
+  return tokens;
+}
+
+/**
+ * 将结构化高亮分词序列渲染为已安全转义的 HTML 字符串。
+ */
+export function tokensToHtml(tokens: HighlightToken[]): string {
+  return tokens
+    .map(token =>
+      token.className
+        ? `<span class="${token.className}">${escapeHtml(token.text)}</span>`
+        : escapeHtml(token.text),
+    )
+    .join('');
+}
+
+/**
+ * 单行分词并输出结构化高亮 Token 序列（免 v-html 注入）。
+ */
+export function tokenizeLine(line: string, language: CodeViewLanguage): HighlightToken[] {
+  if (!line) {
+    return [{ text: '\u00A0' }];
+  }
+
+  switch (language) {
+    case 'json':
+      return tokenizeJsonLine(line);
+    case 'sql':
+      return tokenizeSqlLine(line);
+    case 'javascript':
+    case 'typescript':
+      return tokenizeJsLine(line);
+    case 'xml':
+    case 'html':
+      return tokenizeXmlLine(line);
+    case 'text':
+    default:
+      return [{ text: line }];
+  }
+}
+
 /**
  * 单行分词并输出着色 HTML。
  */
@@ -135,160 +205,113 @@ export function highlightLine(line: string, language: CodeViewLanguage): string 
   if (!line) {
     return '&nbsp;';
   }
-
-  if (language === 'text') {
-    return escapeHtml(line);
-  }
-
-  if (language === 'json') {
-    return highlightJsonLine(line);
-  }
-
-  if (language === 'sql') {
-    return highlightSqlLine(line);
-  }
-
-  if (language === 'javascript' || language === 'typescript') {
-    return highlightJsLine(line);
-  }
-
-  if (language === 'xml' || language === 'html') {
-    return highlightXmlLine(line);
-  }
-
-  return escapeHtml(line);
+  return tokensToHtml(tokenizeLine(line, language));
 }
 
 /**
  * JSON 语法着色：区分属性名 key、字符串、数字、布尔/null
  */
-function highlightJsonLine(line: string): string {
-  // 正则匹配: 键名 (带引号后跟冒号)、字符串值、数字、布尔/null、标点
+function tokenizeJsonLine(line: string): HighlightToken[] {
   const regex =
     /("(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*")(\s*:)?|(-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b|\bnull\b)|([{}[\],])/g;
 
-  return line.replace(regex, (match, str, colon, num, bool, punct) => {
+  return tokenizeWithRegex(line, regex, match => {
+    const [, str, colon, num, bool, punct] = match;
     if (str) {
+      const tokens: HighlightToken[] = [{ text: str, className: colon ? 'tok-key' : 'tok-string' }];
       if (colon) {
-        // 对象键名 key
-        return `<span class="tok-key">${escapeHtml(str)}</span>${colon}`;
+        tokens.push({ text: colon });
       }
-      // 字符串值
-      return `<span class="tok-string">${escapeHtml(str)}</span>`;
+      return tokens;
     }
-    if (num) {
-      return `<span class="tok-number">${escapeHtml(num)}</span>`;
-    }
-    if (bool) {
-      return `<span class="tok-boolean">${escapeHtml(bool)}</span>`;
-    }
-    if (punct) {
-      return `<span class="tok-punct">${escapeHtml(punct)}</span>`;
-    }
-    return escapeHtml(match);
+    if (num) return [{ text: num, className: 'tok-number' }];
+    if (bool) return [{ text: bool, className: 'tok-boolean' }];
+    if (punct) return [{ text: punct, className: 'tok-punct' }];
+    return [{ text: match[0] }];
   });
 }
 
 /**
  * SQL 语法着色：注释、字符串、关键字、数字
  */
-function highlightSqlLine(line: string): string {
-  // 单行注释 --
+function tokenizeSqlLine(line: string): HighlightToken[] {
   const commentIdx = line.indexOf('--');
   if (commentIdx >= 0) {
-    const before = highlightSqlTokens(line.slice(0, commentIdx));
-    const comment = `<span class="tok-comment">${escapeHtml(line.slice(commentIdx))}</span>`;
-    return before + comment;
+    return [
+      ...tokenizeSqlTokens(line.slice(0, commentIdx)),
+      { text: line.slice(commentIdx), className: 'tok-comment' },
+    ];
   }
-  return highlightSqlTokens(line);
+  return tokenizeSqlTokens(line);
 }
 
-function highlightSqlTokens(code: string): string {
+function tokenizeSqlTokens(code: string): HighlightToken[] {
   const regex =
     /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(\b[a-zA-Z_]\w*\b)|(-?\d+(?:\.\d*)?)|([,;()=><!+\-*/])/g;
 
-  return code.replace(regex, (match, str, word, num, punct) => {
-    if (str) {
-      return `<span class="tok-string">${escapeHtml(str)}</span>`;
-    }
+  return tokenizeWithRegex(code, regex, match => {
+    const [, str, word, num, punct] = match;
+    if (str) return [{ text: str, className: 'tok-string' }];
     if (word) {
-      if (SQL_KEYWORDS.has(word.toLowerCase())) {
-        return `<span class="tok-keyword">${escapeHtml(word)}</span>`;
-      }
-      return `<span class="tok-word">${escapeHtml(word)}</span>`;
+      return [
+        {
+          text: word,
+          className: SQL_KEYWORDS.has(word.toLowerCase()) ? 'tok-keyword' : 'tok-word',
+        },
+      ];
     }
-    if (num) {
-      return `<span class="tok-number">${escapeHtml(num)}</span>`;
-    }
-    if (punct) {
-      return `<span class="tok-punct">${escapeHtml(punct)}</span>`;
-    }
-    return escapeHtml(match);
+    if (num) return [{ text: num, className: 'tok-number' }];
+    if (punct) return [{ text: punct, className: 'tok-punct' }];
+    return [{ text: match[0] }];
   });
 }
 
 /**
  * JS/TS 语法着色：注释、字符串、关键字、数字
  */
-function highlightJsLine(line: string): string {
-  // 单行注释 //
+function tokenizeJsLine(line: string): HighlightToken[] {
   const commentIdx = line.indexOf('//');
   if (commentIdx >= 0) {
-    const before = highlightJsTokens(line.slice(0, commentIdx));
-    const comment = `<span class="tok-comment">${escapeHtml(line.slice(commentIdx))}</span>`;
-    return before + comment;
+    return [
+      ...tokenizeJsTokens(line.slice(0, commentIdx)),
+      { text: line.slice(commentIdx), className: 'tok-comment' },
+    ];
   }
-  return highlightJsTokens(line);
+  return tokenizeJsTokens(line);
 }
 
-function highlightJsTokens(code: string): string {
+function tokenizeJsTokens(code: string): HighlightToken[] {
   const regex =
     /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)|(\b[a-zA-Z_$]\w*\b)|(-?\d+(?:\.\d*)?)|([{}[\],;()=><!+\-*/.:&|])/g;
 
-  return code.replace(regex, (match, str, word, num, punct) => {
-    if (str) {
-      return `<span class="tok-string">${escapeHtml(str)}</span>`;
-    }
+  return tokenizeWithRegex(code, regex, match => {
+    const [, str, word, num, punct] = match;
+    if (str) return [{ text: str, className: 'tok-string' }];
     if (word) {
-      if (JS_KEYWORDS.has(word)) {
-        return `<span class="tok-keyword">${escapeHtml(word)}</span>`;
-      }
-      return `<span class="tok-word">${escapeHtml(word)}</span>`;
+      return [{ text: word, className: JS_KEYWORDS.has(word) ? 'tok-keyword' : 'tok-word' }];
     }
-    if (num) {
-      return `<span class="tok-number">${escapeHtml(num)}</span>`;
-    }
-    if (punct) {
-      return `<span class="tok-punct">${escapeHtml(punct)}</span>`;
-    }
-    return escapeHtml(match);
+    if (num) return [{ text: num, className: 'tok-number' }];
+    if (punct) return [{ text: punct, className: 'tok-punct' }];
+    return [{ text: match[0] }];
   });
 }
 
 /**
  * XML/HTML 语法着色：注释、标签、属性
  */
-function highlightXmlLine(line: string): string {
-  // 注释 <!-- ... -->
+function tokenizeXmlLine(line: string): HighlightToken[] {
   const regex =
     /(<!--[\s\S]*?-->)|(<\/?)([a-zA-Z0-9\-:]+)|(\s+[a-zA-Z0-9\-:]+)(?==)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\/?>)/g;
 
-  return line.replace(regex, (match, comment, tagOpen, tagName, attrName, str, tagClose) => {
-    if (comment) {
-      return `<span class="tok-comment">${escapeHtml(comment)}</span>`;
-    }
+  return tokenizeWithRegex(line, regex, match => {
+    const [, comment, tagOpen, tagName, attrName, str, tagClose] = match;
+    if (comment) return [{ text: comment, className: 'tok-comment' }];
     if (tagOpen && tagName) {
-      return `${escapeHtml(tagOpen)}<span class="tok-tag">${escapeHtml(tagName)}</span>`;
+      return [{ text: tagOpen }, { text: tagName, className: 'tok-tag' }];
     }
-    if (attrName) {
-      return `<span class="tok-attr">${escapeHtml(attrName)}</span>`;
-    }
-    if (str) {
-      return `<span class="tok-string">${escapeHtml(str)}</span>`;
-    }
-    if (tagClose) {
-      return escapeHtml(tagClose);
-    }
-    return escapeHtml(match);
+    if (attrName) return [{ text: attrName, className: 'tok-attr' }];
+    if (str) return [{ text: str, className: 'tok-string' }];
+    if (tagClose) return [{ text: tagClose }];
+    return [{ text: match[0] }];
   });
 }

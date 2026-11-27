@@ -6,6 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import pkg from '../package.json';
+import * as EntryModule from '../src/index';
 import AtengElementPlus, {
   VERSION,
   install,
@@ -98,7 +100,8 @@ import AtengElementPlus, {
 
 describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
   it('正确导出版本、全局安装器与默认导出', () => {
-    expect(VERSION).toBe('0.1.0');
+    expect(VERSION).toBe(pkg.version);
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+(?:-[\w.]+)?$/);
     expect(typeof install).toBe('function');
     expect(installer).toBeDefined();
     expect(AtengElementPlus).toBe(installer);
@@ -112,7 +115,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(vWatermark).toBeDefined();
   });
 
-  it('完整导出 Stage 1、Stage 2 与 Stage 3 全部 13 项核心组件与门面', () => {
+  it('完整导出 Stage 1、Stage 2 与 Stage 3 全部 21 项核心组件与门面', () => {
     // Stage 1 & Stage 2
     expect(AtengEmpty).toBeDefined();
     expect(AtengDialog).toBeDefined();
@@ -140,7 +143,7 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtengFilePreview).toBeDefined();
   });
 
-  it('完整导出全部 15 项组件的 At 规范别名', () => {
+  it('完整导出全部 21 项基础组件的 At 规范别名', () => {
     expect(AtDialog).toBe(AtengDialog);
     expect(AtDrawer).toBe(AtengDrawer);
     expect(AtEmpty).toBe(AtengEmpty);
@@ -162,6 +165,57 @@ describe('@atengk/element-plus 顶级具名导出全景规范测试', () => {
     expect(AtIconSelect).toBe(AtengIconSelect);
     expect(AtCaptcha).toBe(AtengCaptcha);
     expect(AtFilePreview).toBe(AtengFilePreview);
+  });
+
+  it('全量导出 39 组双轨别名且命名空间模块表覆盖完整（AtengLoadingBar 除外）', () => {
+    const expectedPairs: Array<[keyof typeof EntryModule, keyof typeof EntryModule]> = [
+      ['AtengDialog', 'AtDialog'],
+      ['AtengDrawer', 'AtDrawer'],
+      ['AtengEmpty', 'AtEmpty'],
+      ['AtengPageContainer', 'AtPageContainer'],
+      ['AtengSplitLayout', 'AtSplitLayout'],
+      ['AtengFooterBar', 'AtFooterBar'],
+      ['AtengCard', 'AtCard'],
+      ['AtengCardGroup', 'AtCardGroup'],
+      ['AtengPageSkeleton', 'AtPageSkeleton'],
+      ['AtengQueryForm', 'AtQueryForm'],
+      ['AtengTable', 'AtTable'],
+      ['AtengDictSelect', 'AtDictSelect'],
+      ['AtengDictRadio', 'AtDictRadio'],
+      ['AtengDictCheckbox', 'AtDictCheckbox'],
+      ['AtengDictTag', 'AtDictTag'],
+      ['AtengDescriptions', 'AtDescriptions'],
+      ['AtengDescriptionsItem', 'AtDescriptionsItem'],
+      ['AtengDateRange', 'AtDateRange'],
+      ['AtengExcelFeedback', 'AtExcelFeedback'],
+      ['AtengExcelExport', 'AtExcelExport'],
+      ['AtengUpload', 'AtUpload'],
+      ['AtengStreamText', 'AtStreamText'],
+      ['AtengLogViewer', 'AtLogViewer'],
+      ['AtengStatistic', 'AtStatistic'],
+      ['AtengCodeView', 'AtCodeView'],
+      ['AtengIconSelect', 'AtIconSelect'],
+      ['AtengCaptcha', 'AtCaptcha'],
+      ['AtengFilePreview', 'AtFilePreview'],
+      ['AtengWatermark', 'AtWatermark'],
+      ['AtengGrid', 'AtGrid'],
+      ['AtengAnchor', 'AtAnchor'],
+      ['AtengLayout', 'AtLayout'],
+      ['AtengHeader', 'AtHeader'],
+      ['AtengAside', 'AtAside'],
+      ['AtengContent', 'AtContent'],
+      ['AtengFooter', 'AtFooter'],
+      ['AtengTabsNav', 'AtTabsNav'],
+      ['AtengProLayout', 'AtProLayout'],
+      ['AtengLoading', 'AtLoading'],
+    ];
+
+    expect(expectedPairs).toHaveLength(39);
+    for (const [fullName, aliasName] of expectedPairs) {
+      expect(EntryModule[fullName]).toBeDefined();
+      expect(EntryModule[aliasName]).toBe(EntryModule[fullName]);
+    }
+    expect('AtLoadingBar' in EntryModule).toBe(false);
   });
 
   it('核心 TypeScript 类型契约编译闭环', () => {

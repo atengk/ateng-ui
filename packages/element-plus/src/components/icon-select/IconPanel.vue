@@ -8,6 +8,7 @@
 
 import { ref, computed, watch } from 'vue';
 import { ElInput, ElScrollbar, ElTooltip, ElEmpty, ElPagination, ElMessage } from 'element-plus';
+import { SafeSvgIcon } from './SafeSvgIcon';
 import { writeClipboard } from '../../directives/copy';
 import type { IconItem, AtengIconSelectSlots } from './types';
 
@@ -126,13 +127,10 @@ defineExpose({
             @click="handleSelect(item)"
           >
             <slot name="icon" :item="item" :selected="modelValue === item.name">
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <svg
+              <SafeSvgIcon
                 v-if="item.svgPath"
-                viewBox="0 0 1024 1024"
-                :width="isDialog ? '1.3em' : '1.2em'"
-                :height="isDialog ? '1.3em' : '1.2em'"
-                v-html="item.svgPath"
+                :svg-path="item.svgPath"
+                :size="isDialog ? '1.3em' : '1.2em'"
               />
               <component
                 :is="item.component"

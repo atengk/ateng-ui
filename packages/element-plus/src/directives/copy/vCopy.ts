@@ -79,8 +79,32 @@ export function resolveCopyText(value: CopyDirectiveValue, el: HTMLElement): str
  */
 function copyByExecCommand(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined' || typeof document.execCommand !== 'function') {
+      reject(new Error('execCommand copy unavailable'));
+      return;
+    }
+
+    // Chromium 下文档未聚焦时 execCommand('copy') 会静默无作为却返回 true，必须前置拦截防伪成功
+    if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
+      reject(new Error('Document is not focused for clipboard copy'));
+      return;
+    }
+
+    const previousFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // 优先挂载至当前活跃模态容器（ElDialog / ElDrawer / <dialog>），规避 FocusTrap 或 inert 抢夺焦点
+    const activeModal = previousFocused?.closest(
+      'dialog, [aria-modal="true"], .el-dialog, .el-drawer',
+    );
+    const mountTarget = activeModal instanceof HTMLElement ? activeModal : document.body;
+    if (!mountTarget) {
+      reject(new Error('execCommand copy mount target unavailable'));
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+
     try {
-      const textarea = document.createElement('textarea');
       textarea.value = text;
       // 样式完全移出可视区域
       textarea.style.position = 'fixed';
@@ -89,12 +113,11 @@ function copyByExecCommand(text: string): Promise<void> {
       textarea.style.opacity = '0';
       textarea.setAttribute('readonly', '');
 
-      document.body.appendChild(textarea);
-      textarea.focus();
+      mountTarget.appendChild(textarea);
+      textarea.focus({ preventScroll: true });
       textarea.select();
 
       const successful = document.execCommand('copy');
-      document.body.removeChild(textarea);
 
       if (successful) {
         resolve();
@@ -103,6 +126,13 @@ function copyByExecCommand(text: string): Promise<void> {
       }
     } catch (err) {
       reject(err);
+    } finally {
+      if (textarea.parentNode) {
+        textarea.parentNode.removeChild(textarea);
+      }
+      if (previousFocused && previousFocused.isConnected && previousFocused !== document.body) {
+        previousFocused.focus({ preventScroll: true });
+      }
     }
   });
 }

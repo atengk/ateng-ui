@@ -23,6 +23,7 @@ describe('Base Style Bundle (dist/index.css) 产物完整性与解耦门禁', ()
   const loadingBaseScssPath = path.resolve(__dirname, '../../src/styles/_loading-base.scss');
   const switchBaseScssPath = path.resolve(__dirname, '../../src/styles/_switch-base.scss');
   const themeSwitchScssPath = path.resolve(__dirname, '../../src/styles/_theme-switch.scss');
+  const overlaysBaseScssPath = path.resolve(__dirname, '../../src/styles/_overlays-base.scss');
   const readIndexCss = () => fs.readFileSync(indexCssPath, 'utf-8');
 
   it('dist/index.css 产物存在且体积健康', () => {
@@ -99,14 +100,64 @@ describe('Base Style Bundle (dist/index.css) 产物完整性与解耦门禁', ()
     expect(fs.existsSync(loadingBaseScssPath)).toBe(true);
     expect(fs.existsSync(switchBaseScssPath)).toBe(true);
     expect(fs.existsSync(themeSwitchScssPath)).toBe(true);
+    expect(fs.existsSync(overlaysBaseScssPath)).toBe(true);
 
     const loadingBaseContent = fs.readFileSync(loadingBaseScssPath, 'utf-8');
     const switchBaseContent = fs.readFileSync(switchBaseScssPath, 'utf-8');
     const themeSwitchContent = fs.readFileSync(themeSwitchScssPath, 'utf-8');
+    const overlaysBaseContent = fs.readFileSync(overlaysBaseScssPath, 'utf-8');
 
     expect(loadingBaseContent.match(/!important/g)).toBeNull();
     expect(switchBaseContent.match(/!important/g)).toBeNull();
     expect(themeSwitchContent.match(/!important/g)).toBeNull();
+    expect(overlaysBaseContent.match(/!important/g)).toBeNull();
+  });
+
+  it('dist/index.css 独立包含 AtengDialog Flex 布局与非全屏视口钳位规则（零 theme-pro 依赖）', () => {
+    const content = readIndexCss();
+    expect(content).toContain('.el-dialog.at-dialog');
+    expect(content).toContain('.el-dialog.at-dialog:not(.is-fullscreen)');
+    expect(content).toContain('.el-dialog.at-dialog:not(.is-fullscreen):not(.is-align-center)');
+    expect(content).toMatch(/\.el-dialog\.at-dialog\s+\.el-dialog__body\{[^}]*min-height:\s*0/);
+    expect(content).toMatch(
+      /\.el-dialog\.at-dialog\s+\.el-dialog__footer[^{]*\{[^}]*flex-shrink:\s*0/,
+    );
+  });
+
+  it('AtengPageContainer 页头主行与操作区具备窄屏弹性换行与最大宽度约束（防 390px 溢出）', () => {
+    const content = readIndexCss();
+    expect(content).toMatch(
+      /\.at-page-container__main-row\[data-v-[^\]]+\]\{[^}]*flex-wrap:\s*wrap/,
+    );
+    expect(content).toMatch(
+      /\.at-page-container__extra-wrapper\[data-v-[^\]]+\]\{[^}]*flex-wrap:\s*wrap/,
+    );
+    expect(content).toMatch(
+      /\.at-page-container__extra-wrapper\[data-v-[^\]]+\]\{[^}]*max-width:\s*100%/,
+    );
+    expect(content).toMatch(/\.at-page-container__extra\[data-v-[^\]]+\]\{[^}]*flex-wrap:\s*wrap/);
+    expect(content).toMatch(
+      /\.at-page-container__extra-actions\[data-v-[^\]]+\]\{[^}]*flex-wrap:\s*wrap/,
+    );
+    expect(content).toMatch(
+      /\.at-page-container__extra-actions\[data-v-[^\]]+\]\{[^}]*max-width:\s*100%/,
+    );
+    expect(content).toMatch(
+      /\.at-page-container__title\[data-v-[^\]]+\]\{[^}]*overflow-wrap:\s*anywhere/,
+    );
+    expect(content).toMatch(
+      /\.at-page-container__sub-title\[data-v-[^\]]+\]\{[^}]*overflow-wrap:\s*anywhere/,
+    );
+  });
+
+  it('AtengProLayout 移动抽屉遮罩彻底剥离 backdrop-filter 且收起态具备 visibility: hidden', () => {
+    const content = readIndexCss();
+    const maskRuleMatch = content.match(/\.at-pro-layout__drawer-mask\[data-v-[^\]]+\]\{[^}]+\}/);
+    expect(maskRuleMatch).not.toBeNull();
+    expect(maskRuleMatch![0]).not.toContain('backdrop-filter');
+    expect(content).toMatch(
+      /\.at-pro-layout\.is-mobile\.is-collapsed[^}]*\.at-pro-layout__aside\.is-mobile-drawer[^{]*\{[^}]*visibility:\s*hidden/,
+    );
   });
 
   it('包含 ElSwitch 无 Preflight 盒模型防线与 AtengTable 刷新按钮旋转动画', () => {

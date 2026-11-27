@@ -13,6 +13,7 @@ import { ref, computed } from 'vue';
 import { ElInput, ElPopover, ElDialog, ElMessage } from 'element-plus';
 import { DEFAULT_ICONS } from './icons-data';
 import IconPanel from './IconPanel.vue';
+import { SafeSvgIcon } from './SafeSvgIcon';
 import { writeClipboard } from '../../directives/copy';
 import type {
   AtengIconSelectProps,
@@ -32,7 +33,7 @@ const props = withDefaults(defineProps<AtengIconSelectProps>(), {
   mode: 'popover',
   clearable: true,
   disabled: false,
-  size: 'default',
+  size: undefined,
   customIcons: () => [],
   popoverWidth: 380,
   showCopy: true,
@@ -152,13 +153,7 @@ defineExpose<AtengIconSelectExpose>({
               <template #prefix>
                 <slot name="prefix">
                   <span v-if="currentIconItem?.svgPath" class="at-icon-select__preview">
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <svg
-                      viewBox="0 0 1024 1024"
-                      width="1em"
-                      height="1em"
-                      v-html="currentIconItem.svgPath"
-                    />
+                    <SafeSvgIcon :svg-path="currentIconItem.svgPath" />
                   </span>
                   <component
                     :is="currentIconItem.component"
@@ -210,13 +205,7 @@ defineExpose<AtengIconSelectExpose>({
           <template #prefix>
             <slot name="prefix">
               <span v-if="currentIconItem?.svgPath" class="at-icon-select__preview">
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <svg
-                  viewBox="0 0 1024 1024"
-                  width="1em"
-                  height="1em"
-                  v-html="currentIconItem.svgPath"
-                />
+                <SafeSvgIcon :svg-path="currentIconItem.svgPath" />
               </span>
               <component
                 :is="currentIconItem.component"

@@ -271,7 +271,7 @@ _Avoid_: PhysicalBorder, OuterBorder, BorderHack
 _Avoid_: BrokenStepper, CutRing, SplitNumberInput
 
 **AtengLoadingBar**:
-基于 2px 顶栏纳米流光线、0 全屏遮罩、0 模糊滤镜且独立提升至 GPU 硬件加速层的企业级非侵入式全局路由与网络加载指示器门面。
+基于 2px 顶栏纳米流光线、0 全屏遮罩、0 模糊滤镜且独立提升至 GPU 硬件加速层的企业级非侵入式全局路由与网络加载指示器门面（属于 `LoadingBarManager` 全局单例门面对象，非 SFC 组件，不参与 `installer` 全局组件注册与 `At*` 短别名映射）。
 _Avoid_: TopProgressBar, NProgress, GlobalSpinner, FullscreenMask
 
 **Nano Loading Bar (纳米科技流光线)**:
@@ -293,3 +293,13 @@ _Avoid_: FlickerHack, DelayTimer, TimeoutWrapper
 **Zero-Overlay Top Shimmer (顶沿零遮罩极光条)**:
 卡片或表格顶沿仅流动 2px 极光流线、内容利用纯 GPU 合成层微虚化的现代无遮罩局部加载交互范式。
 _Avoid_: GrayOverlay, HeavyMask, BlurBackdrop
+
+## 插件入口与导出契约
+
+**`At*` 组件短别名 (Component Short Aliases)**:
+全量插件 `installer` 与子包顶层入口为 39 个 SFC 组件统一提供的兼容简化别名导出（如 `AtTable`、`AtDialog`、`AtDrawer`、`AtUpload` 等，不含非 SFC 单例门面 `AtengLoadingBar`、`DictManager`）；内部研发与文档规范仍以 `Ateng*` 为标准通用术语，新增或维护别名时须与 `README.md` 导出矩阵对齐。
+_Avoid_: AliasOnlyNaming, UnsyncedShortName
+
+**`installer` / `install` / `VERSION`**:
+`@atengk/element-plus` 显式插件安装入口（`install(app, options)` 及默认导出 `installer`，按需注册全套组件、别名与指令，严禁顶层 import 自注册副作用）与对外暴露的运行时版本号常量 `VERSION`。
+_Avoid_: AutoInstall, SideEffectImport, HardcodedStaleVersion

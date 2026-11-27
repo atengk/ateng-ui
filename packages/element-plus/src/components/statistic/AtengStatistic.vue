@@ -11,12 +11,7 @@
 
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElSkeleton } from 'element-plus';
-import type {
-  AtengStatisticProps,
-  AtengStatisticSlots,
-  AtengStatisticExpose,
-  StatisticTrend,
-} from './types';
+import type { AtengStatisticProps, AtengStatisticSlots, AtengStatisticExpose } from './types';
 
 defineOptions({
   name: 'AtengStatistic',
@@ -59,7 +54,6 @@ const computedPrecision = computed<number>(() => {
 // 动画实时数值
 const currentNum = ref<number>(props.duration <= 0 ? targetNumber.value : 0);
 let rafId: number | null = null;
-let lastTarget = targetNumber.value;
 
 // 经典指数衰减平滑缓动函数
 function easeOutExpo(x: number): number {
@@ -136,7 +130,6 @@ watch(
   (newVal, oldVal) => {
     const from = typeof oldVal === 'number' ? oldVal : 0;
     startAnimation(from, newVal);
-    lastTarget = newVal;
   },
 );
 

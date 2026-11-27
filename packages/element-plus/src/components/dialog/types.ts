@@ -43,7 +43,7 @@ export interface AtengDialogProps {
   draggable?: boolean;
 
   /**
-   * 内容滚动区域最大高度，默认 'calc(100vh - 160px)'。
+   * 内容滚动区域最大高度，默认 'calc(100vh - 240px)'。
    */
   maxHeight?: string | number;
 

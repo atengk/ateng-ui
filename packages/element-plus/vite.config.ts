@@ -7,12 +7,19 @@
  * @since 2026-10-21
  */
 
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import dts from 'vite-plugin-dts';
 
+const require = createRequire(import.meta.url);
+const pkg = require('./package.json') as { version: string };
+
 export default defineConfig({
+  define: {
+    __ATENG_ELEMENT_PLUS_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     vue(),
     dts({

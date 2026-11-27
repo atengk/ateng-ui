@@ -103,7 +103,7 @@ describe('AtengLogViewer 实时日志终端组件交互与契约测试', () => {
     const fakeWs = {
       latestMessage,
       status,
-    } as any;
+    };
 
     const wrapper = mount(AtengLogViewer, {
       props: {
@@ -201,10 +201,46 @@ describe('AtengLogViewer 实时日志终端组件交互与契约测试', () => {
 
     expect(wrapper.classes()).toContain('at-log-viewer--light');
 
+    expect(toggleBtn).toBeDefined();
     await toggleBtn.trigger('click');
     await wrapper.vm.$nextTick();
     expect(wrapper.classes()).toContain('at-log-viewer--dark');
 
     wrapper.unmount();
+  });
+
+  it('特殊正则字符与 HTML 实体关键词高亮不撕裂实体且 #line 插槽保持向后兼容', async () => {
+    const logs = ['query?a=1&b="x" <tag>', 'other line'];
+    const wrapper = mount(AtengLogViewer, {
+      props: {
+        logs,
+      },
+    });
+
+    try {
+      const input = wrapper.find('.at-log-viewer__search-input input');
+      await input.setValue('?a=1&b');
+      await wrapper.vm.$nextTick();
+
+      const lines = wrapper.findAll('.at-log-viewer__line-content');
+      expect(lines).toHaveLength(1);
+      expect(lines[0].text()).toBe('query?a=1&b="x" <tag>');
+      expect(lines[0].find('mark.at-log-kw').text()).toBe('?a=1&b');
+
+      // 验证 #line 作用域插槽兼容 { text, index, highlighted }
+      const slotWrapper = mount(AtengLogViewer, {
+        props: { logs: ['<b>alert</b>'] },
+        slots: {
+          line: '<template #line="{ text, index, highlighted }"><span class="custom-slot" :data-idx="index" :data-hl="highlighted">{{ text }}</span></template>',
+        },
+      });
+      const slotNode = slotWrapper.find('.custom-slot');
+      expect(slotNode.exists()).toBe(true);
+      expect(slotNode.attributes('data-idx')).toBe('0');
+      expect(slotNode.attributes('data-hl')).toContain('&lt;b&gt;');
+      slotWrapper.unmount();
+    } finally {
+      wrapper.unmount();
+    }
   });
 });

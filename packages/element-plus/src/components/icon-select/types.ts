@@ -84,7 +84,7 @@ export interface AtengIconSelectProps {
 
   /**
    * 弹层弹出宽度（popover 模式有效）。
-   * @default '380px'
+   * @default 380
    */
   popoverWidth?: string | number;
 

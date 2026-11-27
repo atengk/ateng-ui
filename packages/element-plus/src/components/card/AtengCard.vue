@@ -143,6 +143,7 @@ const handleRefreshClick = () => {
 // 4. 全屏状态机、防穿透锁与 ESC 监听
 const internalFullscreen = ref(false);
 let hasAcquiredScrollLock = false;
+const skippedEscEvents = new WeakSet<KeyboardEvent>();
 
 const isFullscreen = computed(() => {
   return props.fullscreen !== undefined ? props.fullscreen : internalFullscreen.value;
@@ -162,20 +163,89 @@ const applyScrollLock = (shouldLock: boolean) => {
   }
 };
 
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (!props.escExit) return;
-  if (e.defaultPrevented) return;
-  if (e.key === 'Escape' && isFullscreen.value) {
+/**
+ * 探测按键瞬间是否存在仍在展开的内嵌浮层、下拉菜单或上层遮罩对话框。
+ */
+const hasActivePopupOrOverlay = (
+  targetEl: Element | null,
+  cardRoot: HTMLElement | null | undefined,
+): boolean => {
+  // 精准匹配浮层/下拉触发器，避免误命中 Collapse/Tree 等非浮层折叠节点
+  const popupTriggerSelector =
+    '[aria-haspopup][aria-expanded="true"], .el-select__input[aria-expanded="true"]';
+  if (targetEl?.closest(popupTriggerSelector) || cardRoot?.querySelector(popupTriggerSelector)) {
+    return true;
+  }
+
+  const controlledId = targetEl?.getAttribute('aria-controls');
+  if (controlledId && !targetEl?.hasAttribute('aria-expanded')) {
+    const controlledEl = document.getElementById(controlledId);
+    const popper = controlledEl?.closest('.el-popper') ?? controlledEl;
+    if (
+      popper instanceof HTMLElement &&
+      popper.getAttribute('aria-hidden') === 'false' &&
+      popper.style.display !== 'none' &&
+      getComputedStyle(popper).display !== 'none'
+    ) {
+      return true;
+    }
+  }
+
+  // Filterable Select 若存在未清空输入筛选词，首次 ESC 需先用于清空输入
+  if (targetEl instanceof HTMLInputElement && targetEl.closest('.el-select') && targetEl.value) {
+    return true;
+  }
+
+  // 若卡片全屏上方叠加了模态对话框/消息框，优先让最上层模态框响应 ESC；需排除卡片自身的祖先遮罩
+  const overlays = document.querySelectorAll('.el-overlay, .el-message-box__wrapper');
+  for (const el of overlays) {
+    if (!(el instanceof HTMLElement)) continue;
+    if (cardRoot && el.contains(cardRoot)) continue;
+    if (el.style.display !== 'none' && getComputedStyle(el).display !== 'none') {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const handleKeyDownCapture = (e: KeyboardEvent) => {
+  if (!props.escExit || !isFullscreen.value) return;
+  if (e.isComposing || e.key !== 'Escape') return;
+  if (e.defaultPrevented) {
+    skippedEscEvents.add(e);
+    return;
+  }
+
+  const targetEl = e.target instanceof Element ? e.target : null;
+  if (hasActivePopupOrOverlay(targetEl, cardRef.value)) {
+    skippedEscEvents.add(e);
+    return;
+  }
+
+  // Element Plus Select 在下拉已收起且聚焦状态按 ESC 时仍会无条件 preventDefault + stopPropagation，
+  // 因此在无活跃浮层的捕获取阶段同步退出全屏，避免焦点被困死在 Select 内
+  if (targetEl?.closest('.el-select')) {
+    skippedEscEvents.add(e);
     toggleFullscreen(false);
   }
+};
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (!props.escExit || !isFullscreen.value) return;
+  if (e.isComposing || e.key !== 'Escape') return;
+  if (e.defaultPrevented || skippedEscEvents.has(e)) return;
+  toggleFullscreen(false);
 };
 
 const handleFullscreenEffect = (active: boolean) => {
   if (typeof window === 'undefined') return;
   if (active) {
+    window.addEventListener('keydown', handleKeyDownCapture, true);
     window.addEventListener('keydown', handleKeyDown);
     applyScrollLock(true);
   } else {
+    window.removeEventListener('keydown', handleKeyDownCapture, true);
     window.removeEventListener('keydown', handleKeyDown);
     applyScrollLock(false);
   }
@@ -211,6 +281,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleKeyDownCapture, true);
     window.removeEventListener('keydown', handleKeyDown);
   }
   applyScrollLock(false);

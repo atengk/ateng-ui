@@ -626,4 +626,88 @@ describe('AtengDrawer 组件规范与交互测试', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(visible.value).toBe(false);
   });
+
+  it('动态监听视口尺寸变化自动切换水平抽屉移动端全宽，卸载时注销监听', async () => {
+    const originalInnerWidth = window.innerWidth;
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+
+    try {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: 1280,
+      });
+
+      wrapper = mount(AtengDrawer, {
+        props: {
+          modelValue: true,
+          title: '响应式抽屉',
+          size: 'default',
+          direction: 'rtl',
+          appendToBody: false,
+        },
+      });
+      await nextTick();
+
+      const drawerEl = wrapper.find('.el-drawer').element as HTMLElement;
+      expect(drawerEl.style.width).toBe('500px');
+
+      // 视口缩小至移动端阈值 (< 768px)
+      window.innerWidth = 500;
+      window.dispatchEvent(new Event('resize'));
+      await nextTick();
+
+      expect(drawerEl.style.width).toBe('100%');
+
+      // 视口恢复桌面端 (>= 768px)
+      window.innerWidth = 1024;
+      window.dispatchEvent(new Event('resize'));
+      await nextTick();
+
+      expect(drawerEl.style.width).toBe('500px');
+
+      wrapper.unmount();
+      wrapper = null;
+      expect(removeSpy).toHaveBeenCalledWith('resize', expect.any(Function));
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+      removeSpy.mockRestore();
+    }
+  });
+
+  it('纵向抽屉（ttb / btt）在移动端视口下保持原配置高度比例而非强制改为 100%', async () => {
+    const originalInnerWidth = window.innerWidth;
+
+    try {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: 500,
+      });
+
+      wrapper = mount(AtengDrawer, {
+        props: {
+          modelValue: true,
+          title: '顶部纵向抽屉',
+          size: '40%',
+          direction: 'ttb',
+          appendToBody: false,
+        },
+      });
+      await nextTick();
+
+      const drawerEl = wrapper.find('.el-drawer').element as HTMLElement;
+      expect(drawerEl.style.height).toBe('40%');
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+    }
+  });
 });

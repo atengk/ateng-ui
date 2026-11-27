@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
+import { ElMessage } from 'element-plus';
 import {
   AtengDescriptions,
   AtengDescriptionsItem,
@@ -18,6 +19,7 @@ import { DictManager } from '../src/components/dict/DictManager';
 
 describe('AtengDescriptions 组件规范与渲染测试', () => {
   let wrapper: VueWrapper | null = null;
+  const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
   beforeEach(() => {
     DictManager.clearCache();
@@ -39,6 +41,11 @@ describe('AtengDescriptions 组件规范与渲染测试', () => {
     }
     document.body.innerHTML = '';
     DictManager.clearCache();
+    if (originalClipboardDescriptor) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'clipboard');
+    }
     vi.restoreAllMocks();
   });
 
@@ -376,5 +383,88 @@ describe('AtengDescriptions 组件规范与渲染测试', () => {
     const copyBtns = wrapper.findAll('.at-descriptions__copy-btn');
     // secretToken 显式关闭 copyable，仅 orderNo 渲染复制按钮
     expect(copyBtns).toHaveLength(1);
+  });
+
+  it('预置 date 格式化支持 ISO 字符串、日期时间字符串、时间戳与无效值保底', async () => {
+    const iso = '1990-03-07T08:00:00.000Z';
+    const dtStr = '2026-11-27 14:30:00';
+    const ts = 1700000000000;
+    const rawDate = new Date('2026-01-15T10:00:00.000Z');
+
+    wrapper = mount(AtengDescriptions, {
+      props: {
+        data: {
+          isoBirth: iso,
+          localStr: dtStr,
+          timestamp: ts,
+          dateObj: rawDate,
+          invalidDateObj: new Date('invalid'),
+          nanNum: Number.NaN,
+          infNum: Number.POSITIVE_INFINITY,
+          blankStr: '   ',
+          invalidStr: 'not-a-date',
+          numericCode: '123456',
+        },
+        items: [
+          { prop: 'isoBirth', label: 'ISO日期', type: 'date' },
+          { prop: 'localStr', label: '字符日期', type: 'date' },
+          { prop: 'timestamp', label: '时间戳', type: 'date' },
+          { prop: 'dateObj', label: 'Date对象', type: 'date' },
+          { prop: 'invalidDateObj', label: '非法Date', type: 'date' },
+          { prop: 'nanNum', label: 'NaN数值', type: 'date' },
+          { prop: 'infNum', label: '无穷数值', type: 'date' },
+          { prop: 'blankStr', label: '空白串', type: 'date' },
+          { prop: 'invalidStr', label: '非法字符串', type: 'date' },
+          { prop: 'numericCode', label: '纯数字编号', type: 'date' },
+        ],
+      },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    const text = wrapper.text();
+    expect(text).toContain(new Date(iso).toLocaleString());
+    expect(text).not.toContain(iso);
+    expect(text).toContain(new Date(dtStr).toLocaleString());
+    expect(text).toContain(new Date(ts).toLocaleString());
+    expect(text).toContain(rawDate.toLocaleString());
+    expect(text).toContain('not-a-date');
+    expect(text).toContain('123456');
+    expect(text).not.toContain('Invalid Date');
+    expect(text).not.toContain('Infinity');
+    expect(text).toContain('--');
+  });
+
+  it('复制失败时触发 ElMessage.error 提示而非静默吞咽并标记已复制', async () => {
+    const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard blocked'));
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+    const hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    const errorSpy = vi.spyOn(ElMessage, 'error').mockImplementation(() => ({ close: vi.fn() }));
+
+    try {
+      wrapper = mount(AtengDescriptions, {
+        props: {
+          data: { orderNo: 'ORD-FAIL-001' },
+          items: [{ prop: 'orderNo', label: '订单号' }],
+          copyable: true,
+        },
+        attachTo: document.body,
+      });
+      await flushPromises();
+
+      const btn = wrapper.find('.at-descriptions__copy-btn');
+      await btn.trigger('click');
+      await flushPromises();
+
+      expect(errorSpy).toHaveBeenCalledWith('复制失败');
+      expect(btn.classes()).not.toContain('is-copied');
+    } finally {
+      hasFocusSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });

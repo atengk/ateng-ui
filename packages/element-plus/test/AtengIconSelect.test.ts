@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { h } from 'vue';
+import { ElConfigProvider } from 'element-plus';
 import { AtengIconSelect, DEFAULT_ICONS } from '../src/components/icon-select';
 import IconPanel from '../src/components/icon-select/IconPanel.vue';
 import type { IconItem } from '../src/components/icon-select/types';
@@ -327,6 +328,118 @@ describe('AtengIconSelect 通用图标选择器交互与契约测试', () => {
     } finally {
       popoverWrapper?.unmount();
       dialogWrapper?.unmount();
+    }
+  });
+
+  it('默认继承 ElConfigProvider 全局 size，显式传入 size 时优先覆盖', async () => {
+    let largeWrapper: VueWrapper | null = null;
+    let smallDialogWrapper: VueWrapper | null = null;
+    let overrideWrapper: VueWrapper | null = null;
+
+    try {
+      largeWrapper = mount(
+        {
+          components: { ElConfigProvider, AtengIconSelect },
+          template: `
+            <ElConfigProvider size="large">
+              <AtengIconSelect mode="popover" />
+            </ElConfigProvider>
+          `,
+        },
+        { attachTo: document.body },
+      );
+      expect(largeWrapper.find('.el-input').classes()).toContain('el-input--large');
+
+      smallDialogWrapper = mount(
+        {
+          components: { ElConfigProvider, AtengIconSelect },
+          template: `
+            <ElConfigProvider size="small">
+              <AtengIconSelect mode="dialog" />
+            </ElConfigProvider>
+          `,
+        },
+        { attachTo: document.body },
+      );
+      expect(smallDialogWrapper.find('.el-input').classes()).toContain('el-input--small');
+
+      overrideWrapper = mount(
+        {
+          components: { ElConfigProvider, AtengIconSelect },
+          template: `
+            <ElConfigProvider size="large">
+              <AtengIconSelect mode="popover" size="small" />
+            </ElConfigProvider>
+          `,
+        },
+        { attachTo: document.body },
+      );
+      expect(overrideWrapper.find('.el-input').classes()).toContain('el-input--small');
+      expect(overrideWrapper.find('.el-input').classes()).not.toContain('el-input--large');
+    } finally {
+      largeWrapper?.unmount();
+      smallDialogWrapper?.unmount();
+      overrideWrapper?.unmount();
+    }
+  });
+
+  it('自定义 svgPath 图标安全解析渲染多路径且彻底剥离 XSS 注入标签与事件属性', async () => {
+    const maliciousIcons: IconItem[] = [
+      {
+        name: 'CustomSafe',
+        label: '安全多路径',
+        svgPath: `<path d="M100 100h200v200H100z" fill="currentColor" onclick="alert(1)" href="javascript:alert(9)"/><circle cx="512" cy="512" r="120" onload="alert(2)" fill="url(#xss)"/><rect x="10" y="10" width="20" height="20" fill="vbscript:x"/><line x1="0" y1="0" x2="10" y2="10" stroke="expression(alert(5))"/><polygon points="0,0 10,10 20,0" fill="java\u0000script:alert(6)"/><polyline points="0,1 2,3" fill="data:text/html,bad"/><ellipse cx="5" cy="5" rx="2" ry="3"/><img alt='><path d="M9 9"/>' src="x" onerror="alert(4)"/><foreignObject><body onload="alert(7)"></body></foreignObject><style>body{background:url(x)}</style><script>alert(3)</script>`,
+      },
+    ];
+
+    const wrapper = mount(AtengIconSelect, {
+      props: {
+        modelValue: 'CustomSafe',
+        customIcons: maliciousIcons,
+      },
+      attachTo: document.body,
+    });
+
+    try {
+      const svgEl = wrapper.find('.at-icon-select__preview svg');
+      expect(svgEl.exists()).toBe(true);
+      expect(svgEl.findAll('path')).toHaveLength(1);
+      expect(svgEl.find('path').attributes('d')).toBe('M100 100h200v200H100z');
+      expect(svgEl.find('path').attributes('onclick')).toBeUndefined();
+      expect(svgEl.find('path').attributes('href')).toBeUndefined();
+      expect(svgEl.findAll('circle')).toHaveLength(1);
+      expect(svgEl.find('circle').attributes('onload')).toBeUndefined();
+      expect(svgEl.find('circle').attributes('fill')).toBeUndefined();
+      expect(svgEl.findAll('rect')).toHaveLength(1);
+      expect(svgEl.find('rect').attributes('fill')).toBeUndefined();
+      expect(svgEl.findAll('line')).toHaveLength(1);
+      expect(svgEl.find('line').attributes('stroke')).toBeUndefined();
+      expect(svgEl.findAll('polygon')).toHaveLength(1);
+      expect(svgEl.find('polygon').attributes('fill')).toBeUndefined();
+      expect(svgEl.findAll('polyline')).toHaveLength(1);
+      expect(svgEl.find('polyline').attributes('fill')).toBeUndefined();
+      expect(svgEl.findAll('ellipse')).toHaveLength(1);
+      expect(svgEl.find('script').exists()).toBe(false);
+      expect(svgEl.find('foreignobject').exists()).toBe(false);
+      expect(svgEl.find('style').exists()).toBe(false);
+      expect(svgEl.find('img').exists()).toBe(false);
+
+      // 验证内置多路径 Edit 图标与 IconPanel 面板渲染正常
+      const editIcon = DEFAULT_ICONS.find(i => i.name === 'Edit');
+      expect(editIcon).toBeDefined();
+      const panelWrapper = mount(IconPanel, {
+        props: {
+          icons: [editIcon!],
+          modelValue: 'Edit',
+        },
+        attachTo: document.body,
+      });
+      expect(panelWrapper.findAll('.at-icon-select__item svg path').length).toBeGreaterThanOrEqual(
+        2,
+      );
+      panelWrapper.unmount();
+    } finally {
+      wrapper.unmount();
     }
   });
 });

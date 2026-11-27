@@ -12,7 +12,7 @@
  * @since 2026-10-21
  */
 
-import { ref, computed, watch, onMounted, toRef, toValue } from 'vue';
+import { ref, computed, watch, toRef, toValue, type CSSProperties } from 'vue';
 import { ElDialog, ElButton, ElScrollbar, ElSkeleton, ElMessageBox } from 'element-plus';
 import type {
   AtengDialogProps,
@@ -21,6 +21,7 @@ import type {
   AtengDialogExpose,
 } from './types';
 import { useAsyncConfirm } from '../shared/useAsyncConfirm';
+import { useMobileViewport } from '../shared/useMobileViewport';
 
 defineOptions({
   name: 'AtengDialog',
@@ -32,7 +33,7 @@ const props = withDefaults(defineProps<AtengDialogProps>(), {
   fullscreen: undefined,
   showFullscreen: true,
   draggable: true,
-  maxHeight: 'calc(100vh - 160px)',
+  maxHeight: 'calc(100vh - 240px)',
   confirmText: '确定',
   cancelText: '取消',
   showConfirm: true,
@@ -54,9 +55,9 @@ const props = withDefaults(defineProps<AtengDialogProps>(), {
 const emit = defineEmits<AtengDialogEmits>();
 defineSlots<AtengDialogSlots>();
 
-// 1. 全屏状态机编排
+// 1. 全屏状态机与响应式视口探测 (< 768px)
 const internalFullscreen = ref(false);
-const isMobile = ref(false);
+const { isMobile } = useMobileViewport();
 
 const isFullscreen = computed(() => {
   if (isMobile.value) {
@@ -80,17 +81,6 @@ const handleHeaderDblClick = () => {
     toggleFullscreen();
   }
 };
-
-// 移动端视口探测 (< 768px)
-const checkMobile = () => {
-  if (typeof window !== 'undefined') {
-    isMobile.value = window.innerWidth < 768;
-  }
-};
-
-onMounted(() => {
-  checkMobile();
-});
 
 watch(
   () => props.fullscreen,
@@ -193,12 +183,23 @@ watch(
   },
 );
 
-// 4. 计算内容区滚动高度
+// 4. 计算内容区滚动高度与非全屏视口钳位样式
 const scrollbarMaxHeight = computed(() => {
   if (isFullscreen.value) {
-    return 'calc(100vh - 120px)';
+    return 'calc(100vh - 180px)';
   }
   return typeof props.maxHeight === 'number' ? `${props.maxHeight}px` : props.maxHeight;
+});
+
+const dialogStyle = computed<CSSProperties | undefined>(() => {
+  if (isFullscreen.value) {
+    return undefined;
+  }
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: 'calc(100vh - var(--el-dialog-margin-top, 4vh) - 4vh)',
+  };
 });
 
 // 5. 显式暴露方法
@@ -222,6 +223,7 @@ defineExpose<AtengDialogExpose>({
     :destroy-on-close="destroyOnClose"
     :append-to-body="appendToBody"
     :show-close="false"
+    :style="dialogStyle"
     :class="['at-dialog', isFullscreen && 'at-dialog--fullscreen', customClass]"
     @update:model-value="val => emit('update:modelValue', val)"
     @open="emit('open')"
@@ -376,6 +378,25 @@ defineExpose<AtengDialogExpose>({
       cursor: not-allowed;
       color: var(--el-text-color-placeholder);
       background: transparent;
+    }
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.el-scrollbar) {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    :deep(.el-scrollbar__wrap) {
+      flex: 0 1 auto;
+      min-height: 0;
     }
   }
 

@@ -14,6 +14,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import ts from 'typescript';
 
@@ -465,5 +466,19 @@ describe('@atengk/element-plus 类型声明产物与泛型回归门禁', () => {
     );
 
     expect(formattedErrors).toEqual([]);
+  });
+
+  it('dist 构建产物（CJS/ESM）导出的运行时 VERSION 与 package.json 严格一致', () => {
+    const pkgJson = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf-8')) as {
+      version: string;
+    };
+
+    const requireFromHere = createRequire(import.meta.url);
+    const cjsBundle = requireFromHere(path.join(DIST_DIR, 'index.cjs')) as { VERSION: string };
+    expect(cjsBundle.VERSION).toBe(pkgJson.version);
+
+    const esmSource = fs.readFileSync(path.join(DIST_DIR, 'index.js'), 'utf-8');
+    expect(esmSource).toContain(`"${pkgJson.version}"`);
+    expect(esmSource).toMatch(/\bas\s+VERSION\b/);
   });
 });

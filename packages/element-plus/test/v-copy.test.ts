@@ -29,6 +29,8 @@ function mockClipboard(writeTextFn?: (text: string) => Promise<void>) {
 
 describe('v-copy 指令规范与边界测试', () => {
   let wrapper: VueWrapper | null = null;
+  const originalExecCommand = document.execCommand;
+  const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,7 +41,14 @@ describe('v-copy 指令规范与边界测试', () => {
       wrapper.unmount();
       wrapper = null;
     }
+    document.execCommand = originalExecCommand;
+    if (originalClipboardDescriptor) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'clipboard');
+    }
     document.body.innerHTML = '';
+    vi.restoreAllMocks();
   });
 
   it('复制纯文本字符串并给出默认 ElMessage.success 反馈', async () => {
@@ -272,5 +281,85 @@ describe('v-copy 指令规范与边界测试', () => {
     await nextTick();
 
     expect(wrapper.find('#btn').exists()).toBe(false);
+  });
+
+  it('未聚焦文档下 execCommand 返回伪成功时应判定失败并触发失败反馈', async () => {
+    const writeTextMock = vi.fn().mockRejectedValue(new Error('Document is not focused'));
+    mockClipboard(writeTextMock);
+
+    const hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    const execCommandMock = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommandMock;
+
+    const onSuccess = vi.fn();
+    const onError = vi.fn();
+
+    const TestComponent = defineComponent({
+      directives: { copy: vCopy },
+      setup() {
+        return {
+          copyConfig: {
+            value: 'unfocused_text',
+            onSuccess,
+            onError,
+          },
+        };
+      },
+      template: '<button id="btn" v-copy="copyConfig">复制</button>',
+    });
+
+    wrapper = mount(TestComponent, { attachTo: document.body });
+    const btn = wrapper.find('#btn');
+
+    await btn.trigger('click');
+    await nextTick();
+    await nextTick();
+
+    expect(execCommandMock).not.toHaveBeenCalled();
+    expect(ElMessage.success).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(ElMessage.error).toHaveBeenCalledWith('复制失败');
+    expect(onError).toHaveBeenCalledTimes(1);
+    hasFocusSpy.mockRestore();
+  });
+
+  it('剪贴板 API 不可用且文档未聚焦时短接拒绝；模态框聚焦下优先原地挂载并归还焦点', async () => {
+    mockClipboard(undefined);
+    const execCommandMock = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommandMock;
+
+    const hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    const TestComponent = defineComponent({
+      directives: { copy: vCopy },
+      template: `
+        <div id="modal-box" aria-modal="true" class="el-dialog">
+          <button id="modal-btn" v-copy="{ value: 'modal_secret' }">复制</button>
+        </div>
+      `,
+    });
+
+    wrapper = mount(TestComponent, { attachTo: document.body });
+    const modalBox = wrapper.find('#modal-box').element as HTMLElement;
+    const modalBtn = wrapper.find('#modal-btn').element as HTMLElement;
+
+    // 1. 失焦时即便无 navigator.clipboard 也不执行 execCommand
+    await wrapper.find('#modal-btn').trigger('click');
+    await nextTick();
+    expect(execCommandMock).not.toHaveBeenCalled();
+    expect(ElMessage.error).toHaveBeenCalledWith('复制失败');
+
+    // 2. 模态框内聚焦复制时，临时 textarea 优先挂载到模态容器并完整还原触发按钮焦点
+    hasFocusSpy.mockReturnValue(true);
+    modalBtn.focus();
+    const appendSpy = vi.spyOn(modalBox, 'appendChild');
+
+    await wrapper.find('#modal-btn').trigger('click');
+    await nextTick();
+    await nextTick();
+
+    expect(appendSpy).toHaveBeenCalled();
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+    expect(document.activeElement).toBe(modalBtn);
+    expect(modalBox.querySelector('textarea')).toBeNull();
   });
 });

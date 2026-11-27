@@ -517,4 +517,143 @@ describe('AtengDialog 组件规范与交互测试', () => {
     await nextTick();
     expect(visible.value).toBe(false);
   });
+
+  it('非全屏弹窗对视口最大高度执行 Flex 钳位，保留 align-center / top 透传且全屏自动解除钳位', async () => {
+    wrapper = mount(AtengDialog, {
+      props: {
+        modelValue: true,
+        title: '视口钳位测试',
+        appendToBody: false,
+        alignCenter: true,
+        top: '12vh',
+      },
+    });
+    await nextTick();
+
+    const dialogEl = wrapper.find('.at-dialog').element as HTMLElement;
+    expect(dialogEl.style.display).toBe('flex');
+    expect(dialogEl.style.flexDirection).toBe('column');
+    expect(dialogEl.style.maxHeight).toContain('calc(100vh');
+    expect(dialogEl.style.marginBottom).toBe('');
+    expect(dialogEl.style.getPropertyValue('--el-dialog-margin-top')).toBe('12vh');
+    expect(dialogEl.classList.contains('is-align-center')).toBe(true);
+
+    const wrapEl = wrapper.find('.at-dialog__body .el-scrollbar__wrap').element as HTMLElement;
+    expect(wrapEl.style.maxHeight).toBe('calc(100vh - 240px)');
+
+    // 切换全屏后应还原全屏自身尺寸流
+    await wrapper.find('.at-dialog__action-btn').trigger('click');
+    await nextTick();
+    expect(dialogEl.classList.contains('is-fullscreen')).toBe(true);
+    expect(dialogEl.style.maxHeight).toBe('');
+    expect(wrapEl.style.maxHeight).toBe('calc(100vh - 180px)');
+  });
+
+  it('响应 matchMedia 媒体查询变更并确定性注销 change 监听', async () => {
+    let changeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+    const removeListenerSpy = vi.fn();
+    const originalMatchMedia = window.matchMedia;
+
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: (_type: string, cb: (e: MediaQueryListEvent) => void) => {
+          changeHandler = cb;
+        },
+        removeEventListener: removeListenerSpy,
+      })),
+    });
+
+    try {
+      wrapper = mount(AtengDialog, {
+        props: {
+          modelValue: true,
+          title: 'MatchMedia 测试',
+          appendToBody: false,
+        },
+      });
+      await nextTick();
+
+      const dialogEl = wrapper.find('.at-dialog').element as HTMLElement;
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(false);
+
+      changeHandler?.({ matches: true } as MediaQueryListEvent);
+      await nextTick();
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(true);
+
+      changeHandler?.({ matches: false } as MediaQueryListEvent);
+      await nextTick();
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(false);
+
+      wrapper.unmount();
+      wrapper = null;
+      expect(removeListenerSpy).toHaveBeenCalledWith('change', expect.any(Function));
+    } finally {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: originalMatchMedia,
+      });
+    }
+  });
+
+  it('动态监听视口尺寸变化并即时切换移动端全屏，卸载时注销监听', async () => {
+    const originalInnerWidth = window.innerWidth;
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+
+    try {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: 1280,
+      });
+
+      wrapper = mount(AtengDialog, {
+        props: {
+          modelValue: true,
+          title: '响应式视口弹窗',
+          width: '600px',
+          appendToBody: false,
+        },
+      });
+      await nextTick();
+
+      const dialogEl = wrapper.find('.at-dialog').element as HTMLElement;
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(false);
+      expect(dialogEl.style.getPropertyValue('--el-dialog-width')).toBe('600px');
+
+      // 视口缩小至移动端阈值 (< 768px)
+      window.innerWidth = 500;
+      window.dispatchEvent(new Event('resize'));
+      await nextTick();
+
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(true);
+      expect(wrapper.find('.at-dialog__action-btn:not(.at-dialog__close-btn)').exists()).toBe(
+        false,
+      );
+
+      // 视口恢复桌面端 (>= 768px)
+      window.innerWidth = 1024;
+      window.dispatchEvent(new Event('resize'));
+      await nextTick();
+
+      expect(dialogEl.classList.contains('is-fullscreen')).toBe(false);
+      expect(dialogEl.style.getPropertyValue('--el-dialog-width')).toBe('600px');
+      expect(wrapper.find('.at-dialog__action-btn:not(.at-dialog__close-btn)').exists()).toBe(true);
+
+      wrapper.unmount();
+      wrapper = null;
+      expect(removeSpy).toHaveBeenCalledWith('resize', expect.any(Function));
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+      removeSpy.mockRestore();
+    }
+  });
 });

@@ -8,6 +8,7 @@
 @use './loading-base';
 @use './switch-base';
 @use './theme-switch';
+@use './overlays-base';
 
 :root {
   --at-namespace: 'at';

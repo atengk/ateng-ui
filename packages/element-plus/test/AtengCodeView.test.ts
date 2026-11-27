@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { AtengCodeView } from '../src/components/code-view';
+import { highlightLine } from '../src/components/code-view/highlight';
 import {
   computeFoldRanges,
   buildFoldRangeMap,
@@ -224,5 +225,36 @@ describe('AtengCodeView 源码与数据高亮查看器交互与契约测试', ()
     expect(wrapper.text()).toContain('0 lines');
 
     wrapper.unmount();
+  });
+
+  it('TokenSegments 替换后保持 white-space: pre 逐字符缩进、空行与 highlightLine API 兼容', () => {
+    const sample = 'function demo() {\n\n  const flag = true; // comment\n  return "ok";\n}';
+    const wrapper = mount(AtengCodeView, {
+      props: {
+        code: sample,
+        language: 'typescript',
+        collapsible: false,
+      },
+    });
+
+    try {
+      const renderedLines = wrapper.findAll('.at-code-view__line');
+      expect(renderedLines).toHaveLength(5);
+      expect(renderedLines[0].element.textContent).toBe('function demo() {');
+      expect(renderedLines[1].element.textContent).toBe('\u00A0');
+      expect(renderedLines[2].element.textContent).toBe('  const flag = true; // comment');
+      expect(renderedLines[3].element.textContent).toBe('  return "ok";');
+      expect(renderedLines[4].element.textContent).toBe('}');
+      expect(renderedLines[2].find('.tok-keyword').text()).toBe('const');
+      expect(renderedLines[2].find('.tok-comment').text()).toBe('// comment');
+
+      // 验证 XML/HTML 高亮与独立导出的 highlightLine API 兼容
+      const xmlHtml = highlightLine('<tag attr="1" />', 'xml');
+      expect(xmlHtml).toContain('<span class="tok-tag">tag</span>');
+      expect(xmlHtml).toContain('<span class="tok-attr"> attr</span>');
+      expect(highlightLine('', 'text')).toBe('&nbsp;');
+    } finally {
+      wrapper.unmount();
+    }
   });
 });

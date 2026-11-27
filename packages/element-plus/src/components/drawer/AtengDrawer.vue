@@ -11,7 +11,7 @@
  * @since 2026-10-21
  */
 
-import { ref, computed, watch, onMounted, toRef, toValue } from 'vue';
+import { ref, computed, watch, toRef, toValue } from 'vue';
 import { ElDrawer, ElButton, ElSkeleton, ElMessageBox } from 'element-plus';
 import type {
   AtengDrawerProps,
@@ -20,6 +20,7 @@ import type {
   AtengDrawerExpose,
 } from './types';
 import { useAsyncConfirm } from '../shared/useAsyncConfirm';
+import { useMobileViewport } from '../shared/useMobileViewport';
 
 defineOptions({
   name: 'AtengDrawer',
@@ -52,17 +53,7 @@ const emit = defineEmits<AtengDrawerEmits>();
 defineSlots<AtengDrawerSlots>();
 
 // 1. 移动端与响应式尺寸计算
-const isMobile = ref(false);
-
-const checkMobile = () => {
-  if (typeof window !== 'undefined') {
-    isMobile.value = window.innerWidth < 768;
-  }
-};
-
-onMounted(() => {
-  checkMobile();
-});
+const { isMobile } = useMobileViewport();
 
 const resolvedSize = computed(() => {
   // 水平方向抽屉在移动端强制全宽 100%
